@@ -126,24 +126,9 @@ when the ladder is built.
 - **Fridays, 30 minutes:** read the week's merged PRs and scoreboards, re-order `NOW.md`, prune `CLAUDE.md`.
 - **1 Feb 2027:** the direction review. Parked items are debated then, not before.
 
-## Inventory: what exists and where it belongs
+## Inventory
 
-| Piece | Where | Status |
-|---|---|---|
-| harness | GitHub (this repo) | The product |
-| loopbench | GitHub | The test bed |
-| Cloud Doctor: AGI-pilled spec | Claude Doc, 5 Nov | The vision. Its hand-off prompt (built on the 3 Nov harness) is superseded by `NOW.md` |
-| Data request: Phase 0 look-back | Claude Doc + `docs/EC_DATA_REQUEST.md` | Repo copy canonical; the Doc is the shareable view |
-| EC Healthcare demo talk track; Amber Health visit sheet | Claude Docs | Partner views. Each contact ends in a signal note |
-| HK primary care: problems ranked by size | Claude Doc | Reference |
-| LoopBench Studio; Follow-ups: a simulated clinic year | Artifacts | Views, republished from the repos |
-| Core Architecture and 8-Week Plan; MVP Spec and Eval Rubric | Claude Docs, 4 Nov | Superseded by `loopbench/docs/PLAN.md` and this file; bring back what's still needed as `docs/specs/` |
-| AI-Native Builder: Operating System | Claude Doc, 28 Oct | Superseded by this file |
-| The Case Loop; Clinical AI Evaluation Map | Artifacts, 4 Nov | From before LoopBench. Archive unless a spec needs them |
-| clinic-agent-evals (tool contract, 32 cases, scorecard, Grade the judge) | A zip and two artifacts, 3 Nov | **Not in git.** Commit it to loopbench for the planned port (`NOW.md`) |
-| clinical_eval (Heidi scribe fidelity) | `~/heidi_eval/clinical` on the Mac, uncommitted | **Not in git.** Commit it to heidi_eval on a branch, then park |
-| heidi_eval | GitHub | Parked. The Heidi work sample, not tmrw IP |
-| Clinical trials, Bio AI, venture docs | Claude Docs | Parked until 1 Feb 2027 |
+Every piece of the work, where it lives and its status: `docs/INVENTORY.md`. Re-check it in the Friday review.
 
 ## Install (one time)
 
@@ -157,7 +142,7 @@ can't merge unreviewed work or set repository secrets, and the GitHub app needs 
 2. **Slack.** Add the GitHub app to your workspace (slack.github.com), then in `#ship` run
    `/github subscribe flytonewyork/harness pulls,reviews,commits,releases,workflows` and the same for
    flytonewyork/loopbench. It asks you to sign in to GitHub the first time.
-3. **Mac mini.** Clone both repos side by side and turn on Remote Control for each. Commit the two loose pieces in the
-   inventory.
+3. **Mac mini.** Done 6 Nov: both repos cloned side by side in `~/code`. Left: log the Claude CLI in (`claude`, then
+   `/login`) and turn on Remote Control for each repo. The two loose pieces aren't on the Mac mini (`docs/INVENTORY.md`).
 4. **Chats.** When a claude.ai chat asks to attach these repos, allow push access, so the session ends in a PR instead
    of a zip.
