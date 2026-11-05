@@ -8,10 +8,14 @@ writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health p
 ## In progress (three at most)
 
 1. **Apricot call, 6 Nov.** Learn how VITA really works (`loopbench/docs/APRICOT_DEMO_PREP.md`). Studio polish for the
-   call is on loopbench branch `studio-ui-apricot`. After the call: a signal note, then the VITA profile update below.
+   call: loopbench PR #2 (review, merge, then republish Studio). After the call: a signal note, then the VITA profile
+   update below.
 2. **EC Healthcare Phase 0 look-back.** The request is ready (`docs/EC_DATA_REQUEST.md`). Next: agree scope, fee and
    the data route.
-3. **Lock in the operating system.** Merge this PR, then the install steps in `docs/OPERATING_SYSTEM.md`.
+3. **Lock in the operating system.** Done 5 Nov: `#ship` created in Slack, `signal` label in both repos. Left for
+   Thomas, because Claude sessions can't merge unreviewed work, set repository secrets or sign in to Slack apps:
+   merge loopbench #1 then harness #1, add the `REPOS_TOKEN` secret, and connect the GitHub app in `#ship`
+   (`docs/OPERATING_SYSTEM.md`, Install).
 
 ## Next, in order
 

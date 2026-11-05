@@ -145,14 +145,18 @@ when the ladder is built.
 | heidi_eval | GitHub | Parked. The Heidi work sample, not tmrw IP |
 | Clinical trials, Bio AI, venture docs | Claude Docs | Parked until 1 Feb 2027 |
 
-## Install (one time, about 15 minutes)
+## Install (one time)
 
-1. **CI token.** Create a fine-grained GitHub token with read-only Contents on harness and loopbench. Add it as the
-   secret `REPOS_TOKEN` in both repos (Settings → Secrets and variables → Actions). Until then, the score jobs warn
-   and skip.
-2. **Slack.** Install the GitHub app in your workspace, create `#ship`, and in it run
+Done on 5 Nov: `#ship` created in Slack, and a `signal` label in both repos. Steps 0 to 2 need you: Claude sessions
+can't merge unreviewed work or set repository secrets, and the GitHub app needs your own sign-in.
+
+0. **Merge.** loopbench #1 first (the harness PR's score job needs its scoreboard script on main), then harness #1.
+1. **CI token.** Create a fine-grained GitHub token (github.com/settings/personal-access-tokens/new): repository
+   access to harness and loopbench only, permission Contents read-only. Add it as the secret `REPOS_TOKEN` in both repos
+   (Settings → Secrets and variables → Actions → New repository secret). Until then, the score jobs warn and skip.
+2. **Slack.** Add the GitHub app to your workspace (slack.github.com), then in `#ship` run
    `/github subscribe flytonewyork/harness pulls,reviews,commits,releases,workflows` and the same for
-   flytonewyork/loopbench.
+   flytonewyork/loopbench. It asks you to sign in to GitHub the first time.
 3. **Mac mini.** Clone both repos side by side and turn on Remote Control for each. Commit the two loose pieces in the
    inventory.
 4. **Chats.** When a claude.ai chat asks to attach these repos, allow push access, so the session ends in a PR instead
