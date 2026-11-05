@@ -1,0 +1,71 @@
+# Every PR: the product's tests, the doctor's screen builds, and the change is scored in LoopBench before it merges.
+# Scoring checks out flytonewyork/loopbench beside this repo. That needs one secret, REPOS_TOKEN: a fine-grained
+# GitHub token with read-only "Contents" on harness and loopbench (docs/OPERATING_SYSTEM.md, "Install").
+# Without it the score job warns and skips; tests and the build still run.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest -q
+
+  screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build the follow-up list
+        working-directory: frontend
+        run: npm install --no-audit --no-fund && npm run build
+
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
+    steps:
+      - name: Token check
+        if: env.REPOS_TOKEN == ''
+        run: echo "::warning::REPOS_TOKEN is not set, so this change was not scored in LoopBench. See docs/OPERATING_SYSTEM.md (Install)."
+      - uses: actions/checkout@v4
+        if: env.REPOS_TOKEN != ''
+        with:
+          path: harness
+      - uses: actions/checkout@v4
+        if: env.REPOS_TOKEN != ''
+        with:
+          repository: flytonewyork/loopbench
+          token: ${{ secrets.REPOS_TOKEN }}
+          path: loopbench
+      - uses: actions/setup-python@v5
+        if: env.REPOS_TOKEN != ''
+        with:
+          python-version: "3.12"
+      - name: Install
+        if: env.REPOS_TOKEN != ''
+        run: pip install pandas numpy pyyaml scipy pydantic
+      - name: Scoreboard (gate - zero hard fails, zero made-up quotes)
+        if: env.REPOS_TOKEN != ''
+        working-directory: loopbench
+        run: PYTHONPATH=src python scripts/scoreboard.py --seeds 1 2 3 --summary "$GITHUB_STEP_SUMMARY" --json scoreboard.json
+      - uses: actions/upload-artifact@v4
+        if: always() && env.REPOS_TOKEN != ''
+        with:
+          name: scoreboard
+          path: loopbench/scoreboard.json
+          if-no-files-found: ignore
