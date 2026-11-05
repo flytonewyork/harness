@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 
-PROMPT_VERSION = "fu-extract-v1"
+PROMPT_VERSION = "fu-extract-v2"
 
 KINDS = ["review", "repeat_test", "imaging", "referral", "result_check", "medication_monitoring", "other"]
 OWNERS = ["clinic", "patient", "hospital", "other"]
@@ -24,6 +24,8 @@ Kinds:
 - result_check: results to be reviewed or explained later ("results to be reviewed")
 - medication_monitoring: monitoring after starting or changing a medicine
 - other: any other follow-up commitment
+
+Documents are in English, sometimes mixed with Cantonese or written Chinese. A commitment counts in either language; copy its quote in the original language.
 
 Clinic shorthand: RV means review. n/7 is n days, n/52 is n weeks, n/12 is n months (count a month as 30 days). "prn" means as needed.
 
