@@ -837,7 +837,10 @@ class RulesHarness:
                                     [m["rid"]], 2, m["owner"], 10, why=w)
                 self.monitors.remove(m)
         for v in list(self.reviews):
-            lo = v["t"] + timedelta(days=max(1, v["days"] - 14))
+            if self.version == "1.0":
+                lo = v["t"] + timedelta(days=max(1, v["days"] - 14))
+            else:                                  # v1.1: an unrelated visit soon after does not count as the review
+                lo = v["t"] + timedelta(days=max(1, v["days"] - 14, v["days"] * 0.5))
             if any(c >= lo for c in self.consults.get(v["pid"], ()) if c > v["t"]):
                 self.reviews.remove(v)
             elif now >= v["t"] + timedelta(days=v["days"] + 2):
@@ -845,7 +848,8 @@ class RulesHarness:
                     w = Why()
                     w.add("source", f"The consultation on {day(v['t'])} planned a review ({v['quote']}).", cite(v["rid"], v["quote"]))
                     due_rv = v["t"] + timedelta(days=v["days"])
-                    w.add("finding", f"The review was due around {day(due_rv)}; it is now {(now - due_rv).days} days past that.")
+                    w.add("finding", f"The review was due around {day(due_rv)}; it is now {(now - due_rv).days} days past that."
+                                     + (f" The plan was found by the follow-up extractor ({v['via']})." if v.get("via") else ""))
                     n, q = self.chart_search(api, v["pid"], ["consult_note"], lo)
                     w.add("loop_status", f"{'No' if n == 0 else n} consultation{'s' if n != 1 else ''} in the chart since {day(lo)}.", search=q)
                     w.add("assessment", "Working problem: planned chronic-care review missed. Plan: recall the patient; the risk is unnoticed drift in blood pressure, glucose or lipids.")
