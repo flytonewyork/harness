@@ -39,6 +39,12 @@ export type FeedAlarm = { channel: string; alarm_at: string; recovered_at: strin
 export type PatientView = { card: Patient & { registered_doctor: string }; items: Item[]; documents: DocMeta[];
                             evaluation: { scenario: string; loops: LoopRow[] } | null };
 
+// Static build (VITE_STATIC=1): no server; the run file ships beside the page and is read in the browser.
+import { LocalStore, type Run } from "./store";
+export const STATIC = import.meta.env.VITE_STATIC === "1";
+let local: Promise<LocalStore> | null = null;
+const store = () => (local ??= fetch("./run.json").then((r) => r.json()).then((run: Run) => new LocalStore(run)));
+
 async function get<T>(path: string, params: Record<string, string | undefined> = {}): Promise<T> {
   const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]);
   const r = await fetch(`${path}${q.toString() ? "?" + q : ""}`);
@@ -46,7 +52,7 @@ async function get<T>(path: string, params: Record<string, string | undefined> =
   return r.json();
 }
 
-export const api = {
+const remote = {
   source: () => get<Source>("/api/source"),
   items: (as_of: string, owner?: string) =>
     get<{ as_of: string; count: number; items: Item[] }>("/api/items", { as_of, owner, status: "open" }),
@@ -65,3 +71,20 @@ export const api = {
     return r.json() as Promise<Item>;
   },
 };
+
+const offline: typeof remote = {
+  source: async () => (await store()).source(),
+  items: async (as_of, owner) => {
+    const items = (await store()).list(as_of, owner);
+    return { as_of, count: items.length, items };
+  },
+  item: async (id, as_of) => (await store()).item(id, as_of),
+  doc: async (id) => (await store()).run.documents[id],
+  feeds: async (as_of) => (await store()).feeds(as_of),
+  evaluation: async () => (await store()).run.evaluation ?? {},
+  patient: async (id, as_of) => (await store()).patient(id, as_of),
+  alarms: async () => (await store()).run.feeds,
+  close: async (id, as_of, resolution) => (await store()).close(id, as_of, resolution),
+};
+
+export const api = STATIC ? offline : remote;

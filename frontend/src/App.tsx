@@ -305,8 +305,9 @@ export default function App() {
   useEffect(() => {
     api.source().then((s) => {
       setSrc(s);
-      const hash = decodeURIComponent(location.hash.slice(1));
-      setAsOf(/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(hash) ? hash : s.clock.end);
+      // the moment shown travels in the link as #at-2027-06-13-0840 (letters, digits and hyphens only)
+      const m = /^#at-(\d{4}-\d\d-\d\d)-(\d\d)(\d\d)$/.exec(location.hash);
+      setAsOf(m ? `${m[1]}T${m[2]}:${m[3]}` : s.clock.end);
       if (s.simulated) api.evaluation().then(setEv).catch(() => setEv(null));
     }).catch((e) => setError(String(e)));
     api.alarms().then(setAlarms).catch(() => setAlarms([]));
@@ -342,7 +343,7 @@ export default function App() {
 
   useEffect(() => {
     if (!asOf) return;
-    history.replaceState(null, "", `#${asOf}`);
+    try { history.replaceState(null, "", `#at-${asOf.slice(0, 10)}-${asOf.slice(11, 13)}${asOf.slice(14, 16)}`); } catch { /* framed */ }
     api.items(asOf, owner || undefined).then((r) => setItems(r.items)).catch((e) => setError(String(e)));
     api.feeds(asOf).then((r) => setDown(r.down));
   }, [asOf, owner, tick]);
@@ -369,7 +370,8 @@ export default function App() {
       <header className="top">
         <div className="brand">
           <h1>Follow-ups</h1>
-          <p>{src.clinic_name}{src.system ? ` on ${src.system}` : ""}</p>
+          <p>{src.simulated ? `${src.clinic_name}, a simulated clinic${src.system ? `; its clinic system is modelled on ${src.system} from public information` : ""}`
+                            : `${src.clinic_name}${src.system ? ` on ${src.system}` : ""}`}</p>
         </div>
         <label className="who-filter">
           <span>Showing</span>
