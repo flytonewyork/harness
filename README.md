@@ -29,3 +29,25 @@ docs/             architecture, EC data request
 pip install -e ".[dev]"        # or put this repo on PYTHONPATH
 pytest -q
 ```
+
+**The follow-up list** (API + React screen), fed by a LoopBench year:
+```
+cd ../loopbench && PYTHONPATH=src python -m loopbench.cli product-feed --clinic hk_solo --system apricot_vita \
+    --harness agentic --extractor replay:results/extract/raw.jsonl --docs results/extract/docs.jsonl --seeds 1
+cd ../harness/frontend && npm install && npm run build          # once; the API serves frontend/dist
+cd .. && python -m backend.api --run ../loopbench/results/product/<run>.json      # http://127.0.0.1:8000
+```
+The screen replays the recorded year: pick a moment (Mr Chan's critical potassium, the day-7 raise, the day-14
+copy to the locum, the PathLab outage) or any date. `--lookback <out dir>,<export dir>` shows a Phase 0
+look-back's flags instead.
+
+**Phase 0 look-back** on an export in `backend/lookback/schema.py` format (what `docs/EC_DATA_REQUEST.md` asks for):
+```
+python -m backend.lookback --export <dir> --out <dir> [--extractor replay:<raw.jsonl> --docs <docs.jsonl>]
+```
+
+**Free-text extraction with `claude -p`** (on a machine where the Claude CLI is logged in; standard library only):
+```
+python3 backend/extract/claude_runner.py --docs docs.jsonl --out raw.jsonl --model sonnet --batch 40 --workers 4
+```
+Outputs are cached by prompt version, model and document hash, so scoring runs replay them without calling a model.
