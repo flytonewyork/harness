@@ -8,12 +8,12 @@ A one-off look back over one EC clinic's past records to count the follow-ups th
 ## What EC gets back, within a week of access
 - Counts of unclosed and late follow-ups per kind, per 1,000 patients.
 - The list of keys for patients still owed a follow-up. EC can turn those keys back into patients to call. We cannot.
-- Missed consultations × fee (HK$400–540; Co-care HK$316), as a range.
+- Missed consultations × fee, as a range: HK$400–540, the median private GP consultation fee in a March 2025 survey (Hong Kong Med J 2026;32:354–6), and HK$316 for Co-care (HK$166 subsidy plus the HK$150 recommended co-payment).
 - Data gaps, such as results never filed to a patient and HA referrals that only eHealth can confirm.
 
 ## Scope
 - **Clinic:** one EC clinic, all doctors. More clinics can come later.
-- **Dates:** every record dated 1 Jul 2025 to the extract date. Follow-ups are counted if they started 1 Jul 2025 to 30 Jun 2026, so even six-month follow-ups are due before the extract.
+- **Dates:** every record dated 1 Jul 2025 to the extract date. Follow-ups are counted if they started 1 Jul 2025 to 30 Jun 2026, so nearly all of them fall due before the extract. The dates are a proposal; any 12-month window works. Follow-ups not yet due at the extract date are left out, not counted as missed.
 
 ## Privacy (PDPO)
 - **No names, HKIDs, phone numbers, addresses or full dates of birth.** Birth year only.
@@ -46,4 +46,4 @@ Results that were never filed to a patient stay in, with an empty `patient_key` 
 3. Is result sign-off (`reviewed_datetime`) recorded? Are calls to patients logged?
 4. Where should the look-back run: on a machine in EC's environment, or on an encrypted copy outside it?
 
-*Tested before the first request: the same look-back runs on a simulated export in exactly this format (LoopBench, synthetic patients only). There, it found 96–98% of the missed follow-ups the clinic's own records can show, and 97–98% of its flags were right.*
+*Shareable copy: the Claude doc "Data request: Phase 0 follow-up look-back". Tested before the first request: the same look-back runs on a simulated export in exactly this format (LoopBench, synthetic patients only). There, it found 96–98% of the missed follow-ups the clinic's own records can show, and 97–98% of its flags were right.*
