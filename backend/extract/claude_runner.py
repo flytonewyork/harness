@@ -17,6 +17,7 @@ import argparse
 import concurrent.futures as cf
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import threading
@@ -25,6 +26,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from prompt import PROMPT_VERSION, SCHEMA, SYSTEM, build_prompt  # noqa: E402
+
+
+AUTH = re.compile(r"authenticat|log ?in|oauth|api key", re.I)
 
 
 def make_batches(docs: list[dict], size: int) -> list[list[dict]]:
@@ -57,6 +61,13 @@ def run_batch(batch: list[dict], model: str, timeout: int, binary: str) -> dict:
         rc, out, err = p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired:
         rc, out, err = -1, "", f"timeout after {timeout}s"
+    try:                                   # claude -p reports some failures (auth, API errors) only in its envelope
+        env = json.loads(out) if out.strip() else {}
+    except ValueError:
+        env = {}
+    if env.get("is_error"):
+        rc = rc or 3
+        err = (err + " " + str(env.get("result", ""))).strip()
     return {"batch_id": batch_id(batch), "doc_ids": [d["doc_id"] for d in batch], "model": f"claude-cli:{model}",
             "prompt_version": PROMPT_VERSION, "returncode": rc, "stdout": out[-500000:], "stderr": err[-4000:],
             "seconds": round(time.time() - t0, 1)}
@@ -92,7 +103,12 @@ def main(argv=None):
     with out.open("a", encoding="utf-8") as f, cf.ThreadPoolExecutor(max_workers=a.workers) as ex:
         futs = [ex.submit(run_batch, b, a.model, a.timeout, a.claude) for b in batches]
         for fut in cf.as_completed(futs):
+            if fut.cancelled():
+                continue
             r = fut.result()
+            if r["returncode"] and AUTH.search(r["stderr"]):   # logged out: stop rather than fail every batch
+                for other in futs:
+                    other.cancel()
             with lock:
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
                 f.flush()
@@ -100,7 +116,8 @@ def main(argv=None):
                 n_fail += r["returncode"] != 0
                 print(f"[{n_ok + n_fail}/{len(batches)}] {r['batch_id']} rc={r['returncode']} {r['seconds']}s"
                       + (f" ERR {r['stderr'][:200]}" if r["returncode"] else ""), flush=True)
-    print(f"done: {n_ok} ok, {n_fail} failed", flush=True)
+    print(f"done: {n_ok} ok, {n_fail} failed" + (" (stopped: claude is not logged in; run `claude` then /login)"
+                                                 if n_fail and n_ok + n_fail < len(batches) else ""), flush=True)
 
 
 if __name__ == "__main__":

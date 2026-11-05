@@ -59,7 +59,10 @@ def test_day7_raises_and_day14_pages_urgent_items_when_owner_present():
     port, first, esc = _run(True, 3)
     assert [u for i, u, _ in port.raised if i == first] == [4]          # 3 is already >= the day-7 floor
     port, first, esc = _run(True, 1)
-    assert [u for i, u, _ in port.raised if i == first] == [2, 3]       # routine: raised, never paged
+    assert [u for i, u, _ in port.raised if i == first] == [2, 3]       # low: raised twice, never paged
+    assert not port.opened[1:]
+    port, first, esc = _run(True, 2)
+    assert [u for i, u, _ in port.raised if i == first] == [3]          # routine: day 7 lifts it; day 14 never pages
     assert not port.opened[1:]
 
 

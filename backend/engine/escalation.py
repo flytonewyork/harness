@@ -3,10 +3,13 @@
 The engine may only open items and raise urgency, so escalation uses exactly those two moves:
 
 - **Day 7:** raise the item one step (to at least 2, at most 3). It rises up the owner's list.
-- **Day 14:** if the owner is rostered today or tomorrow, an urgent item (3) is raised to critical (4), which
-  pages their mobile; a routine item is raised to urgent (3), without a page. If the owner is away (leave, not
-  rostered, or gone), the same item is opened for the doctor on duty today, the named backup, linked to the
-  original with `escalates`, so the platform knows it is not a duplicate.
+- **Day 14:** if the owner is rostered today or tomorrow, an item that was opened urgent (3) is raised to
+  critical (4), which pages their mobile; an item opened routine is raised to urgent (3) and never pages, even
+  though day 7 already lifted it. If the owner is away (leave, not rostered, or gone), the same item is opened
+  for the doctor on duty today, the named backup, linked to the original with `escalates`, so the platform knows
+  it is not a duplicate.
+
+Days are calendar days since the item was opened, checked at the morning run.
 
 Escalation copies are not escalated again. Each escalation is written into the item's reasoning trace, so the
 doctor sees why an item jumped up their list.
@@ -26,6 +29,7 @@ class Escalation:
 
     def reset(self):
         self.stage: dict[str, int] = {}          # item id -> 0 none, 1 raised at day 7, 2 escalated at day 14
+        self.base: dict[str, int] = {}           # item id -> urgency when first seen (before any raise)
         self.copies: set[str] = set()            # escalation items we opened ourselves
         self.log: list[tuple] = []               # (time, item id, action, detail) for reports and the API
 
@@ -35,7 +39,8 @@ class Escalation:
             iid = it["id"]
             if iid in self.copies:
                 continue
-            age = (now - datetime.fromisoformat(it["opened_at"])).days
+            age = (now.date() - datetime.fromisoformat(it["opened_at"]).date()).days
+            self.base.setdefault(iid, it["urgency"])
             stage = self.stage.get(iid, 0)
             if stage == 0 and age >= self.raise_after:
                 new = min(3, max(2, it["urgency"] + 1))
@@ -52,10 +57,10 @@ class Escalation:
         now, owner = api.now, it["owner_id"]
         soon = [now.date() + timedelta(days=i) for i in (0, 1)]
         if any(owner in engine.roster(api, d)["doctors"] for d in soon):
-            if it["urgency"] >= 3:
+            if self.base.get(it["id"], it["urgency"]) >= 3:
                 api.raise_urgency(it["id"], 4, reason=f"Unactioned for {age} days: raised to critical, which pages {engine.nm(owner)}'s mobile.")
                 self.log.append((now, it["id"], "paged", f"day {age}: urgency -> 4, owner {owner}"))
-            else:
+            elif it["urgency"] < 3:
                 api.raise_urgency(it["id"], 3, reason=f"Unactioned for {age} days: raised to urgent.")
                 self.log.append((now, it["id"], "raised", f"day {age}: urgency -> 3, owner {owner}"))
             return
