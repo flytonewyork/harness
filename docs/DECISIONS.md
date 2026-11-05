@@ -13,6 +13,7 @@ why. Open questions sit at the top until they're decided.
 
 | Date | Decision | Why | Source |
 |---|---|---|---|
+| 6 Nov 2026 | `docs/INVENTORY.md` is the map of everything; anything outside the two repos is a live view, a partner document, retired or parked | The 6 Nov audit found the work spread over 24 artifacts, 4 Project docs, two zips and three machines | `docs/INVENTORY.md` |
 | 5 Nov 2026 | Operating system v2: GitHub is the only home, `NOW.md` is the one queue, the LoopBench scoreboard gates every PR | Work was being rebuilt in each chat; the 28 Oct OS was a document nothing enforced | `docs/OPERATING_SYSTEM.md` |
 | 5 Nov 2026 | Every item carries a reasoning trace with verbatim quotes, checked by the platform | Agent work is reviewed like a pull request; a made-up quote is a hard fail | `loopbench/docs/PLAN.md` |
 | 5 Nov 2026 | Asymmetric authority: the agent opens or raises; only a doctor closes, dismisses or downgrades | Switching it off must leave the clinic less safe, and it must never be unsafe itself | `CLAUDE.md` |
