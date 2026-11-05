@@ -1,5 +1,12 @@
 # CLAUDE.md
 
+## Session protocol (every session, every surface)
+- **Start:** read `NOW.md`. Work on the item you were given, or the top one in progress. If the ask isn't in `NOW.md`, add it in order (or under Parked) before starting.
+- **Branch:** one branch and one PR per item. Never commit straight to main.
+- **Prove:** tests here, and for anything the engine does, the scoreboard in the sibling checkout: `cd ../loopbench && PYTHONPATH=src python scripts/scoreboard.py --seeds 1` (CI runs seeds 1–3 on every PR).
+- **End:** push, open a PR with the template filled in, and update `NOW.md` in the same PR. If you can't push, say so plainly; never leave work only in a container, chat, Claude Doc or artifact.
+- **Where things live:** how we work `docs/OPERATING_SYSTEM.md` · the queue `NOW.md` · decisions `docs/DECISIONS.md` · specs `docs/specs/`.
+
 ## Commands
 - Tests: `python -m pytest -q` (no simulator needed)
 - API + screen: `python -m backend.api --run <harness-run json>` (build the screen first: `cd frontend && npm run build`)

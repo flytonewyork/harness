@@ -16,8 +16,12 @@ backend/          Python 3.12+, FastAPI, Pydantic
   adapters/       data in: LoopBench runs, EC-style export
   api/            items, evidence, actions (agent: open or raise only; doctor closes)
 frontend/         React + TypeScript (Vite): the doctor's follow-up list
-docs/             architecture, EC data request
+docs/             operating system, decisions, specs, EC data request
+NOW.md            the one queue for this repo and LoopBench
 ```
+
+**How work gets done:** [`docs/OPERATING_SYSTEM.md`](docs/OPERATING_SYSTEM.md). Every session starts from
+[`NOW.md`](NOW.md) and ends in a pull request that LoopBench has scored.
 
 ## Rules that hold everywhere
 - The agent can only **open** an item or **raise** its urgency. Only a doctor closes one.
