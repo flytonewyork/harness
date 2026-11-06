@@ -126,6 +126,11 @@ Record which one makes doctors ask how to get it. Have one-line answers ready fo
 - **Medicine questions:** answered from content the doctor has approved. Repeat prescriptions are drafted for the
   doctor to sign.
 - **Admin:** booking, receipts, certificates.
+- **Episodic visits** (most GP visits are one-offs; Josie, #17): a safety-net card plus a day-3 "better or not?"
+  check-in. The most common visit becomes the first touch of a relationship.
+- **Medicines:** repeat prescriptions over the line, signed by the doctor, with the **price shown before the patient
+  pays**. The patient collects, has it delivered where the rules allow, or asks for the prescription to fill at a
+  pharmacy.
 - **Red flags:** a fixed instruction (call 999 or go to A&E) and an alert to the doctor. Fixed rules, not AI
   judgement.
 
@@ -156,6 +161,10 @@ For the doctor: **inbox zero in ten minutes**, twice a day.
 - **Revenue:** at the HK$400 median fee (HKMJ 2026), that's about **HK$2.5–3.6bn a year**.
 - **The clinic's share:** about half (assumption), so **HK$1.2–1.8bn a year** goes on rent, staff, drug margin and operator profit.
 - **What can be passed back:** if an AI back office and less rent remove a third to half of that (assumption), about **HK$0.4–0.9bn a year** could go to doctors (higher income) and patients (lower prices, no trip for follow-ups).
+- **Drug margin sits inside the clinic's half.** Hong Kong GPs dispense their own medicines. In Josie's example
+  (#17) a drug costs about $60 at a pharmacy, $80 to the clinic, and $120 to the patient: roughly double the pharmacy
+  price. An independent doctor buying wholesale can keep a fair margin and still charge less. **Margin per visit is
+  to be measured in the pilot.**
 
 **2. New continuing-care demand (illustrative; care that doesn't happen today):**
 - **Chronic:** 2.2m people have a chronic condition. If 10% take a membership at HK$100–150 a month, that's about HK$0.3–0.4bn.
@@ -206,6 +215,34 @@ for: US Medicare e-visits and chronic-care management, and Australian chronic-ca
 **The illustration to test** (assumptions, not data): 30 tasks a day at HK$150–250, each taking 3–5 doctor-minutes
 after the agent's preparation, is about HK$2,500+ per doctor-hour. A clinic session pays the doctor about
 HK$1,200 an hour (half the fees).
+
+## Medicines: the dispensing layer (from Josie, #17)
+
+**What a locum across 6 Hong Kong practices sees:**
+- GPs take home about 50% of fees.
+- Most patients are one-off visits.
+- A clinic needs little more than a doctor, one nurse and the drugs.
+- Doctors make a good part of their money selling medicines, at about double the pharmacy price.
+
+**What the product does with this:**
+1. **Refills over the line.** The patient asks on WhatsApp. The agent checks that the medicine is stable and that
+   monitoring is up to date (for example, kidney function on an ACE inhibitor), then drafts the refill. The doctor
+   signs. Patients get recurring convenience, and the doctor gets recurring margin.
+2. **Fair, upfront prices.** The doctor sets the price, the patient sees it before paying, and the patient can
+   always ask for the prescription instead. Aim for fair and transparent, not cheapest: that builds trust without
+   giving away the doctor's income.
+3. **A procurement agent:**
+   - compares wholesale prices across suppliers
+   - reorders before stock runs out
+   - flags stock nearing expiry
+   - keeps the dispensing record
+   This is back-office work the clinic does today (VITA has an inventory module for it).
+4. **Partner pharmacies** for doctors without their own stock (locums, call-outs): the signed prescription goes to
+   a pharmacy that delivers or holds it for collection. The Community Pharmacy Programme starts in four districts at
+   the end of 2026.
+
+**Guardrail:** prescribe for a clinical reason, never for margin. Every refill carries its indication and its
+monitoring status, with verbatim evidence, the same as every other item.
 
 ## The record behind it: AI-native, structured where it must be
 
@@ -258,7 +295,7 @@ Later, Heidi's connectors or API, if they open. The care line never depends on H
   - Also scored: loops closed through patients, and doctor minutes per item.
 - **Sign-off trainer:** Thomas's approve, edit or reject decisions on synthetic items, scored against the answer
   key.
-- **Ten doctor conversations by 26 Nov,** each asking:
+- **Ten doctor conversations by 26 Nov** (1 so far: Josie, #17), each asking:
   - Do you give patients your WhatsApp?
   - What's the worst part?
   - Would you pay HK$X a month?
@@ -307,6 +344,11 @@ Speed and local depth are the edge.
 
 ## Open, and to check before any real patient
 
+1. **Dispensing and delivery:**
+   - Pharmacy and Poisons Ordinance (Cap. 138) rules on supplying, storing and labelling medicines
+   - whether a doctor may deliver dispensed medicines to their own patients
+   - the Medical Council's dispensing and labelling requirements
+   - what's allowed for doctors without premises (locums, call-outs)
 1. **Medical Council:**
    - the telemedicine guidelines (Dec 2019, Q&A 2022), especially remote prescribing
    - the advertising rules

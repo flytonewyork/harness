@@ -19,7 +19,7 @@ burden, so that is the question for every next contact.
    - a clickable prototype of the patient's WhatsApp and the doctor's inbox (synthetic)
    - the session kit: a bilingual plan card with QR code, the promise diary, and a WhatsApp Business setup
    - the care-line simulator and the sign-off trainer in LoopBench
-   - ten doctor conversations about giving patients their WhatsApp
+   - ten doctor conversations about giving patients their WhatsApp (1 so far: Josie, locum GP, #17)
    Success: Thomas books GP or call-out sessions to test it. The winning pilot runs in waves (spec 003):
    0. his sessions, done manually
    1. the FPC with Adrian, the full stack
