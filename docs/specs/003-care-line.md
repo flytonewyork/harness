@@ -180,6 +180,33 @@ For the doctor: **inbox zero in ten minutes**, twice a day.
   - WhatsApp-heavy markets where patients pay doctors directly. Malaysia, for example, has about 10,000 private GP clinics, and over 70% say they are struggling to stay open (Malaysian Medical Association, May 2026), so "grow your practice" is the pitch there.
   - And/or a cut of the money flowing through doctors' practices, the way Shopify takes a cut of its merchants' sales.
 
+## The target: a HK$100m-a-year business Thomas owns (6 Nov)
+
+Thomas doesn't need venture scale. **HK$100m a year (about HK$8.3m a month, US$13m), owner-run, Hong Kong first** is
+the goal. That means **no second market and no venture round are required**. Growth is funded from cash flow, modest
+capital and partners (Adrian's equity, EC under consulting), and ownership stays with Thomas.
+
+| Line (around months 30–36) | Assumption | Per month | Per year |
+|---|---|---|---|
+| Practices tmrw runs or co-owns (Adrian's FPC plus a tmrw practice) | ~12 full-time AI-augmented doctors × ~HK$450k | HK$5.4m | HK$65m |
+| Medicines (procurement and dispensing through partner pharmacies) | 20k refills × HK$80 margin | HK$1.6m | HK$19m |
+| Doctors on the line (Hong Kong only) | 300 × HK$2.5k | HK$0.75m | HK$9m |
+| Clinic mode and consulting for groups (EC and partners) | | HK$0.5m | HK$6m |
+| **Total** | | **≈ HK$8.25m** | **≈ HK$99m** |
+
+**What changes:**
+- **The practices come first.** The care line, the AI back office and the medicines layer exist first to make
+  tmrw's own practices lean: doctors paid 60–65%, fair prices for patients, follow-up revenue other clinics leave
+  behind.
+- **Selling the line to other doctors is upside, not the plan.**
+- **Capital-light by design:** rooms rented by the hour, nurse-led home visits, partner pharmacies, and the cloud
+  practice.
+- **Profit (assumption):** a lean group might keep 15–25% before tax, so about HK$15–25m a year to its owners. The
+  first practice will show the real margin.
+
+The HK$10m-a-month sketch below is kept for reference. It's the same model with a platform and a second market
+added.
+
 ## Path to HK$10m a month (6 Nov sketch; every number an assumption to test)
 
 HK$10m a month is about HK$120m a year (US$15m). Software alone can't reach it in Hong Kong: about 3,300 doctors at
