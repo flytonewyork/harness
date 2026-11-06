@@ -180,6 +180,33 @@ Later, Heidi's connectors or API, if they open. The care line never depends on H
   - what patients will pay each month: target above about HK$250
   - the scan → message-again → loop-closed funnel
 
+## Others already doing parts of this (checked 6 Nov 2026)
+
+Patients uploading their records to AI is now mainstream. What differs is **whose doctor** answers, and **where**.
+
+- **ChatGPT Health** (7 Jan 2026) and **Claude's consumer health-record connectors** (11 Jan 2026) read patients'
+  records, but disclaim diagnosis and treatment. There is no doctor.
+- **Counsel Health** (US, US$25M Series A, a16z and GV): a free AI chat, then the company's own physicians at
+  US$29 a visit or US$199 a year.
+- **Doctronic** (US, about US$25M): a free AI doctor, US$39 video visits with its own physicians, and a longitudinal
+  record kept across sessions.
+- **Superpower** (US, US$30M Series A, 2025): a US$499-a-year longevity membership combining labs, records, wearables,
+  AI and its own clinicians.
+- **Heidi II** (28 Sep 2026): agents inside the clinic, for the doctor. It does nothing patient-facing.
+- **Hong Kong:** telemedicine apps and clinic WhatsApp tools exist (Apricot's integration among them), but a quick
+  search found no doctor-owned, WhatsApp-native care line. The search was not exhaustive.
+
+**The gap:**
+- the US players employ the doctors and own the patient, but here it's **the patient's own doctor**, who owns the
+  relationship
+- **WhatsApp-native** and bilingual, with no app
+- **loops tracked until closed**, not just questions answered
+- **verified evidence** behind every claim
+- **Hong Kong specifics**: eHealth App screenshots, CDCC, and local labs
+
+**The risk:** any of these could add WhatsApp and doctor-owned modes, and Heidi could add patient messaging.
+Speed and local depth are the edge.
+
 ## Invariants touched
 
 - **Authority line:** unchanged. The agent drafts and the doctor signs. Only fixed red-flag rules act without a
