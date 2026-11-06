@@ -82,8 +82,13 @@ class Extractor:
                 err = None
             except Exception as e:            # a failed batch is recorded, never silently treated as "nothing found"
                 raw, err = {}, str(e)[:300]
+            fell_back = getattr(self.model, "fell_back", ())
+            floor = getattr(getattr(self.model, "fallback", None), "name", None)
             for d in chunk:
-                e = validate(d, raw.get(d.doc_id, []), self.model.name)
+                # An answer the fallback gave carries the fallback's name, so it is never reported or cached as
+                # the model's own: one model is never credited with another's answers.
+                name = floor if floor and d.doc_id in fell_back and d.doc_id in raw else self.model.name
+                e = validate(d, raw.get(d.doc_id, []), name)
                 if err or d.doc_id not in raw:
                     e = e.model_copy(update={"error": err or "no result returned for this document"})
                 out[d.doc_id] = e

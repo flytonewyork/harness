@@ -65,3 +65,24 @@ def test_replay_is_cached_by_document_model_and_prompt(tmp_path):
     first = Extractor(rep, cache_path=cache).extract([d])[d.doc_id]
     again = Extractor(ReplayModel({}, name="replay:test"), cache_path=cache).extract([d])[d.doc_id]
     assert first.commitments == again.commitments and rep.misses == 0
+
+
+def test_floor_answers_carry_the_floors_name_and_are_never_cached_as_the_models(tmp_path):
+    """A replay miss filled by the rules floor is labelled `rules`. A later replay of the same model, with a
+    fallback that answers nothing, gets an error for that document, not the floor's answer under its own name."""
+    d = doc("RV 3/12.")
+    cache = tmp_path / "cache.jsonl"
+    rep = ReplayModel({}, name="replay:m")
+    e = Extractor(rep, cache_path=cache).extract([d])[d.doc_id]
+    assert e.model == "rules" and [c.due_in_days for c in e.commitments] == [90] and e.error is None
+    assert rep.misses == 1 and rep.fell_back == {d.doc_id}
+
+    class Nothing:
+        name = "nothing"
+
+        def run(self, docs):
+            return {}
+
+    again = Extractor(ReplayModel({}, name="replay:m", fallback=Nothing()), cache_path=cache).extract([d])[d.doc_id]
+    assert again.model == "replay:m" and again.commitments == []
+    assert again.error == "no result returned for this document"

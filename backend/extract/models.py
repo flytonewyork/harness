@@ -4,6 +4,8 @@ takes any object with `name` and `run(docs) -> {doc_id: [raw commitment dicts]}`
 - RulesModel: regular expressions for the shorthand the rules engine already knows. No model calls; the floor.
 - ReplayModel: answers from a cache of earlier outputs (e.g. a `claude -p` batch run); unknown documents fall
   back to another model (default: rules) and are counted, so a scoring run never silently calls a live model.
+  The fallback's answers carry the fallback's name (the Extractor reads `fell_back`), so one model is never
+  credited with another's answers; LoopBench scores a replayed run with a fallback that answers nothing.
 - ClaudeCLIModel: calls `claude -p` live (same prompt and flags as claude_runner.py).
 """
 from __future__ import annotations
@@ -71,12 +73,14 @@ class RulesModel:
 
 
 class ReplayModel:
-    """Outputs from an earlier run (cache); falls back for documents it has not seen."""
+    """Outputs from an earlier run (cache); falls back for documents it has not seen. `fell_back` holds the ids
+    of documents the fallback answered, so their answers can be labelled with the fallback's name."""
 
     def __init__(self, cache: dict[str, list[dict]], name: str, fallback=None):
         self.cache, self.name = cache, name
         self.fallback = fallback if fallback is not None else RulesModel()
         self.misses = 0
+        self.fell_back: set[str] = set()
 
     def run(self, docs: list[dict]) -> dict[str, list[dict]]:
         out, miss = {}, []
@@ -87,7 +91,9 @@ class ReplayModel:
                 miss.append(d)
         if miss:
             self.misses += len(miss)
-            out.update(self.fallback.run(miss))
+            answered = self.fallback.run(miss)
+            self.fell_back.update(answered)
+            out.update(answered)
         return out
 
 

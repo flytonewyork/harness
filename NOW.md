@@ -47,7 +47,8 @@ open question in `docs/DECISIONS.md`.
 4. Repeat dispensing in the LoopBench world model, so reasoning traces can cite current medicines.
 5. Doctor-minutes metric: review time per item with and without verified evidence.
 6. `claude -p` extraction run on the Mac mini, replayed in CI: agentic numbers with a real model. First log the Mac
-   mini's Claude CLI in (`claude`, then `/login`).
+   mini's Claude CLI in (`claude`, then `/login`). Scored honestly since 6 Nov: a document the model never answered
+   counts as missed, not as the rules floor's answer (#12, loopbench #4).
 7. LLM harness producing traces against the same seven checks.
 8. Capacity-frontier experiment.
 9. Thomas: held-out scenarios (outside both repos) and sign-off of `loopbench/data/clinical_policy.yaml`.
