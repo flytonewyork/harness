@@ -4,6 +4,22 @@
 agent does) and on what the Apricot call showed (#15). **This week's goal:** make it concrete enough that Thomas
 wants to take GP sessions and call-out jobs to test it.
 
+## The ultimate vision (Thomas, 6 Nov)
+
+> **It turns an independent GP into their own side hustle: something they can grow, see the impact of, and make
+> money from.**
+
+Three things the product has to deliver for every doctor:
+- **Grow:** the QR handoff builds a panel, patients come back, and referrals follow.
+- **See the impact:** a dashboard of patients followed, loops closed, patients who came back, and readings back on
+  target.
+- **Make money:** paid follow-up work and memberships, with the doctor as the merchant.
+
+The analogy is Substack for writers: you own your audience, you can see it grow, and it pays you directly.
+
+**Wording for the outside world:** say "your own practice, alongside your sessions". Patients, clinics and the
+Medical Council's advertising rules all read "side hustle" badly, so that phrase stays the internal north star.
+
 ## The best case, in Thomas's words (6 Nov)
 
 > It makes me actually want to do GP sessions, and to do more of them. It builds in parallel, takes the burden off
