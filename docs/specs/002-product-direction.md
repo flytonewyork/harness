@@ -43,6 +43,45 @@ paper, fax and WhatsApp, and has no gatekeeping, so every partner contact still 
 - Partners agree: every one of the five logged so far points at doctors' workload (EC #5, Amber #6, Apricot #7,
   Adrian #8, Virtus #11). Virtus is well over capacity. None has named the specific burden yet.
 
+## Size of the opportunity (first cut, 6 Nov)
+
+Every **assumption** is marked. Partner calls should replace each one with a number from the partner.
+
+**What one doctor gains:**
+- **Time.** The median private GP consult costs HK$400 for non-specialists and HK$540 for family medicine
+  specialists (HKMJ 2026 fee survey, 512 private doctors). *Assumption:* the agent gives back 1 hour a day of
+  desk work, against the 1.4 h of inbox and 2.6 h of clerical EHR time in Arndt. At 4 consults an hour
+  (*assumption*), that hour is worth about HK$1,600 a day, or about HK$35,000 a month, to a doctor with a queue.
+  That queue is Virtus's situation.
+- **CDCC money.** A diabetes or hypertension patient is allowed up to 6 subsidised visits a year at HK$166
+  subsidy plus HK$150 recommended co-payment. That is up to HK$1,896 a year per patient, and every lapsed patient
+  is that revenue lost. On top, the doctor earns 15% of those visit amounts for patients who reach target, but only
+  if at least 70% of the doctor's CDCC patients do. That is a cliff, and recall work decides which side of it the
+  doctor lands on. No incentive has been paid yet: the first cohort is still in its assessment cycle.
+- **In the simulator** (synthetic): a solo GP on the VITA profile gets about 290 recovered visits a year, at about 1
+  item per doctor-day. Harm-weighted missed loops fall from 185 to about 22 per 1,000 patient-years.
+
+**Price hypothesis:** HK$3,000 per doctor per month (*assumption*, about 10% of the time value). At that price,
+the CDCC visits alone pay it back: HK$36,000 a year ÷ HK$1,896 ≈ 19 patients kept coming who would otherwise lapse.
+
+**Market:**
+
+| Market | Count | At HK$3,000 per doctor per month |
+|---|---|---|
+| HK Primary Care Directory doctors | 4,173 (31 Aug 2026) | about HK$150m a year (US$19m) |
+| HK Co-care Network family doctors | 909 (23 Sep 2026) | about HK$33m a year |
+| England, fully qualified GPs | 29,400 FTE (Sep 2026, BMA) | about US$135m a year |
+
+- **Big groups.** EC Healthcare's medical services revenue was HK$2.5bn in FY25. Each 1% of it kept by closing
+  loops is HK$25m a year, so groups may prefer a share of recovered revenue to a per-seat fee.
+- **Singapore.** Healthier SG pays GP clinics to enrol residents for preventive care, the same pattern as CDCC.
+  About 975 clinics signed up in its first year. It is the obvious second market.
+- **Not sized yet:** US and Australian primary care.
+
+**Read:** Hong Kong alone is a beachhead (US$20m a year), not a venture-scale market. The scale comes from the
+same two groups of loops existing everywhere primary care runs on a panel, plus subsidy schemes (CDCC, Healthier
+SG) that now pay doctors to close them.
+
 ## Change: what the agent does
 
 **Which loops.** Anything a GP would reasonably be expected to follow up in a practice. Two groups:
@@ -116,3 +155,7 @@ doesn't ask it to be. These are the guarantees we can build and test:
 - Pulse GP survey, 2014: [80% of GPs spend more time inputting information from secondary care](https://www.pulsetoday.co.uk/news/working-life/80-of-gps-spend-more-time-inputting-information-from-secondary-care/)
 - LegCo LCQ16, 7 Oct 2026: [Development of primary healthcare services](https://www.info.gov.hk/gia/general/202610/07/P2026100700411.htm)
 - HKUMed, 12 Oct 2026: [CDCC evaluation](https://lead.hku.hk/en/article/2026/10/hkumed-finds-chronic-disease-co-care-pilot-scheme-highly-effective-in-chronic-disease-control-40-of-screened-participants-diagnosed-with-chronic-conditions/)
+- Lam DTY, Guo M. Doctors' fees in private practice, territory-wide survey 2025. *HKMJ* 2026 ([pdf](https://www.hkmj.org/system/files/hkmj2513816.pdf))
+- CDCC subsidy and incentive: [Health Bureau, 25 Sep 2023](https://www.info.gov.hk/gia/general/202309/25/P2023092500476p.htm); [LCQ22, 11 Jun 2025](https://www.info.gov.hk/gia/general/202506/11/P2025061100420p.htm)
+- [BMA, pressures in general practice](https://www.bma.org.uk/advice-and-support/nhs-delivery-and-workforce/pressures/pressures-in-general-practice-data-analysis); [MOH Singapore, Healthier SG enrolment](https://www.moh.gov.sg/newsroom/healthier-sg-enrolment-data/)
+- EC Healthcare FY25 results ([summary](https://www-web.itiger.com/news/2544513604))
