@@ -34,7 +34,7 @@ Before either is committed: no keys or `.env` files, and synthetic data only.
 | Mac mini (always on) | Only when a job needs it (6 Nov): `claude -p` model runs and rebuilds from the raw data, by Remote Control from the phone | Both repos side by side in `~/code` (cloned 6 Nov). Data and the staged extraction run in `~/loopbench-data`. The Claude CLI is logged out. System Python is 3.9: enough for the extraction runner, but the tests need 3.11 (loopbench) and 3.12 (harness). |
 | MacBook Pro | The desk: starts cloud sessions from the desktop app | Not reachable from the Mac mini (no SSH). Most likely holds the two pieces above. |
 | iPhone | Slack, chats and cloud sessions; Remote Control when the Mac mini is needed | — |
-| Cloud sessions | The default for all work (6 Nov): claude.ai/code, the desktop app, the phone, `@Claude` in Slack, chats and scheduled tasks | The `tmrw` environment, the default for new sessions on claude.ai/code on claude.ai/code (made 6 Nov): both repos, limited network with package managers on. Each repo's `scripts/cloud_setup.sh` installs its dependencies. Ephemeral: work survives only as a PR |
+| Cloud sessions | The default for all work (6 Nov): claude.ai/code, the desktop app, the phone, `@Claude` in Slack, chats and scheduled tasks | The `tmrw` environment (made 6 Nov) is the default for new sessions on claude.ai/code: both repos, limited network with package managers on. Slack sessions run in the `Default` cloud environment, where each repo's `scripts/cloud_setup.sh` clones its sibling. Ephemeral: work survives only as a PR |
 
 One machine owns a branch at a time; push before switching.
 
@@ -57,7 +57,9 @@ run: the documents (`docs.jsonl`, `docs_smoke300.jsonl`), the same `claude_runne
 
 ## Views and documents
 
-Claude Docs, artifacts and Claude Project docs. Each one is a live view, a partner document, or retired.
+Claude Docs, artifacts and Claude Project docs. Each one is a live view, a partner document, or retired. On the
+Artifacts page (filed 6 Nov), the live ones sit at the top level, the retired ones are in the Archive folder, and the
+parked ones are in "Parked until 1 Feb 2027".
 
 **Live**
 
@@ -82,7 +84,7 @@ Claude Docs, artifacts and Claude Project docs. Each one is a live view, a partn
 | [AI-Native Builder: Operating System](https://claude.ai/artifact/9dkkz1P8ftUTnKyQgY9fy8) | Doc, 28 Oct | `docs/OPERATING_SYSTEM.md` |
 | [The Case Loop](https://claude.ai/artifact/LDdYcKFkr3RqMwFEB33UvG) and [Clinical AI Evaluation Map](https://claude.ai/artifact/Cm6tBPMMyKgfDJQW4YAg5h) | Artifacts, 4 Nov | LoopBench |
 | [LoopBench Studio, 5 Nov build](https://claude.ai/artifact/AtVcwSKyQWNjyayG764Y5z) | Artifact, 5 Nov | The 6 Nov build above |
-| Phase 1 close-out (two copies) and Studio spec v1.1 | Project docs | `docs/PHASE1_CLOSEOUT.md` and `loopbench/docs/STUDIO_SPEC.md` |
+| Phase 1 close-out (two copies) and Studio spec v1.1 | Project docs, for Thomas to delete | `docs/PHASE1_CLOSEOUT.md` and `loopbench/docs/STUDIO_SPEC.md` |
 
 **Waiting on clinic-agent-evals**
 
@@ -92,8 +94,8 @@ until its zip is in git.
 
 **Parked, outside this product**
 
-Four Heidi documents (they go with heidi_eval) and six strategy, learning and venture documents. They are listed in
-Thomas's private overview, not here, and wait for the 1 Feb 2027 review.
+Four Heidi documents (they go with heidi_eval) and six strategy, learning and venture documents, filed in the "Parked
+until 1 Feb 2027" folder. They are listed in Thomas's private overview, not here, and wait for the 1 Feb 2027 review.
 
 ## Chats
 

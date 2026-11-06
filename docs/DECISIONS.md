@@ -7,6 +7,7 @@ why. Open questions sit at the top until they're decided.
 
 | Raised | Question | Options | Recommendation |
 |---|---|---|---|
+| 5 Nov 2026 | Heidi: apply by 18 Nov, or park until the 1 Feb review? `NOW.md` parks it; the 5 Nov council plan has labelling done by 14 Nov and the application on 18 Nov. | (a) Apply by 18 Nov, which takes about 10 of Thomas's hours before 14 Nov. (b) Park until 1 Feb. | Thomas decides in his career slot. Until he does, `NOW.md` stands: parked. |
 | 5 Nov 2026 | Who may close a loop? The harness says only a doctor, ever. The Cloud Doctor spec's autonomy ladder lets a task class "act within its class" at rung 3, and its fixed test says "close the safe ones". | (a) Doctor-only closing, always. (b) Classes may close loops once they reach rung 3. | (a): keep closing doctor-only. Let the ladder govern outbound actions (drafted messages, recall bookings), which never close a loop by themselves. Decide before the ladder is built. |
 
 ## Decided
