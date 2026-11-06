@@ -183,7 +183,11 @@ For the doctor: **inbox zero in ten minutes**, twice a day.
 ## The target: a HK$100m-a-year business Thomas owns (6 Nov)
 
 Thomas doesn't need venture scale. **HK$100m a year (about HK$8.3m a month, US$13m), owner-run, Hong Kong first** is
-the goal. That means **no second market and no venture round are required**. Growth is funded from cash flow, modest
+the goal Thomas would be happy with. **The ceiling is HK$100m a month (HK$1.2bn a year)**: about 220 full-time
+doctors' worth of revenue, or roughly half of EC Healthcare's FY25 medical-services revenue (HK$2.5bn). It's upside
+the model allows, not the plan.
+
+The target needs **no second market and no venture round**. Growth is funded from cash flow, modest
 capital and partners (Adrian's equity, EC under consulting), and ownership stays with Thomas.
 
 | Line (around months 30–36) | Assumption | Per month | Per year |
@@ -203,6 +207,12 @@ capital and partners (Adrian's equity, EC under consulting), and ownership stays
   practice.
 - **Profit (assumption):** a lean group might keep 15–25% before tax, so about HK$15–25m a year to its owners. The
   first practice will show the real margin.
+
+**Keep the ceiling open from day one:**
+- tmrw keeps the software and IP, with each practice as its own entity or joint venture
+- no exclusivity in the EC or FPC agreements that caps growth
+- the line built for both doctor mode and clinic mode
+- partners chosen who could scale with it
 
 The HK$10m-a-month sketch below is kept for reference. It's the same model with a platform and a second market
 added.
