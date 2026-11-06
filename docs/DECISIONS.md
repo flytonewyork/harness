@@ -13,6 +13,7 @@ why. Open questions sit at the top until they're decided.
 
 | Date | Decision | Why | Source |
 |---|---|---|---|
+| 6 Nov 2026 | The protocol travels with the repos: skills (`ship`, `signal`, `park`, `brief`, `review`) and a cloud setup script in each repo | A session started from Slack, the web or the phone begins with one repo and no context, so the steps can't live in a chat | `CLAUDE.md`, `.claude/skills/` |
 | 6 Nov 2026 | Slack follows Anthropic's `@Claude` patterns, in a light version for a Max plan: `#thomas-claude`, `#signals`, `#ship`, `#daily` | Thomas asked for Slack set up the way a Claude-native org runs it, to learn and copy the workflow; Claude Tag itself needs a Team or Enterprise plan | `docs/OPERATING_SYSTEM.md`, Slack |
 | 6 Nov 2026 | `docs/INVENTORY.md` is the map of everything; anything outside the two repos is a live view, a partner document, retired or parked | The 6 Nov audit found the work spread over 24 artifacts, 4 Project docs, two zips and three machines | `docs/INVENTORY.md` |
 | 5 Nov 2026 | Operating system v2: GitHub is the only home, `NOW.md` is the one queue, the LoopBench scoreboard gates every PR | Work was being rebuilt in each chat; the 28 Oct OS was a document nothing enforced | `docs/OPERATING_SYSTEM.md` |
