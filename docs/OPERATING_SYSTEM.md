@@ -23,7 +23,7 @@ flowchart TB
 
     subgraph BUILD ["Build: GitHub is the only home"]
         direction LR
-        Q["NOW.md + docs/specs<br/>the queue and the why"] --> CC["Claude Code<br/>Mac mini · phone · cloud · desktop"] --> PR["Pull request"]
+        Q["NOW.md + docs/specs<br/>the queue and the why"] --> CC["Claude Code<br/>cloud sessions by default<br/>Mac mini when a job needs it"] --> PR["Pull request"]
     end
 
     subgraph PROVE ["Prove: the gate on every PR"]
@@ -90,18 +90,20 @@ to react to.
 
 ## Where work runs
 
+Cloud sessions are the default (decided 6 Nov). They start from any device, run in the `tmrw` environment with both
+repos side by side, set themselves up, and end in a PR. The Mac mini is only for the jobs a cloud session can't do.
+
 | You start from | It runs on | It ends as |
 |---|---|---|
-| Phone, Claude app | Mac mini through Remote Control, both repos side by side | a PR |
+| A Slack thread (`@Claude` in `#thomas-claude`) | a cloud session in `tmrw` | a PR |
+| The phone, claude.ai/code or the desktop app | a cloud session in `tmrw`, the default for new sessions | a PR |
 | A claude.ai chat | a cloud session with both repos attached, with push access | a PR |
-| The desk | Claude Code on the Mac | a PR |
-| A model-backed run (`claude -p` extraction) | the Mac mini only, where the CLI is logged in | cached outputs, committed, replayed in CI |
-| A Slack thread (`@Claude` in `#thomas-claude`) | a Claude Code cloud session on your plan | a PR |
-| A schedule | a scheduled task | a PR or a Slack post |
+| A schedule | a scheduled task in the cloud | a PR or a Slack post |
+| Only when a job needs it: `claude -p` model runs, rebuilds from the raw data in `~/loopbench-data` | the Mac mini, by Remote Control from the phone | cached outputs or rebuilt data, committed |
 
-The code expects the two repos side by side (`../harness`, `../loopbench`). One machine owns a branch at a time; push
-before switching. A cloud session sets itself up: `scripts/cloud_setup.sh` installs the repo and clones its sibling
-before the agent starts (loopbench has the same script).
+The code expects the two repos side by side (`../harness`, `../loopbench`), and `tmrw` clones them that way. A cloud
+session sets itself up: each repo's `scripts/cloud_setup.sh` installs what it needs before the agent starts. When the
+Mac mini does run something, one machine owns a branch at a time: push before switching.
 
 ## Your day
 
@@ -111,10 +113,10 @@ once, most of them started away from the desk, each ending in a PR you review.
 | When | Where | What you do |
 |---|---|---|
 | Before 8, 10 minutes | Phone: `#daily` | Read the brief and answer every ❓. Start the day's tasks from the top of `NOW.md`, one `@Claude` thread each in `#thomas-claude`. |
-| Morning, the deep block | Desk: Claude Code on the Mac | The item that needs your judgment: a spec, a partner document, a hard engine change. Plan mode first, then let it run. |
+| Morning, the deep block | Desk: a cloud session from the desktop app or claude.ai/code | The item that needs your judgment: a spec, a partner document, a hard engine change. Plan mode first, then let it run. |
 | Between other work | Phone: Slack | Steer a session by replying in its thread. A new idea gets `park this`. A partner contact goes in `#signals` the same day. |
 | Afternoon, 30 minutes | GitHub | Review what came back: the scoreboard and the pre-review on each PR. Merge, or reply with the fix. |
-| Evening, 5 minutes | Phone: Remote Control on the Mac mini | Start anything long, such as a model run or a sweep, so it runs overnight. |
+| Evening, 5 minutes | Phone: a cloud session | Start anything long, such as a sweep, so it runs overnight. Use the Mac mini only for a `claude -p` model run. |
 | Friday, 30 minutes | `NOW.md` | The weekly review (Cadence, below). |
 
 Your review time is the bottleneck, so spend it on the queue and on PRs, not on typing code.
@@ -202,19 +204,21 @@ repos; `#thomas-claude`, `#signals` and `#daily` created with their briefs; the 
 Chat and invited to `#thomas-claude` and `#signals`; the GitHub app subscribed to both repos in `#ship`; both repos
 cloned side by side in `~/code` on the Mac mini; a cloud environment, `tmrw`, on claude.ai/code with both repos
 (without one, `@Claude` in Slack replies "I couldn't start a session"), after which a Slack task ran end to end; and
-the `tmrw morning brief` scheduled task (weekdays at 06:43 Hong Kong time, the `brief` skill, posted to `#daily`).
-The steps left need you, because Claude sessions can't enter credentials or sign in for you.
+the `tmrw morning brief` scheduled task (weekdays at 06:43 Hong Kong time, the `brief` skill, posted to `#daily`);
+and `tmrw` as the default environment for new sessions on claude.ai/code. The steps left need you, because Claude
+sessions can't enter credentials, change a token's access or sign in for you.
 
-1. **A new CI token (5 minutes).** The token in `REPOS_TOKEN` can't see the private repos, so CI's checkout of the
-   sibling repo gets "Not Found" and every run on main is red. At github.com/settings/personal-access-tokens/new:
-   Repository access, Only select repositories, harness and loopbench; Permissions, Contents, Read-only. Paste the new
-   token into the `REPOS_TOKEN` secret in both repos (Settings → Secrets and variables → Actions), delete the old
-   token, then re-run CI. Paste tokens only into GitHub, never into a chat.
-2. **Mac mini (2 minutes).** Log the Claude CLI in (`claude`, then `/login`) and turn on Remote Control for each repo.
-   The two loose pieces aren't on the Mac mini (`docs/INVENTORY.md`).
-3. **`@claude` on GitHub (optional, 5 minutes).** In Claude Code on the Mac, with the GitHub CLI signed in, run
+1. **CI token access (1 minute).** The token in `REPOS_TOKEN` must be able to see both private repos, or CI's checkout
+   of the sibling repo gets "Not Found" and every run on main is red. On the token's page at
+   github.com/settings/personal-access-tokens: Edit; Repository access, Only select repositories, harness and
+   loopbench; Repository permissions, Contents, Read-only; Update. Then check the page: it must list both repos and
+   Contents: Read-only. A new token starts with no repository access at all, which caught two tokens on 6 Nov. Paste
+   tokens only into GitHub, never into a chat.
+2. **`@claude` on GitHub (optional, 5 minutes).** In Claude Code on the Mac, with the GitHub CLI signed in, run
    `/install-github-app` in each repo and choose the long-lived token from your Claude subscription. It installs the
    app, saves the secret and opens the workflow PR. Then `@claude` in a PR comment works, for example
    `@claude add this lesson to CLAUDE.md`.
-4. **Chats.** When a claude.ai chat asks to attach these repos, allow push access, so the session ends in a PR instead
+3. **Chats.** When a claude.ai chat asks to attach these repos, allow push access, so the session ends in a PR instead
    of a zip.
+4. **Mac mini, only when a job needs it.** Before the first `claude -p` model run (`NOW.md`), log the Claude CLI in
+   (`claude`, then `/login`) and turn on Remote Control for each repo. Nothing else waits on it.
