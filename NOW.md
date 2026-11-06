@@ -32,7 +32,7 @@ burden, so that is the question for every next contact.
    - ask Josie (#17) to be the second pilot doctor
    - send notes for a Central Health signal
    - Claude builds the session kit: a plan card with QR code, the promise diary and scoreboard, and a WhatsApp
-     Business setup
+     Business setup. The scoreboard tracks the 90-day measures in `docs/analysis/ai-native-clinic-investment.md`
    Still waiting on: Apricot's API docs and technical contact (#15), and the Heidi call by 18 Nov.
 2. **EC Healthcare Phase 0 look-back.** The request is ready (`docs/EC_DATA_REQUEST.md`). Julie is arranging a call
    with EC's CTO (#5). Use it to find the burdens in EC's own system, then agree the Phase 0 scope, fee and data route.
@@ -49,6 +49,11 @@ partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`.
 Done 6 Nov: **Apricot call** (signal #15). VITA already has most of the clinic-side follow-up pieces; eHealth
 is upload only; Apricot's API docs are pending. Thomas is less bullish on a follow-up add-on for clinics, and the
 care line (spec 003) came out of it.
+
+Done 6 Nov: **investment analysis of an AI-native clinic** (`docs/analysis/ai-native-clinic-investment.md`, numbers
+from `docs/analysis/clinic_model.py`, living version as a Claude Doc). The best unit economics of the six models
+compared, if patients pay between visits; network effects are weak; the base case passes HK$100m a year around month
+36 with a peak cash need of about HK$3m. It recommends a split by line: 50% of visits, 70% of the doctor's line.
 
 Done 6 Nov: **product direction locked** (spec 002). It covers two groups of loops, A (results and hospital) and
 B (recalls and prevention, CDCC included). The authority model is "doctor signs, agent does", which closes the

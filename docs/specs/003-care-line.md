@@ -205,8 +205,11 @@ capital and partners (Adrian's equity, EC under consulting), and ownership stays
 - **Selling the line to other doctors is upside, not the plan.**
 - **Capital-light by design:** rooms rented by the hour, nurse-led home visits, partner pharmacies, and the cloud
   practice.
-- **Profit (assumption):** a lean group might keep 15–25% before tax, so about HK$15–25m a year to its owners. The
-  first practice will show the real margin.
+- **Profit:** the model in `docs/analysis/clinic_model.py` gives about 10% EBITDA in year 3 and 14% by year 5 in the
+  base case (HK$23m on HK$165m). 15–25% needs the bull case. The first practice will show the real margin
+  (`docs/analysis/ai-native-clinic-investment.md`).
+- **Split by line:** pay doctors 50% of visits and 70% of what their line earns, rather than one 60–65% split, so a
+  practice survives weak line revenue while the line is proved.
 
 **Keep the ceiling open from day one:**
 - tmrw keeps the software and IP, with each practice as its own entity or joint venture

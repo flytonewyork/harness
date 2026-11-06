@@ -65,6 +65,7 @@ parked ones are in "Parked until 1 Feb 2027".
 
 | Title | Kind | Source of truth |
 |---|---|---|
+| [AI-native clinic in Hong Kong: investment analysis](https://claude.ai/artifact/7aiAFUfFtwQ31g1kQWBcgB) | Doc, 6 Nov | `docs/analysis/ai-native-clinic-investment.md`; every number from `docs/analysis/clinic_model.py` |
 | [tmrw care line: landing site](https://claude.ai/artifact/1PjRfqEUpFFqwPELnZ1Ddp) | Design canvas, 6 Nov | `docs/specs/003-care-line.md`. Pages: home, doctors, patients and clinics. Mocks use synthetic patients; contact and prices are placeholders |
 | [Follow-ups: a simulated clinic year](https://claude.ai/artifact/LbR3fsj99mNgnVAPGCSRKR) | Artifact, 5 Nov | `frontend/`, built with `VITE_STATIC=1`. Republish after the model run. |
 | [LoopBench Studio](https://claude.ai/artifact/P5fyvrfUo6xsoNuiT9hSDS) | Artifact, 6 Nov | `loopbench/scripts/build_studio.py`, built from `d7c06c0` (loopbench #2) |
