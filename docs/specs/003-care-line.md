@@ -4,6 +4,31 @@
 agent does) and on what the Apricot call showed (#15). **This week's goal:** make it concrete enough that Thomas
 wants to take GP sessions and call-out jobs to test it.
 
+## The best case, in Thomas's words (6 Nov)
+
+> It makes me actually want to do GP sessions, and to do more of them. It builds in parallel, takes the burden off
+> the sessions and makes them something I look forward to. And it gives me a wholly owned piece I can grow, built on
+> patient interactions, through a legit channel: a network of my own patients and doctors.
+
+**The test of this spec:** every session Thomas works adds to something he owns. That's the patients on his line
+(with consent), his library of approved answers and protocols, his record of loops closed, and the doctors using
+the same line. It counts as a success even if it never becomes a venture.
+
+**Measured weekly, from the first session:**
+- "I'm looking forward to my next session", scored 1–10
+- sessions booked per week
+- minutes of admin after each session
+- patients on the line
+- loops closed
+- patients who come back or ask for him
+- doctors using the line
+
+**What keeps it legit:**
+- patient consent at the QR scan
+- each clinic agrees, and its record gets everything written back
+- no poaching: patients rebook with the clinic
+- Medical Council and PDPO checks done before any AI touches real messages
+
 ## Why this, after the Apricot call
 
 - **The follow-up add-on is weak.** A follow-up list sold to GP clinics on a mature system like VITA is a
