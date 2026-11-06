@@ -37,11 +37,12 @@ review.
 4. Repeat dispensing in the LoopBench world model, so reasoning traces can cite current medicines.
 5. Doctor-minutes metric: review time per item with and without verified evidence.
 6. `claude -p` extraction run on the Mac mini, replayed in CI: agentic numbers with a real model. Staged in
-   `~/loopbench-data/extract`: 4,064 dev documents, still current on 6 Nov, with prompt `fu-extract-v2`. Thomas
-   starts it from Terminal on the Mac mini: `nohup ./run_extraction.sh &`. On 6 Nov 13:35, after a login, the CLI
-   still reported "OAuth session expired" to a background connection, so a background start isn't reliable. Scored
-   honestly since 6 Nov: a document the model never answered counts as missed, not as the rules floor's answer (#12,
-   loopbench #4).
+   `~/loopbench-data/extract`: 4,064 dev documents, still current on 6 Nov, with prompt `fu-extract-v2`. Not started
+   as of 6 Nov 14:45: the Mac mini's command-line Claude reads as logged out, and its saved login hadn't changed since
+   that morning, so the 13:30 login didn't reach it. Thomas, in Terminal on the Mac mini: `claude`, then `/login`;
+   then `cd ~/loopbench-data/extract && ./run_extraction.sh`, which checks the login and runs a test batch on screen,
+   then carries on in the background. Scored honestly since 6 Nov: a document the model never answered counts as
+   missed, not as the rules floor's answer (#12, loopbench #4).
 7. LLM harness producing traces against the same seven checks.
 8. Capacity-frontier experiment.
 9. Thomas: held-out scenarios (outside both repos) and sign-off of `loopbench/data/clinical_policy.yaml`.
