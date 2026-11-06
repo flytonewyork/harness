@@ -35,7 +35,10 @@ burden, so that is the question for every next contact.
    (`docs/INVENTORY.md`). Porting its tool contract and 32 cases waits for the 26 Nov go decision
    (`docs/PHASE1_CLOSEOUT.md`, Deferred).
 3. Run the seven platform checks inside the product on every item it opens: the observability real data needs,
-   before the EC look-back runs on a real export.
+   before the EC look-back runs on a real export. _In progress (branch `claude/slack-session-a43dbq`): the engine
+   gains `backend/engine/verify.py` — a port-visible re-implementation of the seven checks and a `VerifyingClinic`
+   wrapper that runs them on every `open_item`, with no import of the test bed. Spec
+   `docs/specs/001-platform-checks-in-product.md`. Left to wire a live/replay EC driver onto it._
 4. Repeat dispensing in the LoopBench world model, so reasoning traces can cite current medicines.
 5. Doctor-minutes metric: review time per item with and without verified evidence.
 6. `claude -p` extraction run on the Mac mini, replayed in CI: agentic numbers with a real model. First log the Mac
