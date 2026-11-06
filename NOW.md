@@ -5,6 +5,9 @@ Read this at the start of every session and update it at the end, in the same PR
 **Milestone: first real-customer signal.** Done when a partner that holds patient data agrees a next step in
 writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health pilot on Apricot VITA.
 
+**Product (locked 6 Nov):** a persistent clinic agent that follows up and closes loops for doctors. The doctor signs,
+the agent does. Spec: `docs/specs/002-product-direction.md`.
+
 Toward the 26 Nov go/no-go, 4 partner conversations are logged: EC (#5), Amber (#6), Adrian (#8) and Virtus (#11).
 Today's Apricot call (#7) makes 5. All of them point at doctors' workload, but no partner has yet named the specific
 burden, so that is the question for every next contact.
@@ -16,12 +19,19 @@ burden, so that is the question for every next contact.
    profile update below.
 2. **EC Healthcare Phase 0 look-back.** The request is ready (`docs/EC_DATA_REQUEST.md`). Julie is arranging a call
    with EC's CTO (#5). Use it to find the burdens in EC's own system, then agree the Phase 0 scope, fee and data route.
+3. **Two demos by 13 Nov (spec 002).** First, each partner names its top burden in its own words (a `signal`
+   issue). Demo A covers results and hospital follow-ups, for EC and Amber. Demo B covers recalls and CDCC, for
+   Virtus and Adrian. Each shows find → prepare → sign → do → watch → close on a simulated clinic year. Group B's
+   new loop families are scored in LoopBench before the engine is built for them.
 
 Done 6 Nov: **the operating system is locked in.** Its test was a task started in Slack coming back as a scored PR, and
 #10 did (the seven checks in the product). What it set up: Slack with the Claude and GitHub apps; skills and a cloud
 setup script in both repos; cloud sessions as the default; CI green with the scoreboard gate; the weekday brief; and
-partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`. The third slot is open for the Friday
-review.
+partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`.
+
+Done 6 Nov: **product direction locked** (spec 002). It covers two groups of loops, A (results and hospital) and
+B (recalls and prevention, CDCC included). The authority model is "doctor signs, agent does", which closes the
+open question in `docs/DECISIONS.md`.
 
 ## Next, in order
 
@@ -44,7 +54,8 @@ review.
 
 ## Parked until the 1 Feb 2027 review
 
-- Cloud Doctor's autonomy ladder above rung 1, until the open decision in `docs/DECISIONS.md` is made.
+- Cloud Doctor's autonomy ladder above rung 1: the agent acting without a doctor's signature. Spec 002 keeps every
+  action signed.
 - Trial pre-screening and the clinical trials venture.
 - Bio AI and the biotech projects.
 - Heidi work: commit clinical_eval to heidi_eval on a branch, then leave it. It isn't on the Mac mini; most likely

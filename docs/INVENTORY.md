@@ -71,7 +71,7 @@ parked ones are in "Parked until 1 Feb 2027".
 | [Data request: Phase 0 follow-up look-back](https://claude.ai/artifact/KKX86CZh4miqqAs4TC37tn) | Doc, 5 Nov | `docs/EC_DATA_REQUEST.md` |
 | [EC Healthcare demo: talk track and Q&A](https://claude.ai/artifact/81g9RX2ddNQ9mSv6fXpGmp) | Doc, 5 Nov | Partner document |
 | [Amber Health visit: workflow capture sheet](https://claude.ai/artifact/TDPqEUMAnpxwshUjn94hYn) | Doc, 3 Nov | Partner document |
-| [Cloud Doctor: AGI-pilled spec](https://claude.ai/artifact/65tzMpzrrtSp4tbVVoqTmH) | Doc, 5 Nov | The vision. Its open question is in `docs/DECISIONS.md`. |
+| [Cloud Doctor: AGI-pilled spec](https://claude.ai/artifact/65tzMpzrrtSp4tbVVoqTmH) | Doc, 5 Nov | The vision. Its open question (who closes a loop) was decided on 6 Nov: spec 002. |
 | [Hong Kong primary care: problems ranked by size](https://claude.ai/artifact/AhFSz2DBnZCj5eGAzZ35f2) | Doc, 5 Nov | Reference for the 26 Nov go/no-go |
 | Apricot demo prep | Project doc | A copy of `loopbench/docs/APRICOT_DEMO_PREP.md`, kept for the 6 Nov call |
 
