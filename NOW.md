@@ -8,15 +8,15 @@ writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health p
 ## In progress (three at most)
 
 1. **Apricot call, 6 Nov.** Learn how VITA really works (`loopbench/docs/APRICOT_DEMO_PREP.md`). Studio polish for the
-   call: loopbench PR #2 (review, merge, then republish Studio). After the call: a signal note, then the VITA profile
-   update below.
+   call: merged 6 Nov (loopbench #2); republish Studio before the call. After the call: a signal note, then the VITA
+   profile update below.
 2. **EC Healthcare Phase 0 look-back.** The request is ready (`docs/EC_DATA_REQUEST.md`). Next: agree scope, fee and
    the data route.
 3. **Lock in the operating system.** Done: `#ship` in Slack and a `signal` label in both repos (5 Nov); both repos
    cloned side by side on the Mac mini in `~/code`, every piece mapped in `docs/INVENTORY.md`, and the Phase 1 plan
-   moved into git as `docs/PHASE1_CLOSEOUT.md` (6 Nov). Left for Thomas, because Claude sessions can't merge
-   unreviewed work, set repository secrets or sign in to apps: merge loopbench #1, then harness #1, then loopbench #2;
-   add the `REPOS_TOKEN` secret; connect the GitHub app in `#ship`; log the Mac mini's Claude CLI in (`claude`, then
+   moved into git as `docs/PHASE1_CLOSEOUT.md` (6 Nov); loopbench #1, harness #1 and loopbench #2 merged on Thomas's
+   go-ahead (6 Nov). Left for Thomas, because Claude sessions can't set repository secrets or sign in to apps: add the
+   `REPOS_TOKEN` secret; connect the GitHub app in `#ship`; log the Mac mini's Claude CLI in (`claude`, then
    `/login`). See `docs/OPERATING_SYSTEM.md`, Install.
 
 ## Next, in order
