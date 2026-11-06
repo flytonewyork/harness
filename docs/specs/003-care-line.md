@@ -180,6 +180,41 @@ For the doctor: **inbox zero in ten minutes**, twice a day.
   - WhatsApp-heavy markets where patients pay doctors directly. Malaysia, for example, has about 10,000 private GP clinics, and over 70% say they are struggling to stay open (Malaysian Medical Association, May 2026), so "grow your practice" is the pitch there.
   - And/or a cut of the money flowing through doctors' practices, the way Shopify takes a cut of its merchants' sales.
 
+## Path to HK$10m a month (6 Nov sketch; every number an assumption to test)
+
+HK$10m a month is about HK$120m a year (US$15m). Software alone can't reach it in Hong Kong: about 3,300 doctors at
+HK$3k a month, against about 4,000 directory doctors. So it's a **care business with AI margins**, not pure SaaS.
+
+**One AI-augmented full-time doctor, per month (assumption):**
+- in-person visits: 22 days × 35 patients × HK$400 = HK$308k
+- WhatsApp tasks: 20 a day × 22 days × HK$200 = HK$88k
+- memberships: 200 members × HK$300 = HK$60k
+- **total ≈ HK$456k a month, so about 22 full-time doctors' worth of gross revenue reaches HK$10m**
+
+| Revenue line (around month 24–36) | Assumption | Per month |
+|---|---|---|
+| Practices tmrw runs or co-owns (Adrian's FPC plus a tmrw cloud practice) | 10 full-time doctors × ~HK$450k | HK$4.5m |
+| Medicines (procurement and dispensing through partner pharmacies) | 25k refills × HK$80 margin | HK$2.0m |
+| Doctors on the platform (HK, Melbourne, a Malaysia pilot) | 600 × HK$2.5k | HK$1.5m |
+| Clinic mode for groups (EC and 3–5 partner groups) | licence and consulting | HK$1.0m |
+| A share of payments, or premium tools (only if the rules allow) | | HK$1.0m |
+| **Total** | | **≈ HK$10m** |
+
+**The staircase:**
+- **Months 0–3:** Thomas and Josie, manual lines, the first paid follow-ups and refills. Gate: HK$50–150k a month.
+- **Months 3–9:** Adrian's FPC opens with memberships. EC's practice runs under consulting. 20–50 platform doctors.
+  Gate: HK$1m a month.
+- **Months 9–18:** a second practice, medicines procurement live, about 200 platform doctors, a second market. Gate:
+  HK$3–5m a month, and raise a seed round.
+- **Months 18–36:** HK$10m a month, made up as in the table.
+
+**What this needs:**
+- people: a medical director, an operations or pharmacy lead, engineering
+- capital for practice fit-outs and drug stock
+- licences: clinic licences under Cap. 633, and possibly a licensed pharmacy (an "authorized seller of poisons")
+  for dispensing at scale
+- Thomas moving from builder to operator
+
 ## How it gets paid: product-led on both sides (a hypothesis)
 
 The billable unit moves from the visit to the **task**, done on WhatsApp and signed by the doctor. Hong Kong private care
