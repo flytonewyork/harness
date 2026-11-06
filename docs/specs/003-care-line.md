@@ -24,6 +24,18 @@ wants to take GP sessions and call-out jobs to test it.
 WhatsApp. The doctor gets an inbox where the work is already done. It's positioned as **"your AI can read your
 health; only a doctor can act on it"**.
 
+## The pitch (to test in the ten doctor conversations)
+
+> **"Give patients your WhatsApp. Your AI care team handles the rest, and your patients stay yours."**
+
+Split-test the two angles inside it:
+- **Evenings:** "Give every patient your WhatsApp, and still have your evenings."
+- **Ownership:** "Your patients follow you, not the clinic."
+
+Record which one makes doctors ask how to get it. Have one-line answers ready for the doubts:
+- **Safety:** nothing clinical goes out without your signature, and emergencies get a fixed response straight away.
+- **The clinic:** patients rebook with the clinic, and you keep the relationship.
+
 ## How it works
 
 **The kit:**
