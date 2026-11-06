@@ -339,6 +339,30 @@ doing the work.
 **What stays human, by design:** examining the patient, clinical judgement, consent, and accountability. The
 doctor signs.
 
+## The 10x reality check (6 Nov)
+
+10x holds for **the layer between visits** and for **reliability**. It doesn't hold for the clinic as a whole.
+
+| Dimension | Today | AI-native, now | Factor | Confidence |
+|---|---|---|---|---|
+| A follow-up touch (results, refill, check-in) | A HK$400 visit or a staff call; days | 2–5 doctor-minutes to sign, plus compute; minutes to hours | **~5–10x cheaper, 10x+ faster** | Medium–high |
+| Loops dropped silently | 7–62% of results not followed up (Callen 2012) | 185 → 14–22 harm-weighted misses per 1,000 patient-years (LoopBench, synthetic) | **~8–13x fewer, in the simulator only** | Medium, until real data |
+| Front desk and admin per patient | 10–15 staff-minutes | Close to zero | ~10x, but a small cost share | High |
+| Doctor time in the room | — | Pre-visit summary, scribe | 1.1–1.3x | High |
+| Rent and space | Fixed lease | Rooms by the hour, nurse home visits | 1.2–2x | Medium |
+| Medicines | About 2x pharmacy price (#17) | Wholesale, fair margin | ~1.3x cheaper for patients | Medium |
+| Continuity patients per doctor | Concierge: 300–600 | Agent does the between-visit work | 3–5x (unproven) | Low |
+| **Cost per in-person visit** | | | **~1.3–2x cheaper** | Medium |
+| **Cost of continuing care per patient-year** | Concierge-only | Mass price | **~3–5x cheaper** | Low–medium |
+
+**For the pitch:** not "a 10x cheaper clinic", but "10x cheaper follow-up and 10x fewer dropped loops, so
+continuing care becomes affordable, with the same doctor in the room". A 1.3–2x cost advantage per visit is
+already decisive in a thin-margin business.
+
+**The lesson from precedents:** tech-heavy clinics failed when they spent faster than patients paid (Forward shut
+in 2024, Babylon collapsed in 2023). The model that lasted kept a light physical footprint (One Medical). So: lean,
+revenue first, continuity first.
+
 ## The record behind it: AI-native, structured where it must be
 
 1. **Raw log:** everything as it happened, append-only. This is the legal record.
