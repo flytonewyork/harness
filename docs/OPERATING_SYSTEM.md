@@ -132,10 +132,9 @@ Every piece of the work, where it lives and its status: `docs/INVENTORY.md`. Re-
 
 ## Install (one time)
 
-Done on 5 Nov: `#ship` created in Slack, and a `signal` label in both repos. Steps 0 to 2 need you: Claude sessions
-can't merge unreviewed work or set repository secrets, and the GitHub app needs your own sign-in.
+Done: `#ship` created in Slack and a `signal` label in both repos (5 Nov); the setup PRs merged (6 Nov). Steps 1 and 2
+need you: Claude sessions can't set repository secrets, and the GitHub app needs your own sign-in.
 
-0. **Merge.** loopbench #1 first (the harness PR's score job needs its scoreboard script on main), then harness #1.
 1. **CI token.** Create a fine-grained GitHub token (github.com/settings/personal-access-tokens/new): repository
    access to harness and loopbench only, permission Contents read-only. Add it as the secret `REPOS_TOKEN` in both repos
    (Settings → Secrets and variables → Actions → New repository secret). Until then, the score jobs warn and skip.
