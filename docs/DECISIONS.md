@@ -7,7 +7,7 @@ why. Open questions sit at the top until they're decided.
 
 | Raised | Question | Options | Recommendation |
 |---|---|---|---|
-| 6 Nov 2026 | Which vehicle after 26 Nov: (a) tmrw as the doctor-owned WhatsApp care line (spec 003), (b) a Heidi role, carrying the thesis inside (Heidi II owns the clinic-side agents; the care line is the patient-facing half), or (c) the EC GP practice and AI rollout through tmrw consulting. | (a), (b) or (c); (a) can run alongside (c). | Decide on 26 Nov with evidence: ten doctor conversations, the manual pilot design, and the simulator's red-flag and doctor-minutes numbers. Until then, this week's work serves all three. |
+| 6 Nov 2026 | Which vehicle after 26 Nov: (a) tmrw as the doctor-owned WhatsApp care line (spec 003), (b) a Heidi role, carrying the thesis inside (Heidi II owns the clinic-side agents; the care line is the patient-facing half), or (c) the EC GP practice and AI rollout through tmrw consulting. | (a), (b) or (c); (a) can run alongside (c). | Decide on 26 Nov with evidence: ten doctor conversations, the manual pilot design, and the simulator's red-flag and doctor-minutes numbers. Until then, this week's work serves all three. On the evening of 6 Nov, Thomas took (a) as the working direction ("going down this path, seems like a reasonable approach"); the formal call stays 26 Nov. |
 | 5 Nov 2026 | Heidi: apply by 18 Nov, or park until the 1 Feb review? `NOW.md` parks it; the 5 Nov council plan has labelling done by 14 Nov and the application on 18 Nov. | (a) Apply by 18 Nov, which takes about 10 of Thomas's hours before 14 Nov. (b) Park until 1 Feb. | Thomas decides in his career slot. Until he does, `NOW.md` stands: parked. |
 
 ## Decided

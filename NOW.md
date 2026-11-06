@@ -25,6 +25,15 @@ burden, so that is the question for every next contact.
    1. the FPC with Adrian, the full stack
    2. EC's new practice, under EC's brand
    3. partner clinics: Virtus, Central Health, Amber
+   **Working direction from 6 Nov evening (Thomas):** "going down this path, seems like a reasonable approach".
+   The formal go/no-go stays on 26 Nov. **First up on Monday 9 Nov:**
+   - book 2–3 GP sessions for the next fortnight
+   - ask Adrian and EC for their opening timelines
+   - ask Josie (#17) to be the second pilot doctor
+   - send notes for a Central Health signal
+   - Claude builds the session kit: a plan card with QR code, the promise diary and scoreboard, and a WhatsApp
+     Business setup
+   Still waiting on: Apricot's API docs and technical contact (#15), and the Heidi call by 18 Nov.
 2. **EC Healthcare Phase 0 look-back.** The request is ready (`docs/EC_DATA_REQUEST.md`). Julie is arranging a call
    with EC's CTO (#5). Use it to find the burdens in EC's own system, then agree the Phase 0 scope, fee and data route.
 3. **Two demos by 13 Nov (spec 002; may be re-cut around the care line after 26 Nov).** First, each partner names its top burden in its own words (a `signal`
