@@ -28,6 +28,9 @@ health; only a doctor can act on it"**.
 
 > **"Give patients your WhatsApp. Your AI care team handles the rest, and your patients stay yours."**
 
+The stronger, money-led version: **"Turn your WhatsApp into your practice. Your AI care team finds the care your
+patients need. You sign it, and you get paid."**
+
 Split-test the two angles inside it:
 - **Evenings:** "Give every patient your WhatsApp, and still have your evenings."
 - **Ownership:** "Your patients follow you, not the clinic."
@@ -76,6 +79,42 @@ Record which one makes doctors ask how to get it. Have one-line answers ready fo
 5. **The scare:** a clear instruction in seconds, and the doctor is alerted.
 
 For the doctor: **inbox zero in ten minutes**, twice a day.
+
+## How it gets paid: product-led on both sides (a hypothesis)
+
+The billable unit moves from the visit to the **task**, done on WhatsApp and signed by the doctor. Hong Kong private care
+is mostly paid by patients directly, so no payer has to approve a code. Elsewhere, between-visit work is already paid
+for: US Medicare e-visits and chronic-care management, and Australian chronic-care items.
+
+| Service on the line | How it's paid | Guardrail |
+|---|---|---|
+| Remote consult (follow-up, results, chronic review) | Telemedicine fee via a payment link | Medical Council telemedicine guidelines |
+| Repeat prescription | Review fee plus the drug (delivered or collected) | Stable medicines only, after review, with monitoring up to date |
+| Lab tests (rechecks, screening, CDCC targets) | Lab fee, with the doctor's charge disclosed | Clinically indicated, with verbatim evidence |
+| Reports, certificates, insurance forms | Fixed fees | |
+| Membership (access, memory, check-ins) | Monthly | Services extra, or included in higher tiers |
+
+**The doctor's ladder:**
+1. **Free:** the line, the plan card, upload links, the loop list.
+2. **Paid** once agents do real work (drafts, chasing, payment links), priced so the line pays for itself from the
+   work it brings in.
+3. **Practice:** memberships, a cover network, and the AI-native record as the doctor's own record.
+
+**The patient's ladder:**
+1. **Free:** messaging, the plan card, red-flag responses, and **any follow-up of an abnormal or urgent result**.
+2. **Pay per service.**
+3. **Membership** for patients who want ongoing care.
+
+**Guardrails:**
+- **Safety is never paywalled.** Red flags and acting on abnormal results are free, whatever the patient pays.
+- **The agent finds care that is due; it never manufactures care.** Every billable item carries its clinical reason
+  with verbatim evidence, is signed by the doctor, and shows its price up front.
+- **The doctor is always the merchant.** tmrw charges a subscription, not a share of fees, until the Medical
+  Council's rules on sharing fees with non-doctors are checked.
+
+**The illustration to test** (assumptions, not data): 30 tasks a day at HK$150–250, each taking 3–5 doctor-minutes
+after the agent's preparation, is about HK$2,500+ per doctor-hour. A clinic session pays the doctor about
+HK$1,200 an hour (half the fees).
 
 ## The record behind it: AI-native, structured where it must be
 
