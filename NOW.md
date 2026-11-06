@@ -9,17 +9,21 @@ writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health p
 the agent does. Spec: `docs/specs/002-product-direction.md`.
 
 Toward the 26 Nov go/no-go, 4 partner conversations are logged: EC (#5), Amber (#6), Adrian (#8) and Virtus (#11).
-Today's Apricot call (#7) makes 5. All of them point at doctors' workload, but no partner has yet named the specific
+The Apricot call on 6 Nov (#7, notes in #15) makes 5. All of them point at doctors' workload, but no partner has yet named the specific
 burden, so that is the question for every next contact.
 
 ## In progress (three at most)
 
-1. **Apricot call, 6 Nov.** Learn how VITA really works (`loopbench/docs/APRICOT_DEMO_PREP.md`). Studio polish for the
-   call: merged 6 Nov (loopbench #2); republish Studio before the call. After the call: a signal note, then the VITA
-   profile update below.
+1. **This week (to 13 Nov): the care line, made real enough that Thomas wants to take GP sessions** (spec 003,
+   a candidate for the 26 Nov go/no-go). Deliverables:
+   - a clickable prototype of the patient's WhatsApp and the doctor's inbox (synthetic)
+   - the session kit: a bilingual plan card with QR code, the promise diary, and a WhatsApp Business setup
+   - the care-line simulator and the sign-off trainer in LoopBench
+   - ten doctor conversations about giving patients their WhatsApp
+   Success: Thomas books GP or call-out sessions to test it.
 2. **EC Healthcare Phase 0 look-back.** The request is ready (`docs/EC_DATA_REQUEST.md`). Julie is arranging a call
    with EC's CTO (#5). Use it to find the burdens in EC's own system, then agree the Phase 0 scope, fee and data route.
-3. **Two demos by 13 Nov (spec 002).** First, each partner names its top burden in its own words (a `signal`
+3. **Two demos by 13 Nov (spec 002; may be re-cut around the care line after 26 Nov).** First, each partner names its top burden in its own words (a `signal`
    issue). Demo A covers results and hospital follow-ups, for EC and Amber. Demo B covers recalls and CDCC, for
    Virtus and Adrian. Each shows find → prepare → sign → do → watch → close on a simulated clinic year. Group B's
    new loop families are scored in LoopBench before the engine is built for them.
@@ -28,6 +32,10 @@ Done 6 Nov: **the operating system is locked in.** Its test was a task started i
 #10 did (the seven checks in the product). What it set up: Slack with the Claude and GitHub apps; skills and a cloud
 setup script in both repos; cloud sessions as the default; CI green with the scoreboard gate; the weekday brief; and
 partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`.
+
+Done 6 Nov: **Apricot call** (signal #15). VITA already has most of the clinic-side follow-up pieces; eHealth
+is upload only; Apricot's API docs are pending. Thomas is less bullish on a follow-up add-on for clinics, and the
+care line (spec 003) came out of it.
 
 Done 6 Nov: **product direction locked** (spec 002). It covers two groups of loops, A (results and hospital) and
 B (recalls and prevention, CDCC included). The authority model is "doctor signs, agent does", which closes the
