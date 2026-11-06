@@ -148,6 +148,29 @@ Record which one makes doctors ask how to get it. Have one-line answers ready fo
 
 For the doctor: **inbox zero in ten minutes**, twice a day.
 
+## Market sizing: decompiling the clinic (first cut, 6 Nov; ranges, with every assumption marked)
+
+**1. The clinic layer that could be passed back (Hong Kong GP care):**
+- **Consultations:** 14.2% of people saw a doctor in the 30 days before the survey (Thematic Household Survey, 2022–23). 80% of those saw a Western-medicine doctor, and the private sector gives about 68% of outpatient doctor consultations (Primary Healthcare Blueprint).
+- **Assumptions:** 1.3–2 consultations per person who consulted, and about 70% of private consultations being GP visits. That gives about 6–9 million private GP consultations a year.
+- **Revenue:** at the HK$400 median fee (HKMJ 2026), that's about **HK$2.5–3.6bn a year**.
+- **The clinic's share:** about half (assumption), so **HK$1.2–1.8bn a year** goes on rent, staff, drug margin and operator profit.
+- **What can be passed back:** if an AI back office and less rent remove a third to half of that (assumption), about **HK$0.4–0.9bn a year** could go to doctors (higher income) and patients (lower prices, no trip for follow-ups).
+
+**2. New continuing-care demand (illustrative; care that doesn't happen today):**
+- **Chronic:** 2.2m people have a chronic condition. If 10% take a membership at HK$100–150 a month, that's about HK$0.3–0.4bn.
+- **Co-care:** the network targets 700k participants. If about 40% are in treatment, at up to HK$1,896 a year (subsidy plus co-pay), that's about HK$0.5bn flowing to family doctors.
+- **Prevention and longevity:** 1–2% of adults at HK$500 a month is about HK$0.4–0.7bn.
+- **Families coordinating care for elderly parents:** about HK$0.3bn.
+- **Total:** about **HK$1.5–1.9bn a year**, growing with ageing (people aged 65+ rise from 1.5m to 2.5m by 2039).
+
+**3. What tmrw could earn:**
+- **Hong Kong alone:** subscriptions from 400–1,000 doctors at HK$1–3k a month is about **HK$5–36m a year (US$0.6–4.6m)**. A share of fees, if the Medical Council's rules allow one, could be several times that.
+- **Read:** Hong Kong is a beachhead and the proof, not the venture.
+- **The venture case needs:**
+  - WhatsApp-heavy markets where patients pay doctors directly. Malaysia, for example, has about 10,000 private GP clinics, and over 70% say they are struggling to stay open (Malaysian Medical Association, May 2026), so "grow your practice" is the pitch there.
+  - And/or a cut of the money flowing through doctors' practices, the way Shopify takes a cut of its merchants' sales.
+
 ## How it gets paid: product-led on both sides (a hypothesis)
 
 The billable unit moves from the visit to the **task**, done on WhatsApp and signed by the doctor. Hong Kong private care
