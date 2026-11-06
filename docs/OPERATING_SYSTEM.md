@@ -42,7 +42,7 @@ flowchart TB
     PR --> LB
     SB -- "pass: merge and release" --> D
     UI --> P2
-    PR -. "PRs, CI, scores" .-> SL["Slack #ship<br/>notifications only"]
+    PR -. "PRs, CI, scores" .-> SL["Slack<br/>@Claude starts work · #ship and #daily report"]
 ```
 
 The main loop runs signal → spec → build → prove → ship → signal. Each turn of it should leave a partner with something
@@ -64,8 +64,9 @@ to react to.
 5. **Consult transcripts are a document source, not memory.** They come in through the same adapters as labs and
    letters, and every claim built on them quotes them word for word.
 6. **The authority line is on the map.** The agent can open an item or raise its urgency. Only a doctor closes one.
-7. **Slack only talks.** Results reach you there. Work lives in `NOW.md` and branches, decisions in `docs/DECISIONS.md`
-   and PRs. No patient data in Slack, ever.
+7. **Slack starts work and reports it; GitHub holds it.** `@Claude` in a thread starts a session that ends in a PR, and
+   `#ship` and `#daily` report back. The queue and decisions live in the repo, never only in a thread. No patient data
+   in Slack, ever.
 8. **Two screens, two jobs.** The doctor's follow-up list (`frontend/`) is the product. LoopBench Studio
    (`loopbench/web`) is the lab: demos and debugging.
 9. **"Memory" means two things.** Product memory is patient state and the loop ledger: append-only, the audit trail.
@@ -95,10 +96,38 @@ to react to.
 | A claude.ai chat | a cloud session with both repos attached, with push access | a PR |
 | The desk | Claude Code on the Mac | a PR |
 | A model-backed run (`claude -p` extraction) | the Mac mini only, where the CLI is logged in | cached outputs, committed, replayed in CI |
+| A Slack thread (`@Claude` in `#thomas-claude`) | a Claude Code cloud session on your plan | a PR |
 | A schedule | a scheduled task | a PR or a Slack post |
 
 The code expects the two repos side by side (`../harness`, `../loopbench`). One machine owns a branch at a time; push
 before switching.
+
+## Slack
+
+Slack is where work starts and results land; GitHub is where it lives. The layout copies how Anthropic runs on
+`@Claude` in Slack (a personal channel each, feedback channels, a daily briefing, one thread per session), sized for
+one person on a Max plan.
+
+| Channel | Anthropic pattern | What happens there |
+|---|---|---|
+| `#thomas-claude` (private) | `#yourname-claude` | One thread per task: `@Claude` plus the repo name starts a Claude Code session that ends in a PR |
+| `#signals` (private) | Feedback channels | Every partner contact within 24 hours; `@Claude` files it as a `signal` issue |
+| `#ship` (public) | A workflow channel wired to GitHub | The GitHub app posts PRs, reviews, releases and CI |
+| `#daily` (public) | `#anthropic-times`, the daily briefing | A weekday morning brief from a scheduled task, once Thomas switches it on |
+
+- **Each channel's first message is its brief:** Anthropic treats it as the channel's CLAUDE.md. Pin it.
+- **One thread is one session.** Reply in the thread to steer it; start a new thread for a new task.
+- **Status on top-level messages:** ⏳ working · ❓ needs you · 🛑 blocked · ✅ merged.
+- **Durable rules go in the repo** (`CLAUDE.md`, `NOW.md`, `docs/DECISIONS.md`), not only in a thread.
+
+On a Max plan, `@Claude` in Slack is the earlier Claude Code in Slack. It works in channels, not DMs. It reads the
+thread, runs on your plan limits and offers "Create PR". Claude Tag's channel memory, ambient follow-ups and routines
+need a Team or Enterprise plan. Here, pinned briefs stand in for channel memory and scheduled tasks stand in for
+routines. Revisit if tmrw moves to a Team plan.
+
+Sources: [Claude Code in Slack](https://code.claude.com/docs/en/slack) ·
+[Claude Tag for Claude Code users](https://claude.com/docs/claude-tag/concepts/for-claude-code-users) ·
+[How Anthropic works with Claude Tag in Slack](https://claude.com/resources/webinars/how-anthropic-works-with-claude-tag-in-slack)
 
 ## The scoreboard
 
@@ -132,15 +161,20 @@ Every piece of the work, where it lives and its status: `docs/INVENTORY.md`. Re-
 
 ## Install (one time)
 
-Done: `#ship` created in Slack and a `signal` label in both repos (5 Nov); the setup PRs merged (6 Nov). Steps 1 and 2
-need you: Claude sessions can't set repository secrets, and the GitHub app needs your own sign-in.
+Done: `#ship` and a `signal` label in both repos (5 Nov); the setup PRs merged, the `REPOS_TOKEN` secret added to both
+repos, and `#thomas-claude`, `#signals` and `#daily` created with their briefs (6 Nov). Steps 1 and 2 need you:
+Claude sessions can't change credentials, and Slack apps need your own sign-in.
 
-1. **CI token.** Create a fine-grained GitHub token (github.com/settings/personal-access-tokens/new): repository
-   access to harness and loopbench only, permission Contents read-only. Add it as the secret `REPOS_TOKEN` in both repos
-   (Settings → Secrets and variables → Actions → New repository secret). Until then, the score jobs warn and skip.
-2. **Slack.** Add the GitHub app to your workspace (slack.github.com), then in `#ship` run
-   `/github subscribe flytonewyork/harness pulls,reviews,commits,releases,workflows` and the same for
-   flytonewyork/loopbench. It asks you to sign in to GitHub the first time.
+1. **CI token access.** The token in `REPOS_TOKEN` can't see either private repo yet (CI's cross-repo checkout gets
+   "Not Found"). At github.com/settings/personal-access-tokens, edit the token: Repository access, Only select
+   repositories, harness and loopbench; Permissions, Contents, Read-only. The token value stays the same, so the
+   secrets don't change. Then re-run CI.
+2. **Slack apps.**
+   - Add the Claude app ([Slack Marketplace](https://slack.com/marketplace/A08SF47R6P4)). In its App Home, click
+     Connect, and set Routing Mode to Code + Chat. Then type `/invite @Claude` in `#thomas-claude` and `#signals`.
+   - Add the GitHub app (slack.github.com). Then in `#ship` run
+     `/github subscribe flytonewyork/harness pulls,reviews,commits,releases,workflows` and the same for
+     flytonewyork/loopbench. It asks you to sign in to GitHub the first time.
 3. **Mac mini.** Done 6 Nov: both repos cloned side by side in `~/code`. Left: log the Claude CLI in (`claude`, then
    `/login`) and turn on Remote Control for each repo. The two loose pieces aren't on the Mac mini (`docs/INVENTORY.md`).
 4. **Chats.** When a claude.ai chat asks to attach these repos, allow push access, so the session ends in a PR instead
