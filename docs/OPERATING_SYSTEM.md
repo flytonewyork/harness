@@ -132,6 +132,9 @@ The skills in `.claude/skills/` turn a short ask into the whole protocol, on any
 | `@Claude in harness, brief me` | brief | Where things stand, in at most 12 lines |
 | `@Claude in harness, review PR 12` | review | The gate, the invariants, the risks and a merge call |
 
+`#thomas-claude` defaults to harness, so the repo name is needed only for loopbench. If `@Claude` answers in chat
+instead of starting a session, press "Switch to code repo" under its reply.
+
 When a session gets something wrong twice, reply "add that to CLAUDE.md" in the thread, so the correction lands in the
 repo for every later session.
 
@@ -146,7 +149,7 @@ one person on a Max plan.
 | `#thomas-claude` (private) | `#yourname-claude` | One thread per task: `@Claude` plus the repo name starts a Claude Code session that ends in a PR |
 | `#signals` (private) | Feedback channels | Every partner contact within 24 hours; `@Claude` files it as a `signal` issue |
 | `#ship` (public) | A workflow channel wired to GitHub | The GitHub app posts PRs, reviews, releases and CI |
-| `#daily` (public) | `#anthropic-times`, the daily briefing | A weekday morning brief from a scheduled task, once Thomas switches it on |
+| `#daily` (public) | `#anthropic-times`, the daily briefing | A weekday morning brief at 06:43 from the `tmrw morning brief` scheduled task |
 
 - **Each channel's first message is its brief:** Anthropic treats it as the channel's CLAUDE.md. Pin it.
 - **One thread is one session.** Reply in the thread to steer it; start a new thread for a new task.
@@ -197,22 +200,21 @@ Every piece of the work, where it lives and its status: `docs/INVENTORY.md`. Re-
 Done: `#ship` and a `signal` label in both repos (5 Nov). On 6 Nov: the setup PRs merged; `REPOS_TOKEN` added to both
 repos; `#thomas-claude`, `#signals` and `#daily` created with their briefs; the Claude app connected, set to Code +
 Chat and invited to `#thomas-claude` and `#signals`; the GitHub app subscribed to both repos in `#ship`; both repos
-cloned side by side in `~/code` on the Mac mini; and a cloud environment, `tmrw`, on claude.ai/code with both repos
-(without one, `@Claude` in Slack replies "I couldn't start a session"). The steps left need you, because Claude sessions can't create
-credentials or sign in for you.
+cloned side by side in `~/code` on the Mac mini; a cloud environment, `tmrw`, on claude.ai/code with both repos
+(without one, `@Claude` in Slack replies "I couldn't start a session"), after which a Slack task ran end to end; and
+the `tmrw morning brief` scheduled task (weekdays at 06:43 Hong Kong time, the `brief` skill, posted to `#daily`).
+The steps left need you, because Claude sessions can't enter credentials or sign in for you.
 
 1. **A new CI token (5 minutes).** The token in `REPOS_TOKEN` can't see the private repos, so CI's checkout of the
    sibling repo gets "Not Found" and every run on main is red. At github.com/settings/personal-access-tokens/new:
    Repository access, Only select repositories, harness and loopbench; Permissions, Contents, Read-only. Paste the new
    token into the `REPOS_TOKEN` secret in both repos (Settings → Secrets and variables → Actions), delete the old
-   token, then re-run CI.
+   token, then re-run CI. Paste tokens only into GitHub, never into a chat.
 2. **Mac mini (2 minutes).** Log the Claude CLI in (`claude`, then `/login`) and turn on Remote Control for each repo.
    The two loose pieces aren't on the Mac mini (`docs/INVENTORY.md`).
-3. **The morning brief.** Say "yes" to it in a chat, and Claude creates the scheduled task: weekdays at 06:43 Hong Kong
-   time, the `brief` skill, posted to `#daily`.
-4. **`@claude` on GitHub (optional, 5 minutes).** In Claude Code on the Mac, with the GitHub CLI signed in, run
+3. **`@claude` on GitHub (optional, 5 minutes).** In Claude Code on the Mac, with the GitHub CLI signed in, run
    `/install-github-app` in each repo and choose the long-lived token from your Claude subscription. It installs the
    app, saves the secret and opens the workflow PR. Then `@claude` in a PR comment works, for example
    `@claude add this lesson to CLAUDE.md`.
-5. **Chats.** When a claude.ai chat asks to attach these repos, allow push access, so the session ends in a PR instead
+4. **Chats.** When a claude.ai chat asks to attach these repos, allow push access, so the session ends in a PR instead
    of a zip.
