@@ -14,6 +14,7 @@ why. Open questions sit at the top until they're decided.
 
 | Date | Decision | Why | Source |
 |---|---|---|---|
+| 6 Nov 2026 | Never credit one model with another's answers: floor answers carry the floor's name, and a scored model run counts its misses as missed | A replayed run where every batch failed still reported recall 0.625 under the model's name. The rule comes from heidi_eval's comparison rules | `CLAUDE.md`, `backend/extract/` |
 | 6 Nov 2026 | Every partner contact becomes a `signal` issue within 24 hours. `[tmrw]` at the start of a calendar title lets the brief prep the call and chase the notes. No recording or capture tools before 1 Feb | The 26 Nov go/no-go needs 5–6 logged conversations, and the customer history was scattered across chats, WhatsApp and memory | `docs/OPERATING_SYSTEM.md`, Capture |
 | 6 Nov 2026 | Cloud sessions are the default place work runs (`tmrw` environment, both repos); the Mac mini only for `claude -p` model runs and rebuilds from the raw data | Thomas asked for it. Cloud sessions start from any device, set themselves up and end in a PR; the Mac mini holds the logged-in CLI and the raw data kept outside git | `docs/OPERATING_SYSTEM.md`, Where work runs |
 | 6 Nov 2026 | The protocol travels with the repos: skills (`ship`, `signal`, `park`, `brief`, `review`) and a cloud setup script in each repo | A session started from Slack, the web or the phone begins with one repo and no context, so the steps can't live in a chat | `CLAUDE.md`, `.claude/skills/` |
