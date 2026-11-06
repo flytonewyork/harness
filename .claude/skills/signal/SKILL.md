@@ -19,4 +19,8 @@ description: Use when Thomas shares what a partner (EC Healthcare, Amber Health,
 3. If it changes the order of work, open a PR that edits `NOW.md`. Also edit `docs/DECISIONS.md` if a decision was made. Link the issue.
 4. Reply with the issue link and a one-line summary.
 
+Filing from older notes (a backfill)? Put "(backfilled)" at the end of the title, and start the body with one line
+saying where the notes came from. Mark anything unknown **[check]** instead of guessing. When Thomas corrects one,
+edit the issue and remove the marks.
+
 Partner names and commercial details are fine. Patient data never: if any appears, stop and say so.

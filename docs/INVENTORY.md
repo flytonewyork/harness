@@ -45,7 +45,7 @@ One machine owns a branch at a time; push before switching.
 | `#thomas-claude` (private) | One `@Claude` thread per task | Claude app connected (Code + Chat). Works end to end: a task on 6 Nov ran as a Claude Code session on harness and replied in its thread. The channel's default repo is harness. |
 | `#signals` (private) | Every partner contact within 24 hours | Claude app in the channel |
 | `#ship` | PRs, reviews and CI from both repos | GitHub app subscribed to both repos |
-| `#daily` | The weekday brief | The `tmrw morning brief` scheduled task posts here on weekdays at 06:43 (first run 9 Nov) |
+| `#daily` | The weekday brief | The `tmrw morning brief` scheduled task posts here on weekdays at 06:43 (first run 9 Nov), with prep for the day's `[tmrw]` calls. It reads the calendar and Gmail as well as GitHub and Slack |
 
 ## Data outside git
 

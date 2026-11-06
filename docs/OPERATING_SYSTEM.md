@@ -112,7 +112,7 @@ once, most of them started away from the desk, each ending in a PR you review.
 
 | When | Where | What you do |
 |---|---|---|
-| Before 8, 10 minutes | Phone: `#daily` | Read the brief and answer every ❓. Start the day's tasks from the top of `NOW.md`, one `@Claude` thread each in `#thomas-claude`. |
+| Before 8, 10 minutes | Phone: `#daily` | Read the brief, including the prep for today's `[tmrw]` calls, and answer every ❓. Start the day's tasks from the top of `NOW.md`, one `@Claude` thread each in `#thomas-claude`. |
 | Morning, the deep block | Desk: a cloud session from the desktop app or claude.ai/code | The item that needs your judgment: a spec, a partner document, a hard engine change. Plan mode first, then let it run. |
 | Between other work | Phone: Slack | Steer a session by replying in its thread. A new idea gets `park this`. A partner contact goes in `#signals` the same day. |
 | Afternoon, 30 minutes | GitHub | Review what came back: the scoreboard and the pre-review on each PR. Merge, or reply with the fix. |
@@ -189,9 +189,28 @@ when the ladder is built.
 ## Cadence
 
 - **Every session:** the protocol in `CLAUDE.md`.
-- **Every partner contact:** a signal note within 24 hours.
-- **Fridays, 30 minutes:** read the week's merged PRs and scoreboards, re-order `NOW.md`, prune `CLAUDE.md`.
+- **Every partner contact:** a signal note within 24 hours (Capture, below).
+- **Fridays, 30 minutes:** read the week's merged PRs, signals and scoreboards, re-order `NOW.md`, prune `CLAUDE.md`.
 - **1 Feb 2027:** the direction review. Parked items are debated then, not before.
+
+## Capture: every partner contact, online and offline
+
+The `signal` issues are the customer record: what each partner said, what it changes, and the next step. The 26 Nov
+go/no-go counts them.
+
+1. **Tag the meeting.** Start a partner meeting's calendar title with `[tmrw]`. The brief reads only tagged events,
+   because the calendars also hold personal ones.
+2. **The brief preps and chases.** Each weekday at 06:43 it gives a short prep block for every `[tmrw]` call that day
+   (the last signal from that partner and the open questions from its prep doc). It also nudges you about any call from
+   the day before that has no notes, and flags partner email or tmrw company admin that needs action.
+3. **Within 24 hours, dictate 3–5 lines** into `#signals` and add "@Claude file this signal". This works for a
+   meeting, a call, a clinic visit or a WhatsApp thread. It becomes a `signal` issue, and a `NOW.md` PR if the order
+   changes.
+4. **What isn't captured automatically:** WhatsApp, in-person conversation and call audio. Recording a call needs the
+   other side's consent, and new capture tools are parked until 1 Feb. Dictating right after the call is the method.
+
+Backfilled 6 Nov from earlier notes, each marked for Thomas to check: EC Healthcare (#5), Amber Health (#6), Apricot
+(#7) and Adrian's longevity clinic (#8).
 
 ## Inventory
 

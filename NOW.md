@@ -12,15 +12,16 @@ writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health p
    profile update below.
 2. **EC Healthcare Phase 0 look-back.** The request is ready (`docs/EC_DATA_REQUEST.md`). Next: agree scope, fee and
    the data route.
-3. **Lock in the operating system.** Done when a task started in Slack comes back as a scored PR. Done 5–6 Nov: Slack
-   (`#thomas-claude`, `#signals`, `#ship`, `#daily`) with the Claude and GitHub apps connected; a `signal` label in
-   both repos; both repos side by side on the Mac mini; every piece mapped in `docs/INVENTORY.md`; the Phase 1 plan in
-   git; skills and a cloud setup script, so a session started from Slack, the web or the phone follows the same
-   protocol (harness #2, loopbench #3); a cloud environment on claude.ai/code, so `@Claude` in Slack now runs Claude
-   Code sessions (checked 6 Nov); the weekday morning brief, scheduled; and cloud sessions as the default, with the
-   Mac mini kept for the jobs only it can do. Left for Thomas, because Claude sessions can't change a token's access:
-   give the token in `REPOS_TOKEN` access to both repos, so the scoreboard runs and main goes green. See
-   `docs/OPERATING_SYSTEM.md`, Install.
+3. **Lock in the operating system.** Done when a task started in Slack comes back as a scored PR. Done 5–6 Nov:
+   - Slack (`#thomas-claude`, `#signals`, `#ship`, `#daily`), with the Claude and GitHub apps connected.
+   - A `signal` label in both repos, and every piece mapped in `docs/INVENTORY.md`.
+   - The Phase 1 plan in git.
+   - Skills and a cloud setup script, so a session from Slack, the web or the phone follows the same protocol
+     (harness #2, loopbench #3).
+   - Cloud sessions as the default; the Mac mini only for the jobs only it can do.
+   - CI green on main, with the scoreboard gate running.
+   - The weekday morning brief, which preps partner calls and chases notes.
+   - Partner contacts captured as `signal` issues: #5–#8 backfilled, for Thomas to check.
 
 ## Next, in order
 
