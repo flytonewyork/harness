@@ -20,7 +20,11 @@ burden, so that is the question for every next contact.
    - the session kit: a bilingual plan card with QR code, the promise diary, and a WhatsApp Business setup
    - the care-line simulator and the sign-off trainer in LoopBench
    - ten doctor conversations about giving patients their WhatsApp
-   Success: Thomas books GP or call-out sessions to test it.
+   Success: Thomas books GP or call-out sessions to test it. The winning pilot runs in waves (spec 003):
+   0. his sessions, done manually
+   1. the FPC with Adrian, the full stack
+   2. EC's new practice, under EC's brand
+   3. partner clinics: Virtus, Central Health, Amber
 2. **EC Healthcare Phase 0 look-back.** The request is ready (`docs/EC_DATA_REQUEST.md`). Julie is arranging a call
    with EC's CTO (#5). Use it to find the burdens in EC's own system, then agree the Phase 0 scope, fee and data route.
 3. **Two demos by 13 Nov (spec 002; may be re-cut around the care line after 26 Nov).** First, each partner names its top burden in its own words (a `signal`

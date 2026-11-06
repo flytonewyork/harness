@@ -29,6 +29,33 @@ the same line. It counts as a success even if it never becomes a venture.
 - no poaching: patients rebook with the clinic
 - Medical Council and PDPO checks done before any AI touches real messages
 
+## The winning pilot (6 Nov draft)
+
+One doctor, Thomas, is the constant across four settings. Each setting tests a different part of the idea.
+Partners join in waves, each once the previous wave's gate is met. The thresholds are proposals for Thomas to set.
+
+| Wave | Setting | What it tests | Gate to the next wave |
+|---|---|---|---|
+| 0 · now to mid-Dec | His GP sessions (Virtus or others), doctor mode, **manual**. In parallel, the LoopBench care-line simulator | Does it make sessions something he looks forward to? Do patients use the line? | Weekly "looking forward" score ≥ 7 for 3 weeks; patients on the line and loops closed rising; zero safety incidents; admin minutes falling |
+| 1 · from opening | The FPC with Adrian: **the full stack** (care line as front door, membership, AI-native record, senior medical director) | Will patients pay for continuity? Doctor minutes per patient per month; patient-facing AI, once the model and consent questions are settled | Paying members; under about 15 doctor-minutes per patient per month |
+| 2 · on EC's timeline | EC's new practice: **clinic mode under EC's brand** (tmrw consulting; EC owns the patient data, tmrw keeps the software) | Write-back to an in-house system, patients kept within the group, value to an enterprise | Recalls ending in attendance, compared with EC's own baseline; write-back working |
+| 3 · once traction shows | Partner clinics already approached: Virtus, Central Health, Amber Health (Apricot VITA as channel and data, API pending) | Whether it spreads: one doctor, a six-week pilot, their own numbers | Doctors keep using it after the pilot; one clinic converts to paid |
+
+**What stays Thomas's (tmrw's) across every wave:**
+- the software and the loop engine
+- the protocol and answer library
+- the doctor network
+- his own line's patients, with their consent
+
+Patient records stay with the clinic that saw the patient.
+
+**Conflicts to manage up front:**
+- tell both EC and Adrian about the other role, since the two clinics may overlap in services
+- agree who owns which patient relationship in each setting
+- check exclusivity and IP terms in the EC and FPC agreements
+- time: two clinic openings, sessions and building can't all start at once, so sequence them by the partners'
+  timelines
+
 ## Why this, after the Apricot call
 
 - **The follow-up add-on is weak.** A follow-up list sold to GP clinics on a mature system like VITA is a
