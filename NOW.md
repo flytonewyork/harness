@@ -15,8 +15,8 @@ writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health p
 3. **Lock in the operating system.** Done when a task started in Slack comes back as a scored PR. Done 5–6 Nov: Slack
    (`#thomas-claude`, `#signals`, `#ship`, `#daily`) with the Claude and GitHub apps connected; a `signal` label in
    both repos; both repos side by side on the Mac mini; every piece mapped in `docs/INVENTORY.md`; the Phase 1 plan in
-   git; the setup PRs merged; and skills plus a cloud setup script, so a session started from Slack, the web or the
-   phone follows the same protocol (harness #2, loopbench #3). Left for Thomas, because Claude sessions can't create
+   git; the setup PRs merged; a cloud environment on claude.ai/code for Slack sessions; and skills plus a cloud setup
+   script, so a session started from Slack, the web or the phone follows the same protocol (harness #2, loopbench #3). Left for Thomas, because Claude sessions can't create
    credentials or sign in for him: a new CI token, so the scoreboard runs and main goes green; log the Mac mini's
    Claude CLI in; say yes to the morning brief. See `docs/OPERATING_SYSTEM.md`, Install.
 

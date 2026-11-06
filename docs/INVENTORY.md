@@ -34,7 +34,7 @@ Before either is committed: no keys or `.env` files, and synthetic data only.
 | Mac mini (always on) | Claude Code by Remote Control from the phone; `claude -p` runs | Both repos side by side in `~/code` (cloned 6 Nov). Data and the staged extraction run in `~/loopbench-data`. The Claude CLI is logged out. System Python is 3.9: enough for the extraction runner, but the tests need 3.11 (loopbench) and 3.12 (harness). |
 | MacBook Pro | The desk | Not reachable from the Mac mini (no SSH). Most likely holds the two pieces above. |
 | iPhone | Remote Control and chats | — |
-| Cloud sessions | claude.ai chats, `@Claude` in Slack and scheduled tasks | Set up by each repo's `scripts/cloud_setup.sh`. Ephemeral: work survives only as a PR |
+| Cloud sessions | claude.ai chats, `@Claude` in Slack and scheduled tasks | The `tmrw` environment on claude.ai/code (made 6 Nov): both repos, limited network with package managers on. Each repo's `scripts/cloud_setup.sh` installs its dependencies. Ephemeral: work survives only as a PR |
 
 One machine owns a branch at a time; push before switching.
 

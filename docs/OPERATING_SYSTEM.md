@@ -197,7 +197,8 @@ Every piece of the work, where it lives and its status: `docs/INVENTORY.md`. Re-
 Done: `#ship` and a `signal` label in both repos (5 Nov). On 6 Nov: the setup PRs merged; `REPOS_TOKEN` added to both
 repos; `#thomas-claude`, `#signals` and `#daily` created with their briefs; the Claude app connected, set to Code +
 Chat and invited to `#thomas-claude` and `#signals`; the GitHub app subscribed to both repos in `#ship`; both repos
-cloned side by side in `~/code` on the Mac mini. The steps left need you, because Claude sessions can't create
+cloned side by side in `~/code` on the Mac mini; and a cloud environment, `tmrw`, on claude.ai/code with both repos
+(without one, `@Claude` in Slack replies "I couldn't start a session"). The steps left need you, because Claude sessions can't create
 credentials or sign in for you.
 
 1. **A new CI token (5 minutes).** The token in `REPOS_TOKEN` can't see the private repos, so CI's checkout of the
