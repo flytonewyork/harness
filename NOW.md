@@ -15,9 +15,10 @@ writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health p
 3. **Lock in the operating system.** Done: `#ship` in Slack and a `signal` label in both repos (5 Nov); both repos
    cloned side by side on the Mac mini in `~/code`, every piece mapped in `docs/INVENTORY.md`, and the Phase 1 plan
    moved into git as `docs/PHASE1_CLOSEOUT.md` (6 Nov); loopbench #1, harness #1 and loopbench #2 merged on Thomas's
-   go-ahead (6 Nov). Left for Thomas, because Claude sessions can't set repository secrets or sign in to apps: add the
-   `REPOS_TOKEN` secret; connect the GitHub app in `#ship`; log the Mac mini's Claude CLI in (`claude`, then
-   `/login`). See `docs/OPERATING_SYSTEM.md`, Install.
+   go-ahead (6 Nov); `REPOS_TOKEN` added to both repos, and Slack laid out on Anthropic's pattern (6 Nov). Left for
+   Thomas, because Claude sessions can't change credentials or sign in to apps: give the token access to both repos;
+   add the Claude and GitHub apps to Slack; log the Mac mini's Claude CLI in (`claude`, then `/login`). See
+   `docs/OPERATING_SYSTEM.md`, Install.
 
 ## Next, in order
 
