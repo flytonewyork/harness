@@ -363,6 +363,35 @@ already decisive in a thin-margin business.
 in 2024, Babylon collapsed in 2023). The model that lasted kept a light physical footprint (One Medical). So: lean,
 revenue first, continuity first.
 
+## The marginal value, per full-time doctor (6 Nov; assumptions to test)
+
+| | Conventional clinic | AI-native | Change |
+|---|---|---|---|
+| In-person visits (22 days × 35 × HK$400) | HK$308k | HK$308k | — |
+| WhatsApp tasks (20 a day × HK$200) | — | HK$88k | new |
+| Memberships (200 × HK$300) | — | HK$60k | new |
+| **Revenue** | **HK$308k** | **HK$456k** | **+48%** |
+| The doctor's share | 50% → HK$154k | 60% → HK$274k | **+HK$120k (+78%)** |
+| Overhead (front desk, lease) | | HK$30–50k lower (assumption) | lower |
+
+**For a chronic patient, per year (assumption):**
+- four follow-ups move from HK$400 visits to HK$200 WhatsApp touches: saves HK$800 and 4–8 hours
+- monthly refills at a fair price (HK$120 → about HK$90): saves about HK$360
+- **about HK$1,000+ a year saved**, plus fewer dropped loops (about 8–13x fewer in the simulator)
+
+**Caveats:**
+- Some WhatsApp touches replace visits rather than add to them. The gain is net new only where freed slots are
+  refilled (clinics over capacity, like Virtus) or where the touch replaces care that never happened.
+- An AI-added clinic (VITA's paid WhatsApp, scribe next steps) can copy part of this. Its leases, front desk and
+  50% split are what it can't copy quickly.
+
+**What the pilot measures:**
+- touches per patient per month
+- the price patients accept
+- doctor-minutes per touch
+- how many touches replace a visit and how many are new
+- overhead per doctor
+
 ## The record behind it: AI-native, structured where it must be
 
 1. **Raw log:** everything as it happened, append-only. This is the legal record.
