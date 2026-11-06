@@ -316,6 +316,29 @@ HK$1,200 an hour (half the fees).
 **Guardrail:** prescribe for a clinical reason, never for margin. Every refill carries its indication and its
 monitoring status, with verbatim evidence, the same as every other item.
 
+## What makes it AI-native, not AI-added
+
+**The test:** take the AI out. An AI-added clinic still works, just slower. tmrw's model falls apart: the
+doctor-to-patient ratio, no front desk, near-free contact between visits, and memberships all depend on agents
+doing the work.
+
+1. **Agents do the work, and the doctor supervises.** The labour model is inverted: the agent finds, prepares,
+   does and watches. The doctor signs.
+2. **The record is built for AI.** A raw log, signed facts, and views derived from them with verbatim sources.
+   Structure is created when it's needed, not typed into forms.
+3. **Conversation is the interface.** WhatsApp, not screens. Patients send photos and messages, not forms.
+4. **A contact between visits costs almost nothing.** That makes continuing care that never happened before
+   economic: the new market.
+5. **Trust is engineered and measured.** Evals before patients (LoopBench), verbatim evidence on every claim, red
+   flags handled by fixed rules. Autonomy is earned from measured error rates, for the agent and for the doctor.
+6. **The organisation is designed around it.** A doctor, a nurse and agents. No front desk, and more patients per
+   doctor.
+7. **It improves with use.** Every approval, edit and rejection is signal: drafts in the doctor's voice, and
+   precision tracked over time.
+
+**What stays human, by design:** examining the patient, clinical judgement, consent, and accountability. The
+doctor signs.
+
 ## The record behind it: AI-native, structured where it must be
 
 1. **Raw log:** everything as it happened, append-only. This is the legal record.
