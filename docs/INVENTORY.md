@@ -8,11 +8,11 @@ re-check it in the Friday review.
 
 | Repo | What it is | State on 6 Nov |
 |---|---|---|
-| [harness](https://github.com/flytonewyork/harness) (private) | The product. `NOW.md` is the one queue; `.claude/skills/` holds the protocol as steps. | main `1a88ed8`. Open: #2, Slack, skills and cloud sessions |
-| [loopbench](https://github.com/flytonewyork/loopbench) (private) | The test bed: a simulated Hong Kong clinic year with a hidden answer key | main `d7c06c0`. Open: #3, cloud sessions |
+| [harness](https://github.com/flytonewyork/harness) (private) | The product. `NOW.md` is the one queue; `.claude/skills/` holds the protocol as steps. | main `69adb94` (#2, Slack, skills and cloud sessions, merged 6 Nov) |
+| [loopbench](https://github.com/flytonewyork/loopbench) (private) | The test bed: a simulated Hong Kong clinic year with a hidden answer key | main `f7d9075` (#3, cloud sessions, merged 6 Nov) |
 | [heidi_eval](https://github.com/flytonewyork/heidi_eval) (private) | Parked. The Heidi work sample, not tmrw IP | main `da5bdb0`, one commit (26 Oct) |
 
-The setup PRs (loopbench #1, harness #1, loopbench #2) merged on 6 Nov. CI on main is red in both repos until the new
+The setup PRs (harness #1 and #2, loopbench #1 to #3) merged on 6 Nov. CI on main is red in both repos until the new
 `REPOS_TOKEN` is in (`OPERATING_SYSTEM.md`, Install): the tests pass, but the checkout of the sibling repo fails.
 
 ## Not in git yet
@@ -42,10 +42,10 @@ One machine owns a branch at a time; push before switching.
 
 | Channel | Use | State on 6 Nov |
 |---|---|---|
-| `#thomas-claude` (private) | One `@Claude` thread per task | Claude app connected (Code + Chat) and in the channel; first end-to-end task pending |
+| `#thomas-claude` (private) | One `@Claude` thread per task | Claude app connected (Code + Chat). Works end to end: a task on 6 Nov ran as a Claude Code session on harness and replied in its thread. The channel's default repo is harness. |
 | `#signals` (private) | Every partner contact within 24 hours | Claude app in the channel |
 | `#ship` | PRs, reviews and CI from both repos | GitHub app subscribed to both repos |
-| `#daily` | The weekday brief | Waiting for Thomas's yes to the scheduled task |
+| `#daily` | The weekday brief | The `tmrw morning brief` scheduled task posts here on weekdays at 06:43 (first run 9 Nov) |
 
 ## Data outside git
 
