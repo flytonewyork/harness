@@ -8,11 +8,12 @@ re-check it in the Friday review.
 
 | Repo | What it is | State on 6 Nov |
 |---|---|---|
-| [harness](https://github.com/flytonewyork/harness) (private) | The product. `NOW.md` is the one queue. | main `6691b6a`. Open: #1, Operating system v2 (this file) |
-| [loopbench](https://github.com/flytonewyork/loopbench) (private) | The test bed: a simulated Hong Kong clinic year with a hidden answer key | main `74f6939`. Open: #1, scoreboard gate and CI; #2, Studio demo pass for the Apricot call |
+| [harness](https://github.com/flytonewyork/harness) (private) | The product. `NOW.md` is the one queue; `.claude/skills/` holds the protocol as steps. | main `1a88ed8`. Open: #2, Slack, skills and cloud sessions |
+| [loopbench](https://github.com/flytonewyork/loopbench) (private) | The test bed: a simulated Hong Kong clinic year with a hidden answer key | main `d7c06c0`. Open: #3, cloud sessions |
 | [heidi_eval](https://github.com/flytonewyork/heidi_eval) (private) | Parked. The Heidi work sample, not tmrw IP | main `da5bdb0`, one commit (26 Oct) |
 
-Merge order: loopbench #1, then harness #1 (its score job needs the scoreboard on loopbench main), then loopbench #2.
+The setup PRs (loopbench #1, harness #1, loopbench #2) merged on 6 Nov. CI on main is red in both repos until the new
+`REPOS_TOKEN` is in (`OPERATING_SYSTEM.md`, Install): the tests pass, but the checkout of the sibling repo fails.
 
 ## Not in git yet
 
@@ -33,9 +34,18 @@ Before either is committed: no keys or `.env` files, and synthetic data only.
 | Mac mini (always on) | Claude Code by Remote Control from the phone; `claude -p` runs | Both repos side by side in `~/code` (cloned 6 Nov). Data and the staged extraction run in `~/loopbench-data`. The Claude CLI is logged out. System Python is 3.9: enough for the extraction runner, but the tests need 3.11 (loopbench) and 3.12 (harness). |
 | MacBook Pro | The desk | Not reachable from the Mac mini (no SSH). Most likely holds the two pieces above. |
 | iPhone | Remote Control and chats | — |
-| Cloud sessions | claude.ai chats with both repos attached | Ephemeral: work survives only as a PR |
+| Cloud sessions | claude.ai chats, `@Claude` in Slack and scheduled tasks | Set up by each repo's `scripts/cloud_setup.sh`. Ephemeral: work survives only as a PR |
 
 One machine owns a branch at a time; push before switching.
+
+## Slack
+
+| Channel | Use | State on 6 Nov |
+|---|---|---|
+| `#thomas-claude` (private) | One `@Claude` thread per task | Claude app connected (Code + Chat) and in the channel; first end-to-end task pending |
+| `#signals` (private) | Every partner contact within 24 hours | Claude app in the channel |
+| `#ship` | PRs, reviews and CI from both repos | GitHub app subscribed to both repos |
+| `#daily` | The weekday brief | Waiting for Thomas's yes to the scheduled task |
 
 ## Data outside git
 
@@ -54,7 +64,8 @@ Claude Docs, artifacts and Claude Project docs. Each one is a live view, a partn
 | Title | Kind | Source of truth |
 |---|---|---|
 | [Follow-ups: a simulated clinic year](https://claude.ai/artifact/LbR3fsj99mNgnVAPGCSRKR) | Artifact, 5 Nov | `frontend/`, built with `VITE_STATIC=1`. Republish after the model run. |
-| [LoopBench Studio](https://claude.ai/artifact/AtVcwSKyQWNjyayG764Y5z) | Artifact, 5 Nov | `loopbench/scripts/build_studio.py`. Republish after loopbench #2 merges. |
+| [LoopBench Studio](https://claude.ai/artifact/P5fyvrfUo6xsoNuiT9hSDS) | Artifact, 6 Nov | `loopbench/scripts/build_studio.py`, built from `d7c06c0` (loopbench #2) |
+| [Work overview and system map](https://claude.ai/artifact/MvEhKpPrcoi4DY7tWWwPzD) | Artifact, 6 Nov | A snapshot of this file and `OPERATING_SYSTEM.md` on 6 Nov |
 | [Data request: Phase 0 follow-up look-back](https://claude.ai/artifact/KKX86CZh4miqqAs4TC37tn) | Doc, 5 Nov | `docs/EC_DATA_REQUEST.md` |
 | [EC Healthcare demo: talk track and Q&A](https://claude.ai/artifact/81g9RX2ddNQ9mSv6fXpGmp) | Doc, 5 Nov | Partner document |
 | [Amber Health visit: workflow capture sheet](https://claude.ai/artifact/TDPqEUMAnpxwshUjn94hYn) | Doc, 3 Nov | Partner document |
@@ -70,6 +81,7 @@ Claude Docs, artifacts and Claude Project docs. Each one is a live view, a partn
 | [Clinical Agent Harness: MVP Product Spec and Eval Rubric](https://claude.ai/artifact/Yabe7gcZxJfo1LXgE5ko3o) | Doc, 4 Nov | The same. Bring back what's still needed as `docs/specs/`. |
 | [AI-Native Builder: Operating System](https://claude.ai/artifact/9dkkz1P8ftUTnKyQgY9fy8) | Doc, 28 Oct | `docs/OPERATING_SYSTEM.md` |
 | [The Case Loop](https://claude.ai/artifact/LDdYcKFkr3RqMwFEB33UvG) and [Clinical AI Evaluation Map](https://claude.ai/artifact/Cm6tBPMMyKgfDJQW4YAg5h) | Artifacts, 4 Nov | LoopBench |
+| [LoopBench Studio, 5 Nov build](https://claude.ai/artifact/AtVcwSKyQWNjyayG764Y5z) | Artifact, 5 Nov | The 6 Nov build above |
 | Phase 1 close-out (two copies) and Studio spec v1.1 | Project docs | `docs/PHASE1_CLOSEOUT.md` and `loopbench/docs/STUDIO_SPEC.md` |
 
 **Waiting on clinic-agent-evals**

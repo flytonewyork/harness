@@ -100,7 +100,40 @@ to react to.
 | A schedule | a scheduled task | a PR or a Slack post |
 
 The code expects the two repos side by side (`../harness`, `../loopbench`). One machine owns a branch at a time; push
-before switching.
+before switching. A cloud session sets itself up: `scripts/cloud_setup.sh` installs the repo and clones its sibling
+before the agent starts (loopbench has the same script).
+
+## Your day
+
+Your job is to decide what gets built and to judge what comes back. Claude does the building: several sessions at
+once, most of them started away from the desk, each ending in a PR you review.
+
+| When | Where | What you do |
+|---|---|---|
+| Before 8, 10 minutes | Phone: `#daily` | Read the brief and answer every ❓. Start the day's tasks from the top of `NOW.md`, one `@Claude` thread each in `#thomas-claude`. |
+| Morning, the deep block | Desk: Claude Code on the Mac | The item that needs your judgment: a spec, a partner document, a hard engine change. Plan mode first, then let it run. |
+| Between other work | Phone: Slack | Steer a session by replying in its thread. A new idea gets `park this`. A partner contact goes in `#signals` the same day. |
+| Afternoon, 30 minutes | GitHub | Review what came back: the scoreboard and the pre-review on each PR. Merge, or reply with the fix. |
+| Evening, 5 minutes | Phone: Remote Control on the Mac mini | Start anything long, such as a model run or a sweep, so it runs overnight. |
+| Friday, 30 minutes | `NOW.md` | The weekly review (Cadence, below). |
+
+Your review time is the bottleneck, so spend it on the queue and on PRs, not on typing code.
+
+## What to say
+
+The skills in `.claude/skills/` turn a short ask into the whole protocol, on any surface. In Slack, name the repo so
+`@Claude` starts a Claude Code session rather than a chat.
+
+| Say | Skill | You get back |
+|---|---|---|
+| `@Claude in harness: <task>` | ship | A scored PR that names its `NOW.md` item |
+| `@Claude in harness, file this signal: <notes>` (in `#signals`) | signal | A `signal` issue, and a `NOW.md` PR if the order changes |
+| `@Claude in harness, park this: <idea>` | park | One line under Parked, in a small PR |
+| `@Claude in harness, brief me` | brief | Where things stand, in at most 12 lines |
+| `@Claude in harness, review PR 12` | review | The gate, the invariants, the risks and a merge call |
+
+When a session gets something wrong twice, reply "add that to CLAUDE.md" in the thread, so the correction lands in the
+repo for every later session.
 
 ## Slack
 
@@ -161,21 +194,24 @@ Every piece of the work, where it lives and its status: `docs/INVENTORY.md`. Re-
 
 ## Install (one time)
 
-Done: `#ship` and a `signal` label in both repos (5 Nov); the setup PRs merged, the `REPOS_TOKEN` secret added to both
-repos, and `#thomas-claude`, `#signals` and `#daily` created with their briefs (6 Nov). Steps 1 and 2 need you:
-Claude sessions can't change credentials, and Slack apps need your own sign-in.
+Done: `#ship` and a `signal` label in both repos (5 Nov). On 6 Nov: the setup PRs merged; `REPOS_TOKEN` added to both
+repos; `#thomas-claude`, `#signals` and `#daily` created with their briefs; the Claude app connected, set to Code +
+Chat and invited to `#thomas-claude` and `#signals`; the GitHub app subscribed to both repos in `#ship`; both repos
+cloned side by side in `~/code` on the Mac mini. The steps left need you, because Claude sessions can't create
+credentials or sign in for you.
 
-1. **CI token access.** The token in `REPOS_TOKEN` can't see either private repo yet (CI's cross-repo checkout gets
-   "Not Found"). At github.com/settings/personal-access-tokens, edit the token: Repository access, Only select
-   repositories, harness and loopbench; Permissions, Contents, Read-only. The token value stays the same, so the
-   secrets don't change. Then re-run CI.
-2. **Slack apps.**
-   - Add the Claude app ([Slack Marketplace](https://slack.com/marketplace/A08SF47R6P4)). In its App Home, click
-     Connect, and set Routing Mode to Code + Chat. Then type `/invite @Claude` in `#thomas-claude` and `#signals`.
-   - Add the GitHub app (slack.github.com). Then in `#ship` run
-     `/github subscribe flytonewyork/harness pulls,reviews,commits,releases,workflows` and the same for
-     flytonewyork/loopbench. It asks you to sign in to GitHub the first time.
-3. **Mac mini.** Done 6 Nov: both repos cloned side by side in `~/code`. Left: log the Claude CLI in (`claude`, then
-   `/login`) and turn on Remote Control for each repo. The two loose pieces aren't on the Mac mini (`docs/INVENTORY.md`).
-4. **Chats.** When a claude.ai chat asks to attach these repos, allow push access, so the session ends in a PR instead
+1. **A new CI token (5 minutes).** The token in `REPOS_TOKEN` can't see the private repos, so CI's checkout of the
+   sibling repo gets "Not Found" and every run on main is red. At github.com/settings/personal-access-tokens/new:
+   Repository access, Only select repositories, harness and loopbench; Permissions, Contents, Read-only. Paste the new
+   token into the `REPOS_TOKEN` secret in both repos (Settings → Secrets and variables → Actions), delete the old
+   token, then re-run CI.
+2. **Mac mini (2 minutes).** Log the Claude CLI in (`claude`, then `/login`) and turn on Remote Control for each repo.
+   The two loose pieces aren't on the Mac mini (`docs/INVENTORY.md`).
+3. **The morning brief.** Say "yes" to it in a chat, and Claude creates the scheduled task: weekdays at 06:43 Hong Kong
+   time, the `brief` skill, posted to `#daily`.
+4. **`@claude` on GitHub (optional, 5 minutes).** In Claude Code on the Mac, with the GitHub CLI signed in, run
+   `/install-github-app` in each repo and choose the long-lived token from your Claude subscription. It installs the
+   app, saves the secret and opens the workflow PR. Then `@claude` in a PR comment works, for example
+   `@claude add this lesson to CLAUDE.md`.
+5. **Chats.** When a claude.ai chat asks to attach these repos, allow push access, so the session ends in a PR instead
    of a zip.

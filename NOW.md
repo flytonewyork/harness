@@ -12,13 +12,13 @@ writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health p
    profile update below.
 2. **EC Healthcare Phase 0 look-back.** The request is ready (`docs/EC_DATA_REQUEST.md`). Next: agree scope, fee and
    the data route.
-3. **Lock in the operating system.** Done: `#ship` in Slack and a `signal` label in both repos (5 Nov); both repos
-   cloned side by side on the Mac mini in `~/code`, every piece mapped in `docs/INVENTORY.md`, and the Phase 1 plan
-   moved into git as `docs/PHASE1_CLOSEOUT.md` (6 Nov); loopbench #1, harness #1 and loopbench #2 merged on Thomas's
-   go-ahead (6 Nov); `REPOS_TOKEN` added to both repos, and Slack laid out on Anthropic's pattern (6 Nov). Left for
-   Thomas, because Claude sessions can't change credentials or sign in to apps: give the token access to both repos;
-   add the Claude and GitHub apps to Slack; log the Mac mini's Claude CLI in (`claude`, then `/login`). See
-   `docs/OPERATING_SYSTEM.md`, Install.
+3. **Lock in the operating system.** Done when a task started in Slack comes back as a scored PR. Done 5–6 Nov: Slack
+   (`#thomas-claude`, `#signals`, `#ship`, `#daily`) with the Claude and GitHub apps connected; a `signal` label in
+   both repos; both repos side by side on the Mac mini; every piece mapped in `docs/INVENTORY.md`; the Phase 1 plan in
+   git; the setup PRs merged; and skills plus a cloud setup script, so a session started from Slack, the web or the
+   phone follows the same protocol (harness #2, loopbench #3). Left for Thomas, because Claude sessions can't create
+   credentials or sign in for him: a new CI token, so the scoreboard runs and main goes green; log the Mac mini's
+   Claude CLI in; say yes to the morning brief. See `docs/OPERATING_SYSTEM.md`, Install.
 
 ## Next, in order
 
