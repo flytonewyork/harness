@@ -11,7 +11,7 @@ that says why in `docs/DECISIONS.md`.
 - **The test bed** is [LoopBench](https://github.com/flytonewyork/loopbench): a simulated Hong Kong clinic year with a
   hidden answer key. Every change is scored there before it touches real data.
 - **The North Star** is a business signal from real customers, through tmrw consulting: EC Healthcare, Amber Health
-  (on Apricot VITA) and Adrian's longevity clinic.
+  (on Apricot VITA), Virtus Healthcare and Adrian's longevity clinic.
 - **The 1 Feb 2027 marker:** an eval harness someone outside your head uses and trusts, and EC work under way.
 - Everything else is parked in `NOW.md` until that review.
 
@@ -209,8 +209,8 @@ go/no-go counts them.
 4. **What isn't captured automatically:** WhatsApp, in-person conversation and call audio. Recording a call needs the
    other side's consent, and new capture tools are parked until 1 Feb. Dictating right after the call is the method.
 
-Backfilled 6 Nov from earlier notes, each marked for Thomas to check: EC Healthcare (#5), Amber Health (#6), Apricot
-(#7) and Adrian's longevity clinic (#8).
+Filed on 6 Nov: EC Healthcare (#5), Amber Health (#6), Apricot (#7), Adrian's longevity clinic (#8) and Virtus
+Healthcare (#11). The first four were backfilled from earlier notes and confirmed by Thomas the same day.
 
 ## Inventory
 

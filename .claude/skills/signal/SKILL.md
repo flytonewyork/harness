@@ -1,6 +1,6 @@
 ---
 name: signal
-description: Use when Thomas shares what a partner (EC Healthcare, Amber Health, Apricot, Adrian or any clinic) said or did. Files it as a signal issue and proposes any change to the queue.
+description: Use when Thomas shares what a partner (EC Healthcare, Amber Health, Apricot, Virtus Healthcare, Adrian or any clinic) said or did. Files it as a signal issue and proposes any change to the queue.
 ---
 
 # File a partner signal
