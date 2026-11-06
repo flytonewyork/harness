@@ -1,6 +1,6 @@
 ---
 name: signal
-description: Use when Thomas shares what a partner (EC Healthcare, Amber Health, Apricot, Adrian or any clinic) said or did. Files it as a signal issue and proposes any change to the queue.
+description: Use when Thomas shares what a partner (EC Healthcare, Amber Health, Apricot, Virtus Healthcare, Adrian or any clinic) said or did. Files it as a signal issue and proposes any change to the queue.
 ---
 
 # File a partner signal
@@ -18,5 +18,9 @@ description: Use when Thomas shares what a partner (EC Healthcare, Amber Health,
    - body under the four headings of `.github/ISSUE_TEMPLATE/signal.md`.
 3. If it changes the order of work, open a PR that edits `NOW.md`. Also edit `docs/DECISIONS.md` if a decision was made. Link the issue.
 4. Reply with the issue link and a one-line summary.
+
+Filing from older notes (a backfill)? Put "(backfilled)" at the end of the title, and start the body with one line
+saying where the notes came from. Mark anything unknown **[check]** instead of guessing. When Thomas corrects one,
+edit the issue and remove the marks.
 
 Partner names and commercial details are fine. Patient data never: if any appears, stop and say so.
