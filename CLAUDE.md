@@ -21,5 +21,6 @@
 - **Reasoning traces with verbatim quotes** on every item. Never weaken LoopBench's platform checks to make the engine pass; fix the engine.
 - **Rules v1.0 is the frozen floor.** Behaviour changes go behind a new version (`RulesHarness(version="1.1")`) so results stay comparable.
 - **The product never imports LoopBench.** Adapters translate; the engine talks only to the port.
+- **Never credit one model with another's answers.** A replay miss filled by the rules floor carries the floor's name and is cached under it (`fell_back`). LoopBench scores a replayed model run without the floor: a document the model never answered counts as missed.
 - **Model choice is pluggable** (`backend/extract/models.py`): which model may touch EC data is still open. Outputs are cached by prompt version + model + document hash so runs are reproducible.
 - Synthetic data only in this repo and its tests. No real patient data, ever.
