@@ -17,9 +17,10 @@ writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health p
    both repos; both repos side by side on the Mac mini; every piece mapped in `docs/INVENTORY.md`; the Phase 1 plan in
    git; skills and a cloud setup script, so a session started from Slack, the web or the phone follows the same
    protocol (harness #2, loopbench #3); a cloud environment on claude.ai/code, so `@Claude` in Slack now runs Claude
-   Code sessions (checked 6 Nov); and the weekday morning brief, scheduled. Left for Thomas, because Claude sessions
-   can't enter credentials or sign in for him: the new CI token in `REPOS_TOKEN`, so the scoreboard runs and main goes
-   green; log the Mac mini's Claude CLI in. See `docs/OPERATING_SYSTEM.md`, Install.
+   Code sessions (checked 6 Nov); the weekday morning brief, scheduled; and cloud sessions as the default, with the
+   Mac mini kept for the jobs only it can do. Left for Thomas, because Claude sessions can't change a token's access:
+   give the token in `REPOS_TOKEN` access to both repos, so the scoreboard runs and main goes green. See
+   `docs/OPERATING_SYSTEM.md`, Install.
 
 ## Next, in order
 
@@ -32,7 +33,8 @@ writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health p
    before the EC look-back runs on a real export.
 4. Repeat dispensing in the LoopBench world model, so reasoning traces can cite current medicines.
 5. Doctor-minutes metric: review time per item with and without verified evidence.
-6. `claude -p` extraction run on the Mac mini, replayed in CI: agentic numbers with a real model.
+6. `claude -p` extraction run on the Mac mini, replayed in CI: agentic numbers with a real model. First log the Mac
+   mini's Claude CLI in (`claude`, then `/login`).
 7. LLM harness producing traces against the same seven checks.
 8. Capacity-frontier experiment.
 9. Thomas: held-out scenarios (outside both repos) and sign-off of `loopbench/data/clinical_policy.yaml`.

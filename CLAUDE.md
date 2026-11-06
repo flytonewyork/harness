@@ -6,7 +6,7 @@
 - **Prove:** tests here, and for anything the engine does, the scoreboard in the sibling checkout: `cd ../loopbench && PYTHONPATH=src python scripts/scoreboard.py --seeds 1` (CI runs seeds 1–3 on every PR).
 - **End:** push, open a PR with the template filled in, and update `NOW.md` in the same PR. If you can't push, say so plainly; never leave work only in a container, chat, Claude Doc or artifact.
 - **Skills** (`.claude/skills/`) are this protocol as steps: `ship` for any build task, `signal` for what a partner said, `park` for "not now", `brief` for where things stand, `review` before Thomas merges a PR.
-- **Cloud sessions** (Slack, web, phone) run `scripts/cloud_setup.sh` at start: it installs this repo and clones `../loopbench`. If it reports a step it couldn't do, carry on and say so in the PR; CI scores every PR anyway.
+- **Cloud sessions are the default** (environment `tmrw`, both repos side by side). They run `scripts/cloud_setup.sh` at start, which installs this repo and clones `../loopbench` if it's missing. If it reports a step it couldn't do, carry on and say so in the PR; CI scores every PR anyway. Use the Mac mini only for `claude -p` model runs and rebuilds from the raw data in `~/loopbench-data`.
 - **Where things live:** how we work `docs/OPERATING_SYSTEM.md` · the queue `NOW.md` · decisions `docs/DECISIONS.md` · specs `docs/specs/` · the map of everything `docs/INVENTORY.md`.
 
 ## Commands
