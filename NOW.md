@@ -19,6 +19,9 @@ burden, so that is the question for every next contact.
    - a clickable prototype of the patient's WhatsApp and the doctor's inbox (synthetic)
    - the session kit: a bilingual plan card with QR code, the promise diary, and a WhatsApp Business setup
    - the care-line simulator and the sign-off trainer in LoopBench
+   - the self-service catalogue and its evals (spec 004, 7 Nov): 37 reasons people come in, each with a protocol,
+     red flags and a doctor's sign-off. The first slice of 8 tasks passes at 100% in LoopBench. Next: a held-out set
+     written blind by Thomas or Josie, then shadow mode in sessions
    - ten doctor conversations about giving patients their WhatsApp (1 so far: Josie, locum GP, #17)
    Success: Thomas books GP or call-out sessions to test it. The winning pilot runs in waves (spec 003):
    0. his sessions, done manually
