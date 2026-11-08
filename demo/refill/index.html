@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tmrw refill desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;family=Noto+Sans+TC:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+/* tmrw care line system: deep teal for the doctor and the product, amber for anything that needs a human now.
+   Layout: a queue of three requests on top, one case open below (thread beside the agent's work), then the
+   numbers, the evidence, the rules and the ask. Phone first. */
+:root {
+  --bg: #F6F7F4; --surface: #FFFFFF; --ink: #111917; --muted: #5E6A66; --line: #DDE3DF;
+  --accent: #0E5E58; --accent-soft: #E2EEEB; --accent-ink: #FFFFFF;
+  --warn: #9A4F0E; --warn-soft: #F6E9DA; --crit: #A3261B; --crit-soft: #F8E1DE;
+  --thread: #EAEFEB; --bubble-in: #FFFFFF; --bubble-out: #D6EADF; --sys: #DDE5E0;
+  --display: 'Space Grotesk', 'Noto Sans TC', system-ui, sans-serif;
+  --body: 'Inter', 'Noto Sans TC', system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1513; --surface: #17201D; --ink: #E7EEEB; --muted: #9AA8A3; --line: #2A3632;
+    --accent: #5DBBAE; --accent-soft: #1C3330; --accent-ink: #08201D;
+    --warn: #E3A15E; --warn-soft: #33261A; --crit: #F08A7E; --crit-soft: #3A1E1B;
+    --thread: #121A18; --bubble-in: #1D2724; --bubble-out: #1E3A33; --sys: #24302C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1513; --surface: #17201D; --ink: #E7EEEB; --muted: #9AA8A3; --line: #2A3632;
+  --accent: #5DBBAE; --accent-soft: #1C3330; --accent-ink: #08201D;
+  --warn: #E3A15E; --warn-soft: #33261A; --crit: #F08A7E; --crit-soft: #3A1E1B;
+  --thread: #121A18; --bubble-in: #1D2724; --bubble-out: #1E3A33; --sys: #24302C;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; }
+h1, h2, h3 { font-family: var(--display); letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 50px); line-height: 1.05; font-weight: 600; }
+h2 { font-size: clamp(24px, 3.2vw, 34px); line-height: 1.12; font-weight: 600; }
+h3 { font-size: 18px; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+button { font: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+.eyebrow { font-size: 12.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+.small { font-size: 13.5px; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+header.top { border-bottom: 1px solid var(--line); background: var(--surface); }
+header.top .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-top: 12px; padding-bottom: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 21px; }
+.brand-mark { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); display: grid; place-items: center; }
+.tag { font-size: 12.5px; font-weight: 600; color: var(--warn); background: var(--warn-soft); padding: 4px 10px; border-radius: 999px; }
+
+.hero { padding: 36px 0 22px; display: grid; gap: 14px; }
+.hero p.lede { font-size: 18px; color: var(--muted); max-width: 640px; }
+.scene { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--muted); }
+.scene strong { color: var(--ink); }
+
+/* queue */
+.queue { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 6px 0 22px; }
+@media (max-width: 760px) { .queue { grid-template-columns: 1fr; } }
+.qcard { text-align: left; background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); border-radius: 16px; padding: 14px 16px; display: grid; gap: 6px; border-left-width: 6px; }
+.qcard[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 10px 28px -18px rgba(17,25,23,.55); }
+.qcard.s-crit { border-left-color: var(--crit); }
+.qcard.s-warn { border-left-color: var(--warn); }
+.qcard.s-ok { border-left-color: var(--accent); }
+.qtop { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.qname { font-weight: 600; font-size: 16.5px; }
+.qstep { font-family: var(--display); font-size: 13px; color: var(--muted); }
+.pill { display: inline-flex; align-items: center; gap: 6px; width: fit-content; font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+.pill.crit { color: var(--crit); background: var(--crit-soft); }
+.pill.warn { color: var(--warn); background: var(--warn-soft); }
+.pill.ok { color: var(--accent); background: var(--accent-soft); }
+.pill.done { color: var(--muted); background: var(--sys); }
+.qsub { font-size: 14px; color: var(--muted); }
+.tally { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; padding: 12px 16px; border-radius: 14px; background: var(--accent-soft); margin-bottom: 18px; }
+.tally strong { font-family: var(--display); font-size: 20px; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+.toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+/* case */
+.case { display: none; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 22px; align-items: start; padding-bottom: 40px; }
+.case.on { display: grid; }
+@media (max-width: 860px) { .case.on { grid-template-columns: 1fr; } }
+.phone { background: var(--ink); border-radius: 34px; padding: 8px; box-shadow: 0 30px 60px -38px rgba(17,25,23,.6); }
+.screen { border-radius: 27px; overflow: hidden; background: var(--thread); }
+.chat-head { background: var(--accent); color: var(--accent-ink); padding: 14px 16px; display: flex; gap: 10px; align-items: center; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 13px; display: grid; place-items: center; flex: none; }
+.chat-head .who { font-weight: 600; font-size: 15px; line-height: 1.2; }
+.chat-head .sub { font-size: 12px; opacity: .85; }
+.msgs { padding: 12px; display: flex; flex-direction: column; gap: 8px; min-height: 420px; font-size: 14.5px; line-height: 1.42; }
+.b { max-width: 86%; padding: 8px 11px; border-radius: 14px; }
+.b.in { align-self: flex-end; background: var(--bubble-out); border-bottom-right-radius: 4px; }
+.b.out { align-self: flex-start; background: var(--bubble-in); border-bottom-left-radius: 4px; }
+.b.doc { align-self: flex-start; background: var(--accent); color: var(--accent-ink); border-bottom-left-radius: 4px; }
+.b.bot { align-self: flex-start; background: var(--crit-soft); border: 1.5px dashed var(--crit); border-bottom-left-radius: 4px; }
+.b .en { display: block; margin-top: 5px; font-size: 12.5px; opacity: .78; line-height: 1.35; }
+.b .meta { display: block; margin-top: 5px; font-size: 11.5px; opacity: .75; }
+.no-en .en { display: none; }
+.sys { align-self: center; text-align: center; font-size: 12px; color: var(--muted); background: var(--sys); padding: 4px 10px; border-radius: 999px; max-width: 92%; }
+.sys.alert { color: var(--crit); background: var(--crit-soft); font-weight: 600; }
+.hl { background: var(--warn-soft); color: var(--warn); border-radius: 4px; padding: 0 2px; font-weight: 600; }
+.b.doc .hl { background: transparent; color: inherit; }
+.typing { align-self: flex-start; }
+
+.panel { display: grid; gap: 16px; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 12px; }
+.box.warn { border-color: var(--warn); }
+.box.crit { border-color: var(--crit); }
+.box-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.source { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--sys); color: var(--muted); }
+.source.engine { background: var(--accent-soft); color: var(--accent); }
+ul.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+ul.checks li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: 14.5px; }
+ul.checks li .ic { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; }
+.ic.ok { background: var(--accent-soft); color: var(--accent); }
+.ic.warn { background: var(--warn-soft); color: var(--warn); }
+.ic.crit { background: var(--crit-soft); color: var(--crit); }
+q, .q { quotes: none; display: block; margin-top: 4px; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: 12.5px; background: var(--bg); border-left: 3px solid var(--accent); padding: 4px 8px; border-radius: 4px; overflow-wrap: anywhere; }
+.trace { display: grid; gap: 10px; }
+.trace .step { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; font-size: 14px; }
+@media (max-width: 480px) { .trace .step { grid-template-columns: 1fr; gap: 2px; } }
+.trace .k { font-family: var(--display); font-size: 12.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
+details summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+.draft { background: var(--bg); border-radius: 12px; padding: 12px; font-size: 14.5px; }
+.draft .en { display: block; margin-top: 6px; font-size: 13px; color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { border: 0; border-radius: 999px; padding: 11px 18px; font-weight: 600; background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+.btn.crit { background: var(--crit); color: #FFFFFF; }
+.btn[disabled] { opacity: .45; cursor: default; }
+.next { display: none; }
+.next.on { display: grid; }
+.callout { font-size: 14.5px; padding: 12px 14px; border-radius: 12px; background: var(--crit-soft); color: var(--ink); border-left: 4px solid var(--crit); }
+
+/* lower sections */
+section.band { border-top: 1px solid var(--line); padding: 48px 0; }
+section.band.alt { background: var(--surface); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: start; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+.stack { display: grid; gap: 14px; }
+.calc { display: grid; gap: 16px; }
+.calc label { display: grid; gap: 4px; font-size: 14.5px; font-weight: 500; }
+.calc .row { display: flex; justify-content: space-between; gap: 10px; }
+.calc output { font-weight: 600; font-variant-numeric: tabular-nums; }
+.calc input[type=range] { width: 100%; accent-color: var(--accent); }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 480px) { .tiles { grid-template-columns: 1fr; } }
+.tile { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: grid; gap: 4px; }
+section.band.alt .tile { background: var(--bg); }
+.tile .n { font-family: var(--display); font-size: 30px; font-weight: 600; letter-spacing: -0.02em; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.tile .l { font-size: 14px; color: var(--muted); }
+table.rules { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+table.rules th, table.rules td { text-align: left; vertical-align: top; padding: 10px 8px; border-top: 1px solid var(--line); }
+table.rules th { width: 34%; font-weight: 600; }
+.tablewrap { overflow-x: auto; }
+ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.ask { background: var(--accent); color: var(--accent-ink); border-radius: 26px; padding: 30px 26px; display: grid; gap: 14px; }
+.ask h2 { color: var(--accent-ink); }
+.ask ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+footer { border-top: 1px solid var(--line); padding: 26px 0 40px; font-size: 13px; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) {
+  .pop { animation: pop .45s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes pop { from { opacity: .2; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7"></path><path d="M20 4v4h-4"></path></svg></span>tmrw <span class="muted" style="font-weight:500">refill desk</span></div>
+    <span class="tag">Demo · synthetic patients</span>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+  <div class="hero">
+    <p class="eyebrow">Sunday 13 Jun, 9:35 am · Harbourview Family Clinic (simulated) · closed today</p>
+    <h1>Your clinic is shut. Three patients asked for their medicines this morning.</h1>
+    <p class="lede">You're Dr Chan, a solo GP. Behind the clinic's WhatsApp, a care team of agents checked each request against the chart before anything reached you. Two of the three aren't routine refills. Tap a request to see what it did.</p>
+  </div>
+
+  <div class="tally" aria-live="polite">
+    <span>Your time on these three so far: <strong class="tnum" id="tally">0 s</strong></span>
+    <label class="toggle" for="en"><input type="checkbox" id="en" checked> English under each message</label>
+  </div>
+
+  <div class="queue" role="group" aria-label="This morning's requests">
+    <button class="qcard s-ok" type="button" data-case="wong" aria-pressed="true">
+      <span class="qtop"><span class="qname">Mrs Wong · 王太</span><span class="qstep">1 · routine</span></span>
+      <span class="pill ok" id="pill-wong">Ready to sign Monday</span>
+      <span class="qsub">Amlodipine, stable, readings in range.</span>
+    </button>
+    <button class="qcard s-crit" type="button" data-case="chan" aria-pressed="false">
+      <span class="qtop"><span class="qname">Mr Chan · 陳生</span><span class="qstep">2 · the catch</span></span>
+      <span class="pill crit" id="pill-chan">Needs you now · paged 09:30</span>
+      <span class="qsub">Wants more spironolactone. His potassium came back at 6.6.</span>
+    </button>
+    <button class="qcard s-warn" type="button" data-case="lau" aria-pressed="false">
+      <span class="qtop"><span class="qname">Mrs Lau · 劉太</span><span class="qstep">3 · not a refill</span></span>
+      <span class="pill warn" id="pill-lau">Sent to 999 · you were alerted</span>
+      <span class="qsub">Asked for atorvastatin, then mentioned chest tightness.</span>
+    </button>
+  </div>
+
+  <!-- 1. Mrs Wong -->
+  <article class="case on" id="case-wong" aria-label="Mrs Wong">
+    <div class="phone"><div class="screen">
+      <div class="chat-head"><span class="avatar">王</span><div><div class="who">WONG Mei Ling 王美玲 · 58</div><div class="sub">Harbourview care line</div></div></div>
+      <div class="msgs" id="msgs-wong">
+        <span class="sys">Sun 13 Jun</span>
+        <div class="b in">陳醫生早晨，我啲血壓藥就快食完，可唔可以幫我配多次？<span class="en">Morning Dr Chan, my blood pressure tablets are nearly finished. Could you refill them?</span><span class="meta">09:02</span></div>
+        <div class="b out" data-actor="agent">王太早晨，收到。配藥之前想問三樣嘢：<br>1. 最近三次喺屋企量嘅血壓幾多？<br>2. 有冇腳腫、頭暈或者心口痛？<br>3. 仲剩幾多日藥？<span class="en">Morning Mrs Wong. Before the refill, three questions: 1. Your last three home blood pressures? 2. Any ankle swelling, dizziness or chest pain? 3. How many days of tablets are left?</span><span class="meta">Care team · 09:02</span></div>
+        <div class="b in">128/80、131/82、126/79。冇腳腫，冇頭暈，心口都冇痛。仲有五日藥。<span class="en">128/80, 131/82, 126/79. No swelling, no dizziness, no chest pain. Five days left.</span><span class="meta">09:06</span></div>
+        <div class="b out" data-actor="agent">多謝王太。資料已經交咗俾陳醫生，佢星期一朝會睇，批咗之後我哋會通知你幾時拎藥。<span class="en">Thank you. Dr Chan will look at this on Monday morning. Once it's approved we'll tell you when to collect.</span><span class="meta">Care team · 09:06</span></div>
+      </div>
+    </div></div>
+    <div class="panel">
+      <div class="box">
+        <div class="box-head"><h3>What the care team checked</h3><span class="source">Illustrative patient</span></div>
+        <ul class="checks">
+          <li><span class="ic ok">✓</span><span><strong>Identity.</strong> This WhatsApp number was linked to her chart at her last visit; name and date of birth match.</span></li>
+          <li><span class="ic ok">✓</span><span><strong>Eligible for a remote refill under your rules.</strong> Seen in person on 11 Mar (3 months ago). Same dose for 14 months.</span></li>
+          <li><span class="ic ok">✓</span><span><strong>Home readings at target.</strong> 128/80 · 131/82 · 126/79, all under the 140/90 in your refill rules.</span></li>
+          <li><span class="ic ok">✓</span><span><strong>No side effects or red flags.</strong> Asked about ankle swelling, dizziness and chest pain. All no.</span></li>
+          <li><span class="ic ok">✓</span><span><strong>Monitoring up to date.</strong> Lipids and kidney function on 11 Mar, normal. No open loops on her chart.</span></li>
+          <li><span class="ic ok">✓</span><span><strong>No rush.</strong> Five days of tablets left, so it waits for Monday.</span></li>
+        </ul>
+      </div>
+      <div class="box">
+        <div class="box-head"><h3>Your decision · Monday 09:02</h3><span class="pill ok">About 20 seconds</span></div>
+        <div class="draft">Amlodipine 5 mg, one tablet every morning, 8 weeks (56 tablets). Collect after 3 pm Monday, or by courier. In-person review due September.</div>
+        <div class="actions">
+          <button class="btn" type="button" data-act="wong-sign">Sign</button>
+          <button class="btn ghost" type="button" data-act="wong-edit">Edit first</button>
+          <button class="btn ghost" type="button" data-act="wong-see">See her in person</button>
+        </div>
+        <div class="next" id="next-wong">
+          <ul class="checks">
+            <li><span class="ic ok">✓</span><span>The signed message goes to Mrs Wong (on the left).</span></li>
+            <li><span class="ic ok">✓</span><span>A dispensing slip prints at the front desk for Monday.</span></li>
+            <li><span class="ic ok">✓</span><span>The care team watches the next step: in-person review due 11 Sep, booked in August.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- 2. Mr Chan: the engine-backed case -->
+  <article class="case" id="case-chan" aria-label="Mr Chan">
+    <div class="phone"><div class="screen">
+      <div class="chat-head"><span class="avatar">陳</span><div><div class="who">CHAN Tai Man 陳大文 · 62</div><div class="sub">Harbourview care line</div></div></div>
+      <div class="msgs" id="msgs-chan">
+        <span class="sys">Sun 13 Jun</span>
+        <div class="b in">陳醫生，我嘅 lisinopril 同 spironolactone 就嚟食完，可唔可以幫我開多一個月？<span class="en">Dr Chan, my lisinopril and spironolactone are about to run out. Could you prescribe another month?</span><span class="meta">09:12</span></div>
+        <div class="b out" data-actor="agent" id="chan-hold">陳生，收到。你琴日驗血嘅報告已經返咗嚟，醫生要親自睇過先可以配藥，佢會盡快聯絡你。如果覺得心跳唔規則、好冇力或者唞唔到氣，請即刻打999。<span class="en">Got it, Mr Chan. Yesterday's blood test is back, and the doctor needs to see it before any refill. The doctor will contact you soon. If your heartbeat feels irregular, you feel very weak or you can't catch your breath, call 999 now.</span><span class="meta">Care team · from your approved replies · 09:12</span></div>
+        <div class="b bot" data-actor="bot" id="chan-bot" hidden>陳生，收到！已經幫你排咗 lisinopril 同 spironolactone 一個月，星期一下午可以嚟診所拎。<span class="en">Got it! A month of lisinopril and spironolactone is lined up. Collect Monday afternoon.</span><span class="meta">A refill bot · 09:12</span></div>
+        <span class="sys alert" id="chan-page">09:30 · Dr Chan paged: critical result unseen for an hour; refill held</span>
+      </div>
+    </div></div>
+    <div class="panel">
+      <div class="box crit">
+        <label class="toggle" for="botswitch"><input type="checkbox" id="botswitch"> Show what a refill bot that only reads the message would do</label>
+        <p class="callout" id="bot-callout" hidden>The bot put spironolactone and lisinopril in Monday's refill batch. Both drugs raise potassium, and his potassium had been sitting at 6.6 on the lab portal since 7:40 last night. A doctor signing a batch of refills sees the request, not the result.</p>
+      </div>
+      <div class="box">
+        <div class="box-head"><h3>What the follow-up engine found</h3><span class="source engine">Engine output · simulated clinic year · quotes checked</span></div>
+        <p class="small muted">Opened Sun 13 Jun 08:30, before his message arrived. Every quote below is checked word for word against the lab report.</p>
+        <p class="small"><strong>A gap this case found:</strong> the engine checks the chart three times a day (08:30, 13:30 and 19:30). This result landed at 19:40, so it waited 13 hours. Checking all night for critical results is next on the build list.</p>
+        <div class="trace">
+          <div class="step"><span class="k">Source</span><span>PathLab Medical Laboratories Ltd. report PA27-849629 was posted on its web portal on Sat 12 Jun 19:40.<q class="q-engine">HKID : D505XXX(X) DOB : 23/09/1964 Lab No : PA27-849629</q></span></div>
+          <div class="step"><span class="k">Identity</span><span>Posted on the lab's portal; its name and date of birth match exactly one patient in the clinic index: CHAN Tai Man.<q class="q-engine">Name : CHAN, Tai Man 陳大文 Sex/Age : M/62Y</q></span></div>
+          <div class="step"><span class="k">Finding</span><span>Potassium 6.6 mmol/L, above the report's range of 3.5-5.1 (critical by this harness's rules (below 2.8 or above 6.5)); eGFR 47 mL/min/1.73m2, below the report's range of &gt;60 (well outside it); Creatinine 132 umol/L, above the report's range of 62-106 (just outside it).<q class="q-engine">Potassium 6.6 H mmol/L 3.5 - 5.1</q><q class="q-engine">eGFR 47 L mL/min/1.73m2 &gt; 60</q><q class="q-engine">Creatinine 132 H umol/L 62 - 106</q></span></div>
+          <div class="step"><span class="k">Assessment</span><span>Working problem: hyperkalaemia; also reduced kidney function. Plan: Repeat electrolytes promptly (a haemolysed sample is not excluded); review ACE inhibitor, ARB, spironolactone and potassium supplements; ECG if markedly raised.</span></div>
+          <div class="step"><span class="k">Routing</span><span>The clinic is closed today (not an opening day). Dr CHAN Siu Ming (ordering doctor) is not rostered today. Dr CHAN Siu Ming is the first doctor rostered (Mon 14 Jun).</span></div>
+          <div class="step"><span class="k">Request</span><span>Opened for Dr CHAN Siu Ming at urgency 4 (critical: same day; the doctor's mobile is paged if it is unseen after an hour); due Mon 14 Jun 08:30.</span></div>
+        </div>
+      </div>
+      <div class="box warn">
+        <div class="box-head"><h3>What his message added</h3><span class="source">Care team</span></div>
+        <ul class="checks">
+          <li><span class="ic warn">!</span><span>The engine's chart search said: <em>No relevant medicines dispensed at this clinic.</em> His medicines were only in your free-text note from 5 Jun:<q class="q-note">K+ 5.4 on lisinopril and spironolactone, eGFR 52.</q><q class="q-note">Repeat K+ and eGFR in 1 week.</q></span></li>
+          <li><span class="ic crit">!</span><span>His request names both drugs, so it ties the refill to the open critical result.</span></li>
+          <li><span class="ic ok">✓</span><span>Refill held. Nothing goes out until you decide. Only you can release it.</span></li>
+        </ul>
+      </div>
+      <div class="box">
+        <div class="box-head"><h3>Your decision · now</h3><span class="pill crit">Critical</span></div>
+        <div class="draft">陳生，你嘅鉀（potassium）好高，係 6.6，會影響心跳。請今日去急症室做心電圖同再驗血，帶埋你啲藥去。暫時唔好食 spironolactone，等我再通知你。<span class="en">Draft for your signature: Mr Chan, your potassium is very high at 6.6, which can affect the heart. Please go to A&amp;E today for an ECG and a repeat blood test, and bring your medicines. Stop the spironolactone until I tell you.</span></div>
+        <div class="actions">
+          <button class="btn crit" type="button" data-act="chan-call">Call him now</button>
+          <button class="btn" type="button" data-act="chan-send">Sign and send this</button>
+          <button class="btn ghost" type="button" data-act="chan-edit">Write my own</button>
+        </div>
+        <div class="next" id="next-chan">
+          <ul class="checks">
+            <li><span class="ic ok">✓</span><span>The refill stays held until you release it.</span></li>
+            <li><span class="ic ok">✓</span><span>The potassium loop stays open until a repeat result is back and you close it.</span></li>
+            <li><span class="ic ok">✓</span><span>The care team chases until he replies, and tells you if he doesn't.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- 3. Mrs Lau -->
+  <article class="case" id="case-lau" aria-label="Mrs Lau">
+    <div class="phone"><div class="screen">
+      <div class="chat-head"><span class="avatar">劉</span><div><div class="who">LAU Ka Yan 劉嘉欣 · 64</div><div class="sub">Harbourview care line</div></div></div>
+      <div class="msgs" id="msgs-lau">
+        <span class="sys">Sun 13 Jun</span>
+        <div class="b in">陳醫生，想配多啲 atorvastatin。另外我而家<span class="hl">心口好翳</span>，<span class="hl">出晒冷汗</span>，已經半個鐘，係咪正常㗎？<span class="en">Dr Chan, I'd like more atorvastatin. Also my chest feels very tight right now and I'm in a cold sweat. It's been half an hour. Is that normal?</span><span class="meta">09:18</span></div>
+        <div class="b out" data-actor="agent">劉太，心口翳加出冷汗可能係心臟問題。請即刻打999或者去最近嘅急症室，唔好自己揸車。陳醫生已經收到通知，配藥嘅事遲啲再處理。<span class="en">Mrs Lau, chest tightness with sweating can be a heart problem. Call 999 or go to the nearest A&amp;E now. Don't drive yourself. Dr Chan has been alerted. We'll sort the refill later.</span><span class="meta">Fixed reply · red-flag rule · 4 seconds</span></div>
+        <span class="sys alert">09:18 · Dr Chan alerted: red flag in a refill request</span>
+        <div class="b out" data-actor="agent">劉太，你而家點呀？救護車到咗未？<span class="en">How are you now, Mrs Lau? Has the ambulance arrived?</span><span class="meta">Care team · 09:33</span></div>
+        <div class="b in">到咗醫院喇，佢哋做緊檢查。<span class="en">I'm at the hospital. They're doing tests.</span><span class="meta">09:35</span></div>
+      </div>
+    </div></div>
+    <div class="panel">
+      <div class="box">
+        <div class="box-head"><h3>What the care team did</h3><span class="source">Illustrative patient</span></div>
+        <ul class="checks">
+          <li><span class="ic crit">!</span><span><strong>Red-flag words matched:</strong> 心口好翳 (chest very tight) with 出晒冷汗 (cold sweat). A fixed rule you approved, not a model's judgement.</span></li>
+          <li><span class="ic ok">✓</span><span><strong>Fixed reply in 4 seconds:</strong> call 999, don't drive. The same wording every time.</span></li>
+          <li><span class="ic ok">✓</span><span><strong>You were alerted at 09:18.</strong> The care team checked on her 15 minutes later. She's at the hospital.</span></li>
+          <li><span class="ic ok">✓</span><span><strong>Refill paused.</strong> Atorvastatin waits for you, after the hospital has seen her.</span></li>
+          <li><span class="ic ok">✓</span><span><strong>Loop opened:</strong> hospital attendance on 13 Jun. The care team will ask her for the discharge letter and file it to her chart.</span></li>
+        </ul>
+      </div>
+      <div class="box">
+        <div class="box-head"><h3>Your decision · when you're free</h3><span class="pill warn">Today</span></div>
+        <div class="draft">劉太，我係陳醫生。好彩你即刻去咗醫院。出院之後影低張出院紙send俾我，我哋再約覆診同埋處理配藥。<span class="en">Draft for your signature: Mrs Lau, it's Dr Chan. I'm glad you went straight to hospital. When you're discharged, send me a photo of the discharge letter and we'll arrange your follow-up and medicines.</span></div>
+        <div class="actions">
+          <button class="btn" type="button" data-act="lau-send">Sign and send</button>
+          <button class="btn ghost" type="button" data-act="lau-call">I'll call her later</button>
+        </div>
+        <div class="next" id="next-lau">
+          <ul class="checks">
+            <li><span class="ic ok">✓</span><span>The hospital loop stays open until her discharge letter is in and you close it.</span></li>
+            <li><span class="ic ok">✓</span><span>If no letter arrives within 3 days, the care team asks her again and raises it to you.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </article>
+</div>
+
+<section class="band alt" id="numbers">
+  <div class="wrap grid2">
+    <div class="stack">
+      <p class="eyebrow">Your numbers</p>
+      <h2>What would routine refills cost you on WhatsApp instead of in the room?</h2>
+      <p class="muted">Every number here is a guess. Move the sliders to match your clinic.</p>
+      <div class="tiles" aria-live="polite">
+        <div class="tile"><span class="n" id="o-now">0</span><span class="l">hours a week you spend on routine refills now</span></div>
+        <div class="tile"><span class="n" id="o-after">0</span><span class="l">hours a week signing them on the refill desk</span></div>
+        <div class="tile"><span class="n" id="o-slots">0</span><span class="l">appointment slots a week freed for patients who need the room</span></div>
+        <div class="tile"><span class="n" id="o-value">0</span><span class="l">a week, if you fill those slots at your consultation fee</span></div>
+      </div>
+    </div>
+    <form class="calc" id="calc" aria-label="Your clinic's numbers">
+      <label for="r-visits"><span class="row"><span>Refill visits a day</span><output id="v-visits" for="r-visits"></output></span><input type="range" id="r-visits" min="2" max="40" step="1" value="12"></label>
+      <label for="r-share"><span class="row"><span>Share stable enough for a remote refill</span><output id="v-share" for="r-share"></output></span><input type="range" id="r-share" min="10" max="90" step="5" value="60"></label>
+      <label for="r-min"><span class="row"><span>Your minutes per refill visit in the room</span><output id="v-min" for="r-min"></output></span><input type="range" id="r-min" min="2" max="10" step="0.5" value="4"></label>
+      <label for="r-sec"><span class="row"><span>Your seconds to sign a prepared refill</span><output id="v-sec" for="r-sec"></output></span><input type="range" id="r-sec" min="10" max="120" step="5" value="30"></label>
+      <label for="r-days"><span class="row"><span>Clinic days a week</span><output id="v-days" for="r-days"></output></span><input type="range" id="r-days" min="3" max="6" step="0.5" value="5.5"></label>
+      <label for="r-fee"><span class="row"><span>Your consultation fee (HK$)</span><output id="v-fee" for="r-fee"></output></span><input type="range" id="r-fee" min="200" max="900" step="10" value="450"></label>
+      <p class="small muted">The fee default is the middle of the HK$400 to 540 range the simulator uses for a private GP consultation. The one-slot-per-refill assumption is the optimistic end: a refill visit is often shorter than a full slot.</p>
+    </form>
+  </div>
+</section>
+
+<section class="band" id="evidence">
+  <div class="wrap grid2">
+    <div class="stack">
+      <p class="eyebrow">Tested before it touches a patient</p>
+      <h2>The engine behind Mr Chan's card has run a simulated year at a solo Hong Kong clinic.</h2>
+      <p class="muted">LoopBench simulates a solo Hong Kong GP on Apricot VITA for a year (three runs), with real lab report formats, fax, courier and portal delays, a locum, a Lunar New Year closure and a hidden answer key. Every item the engine opens is checked like a code review: a quote that isn't word for word in its record is a hard fail.</p>
+      <p class="muted">The refill desk itself isn't in the simulator yet. That's the next build.</p>
+    </div>
+    <div class="tiles">
+      <div class="tile"><span class="n">89%</span><span class="l">fewer harm-weighted missed follow-ups (192 to 21 per 1,000 patient-years)</span></div>
+      <div class="tile"><span class="n">0</span><span class="l">hard fails across three simulated years</span></div>
+      <div class="tile"><span class="n">3</span><span class="l">pages to the doctor's mobile in a year, none false (run 1)</span></div>
+      <div class="tile"><span class="n">HK$108–144k</span><span class="l">a year in return visits that would otherwise be missed</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="band alt" id="rules">
+  <div class="wrap grid2">
+    <div class="stack">
+      <p class="eyebrow">The rules</p>
+      <h2>How a remote refill meets the Medical Council's telemedicine duties</h2>
+      <div class="tablewrap">
+        <table class="rules">
+          <tr><th>Identify the patient</th><td>The WhatsApp number is linked to the chart at an in-person visit. Name and date of birth are checked on the first message.</td></tr>
+          <tr><th>An adequate evaluation</th><td>Only patients you've seen in person in the last 6 months, on an unchanged dose. The care team collects readings, side effects and red-flag answers, and you see them before you sign.</td></tr>
+          <tr><th>Instructions understood</th><td>The plan goes in writing, in Cantonese or English: what to take, when, and when to come back.</td></tr>
+          <tr><th>The doctor stays responsible</th><td>Nothing is prescribed until you sign. The care team can ask, hold, alert and page. It never prescribes, and never closes a loop.</td></tr>
+          <tr><th>Records</th><td>Every message, check and decision is kept with its evidence, ready for your clinic system.</td></tr>
+        </table>
+      </div>
+      <p class="small muted">From the Medical Council of Hong Kong's Ethical Guidelines on Practice of Telemedicine (December 2019). A starting map, not legal advice.</p>
+    </div>
+    <div class="stack">
+      <h3>Never through the refill desk</h3>
+      <ul class="plain">
+        <li>Dangerous drugs, sedatives and antibiotics.</li>
+        <li>New medicines or dose changes. Those are a consultation.</li>
+        <li>Anyone with an open abnormal result, overdue monitoring or a red flag. They come to you first, as Mr Chan and Mrs Lau did.</li>
+      </ul>
+      <h3>Not solved yet</h3>
+      <ul class="plain">
+        <li>Which AI model may process Hong Kong patient data, and where it runs. This demo uses rules and recorded engine output, with no live model.</li>
+        <li>How a remote refill service fits clinic licensing under the Private Healthcare Facilities Ordinance.</li>
+        <li>Patient consent, the WhatsApp Business setup, and writing records back to your clinic system.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="ask">
+  <div class="wrap">
+    <div class="ask">
+      <h2>What would you need to see before you'd put ten of your own refill patients through this?</h2>
+      <ol>
+        <li>How many of your visits a day are repeat medicines?</li>
+        <li>Which drugs would you never refill this way?</li>
+        <li>Could I sit in on one session and time the refills?</li>
+      </ol>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">tmrw · Every patient on this page is synthetic. Mr Chan and his lab report come from LoopBench, a simulated clinic year; Mrs Wong and Mrs Lau are illustrative. Not an emergency service: in an emergency, call 999.</div>
+</footer>
+
+<script>
+(function () {
+  var tallySec = 0;
+  var spent = {};
+  function fmt(s) { return s < 60 ? s + ' s' : Math.floor(s / 60) + ' min' + (s % 60 ? ' ' + (s % 60) + ' s' : ''); }
+  function spend(key, sec) {
+    if (spent[key] !== undefined) tallySec -= spent[key];
+    spent[key] = sec; tallySec += sec;
+    document.getElementById('tally').textContent = fmt(tallySec);
+  }
+
+  // queue
+  var cards = document.querySelectorAll('.qcard');
+  function show(id) {
+    cards.forEach(function (c) { c.setAttribute('aria-pressed', String(c.dataset.case === id)); });
+    document.querySelectorAll('.case').forEach(function (a) { a.classList.toggle('on', a.id === 'case-' + id); });
+  }
+  cards.forEach(function (c) {
+    c.addEventListener('click', function () {
+      show(c.dataset.case);
+      if (window.matchMedia('(max-width: 760px)').matches) {
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        document.getElementById('case-' + c.dataset.case).scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+      }
+    });
+  });
+
+  // English glosses
+  document.getElementById('en').addEventListener('change', function (e) {
+    document.body.classList.toggle('no-en', !e.target.checked);
+  });
+
+  function bubble(caseId, html, cls, meta) {
+    var box = document.getElementById('msgs-' + caseId);
+    var old = box.querySelector('.decided'); if (old) old.remove();
+    var d = document.createElement('div');
+    d.className = 'b ' + cls + ' pop decided';
+    d.innerHTML = html + '<span class="meta">' + meta + '</span>';
+    box.appendChild(d);
+  }
+  function pill(caseId, text, cls) {
+    var p = document.getElementById('pill-' + caseId);
+    p.className = 'pill ' + cls; p.textContent = text;
+  }
+  function done(caseId) { document.getElementById('next-' + caseId).classList.add('on'); }
+  var SIGN = '<span style="display:inline-flex;align-items:center;gap:5px">✓ Signed by Dr Chan</span>';
+
+  var acts = {
+    'wong-sign': function () {
+      bubble('wong', '王太，已經幫你配咗：Amlodipine 5mg，每朝一粒，八個星期（56粒）。星期一下午三點後可以喺診所拎，或者覆「送」安排速遞。九月要返嚟覆診。<span class="en">Mrs Wong, refilled: amlodipine 5 mg, one every morning, 8 weeks (56 tablets). Collect at the clinic after 3 pm Monday, or reply 送 for courier delivery. Please come in for a review in September.</span>', 'doc', SIGN + ' · Mon 09:02');
+      pill('wong', 'Signed · Mon 09:02', 'done'); spend('wong', 20); done('wong');
+    },
+    'wong-edit': function () {
+      bubble('wong', '王太，已經幫你配咗：Amlodipine 5mg，每朝一粒，十二個星期（84粒）。星期一下午三點後可以喺診所拎。九月要返嚟覆診。<span class="en">Edited to 12 weeks (84 tablets). Mrs Wong, refilled: amlodipine 5 mg, one every morning. Collect after 3 pm Monday. Review in September.</span>', 'doc', SIGN + ' · edited · Mon 09:03');
+      pill('wong', 'Edited and signed', 'done'); spend('wong', 45); done('wong');
+    },
+    'wong-see': function () {
+      bubble('wong', '王太，醫生想見下你先再配藥。星期一或者星期二有位，覆 1 揀星期一，覆 2 揀星期二。<span class="en">Mrs Wong, the doctor would like to see you before refilling. Reply 1 for Monday or 2 for Tuesday.</span>', 'doc', SIGN + ' · Mon 09:02');
+      pill('wong', 'Booking an in-person visit', 'ok'); spend('wong', 10); done('wong');
+    },
+    'chan-call': function () {
+      bubble('chan', '陳醫生而家打俾你，請聽電話。<span class="en">Dr Chan is calling you now. Please pick up.</span>', 'doc', 'Sent for Dr Chan · 09:34');
+      pill('chan', 'You called · refill held', 'warn'); spend('chan', 300); done('chan');
+    },
+    'chan-send': function () {
+      bubble('chan', '陳生，你嘅鉀（potassium）好高，係 6.6，會影響心跳。請今日去急症室做心電圖同再驗血，帶埋你啲藥去。暫時唔好食 spironolactone，等我再通知你。<span class="en">Mr Chan, your potassium is very high at 6.6, which can affect the heart. Please go to A&amp;E today for an ECG and a repeat blood test, and bring your medicines. Stop the spironolactone until I tell you.</span>', 'doc', SIGN + ' · 09:34');
+      pill('chan', 'Sent to A&E · refill held', 'warn'); spend('chan', 40); done('chan');
+    },
+    'chan-edit': function () {
+      bubble('chan', '（你自己寫嘅訊息）<span class="en">(Your own message, typed here and signed by you.)</span>', 'doc', SIGN + ' · 09:36');
+      pill('chan', 'You replied · refill held', 'warn'); spend('chan', 120); done('chan');
+    },
+    'lau-send': function () {
+      bubble('lau', '劉太，我係陳醫生。好彩你即刻去咗醫院。出院之後影低張出院紙send俾我，我哋再約覆診同埋處理配藥。<span class="en">Mrs Lau, it\'s Dr Chan. I\'m glad you went straight to hospital. When you\'re discharged, send me a photo of the discharge letter and we\'ll arrange your follow-up and medicines.</span>', 'doc', SIGN + ' · 10:05');
+      pill('lau', 'Messaged · watching for discharge', 'ok'); spend('lau', 30); done('lau');
+    },
+    'lau-call': function () {
+      pill('lau', 'Call later · watching for discharge', 'ok'); spend('lau', 0); done('lau');
+    }
+  };
+  document.querySelectorAll('[data-act]').forEach(function (b) {
+    b.addEventListener('click', function () { acts[b.dataset.act](); });
+  });
+
+  // refill bot contrast
+  document.getElementById('botswitch').addEventListener('change', function (e) {
+    var bot = e.target.checked;
+    document.getElementById('chan-bot').hidden = !bot;
+    document.getElementById('chan-hold').hidden = bot;
+    document.getElementById('chan-page').hidden = bot;
+    document.getElementById('bot-callout').hidden = !bot;
+  });
+
+  // your numbers
+  var ids = ['visits', 'share', 'min', 'sec', 'days', 'fee'];
+  function val(k) { return parseFloat(document.getElementById('r-' + k).value); }
+  function calc() {
+    var weekly = val('visits') * val('days') * val('share') / 100;
+    var now = weekly * val('min') / 60, after = weekly * val('sec') / 3600;
+    document.getElementById('v-visits').textContent = val('visits');
+    document.getElementById('v-share').textContent = val('share') + '%';
+    document.getElementById('v-min').textContent = val('min') + ' min';
+    document.getElementById('v-sec').textContent = val('sec') + ' s';
+    document.getElementById('v-days').textContent = val('days');
+    document.getElementById('v-fee').textContent = 'HK$' + val('fee');
+    document.getElementById('o-now').textContent = now.toFixed(1);
+    document.getElementById('o-after').textContent = after.toFixed(1);
+    document.getElementById('o-slots').textContent = Math.round(weekly);
+    document.getElementById('o-value').textContent = 'HK$' + Math.round(weekly * val('fee')).toLocaleString('en-HK');
+  }
+  ids.forEach(function (k) { document.getElementById('r-' + k).addEventListener('input', calc); });
+  document.getElementById('calc').addEventListener('submit', function (e) { e.preventDefault(); });
+  calc();
+})();
+</script>
+</body>
+</html>
