@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tmrw clinic backend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;family=Noto+Sans+TC:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+/* tmrw care line system: deep teal for the product and the doctor's actions, amber and red for what needs a human.
+   Layout: what the backend did this weekend, then the one queue (list beside the open item), then how it works,
+   the evidence, the numbers, the rules and the ask. Phone first. */
+:root {
+  --bg: #F6F7F4; --surface: #FFFFFF; --ink: #111917; --muted: #5E6A66; --line: #DDE3DF;
+  --accent: #0E5E58; --accent-soft: #E2EEEB; --accent-ink: #FFFFFF;
+  --warn: #9A4F0E; --warn-soft: #F6E9DA; --crit: #A3261B; --crit-soft: #F8E1DE;
+  --thread: #EAEFEB; --bubble-in: #FFFFFF; --bubble-out: #D6EADF; --sys: #DDE5E0;
+  --display: 'Space Grotesk', 'Noto Sans TC', system-ui, sans-serif;
+  --body: 'Inter', 'Noto Sans TC', system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1513; --surface: #17201D; --ink: #E7EEEB; --muted: #9AA8A3; --line: #2A3632;
+    --accent: #5DBBAE; --accent-soft: #1C3330; --accent-ink: #08201D;
+    --warn: #E3A15E; --warn-soft: #33261A; --crit: #F08A7E; --crit-soft: #3A1E1B;
+    --thread: #121A18; --bubble-in: #1D2724; --bubble-out: #1E3A33; --sys: #24302C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1513; --surface: #17201D; --ink: #E7EEEB; --muted: #9AA8A3; --line: #2A3632;
+  --accent: #5DBBAE; --accent-soft: #1C3330; --accent-ink: #08201D;
+  --warn: #E3A15E; --warn-soft: #33261A; --crit: #F08A7E; --crit-soft: #3A1E1B;
+  --thread: #121A18; --bubble-in: #1D2724; --bubble-out: #1E3A33; --sys: #24302C;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; }
+h1, h2, h3 { font-family: var(--display); letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 50px); line-height: 1.05; font-weight: 600; }
+h2 { font-size: clamp(24px, 3.2vw, 34px); line-height: 1.12; font-weight: 600; }
+h3 { font-size: 18px; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+button { font: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+.eyebrow { font-size: 12.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+.small { font-size: 13.5px; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+header.top { border-bottom: 1px solid var(--line); background: var(--surface); }
+header.top .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-top: 12px; padding-bottom: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 21px; }
+.brand-mark { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); display: grid; place-items: center; }
+.tag { font-size: 12.5px; font-weight: 600; color: var(--warn); background: var(--warn-soft); padding: 4px 10px; border-radius: 999px; }
+
+.hero { padding: 36px 0 26px; display: grid; gap: 14px; }
+.hero p.lede { font-size: 18px; color: var(--muted); max-width: 680px; }
+
+/* weekend lanes */
+.lanes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding-bottom: 28px; }
+@media (max-width: 900px) { .lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .lanes { grid-template-columns: 1fr; } }
+.lane { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.lane .k { font-size: 12.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.lane .n { font-family: var(--display); font-size: 30px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.lane .d { font-size: 14px; color: var(--muted); }
+.lane.crit { border-color: var(--crit); }
+.lane.crit .n { color: var(--crit); }
+
+/* queue */
+.qhead { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 20px; margin-bottom: 14px; }
+.tally { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 14.5px; }
+.tally strong { font-family: var(--display); font-size: 18px; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+.toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+.desk { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 20px; align-items: start; padding-bottom: 48px; }
+@media (max-width: 900px) { .desk { grid-template-columns: 1fr; } }
+.queue { display: grid; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 10px; }
+.qrow { text-align: left; background: transparent; color: var(--ink); border: 1px solid transparent; border-radius: 12px; padding: 10px 12px 10px 14px; display: grid; gap: 4px; position: relative; }
+.qrow::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px; border-radius: 4px; background: var(--line); }
+.qrow.u4::before { background: var(--crit); }
+.qrow.u3::before { background: var(--warn); }
+.qrow.u2::before { background: var(--warn); opacity: .55; }
+.qrow.u1::before { background: var(--accent); opacity: .55; }
+.qrow:hover { background: var(--bg); }
+.qrow[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.qrow.closed { opacity: .55; }
+.qline { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.qname { font-weight: 600; font-size: 15px; }
+.qwhat { font-size: 13.5px; color: var(--muted); }
+.qmeta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 6px; width: fit-content; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.pill.crit { color: var(--crit); background: var(--crit-soft); }
+.pill.warn { color: var(--warn); background: var(--warn-soft); }
+.pill.ok { color: var(--accent); background: var(--accent-soft); }
+.pill.done { color: var(--muted); background: var(--sys); }
+.src { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+
+.detail { display: none; gap: 16px; }
+.detail.on { display: grid; }
+.dhead { display: grid; gap: 6px; }
+.split { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .split { grid-template-columns: 1fr; } }
+.phone { background: var(--ink); border-radius: 30px; padding: 7px; box-shadow: 0 26px 50px -36px rgba(17,25,23,.6); }
+.screen { border-radius: 24px; overflow: hidden; background: var(--thread); }
+.chat-head { background: var(--accent); color: var(--accent-ink); padding: 12px 14px; display: flex; gap: 10px; align-items: center; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 13px; display: grid; place-items: center; flex: none; }
+.chat-head .who { font-weight: 600; font-size: 14.5px; line-height: 1.2; }
+.chat-head .sub { font-size: 12px; opacity: .85; }
+.msgs { padding: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.42; }
+.b { max-width: 88%; padding: 8px 11px; border-radius: 14px; }
+.b.in { align-self: flex-end; background: var(--bubble-out); border-bottom-right-radius: 4px; }
+.b.out { align-self: flex-start; background: var(--bubble-in); border-bottom-left-radius: 4px; }
+.b.doc { align-self: flex-start; background: var(--accent); color: var(--accent-ink); border-bottom-left-radius: 4px; }
+.b.bot { align-self: flex-start; background: var(--crit-soft); border: 1.5px dashed var(--crit); border-bottom-left-radius: 4px; }
+.b .en { display: block; margin-top: 5px; font-size: 12.5px; opacity: .78; line-height: 1.35; }
+.b .meta { display: block; margin-top: 5px; font-size: 11.5px; opacity: .75; }
+.no-en .en { display: none; }
+.sys { align-self: center; text-align: center; font-size: 12px; color: var(--muted); background: var(--sys); padding: 4px 10px; border-radius: 999px; max-width: 92%; }
+.sys.alert { color: var(--crit); background: var(--crit-soft); font-weight: 600; }
+.hl { background: var(--warn-soft); color: var(--warn); border-radius: 4px; padding: 0 2px; font-weight: 600; }
+
+.panel { display: grid; gap: 14px; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: grid; gap: 12px; }
+.box.warn { border-color: var(--warn); }
+.box.crit { border-color: var(--crit); }
+.box-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.source { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--sys); color: var(--muted); }
+.source.engine { background: var(--accent-soft); color: var(--accent); }
+ul.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+ul.checks li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: 14.5px; }
+.ic { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; }
+.ic.ok { background: var(--accent-soft); color: var(--accent); }
+.ic.warn { background: var(--warn-soft); color: var(--warn); }
+.ic.crit { background: var(--crit-soft); color: var(--crit); }
+q { quotes: none; display: block; margin-top: 4px; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: 12.5px; background: var(--bg); border-left: 3px solid var(--accent); padding: 4px 8px; border-radius: 4px; overflow-wrap: anywhere; }
+.trace { display: grid; gap: 10px; }
+.trace .step { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; font-size: 14px; }
+@media (max-width: 480px) { .trace .step { grid-template-columns: 1fr; gap: 2px; } }
+.trace .k { font-family: var(--display); font-size: 12.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
+.cite-ref { display: block; margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+.draft { background: var(--bg); border-radius: 12px; padding: 12px; font-size: 14.5px; }
+.draft .en { display: block; margin-top: 6px; font-size: 13px; color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { border: 0; border-radius: 999px; padding: 10px 17px; font-weight: 600; background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+.btn.crit { background: var(--crit); color: #FFFFFF; }
+.next { display: none; }
+.next.on { display: grid; }
+.callout { font-size: 14.5px; padding: 12px 14px; border-radius: 12px; background: var(--crit-soft); color: var(--ink); }
+
+/* flow */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+@media (max-width: 900px) { .flow { grid-template-columns: 1fr; } }
+.stage { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 8px; align-content: start; position: relative; }
+.stage.you { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.stage .k { font-family: var(--display); font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; opacity: .8; }
+.stage h3 { font-size: 17px; }
+.stage ul { margin: 0; padding-left: 16px; font-size: 14px; display: grid; gap: 3px; }
+.stage.you ul { color: var(--accent-ink); }
+
+section.band { border-top: 1px solid var(--line); padding: 48px 0; }
+section.band.alt { background: var(--surface); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: start; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+.stack { display: grid; gap: 14px; }
+.calc { display: grid; gap: 14px; }
+.calc fieldset { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 10px; margin: 0; }
+.calc legend { font-weight: 600; font-size: 14.5px; padding: 0 4px; }
+.calc label { display: grid; gap: 2px; font-size: 14px; }
+.calc .row { display: flex; justify-content: space-between; gap: 10px; }
+.calc output { font-weight: 600; font-variant-numeric: tabular-nums; }
+.calc input[type=range] { width: 100%; accent-color: var(--accent); }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 480px) { .tiles { grid-template-columns: 1fr; } }
+.tile { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.tile .n { font-family: var(--display); font-size: 30px; font-weight: 600; letter-spacing: -0.02em; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.tile .l { font-size: 14px; color: var(--muted); }
+table.rules { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+table.rules th, table.rules td { text-align: left; vertical-align: top; padding: 10px 8px; border-top: 1px solid var(--line); }
+table.rules th { width: 34%; font-weight: 600; }
+.tablewrap { overflow-x: auto; }
+ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.ask { background: var(--accent); color: var(--accent-ink); border-radius: 26px; padding: 30px 26px; display: grid; gap: 14px; }
+.ask h2 { color: var(--accent-ink); }
+.ask ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+footer { border-top: 1px solid var(--line); padding: 26px 0 40px; font-size: 13px; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) {
+  .pop { animation: pop .45s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes pop { from { opacity: .2; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7"></path><path d="M20 4v4h-4"></path></svg></span>tmrw <span class="muted" style="font-weight:500">clinic backend</span></div>
+    <span class="tag">Demo · synthetic patients</span>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+  <div class="hero">
+    <p class="eyebrow">Sunday 13 Jun, 9:30 am · Harbourview Family Clinic (simulated solo GP) · closed today</p>
+    <h1>Your clinic's back office, run by agents. You work from one queue.</h1>
+    <p class="lede">Everything that happens between consultations: lab results, hospital letters, referrals, recalls, repeat medicines and patients' WhatsApp messages. Agents read each one, match it to the right chart, prepare the next step and watch it until it's done. Only you sign, prescribe or close.</p>
+  </div>
+
+  <p class="eyebrow" style="margin-bottom:10px">Since Saturday's session ended</p>
+  <div class="lanes">
+    <div class="lane"><span class="k">Results read</span><span class="n" id="w-results">0</span><span class="d">abnormal lab results matched to their charts, each with its evidence quoted. Engine output.</span></div>
+    <div class="lane crit"><span class="k">Critical</span><span class="n" id="w-crit">0</span><span class="d">Mr Chan's potassium of 6.6. You were paged at 09:30. Engine output.</span></div>
+    <div class="lane"><span class="k">Recalls</span><span class="n" id="w-recall">0</span><span class="d">patient the clinic couldn't reach for a review: second attempt. Engine output.</span></div>
+    <div class="lane"><span class="k">WhatsApp</span><span class="n">3</span><span class="d">messages: a refill prepared, a refill held, a red flag sent to 999. Illustrative.</span></div>
+  </div>
+
+  <div class="qhead">
+    <div class="stack" style="gap:6px">
+      <p class="eyebrow">Your queue</p>
+      <h2>Everything that needs you, in one place, most urgent first.</h2>
+    </div>
+    <div class="tally" aria-live="polite">
+      <span>Your time on the queue: <strong class="tnum" id="tally">0 s</strong></span>
+      <label class="toggle" for="en"><input type="checkbox" id="en" checked> English under messages</label>
+    </div>
+  </div>
+
+  <div class="desk">
+    <div class="queue" id="queue" role="group" aria-label="Your queue"></div>
+    <div id="details">
+
+      <!-- Mr Chan: the engine's item, joined to his WhatsApp refill request -->
+      <article class="detail" id="d-chan" aria-label="Mr Chan">
+        <div class="dhead"><span class="pill crit">Critical · paged 09:30</span><h2>Mr Chan · 陳大文, 62</h2><p class="muted">Critical potassium on the lab portal, then a WhatsApp asking for more spironolactone.</p></div>
+        <div class="split">
+          <div class="phone"><div class="screen">
+            <div class="chat-head"><span class="avatar">陳</span><div><div class="who">CHAN Tai Man 陳大文</div><div class="sub">Harbourview care line</div></div></div>
+            <div class="msgs" id="msgs-chan">
+              <span class="sys">Sun 13 Jun</span>
+              <div class="b in">陳醫生，我嘅 lisinopril 同 spironolactone 就嚟食完，可唔可以幫我開多一個月？<span class="en">Dr Chan, my lisinopril and spironolactone are about to run out. Could you prescribe another month?</span><span class="meta">09:12</span></div>
+              <div class="b out" data-actor="agent" id="chan-hold">陳生，收到。你琴日驗血嘅報告已經返咗嚟，醫生要親自睇過先可以配藥，佢會盡快聯絡你。如果覺得心跳唔規則、好冇力或者唞唔到氣，請即刻打999。<span class="en">Got it, Mr Chan. Yesterday's blood test is back, and the doctor needs to see it before any refill. The doctor will contact you soon. If your heartbeat feels irregular, you feel very weak or you can't catch your breath, call 999 now.</span><span class="meta">Care team · from your approved replies · 09:12</span></div>
+              <div class="b bot" data-actor="bot" id="chan-bot" hidden>陳生，收到！已經幫你排咗 lisinopril 同 spironolactone 一個月，星期一下午可以嚟診所拎。<span class="en">Got it! A month of lisinopril and spironolactone is lined up. Collect Monday afternoon.</span><span class="meta">A refill bot · 09:12</span></div>
+              <span class="sys alert" id="chan-page">09:30 · Dr Chan paged: critical result unseen for an hour; refill held</span>
+            </div>
+          </div></div>
+          <div class="panel">
+            <div class="box crit">
+              <label class="toggle" for="botswitch"><input type="checkbox" id="botswitch"> Show what a refill bot that only reads the message would do</label>
+              <p class="callout" id="bot-callout" hidden>The bot put spironolactone and lisinopril in Monday's refill batch. Both raise potassium, and his potassium had been sitting at 6.6 on the lab portal since 7:40 last night. A doctor signing a batch of refills sees the request, not the result.</p>
+            </div>
+            <div class="box warn">
+              <div class="box-head"><h3>What his message added</h3><span class="source">Care team</span></div>
+              <ul class="checks">
+                <li><span class="ic warn">!</span><span>The engine's chart search found no medicines dispensed here. His medicines were only in your free-text note from 5 Jun:<q class="q-note">K+ 5.4 on lisinopril and spironolactone, eGFR 52.</q><q class="q-note">Repeat K+ and eGFR in 1 week.</q></span></li>
+                <li><span class="ic crit">!</span><span>His request names both drugs, so it joins the refill to the open critical result.</span></li>
+                <li><span class="ic ok">✓</span><span>Refill held. Nothing goes out until you decide. Only you can release it.</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="box" data-engine-trace="chan"></div>
+        <div class="box">
+          <div class="box-head"><h3>Your decision · now</h3><span class="pill crit">Critical</span></div>
+          <div class="draft">陳生，你嘅鉀（potassium）好高，係 6.6，會影響心跳。請今日去急症室做心電圖同再驗血，帶埋你啲藥去。暫時唔好食 spironolactone，等我再通知你。<span class="en">Draft for your signature: Mr Chan, your potassium is very high at 6.6, which can affect the heart. Please go to A&amp;E today for an ECG and a repeat blood test, and bring your medicines. Stop the spironolactone until I tell you.</span></div>
+          <div class="actions">
+            <button class="btn crit" type="button" data-act="chan-call">Call him now</button>
+            <button class="btn" type="button" data-act="chan-send">Sign and send this</button>
+            <button class="btn ghost" type="button" data-act="chan-edit">Write my own</button>
+          </div>
+          <div class="next" id="next-chan"><ul class="checks">
+            <li><span class="ic ok">✓</span><span>The refill stays held until you release it.</span></li>
+            <li><span class="ic ok">✓</span><span>The potassium item stays open until a repeat result is back and you close it.</span></li>
+            <li><span class="ic ok">✓</span><span>The care team chases until he replies, and tells you if he doesn't.</span></li>
+          </ul></div>
+        </div>
+      </article>
+
+      <!-- Mrs Ho: red flag in a refill request (illustrative) -->
+      <article class="detail" id="d-ho" aria-label="Mrs Ho">
+        <div class="dhead"><span class="pill crit">Red flag · sent to 999</span><h2>Mrs Ho · 何慧敏, 64</h2><p class="muted">Asked for her statin, then mentioned chest tightness with sweating.</p></div>
+        <div class="split">
+          <div class="phone"><div class="screen">
+            <div class="chat-head"><span class="avatar">何</span><div><div class="who">HO Wai Man 何慧敏</div><div class="sub">Harbourview care line</div></div></div>
+            <div class="msgs" id="msgs-ho">
+              <span class="sys">Sun 13 Jun</span>
+              <div class="b in">陳醫生，想配多啲 atorvastatin。另外我而家<span class="hl">心口好翳</span>，<span class="hl">出晒冷汗</span>，已經半個鐘，係咪正常㗎？<span class="en">Dr Chan, I'd like more atorvastatin. Also my chest feels very tight right now and I'm in a cold sweat. It's been half an hour. Is that normal?</span><span class="meta">09:18</span></div>
+              <div class="b out" data-actor="agent">何太，心口翳加出冷汗可能係心臟問題。請即刻打999或者去最近嘅急症室，唔好自己揸車。陳醫生已經收到通知，配藥嘅事遲啲再處理。<span class="en">Mrs Ho, chest tightness with sweating can be a heart problem. Call 999 or go to the nearest A&amp;E now. Don't drive yourself. Dr Chan has been alerted. We'll sort the refill later.</span><span class="meta">Fixed reply · red-flag rule · 4 seconds</span></div>
+              <span class="sys alert">09:18 · Dr Chan alerted: red flag in a patient message</span>
+              <div class="b out" data-actor="agent">何太，你而家點呀？救護車到咗未？<span class="en">How are you now, Mrs Ho? Has the ambulance arrived?</span><span class="meta">Care team · 09:26</span></div>
+              <div class="b in">到咗醫院喇，佢哋做緊檢查。<span class="en">I'm at the hospital. They're doing tests.</span><span class="meta">09:28</span></div>
+            </div>
+          </div></div>
+          <div class="panel">
+            <div class="box">
+              <div class="box-head"><h3>What the care team did</h3><span class="source">Illustrative patient</span></div>
+              <ul class="checks">
+                <li><span class="ic crit">!</span><span><strong>Red-flag words matched:</strong> 心口好翳 (chest very tight) with 出晒冷汗 (cold sweat). A fixed rule you approved, not a model's judgement.</span></li>
+                <li><span class="ic ok">✓</span><span><strong>Fixed reply in 4 seconds:</strong> call 999, don't drive. The same wording every time.</span></li>
+                <li><span class="ic ok">✓</span><span><strong>You were alerted at 09:18.</strong> The care team checked on her 8 minutes later. She's at the hospital.</span></li>
+                <li><span class="ic ok">✓</span><span><strong>Refill paused.</strong> Atorvastatin waits for you, after the hospital has seen her.</span></li>
+                <li><span class="ic ok">✓</span><span><strong>Item opened:</strong> hospital attendance on 13 Jun. The care team will ask her for the discharge letter and file it to her chart.</span></li>
+              </ul>
+            </div>
+            <div class="box">
+              <div class="box-head"><h3>Your decision · when you're free</h3><span class="pill warn">Today</span></div>
+              <div class="draft">何太，我係陳醫生。好彩你即刻去咗醫院。出院之後影低張出院紙send俾我，我哋再約覆診同埋處理配藥。<span class="en">Draft for your signature: Mrs Ho, it's Dr Chan. I'm glad you went straight to hospital. When you're discharged, send me a photo of the discharge letter and we'll arrange your follow-up and medicines.</span></div>
+              <div class="actions">
+                <button class="btn" type="button" data-act="ho-send">Sign and send</button>
+                <button class="btn ghost" type="button" data-act="ho-call">I'll call her later</button>
+              </div>
+              <div class="next" id="next-ho"><ul class="checks">
+                <li><span class="ic ok">✓</span><span>The hospital item stays open until her discharge letter is in and you close it.</span></li>
+                <li><span class="ic ok">✓</span><span>If no letter arrives within 3 days, the care team asks her again and raises it to you.</span></li>
+              </ul></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Mrs Wong: routine repeat medicine (illustrative) -->
+      <article class="detail" id="d-wong" aria-label="Mrs Wong">
+        <div class="dhead"><span class="pill ok">Ready to sign Monday</span><h2>Mrs Wong · 王美玲, 58</h2><p class="muted">Repeat amlodipine. Stable, seen in person 3 months ago, readings at target.</p></div>
+        <div class="split">
+          <div class="phone"><div class="screen">
+            <div class="chat-head"><span class="avatar">王</span><div><div class="who">WONG Mei Ling 王美玲</div><div class="sub">Harbourview care line</div></div></div>
+            <div class="msgs" id="msgs-wong">
+              <span class="sys">Sun 13 Jun</span>
+              <div class="b in">陳醫生早晨，我啲血壓藥就快食完，可唔可以幫我配多次？<span class="en">Morning Dr Chan, my blood pressure tablets are nearly finished. Could you refill them?</span><span class="meta">09:02</span></div>
+              <div class="b out" data-actor="agent">王太早晨，收到。配藥之前想問三樣嘢：<br>1. 最近三次喺屋企量嘅血壓幾多？<br>2. 有冇腳腫、頭暈或者心口痛？<br>3. 仲剩幾多日藥？<span class="en">Morning Mrs Wong. Before the refill, three questions: 1. Your last three home blood pressures? 2. Any ankle swelling, dizziness or chest pain? 3. How many days of tablets are left?</span><span class="meta">Care team · 09:02</span></div>
+              <div class="b in">128/80、131/82、126/79。冇腳腫，冇頭暈，心口都冇痛。仲有五日藥。<span class="en">128/80, 131/82, 126/79. No swelling, no dizziness, no chest pain. Five days left.</span><span class="meta">09:06</span></div>
+              <div class="b out" data-actor="agent">多謝王太。資料已經交咗俾陳醫生，佢星期一朝會睇，批咗之後我哋會通知你幾時拎藥。<span class="en">Thank you. Dr Chan will look at this on Monday morning. Once it's approved we'll tell you when to collect.</span><span class="meta">Care team · 09:06</span></div>
+            </div>
+          </div></div>
+          <div class="panel">
+            <div class="box">
+              <div class="box-head"><h3>What the care team checked</h3><span class="source">Illustrative patient</span></div>
+              <ul class="checks">
+                <li><span class="ic ok">✓</span><span><strong>Identity.</strong> This WhatsApp number was linked to her chart at her last visit; name and date of birth match.</span></li>
+                <li><span class="ic ok">✓</span><span><strong>Eligible for a remote repeat under your rules.</strong> Seen in person on 11 Mar. Same dose for 14 months.</span></li>
+                <li><span class="ic ok">✓</span><span><strong>Home readings at target.</strong> 128/80 · 131/82 · 126/79, all under the 140/90 in your rules.</span></li>
+                <li><span class="ic ok">✓</span><span><strong>No side effects or red flags.</strong> Asked about ankle swelling, dizziness and chest pain. All no.</span></li>
+                <li><span class="ic ok">✓</span><span><strong>Nothing open on her chart.</strong> Lipids and kidney function on 11 Mar, normal.</span></li>
+              </ul>
+            </div>
+            <div class="box">
+              <div class="box-head"><h3>Your decision · Monday</h3><span class="pill ok">About 20 seconds</span></div>
+              <div class="draft">Amlodipine 5 mg, one tablet every morning, 8 weeks (56 tablets). Collect after 3 pm Monday, or by courier. In-person review due September.</div>
+              <div class="actions">
+                <button class="btn" type="button" data-act="wong-sign">Sign</button>
+                <button class="btn ghost" type="button" data-act="wong-see">See her in person</button>
+              </div>
+              <div class="next" id="next-wong"><ul class="checks">
+                <li><span class="ic ok">✓</span><span>The signed message goes to Mrs Wong. A dispensing slip prints at the front desk.</span></li>
+                <li><span class="ic ok">✓</span><span>The care team watches the next step: her in-person review in September.</span></li>
+              </ul></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- the engine's other open items are drawn here from the embedded data -->
+    </div>
+  </div>
+</div>
+
+<section class="band alt" id="how">
+  <div class="wrap stack" style="gap:22px">
+    <div class="stack" style="gap:8px">
+      <p class="eyebrow">How the backend works</p>
+      <h2>Everything comes in, gets read and matched, and reaches you once, with its evidence.</h2>
+    </div>
+    <div class="flow">
+      <div class="stage"><span class="k">1 · In</span><h3>Every channel</h3><ul><li>Lab portals and faxes</li><li>Hospital and specialist letters</li><li>Courier paper, scanned</li><li>eHealth records</li><li>Your own consult notes</li><li>Patients' WhatsApp</li></ul></div>
+      <div class="stage"><span class="k">2 · Read</span><h3>Agents</h3><ul><li>Match each document to the right chart</li><li>Quote what it says, word for word</li><li>Check what's already been done</li><li>Answer patients only from your approved replies</li><li>Fixed rules for red flags</li></ul></div>
+      <div class="stage"><span class="k">3 · Queue</span><h3>One place</h3><ul><li>Most urgent first, with a due time</li><li>Routed to whoever is working</li><li>Paged if critical and unseen for an hour</li><li>Raised if left untouched</li></ul></div>
+      <div class="stage you"><span class="k">4 · You</span><h3>Decide</h3><ul><li>Sign, edit or see in person</li><li>Prescribe</li><li>Close the item</li></ul></div>
+      <div class="stage"><span class="k">5 · Watch</span><h3>Until it's done</h3><ul><li>Messages, bookings and dispensing slips go out</li><li>Chased until the result, letter or visit is back</li><li>Back in your queue if it isn't</li></ul></div>
+    </div>
+    <p class="muted small">Agents can open an item, raise its urgency, alert and page you. They can't close, dismiss or downgrade anything, and they never prescribe. Switching the backend off should leave your clinic less safe, never more.</p>
+  </div>
+</section>
+
+<section class="band" id="evidence">
+  <div class="wrap grid2">
+    <div class="stack">
+      <p class="eyebrow">Tested before it touches a patient</p>
+      <h2>The engine has run Harbourview's whole year.</h2>
+      <p class="muted">LoopBench simulates a solo Hong Kong GP on Apricot VITA for a year, with real lab report formats, fax, courier and portal delays, a locum, a Lunar New Year closure and a hidden answer key. Every item the engine opens is checked like a code review: a quote that isn't word for word in its record is a hard fail.</p>
+      <p class="muted">What it still misses is listed openly: 2 of 4 feed outages were flagged on time (the lab portal and the courier), while the fax and eHealth outages were missed. Mr Chan's result landed 10 minutes after the 19:30 run and waited until 08:30 for the next one. The WhatsApp side isn't in the simulator yet.</p>
+    </div>
+    <div class="tiles">
+      <div class="tile"><span class="n" id="y-docs">0</span><span class="l">results, letters and notes read in the year (run 1)</span></div>
+      <div class="tile"><span class="n" id="y-items">0</span><span class="l">items put in front of the doctor in the year (run 1)</span></div>
+      <div class="tile"><span class="n">89%</span><span class="l">fewer harm-weighted missed follow-ups than the clinic alone (192 to 21 per 1,000 patient-years, three runs)</span></div>
+      <div class="tile"><span class="n">0</span><span class="l">hard fails across three simulated years</span></div>
+      <div class="tile"><span class="n">82%</span><span class="l">of items led to an action by the doctor; the rest were already done or not relevant (run 1)</span></div>
+      <div class="tile"><span class="n">HK$108–144k</span><span class="l">a year in return visits that would otherwise be missed</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="band alt" id="numbers">
+  <div class="wrap grid2">
+    <div class="stack">
+      <p class="eyebrow">Your numbers</p>
+      <h2>How much of your week is back office?</h2>
+      <p class="muted">Every number here is a guess. Move the sliders to match your clinic.</p>
+      <div class="tiles" aria-live="polite">
+        <div class="tile"><span class="n" id="o-now">0</span><span class="l">hours a week on results, messages and repeat-medicine visits now</span></div>
+        <div class="tile"><span class="n" id="o-after">0</span><span class="l">hours a week on the same work with the backend</span></div>
+        <div class="tile"><span class="n" id="o-slots">0</span><span class="l">appointment slots a week freed by moving stable repeats out of the room</span></div>
+        <div class="tile"><span class="n" id="o-value">0</span><span class="l">a week, if you fill those slots at your consultation fee</span></div>
+      </div>
+      <p class="small muted">With the backend, assumed: a result with its evidence prepared takes you 30 seconds; 70% of messages are answered from your approved replies and the rest take 30 seconds with a draft; 60% of repeat-medicine visits are stable enough to sign remotely, at 30 seconds each. The fee default is the middle of the HK$400 to 540 range the simulator uses.</p>
+    </div>
+    <form class="calc" id="calc" aria-label="Your clinic's numbers">
+      <fieldset><legend>Results and letters</legend>
+        <label for="r-res"><span class="row"><span>A day</span><output id="v-res" for="r-res"></output></span><input type="range" id="r-res" min="0" max="60" step="1" value="15"></label>
+        <label for="r-resmin"><span class="row"><span>Your minutes each now (find, read, check the chart, act)</span><output id="v-resmin" for="r-resmin"></output></span><input type="range" id="r-resmin" min="0.5" max="6" step="0.5" value="2"></label>
+      </fieldset>
+      <fieldset><legend>Patient messages that reach you</legend>
+        <label for="r-msg"><span class="row"><span>A day</span><output id="v-msg" for="r-msg"></output></span><input type="range" id="r-msg" min="0" max="80" step="1" value="20"></label>
+        <label for="r-msgmin"><span class="row"><span>Your minutes each now</span><output id="v-msgmin" for="r-msgmin"></output></span><input type="range" id="r-msgmin" min="0.5" max="5" step="0.5" value="1.5"></label>
+      </fieldset>
+      <fieldset><legend>Repeat-medicine visits</legend>
+        <label for="r-rep"><span class="row"><span>A day</span><output id="v-rep" for="r-rep"></output></span><input type="range" id="r-rep" min="0" max="40" step="1" value="12"></label>
+        <label for="r-repmin"><span class="row"><span>Your minutes each in the room</span><output id="v-repmin" for="r-repmin"></output></span><input type="range" id="r-repmin" min="2" max="10" step="0.5" value="4"></label>
+      </fieldset>
+      <fieldset><legend>Your clinic</legend>
+        <label for="r-days"><span class="row"><span>Days a week</span><output id="v-days" for="r-days"></output></span><input type="range" id="r-days" min="3" max="6" step="0.5" value="5.5"></label>
+        <label for="r-fee"><span class="row"><span>Consultation fee (HK$)</span><output id="v-fee" for="r-fee"></output></span><input type="range" id="r-fee" min="200" max="900" step="10" value="450"></label>
+      </fieldset>
+    </form>
+  </div>
+</section>
+
+<section class="band" id="rules">
+  <div class="wrap grid2">
+    <div class="stack">
+      <p class="eyebrow">The rules</p>
+      <h2>What the agents may do, and what stays yours</h2>
+      <div class="tablewrap">
+        <table class="rules">
+          <tr><th>Agents may</th><td>Read and match documents, quote them, check the chart, ask patients questions and send reminders from your approved replies, book within your rules, open items, raise urgency, alert and page you.</td></tr>
+          <tr><th>Only you</th><td>Prescribe, change a dose, tell a patient what a result means, sign anything clinical, and close, dismiss or downgrade an item.</td></tr>
+          <tr><th>Fixed, never a model</th><td>Red-flag replies (call 999), and what happens when a critical result is unseen.</td></tr>
+          <tr><th>Remote repeats</th><td>Only for patients you've seen in person in the last 6 months, on an unchanged dose, with no open item on their chart. Never dangerous drugs, sedatives or antibiotics.</td></tr>
+        </table>
+      </div>
+      <p class="small muted">Remote repeats follow the Medical Council of Hong Kong's Ethical Guidelines on Practice of Telemedicine (December 2019): identify the patient, an adequate evaluation, instructions understood, the doctor responsible, records kept. A starting map, not legal advice.</p>
+    </div>
+    <div class="stack">
+      <h3>Not solved yet</h3>
+      <ul class="plain">
+        <li>Which AI model may process Hong Kong patient data, and where it runs. This demo uses rules and recorded engine output, with no live model.</li>
+        <li>Reading from and writing back to your clinic system (Apricot, ClinicSolution or another). The engine runs on a simulated copy today.</li>
+        <li>Patient consent and the WhatsApp Business setup.</li>
+        <li>How a remote repeat service fits clinic licensing under the Private Healthcare Facilities Ordinance.</li>
+        <li>Out-of-hours timing: critical results should page within minutes, not wait for the next scheduled run.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="ask">
+  <div class="wrap">
+    <div class="ask">
+      <h2>Would you let it shadow your clinic for two weeks?</h2>
+      <p>It reads your results, letters and messages alongside you and shows you what it would have put in your queue. Nothing reaches a patient. At the end, you see what it caught, what it got wrong and what it would have saved you.</p>
+      <ol>
+        <li>Who reads results and answers WhatsApp in your clinic today?</li>
+        <li>What slipped through the cracks in the last month?</li>
+        <li>Which clinic system do you use, and can it export?</li>
+      </ol>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">tmrw · Every patient on this page is synthetic. The engine's items, lab reports and notes come from LoopBench, a simulated clinic year; Mrs Wong and Mrs Ho are illustrative. Not an emergency service: in an emergency, call 999.</div>
+</footer>
+
+<!-- DATA:START -->
+<script type="application/json" id="engine-data">{"source":{"kind":"loopbench","simulated":true,"clinic":"hk_solo","clinic_name":"Harbourview Family Clinic","system":"Apricot VITA","harness":"agentic[rules]","seed":1,"start":"2027-01-04T00:00","end":"2028-01-03T23:59"},"now":"2027-06-13T09:30","mr_chan":"PF99D4DB079","patients":{"P82F3CE1E99":{"name_en":"SZETO Ming Kit","name_zh":"司徒明傑","sex":"M","dob":"1971-08-29","hkid":"A047XXX(X)"},"PF99D4DB079":{"name_en":"CHAN Tai Man","name_zh":"陳大文","sex":"M","dob":"1964-09-23","hkid":"D505XXX(X)"},"P6D746215D6":{"name_en":"CHAN Kwok Keung","name_zh":"陳國強","sex":"M","dob":"1978-05-08","hkid":"Z618XXX(X)"},"PBDF2FA1916":{"name_en":"LAU Mei Yee","name_zh":"劉美儀","sex":"F","dob":"1950-06-28","hkid":"H058XXX(X)"},"PF6E1B25281":{"name_en":"LEE Ming Kit","name_zh":"李明傑","sex":"M","dob":"1990-03-18","hkid":"K662XXX(X)"},"P0CCE9215D7":{"name_en":"CHEUNG Chi Keung","name_zh":"張志強","sex":"M","dob":"1964-12-08","hkid":"P246XXX(X)"}},"items":[{"id":"Q068D2548CFD4","patient_id":"PF99D4DB079","family":"abnormal_result","reason":"Abnormal: Potassium 6.6, Creatinine 132, eGFR 47","urgency_at_open":4,"urgency":4,"opened_at":"2027-06-13T08:30","due":"2027-06-14T08:30","reasoning":[{"step":"source","text":"PathLab Medical Laboratories Ltd. report PA27-849629 was posted on its web portal on Sat 12 Jun 19:40.","cites":[{"record":"RADB8342E3894","quote":"HKID : D505XXX(X) DOB : 23/09/1964 Lab No : PA27-849629"}]},{"step":"identity","text":"Posted on the lab's portal; its name and date of birth match exactly one patient in the clinic index: CHAN Tai Man.","cites":[{"record":"RADB8342E3894","quote":"Name : CHAN, Tai Man 陳大文 Sex/Age : M/62Y"},{"record":"RADB8342E3894","quote":"HKID : D505XXX(X) DOB : 23/09/1964 Lab No : PA27-849629"}]},{"step":"finding","text":"Potassium 6.6 mmol/L, above the report's range of 3.5-5.1 (critical by this harness's rules (below 2.8 or above 6.5)); eGFR 47 mL/min/1.73m2, below the report's range of >60 (well outside it); Creatinine 132 umol/L, above the report's range of 62-106 (just outside it).","cites":[{"record":"RADB8342E3894","quote":"Potassium 6.6 H mmol/L 3.5 - 5.1"},{"record":"RADB8342E3894","quote":"eGFR 47 L mL/min/1.73m2 > 60"},{"record":"RADB8342E3894","quote":"Creatinine 132 H umol/L 62 - 106"}]},{"step":"context","text":"No earlier Potassium, eGFR or Creatinine result on file. No relevant medicines dispensed at this clinic.","cites":[]},{"step":"assessment","text":"Working problem: hyperkalaemia; also reduced kidney function. Plan: Repeat electrolytes promptly (a haemolysed sample is not excluded); review ACE inhibitor, ARB, spironolactone and potassium supplements; ECG if markedly raised.","cites":[]},{"step":"loop_status","text":"No action note in the chart mentions PA27-849629 since the result arrived on 12 Jun 2027.","cites":[],"search":{"kinds":["action_note"],"since":"2027-06-12T19:40:00","contains_any":["PA27-849629"],"found":0}},{"step":"routing","text":"The clinic is closed today (not an opening day). Dr CHAN Siu Ming (ordering doctor) is not rostered today. Dr CHAN Siu Ming is the first doctor rostered (Mon 14 Jun).","cites":[]},{"step":"request","text":"Opened for Dr CHAN Siu Ming at urgency 4 (critical: same day; the doctor's mobile is paged if it is unseen after an hour); due Mon 14 Jun 08:30.","cites":[]}]},{"id":"QD4CA0AD1D961","patient_id":"P0CCE9215D7","family":"abnormal_result","reason":"Abnormal: HbA1c 6.4, Chloride 109, Glucose (fasting) 7.9","urgency_at_open":2,"urgency":2,"opened_at":"2027-06-12T19:30","due":"2027-06-19T19:30","reasoning":[{"step":"source","text":"PathLab Medical Laboratories Ltd. report PA27-943976 was posted on its web portal on Fri 11 Jun 16:24.","cites":[{"record":"R21FFC6222EF3","quote":"HKID : P246XXX(X) DOB : 08/12/1964 Lab No : PA27-943976"}]},{"step":"identity","text":"Posted on the lab's portal; its name and date of birth match exactly one patient in the clinic index: CHEUNG Chi Keung.","cites":[{"record":"R21FFC6222EF3","quote":"Name : CHEUNG, Chi Keung 張志強 Sex/Age : M/62Y"},{"record":"R21FFC6222EF3","quote":"HKID : P246XXX(X) DOB : 08/12/1964 Lab No : PA27-943976"}]},{"step":"finding","text":"Glucose (fasting) 7.9 mmol/L, above the report's range of 3.9-6 (well outside it); HbA1c 6.4 %, above the report's range of 4-6 (just outside it); Chloride 109 mmol/L, above the report's range of 102-109 (just outside it).","cites":[{"record":"R21FFC6222EF3","quote":"Glucose (fasting) 7.9 H mmol/L 3.9 - 6"},{"record":"R21FFC6222EF3","quote":"HbA1c 6.4 H % 4 - 6"},{"record":"R21FFC6222EF3","quote":"Chloride 109 H mmol/L 102 - 109"}]},{"step":"context","text":"No earlier Glucose (fasting), HbA1c or Chloride result on file. No relevant medicines dispensed at this clinic.","cites":[]},{"step":"assessment","text":"Working problem: hyperglycaemia; also raised HbA1c, raised chloride. Plan: Confirm with HbA1c or a repeat fasting glucose; start diabetes care if confirmed.","cites":[]},{"step":"loop_status","text":"No action note in the chart mentions PA27-943976 since the result arrived on 11 Jun 2027. Waited 1 open day for the clinic to act on its own first.","cites":[],"search":{"kinds":["action_note"],"since":"2027-06-11T16:24:00","contains_any":["PA27-943976"],"found":0}},{"step":"routing","text":"Dr CHAN Siu Ming (ordering doctor) is rostered today.","cites":[]},{"step":"request","text":"Opened for Dr CHAN Siu Ming at urgency 2 (soon: within a week); due Sat 19 Jun 19:30.","cites":[]}]},{"id":"QAA5539434504","patient_id":"PBDF2FA1916","family":"planned_review","reason":"Second attempt: patient not reached","urgency_at_open":2,"urgency":2,"opened_at":"2027-06-13T08:30","due":null,"reasoning":[{"step":"source","text":"Action note on 05 Jun 2027: the clinic could not reach the patient.","cites":[{"record":"D23876E305DFF","quote":"Unable to reach patient"}]},{"step":"finding","text":"The first item was actioned on 05 Jun 2027; the clinic then could not reach the patient.","cites":[{"record":"R370213E93A2B"}]},{"step":"loop_status","text":"1 further action note or consultation in the chart since that note, 7 days ago.","cites":[],"search":{"kinds":["action_note","consult_note"],"since":"2027-06-05T13:06:00","contains_any":[],"found":1}},{"step":"assessment","text":"Working problem: the loop is still open because the patient has not been reached. Plan: try again by another route (a call at a different time, WhatsApp or a letter).","cites":[]},{"step":"routing","text":"The first item's owner was Dr CHAN Siu Ming. The clinic is closed today (not an opening day). Dr CHAN Siu Ming (ordering doctor) is rostered on Mon 14 Jun.","cites":[]},{"step":"request","text":"Second attempt opened for Dr CHAN Siu Ming at urgency 2 (soon: within a week).","cites":[]}]},{"id":"QBF2839BA237D","patient_id":"P82F3CE1E99","family":"abnormal_result","reason":"Abnormal: HDL cholesterol 0.97, Chloride 108","urgency_at_open":1,"urgency":1,"opened_at":"2027-06-12T13:30","due":"2027-06-26T13:30","reasoning":[{"step":"source","text":"KingMed Diagnostics (Hong Kong) Limited report KI27-994527 arrived by fax (scanned into the clinic system) on Tue 08 Jun 09:00.","cites":[{"record":"R9B9B0B9609BE","quote":"ID: A047XXX(X) Ref No. KI27-994527 Requested by: Dr CHAN Siu Ming (Harbourview Family Clinic)"}]},{"step":"identity","text":"Filed to SZETO Ming Kit's chart; the header's name and date of birth agree with the chart.","cites":[{"record":"R9B9B0B9609BE","quote":"Patient: Ming Kit SZETO (司徒明傑) D.O.B. 1971-08-29 M"}]},{"step":"finding","text":"HDL cholesterol 0.97, below the report's range of >1 (just outside it); Chloride 108, above the report's range of 102-109 (just outside it).","cites":[{"record":"R9B9B0B9609BE","quote":"HDL cholesterol: 0.97 mmol/L v [> 1]"},{"record":"R9B9B0B9609BE","quote":"Chloride: 108 mmol/L ^ [102 - 109]"}]},{"step":"context","text":"No earlier HDL cholesterol or Chloride result on file. No relevant medicines dispensed at this clinic.","cites":[]},{"step":"assessment","text":"Working problem: low HDL cholesterol; also raised chloride. Plan: Include in the cardiovascular risk assessment.","cites":[]},{"step":"loop_status","text":"No action note in the chart mentions KI27-994527 since the result arrived on 08 Jun 2027. Waited 3 open days for the clinic to act on its own first.","cites":[],"search":{"kinds":["action_note"],"since":"2027-06-08T09:00:00","contains_any":["KI27-994527"],"found":0}},{"step":"routing","text":"Dr CHAN Siu Ming (ordering doctor) is rostered today.","cites":[]},{"step":"request","text":"Opened for Dr CHAN Siu Ming at urgency 1 (routine: within 2 weeks); due Sat 26 Jun 13:30.","cites":[]}]},{"id":"QFF39BEFB0E31","patient_id":"PF6E1B25281","family":"abnormal_result","reason":"Abnormal: Creatinine 141, Chloride 110","urgency_at_open":1,"urgency":1,"opened_at":"2027-06-12T13:30","due":"2027-06-26T13:30","reasoning":[{"step":"source","text":"KingMed Diagnostics (Hong Kong) Limited report KI27-623852 arrived by fax (scanned into the clinic system) on Tue 08 Jun 09:00.","cites":[{"record":"RA79117D146A5","quote":"ID: K662XXX(X) Ref No. KI27-623852 Requested by: Dr CHAN Siu Ming (Harbourview Family Clinic)"}]},{"step":"identity","text":"Not filed to any chart. Exactly one patient in the clinic index matches the header's name, date of birth and HKID: LEE Ming Kit.","cites":[{"record":"RA79117D146A5","quote":"Patient: Ming Kit LEE (李明傑) D.O.B. 1990-03-18 M"}]},{"step":"finding","text":"Creatinine 141, above the report's range of 69-110 (just outside it); Chloride 110, above the report's range of 102-109 (just outside it).","cites":[{"record":"RA79117D146A5","quote":"Creatinine: 141 umol/L ^ [69 - 110]"},{"record":"RA79117D146A5","quote":"Chloride: 110 mmol/L ^ [102 - 109]"}]},{"step":"context","text":"No earlier Creatinine or Chloride result on file. No relevant medicines dispensed at this clinic.","cites":[]},{"step":"assessment","text":"Working problem: reduced kidney function; also raised chloride. Plan: Repeat renal function and compare with baseline; review nephrotoxic medicines and doses.","cites":[]},{"step":"loop_status","text":"No action note in the chart mentions KI27-623852 since the result arrived on 08 Jun 2027. Waited 3 open days for the clinic to act on its own first.","cites":[],"search":{"kinds":["action_note"],"since":"2027-06-08T09:00:00","contains_any":["KI27-623852"],"found":0}},{"step":"routing","text":"Dr CHAN Siu Ming (ordering doctor) is rostered today.","cites":[]},{"step":"request","text":"Opened for Dr CHAN Siu Ming at urgency 1 (routine: within 2 weeks); due Sat 26 Jun 13:30.","cites":[]}]},{"id":"Q229F8E4CC7E4","patient_id":"P6D746215D6","family":"abnormal_result","reason":"Abnormal: eGFR 54, Total cholesterol 6, Triglycerides 2.1, Creatinine 126, Urea 8.4","urgency_at_open":1,"urgency":1,"opened_at":"2027-06-13T08:30","due":"2027-06-27T08:30","reasoning":[{"step":"source","text":"PathLab Medical Laboratories Ltd. report PA27-991006 was posted on its web portal on Tue 08 Jun 22:23.","cites":[{"record":"REABF8BA757E7","quote":"HKID : Z618XXX(X) DOB : 08/05/1978 Lab No : PA27-991006"}]},{"step":"source","text":"Another copy arrived by courier (scanned into the clinic system) on Fri 11 Jun 09:00; added to this item rather than opening a second one.","cites":[{"record":"RB91617AFC86A","quote":"HKID : Z618XXX(X) DOB : 08/05/1978 Lab No : PA27-991006"}]},{"step":"identity","text":"Posted on the lab's portal; its name and date of birth match exactly one patient in the clinic index: CHAN Kwok Keung.","cites":[{"record":"REABF8BA757E7","quote":"Name : CHAN, Kwok Keung 陳國強 Sex/Age : M/49Y"},{"record":"REABF8BA757E7","quote":"HKID : Z618XXX(X) DOB : 08/05/1978 Lab No : PA27-991006"}]},{"step":"finding","text":"Creatinine 126 umol/L, above the report's range of 69-110 (just outside it); eGFR 54 mL/min/1.73m2, below the report's range of >60 (just outside it); Urea 8.4 mmol/L, above the report's range of 2.7-7.2 (just outside it); Total cholesterol 6 mmol/L, above the report's range of <5.2 (just outside it); Triglycerides 2.1 mmol/L, above the report's range of <1.7 (just outside it).","cites":[{"record":"REABF8BA757E7","quote":"Creatinine 126 H umol/L 69 - 110"},{"record":"REABF8BA757E7","quote":"eGFR 54 L mL/min/1.73m2 > 60"},{"record":"REABF8BA757E7","quote":"Urea 8.4 H mmol/L 2.7 - 7.2"},{"record":"REABF8BA757E7","quote":"Total cholesterol 6 H mmol/L < 5.2"},{"record":"REABF8BA757E7","quote":"Triglycerides 2.1 H mmol/L < 1.7"}]},{"step":"context","text":"No earlier Creatinine, eGFR, Urea or Total cholesterol result on file. No relevant medicines dispensed at this clinic.","cites":[]},{"step":"assessment","text":"Working problem: reduced kidney function; also raised cholesterol, raised urea. Plan: Repeat renal function and compare with baseline; review nephrotoxic medicines and doses.","cites":[]},{"step":"loop_status","text":"No action note in the chart mentions PA27-991006 since the result arrived on 08 Jun 2027. Waited 3 open days for the clinic to act on its own first.","cites":[],"search":{"kinds":["action_note"],"since":"2027-06-08T22:23:00","contains_any":["PA27-991006"],"found":0}},{"step":"routing","text":"The clinic is closed today (not an opening day). Dr CHAN Siu Ming (ordering doctor) is rostered on Mon 14 Jun.","cites":[]},{"step":"request","text":"Opened for Dr CHAN Siu Ming at urgency 1 (routine: within 2 weeks); due Sun 27 Jun 08:30.","cites":[]}]}],"documents":{"D23876E305DFF":{"id":"D23876E305DFF","kind":"action_note","channel":"cms","available_at":"2027-06-05T13:05","text":"Patient recalled for review: chronic review. Unable to reach patient (3 calls, WhatsApp sent). -- Dr CHAN Siu Ming"},"R21FFC6222EF3":{"id":"R21FFC6222EF3","kind":"lab_report","channel":"portal:pathlab","available_at":"2027-06-11T16:24","text":"PATHLAB MEDICAL LABORATORIES LTD.\nLABORATORY REPORT\n\nName : CHEUNG, Chi Keung  張志強        Sex/Age : M/62Y\nHKID : P246XXX(X)        DOB : 08/12/1964        Lab No : PA27-943976\nClinic : Harbourview Family Clinic        Doctor : Dr CHAN Siu Ming\nCollected : 10/06/2027 09:36        Reported : 11/06/2027 16:24\n\nTEST                                RESULT  FLAG UNIT          REFERENCE RANGE\nPotassium                              3.9       mmol/L        3.6 - 5.2\nLDL cholesterol                        2.8       mmol/L        < 3.4\nHbA1c                                  6.4  H    %             4 - 6\neGFR                                    77       mL/min/1.73m2 > 60\nUrine albumin/creatinine ratio         2.7       mg/mmol       < 3\nHDL cholesterol                       1.41       mmol/L        > 1\nTriglycerides                          0.4       mmol/L        < 1.7\nTotal cholesterol                      4.9       mmol/L        < 5.2\nChloride                               109  H    mmol/L        102 - 109\nBicarbonate                             22       mmol/L        22 - 29\nUrea                                   4.1       mmol/L        2.7 - 7.2\nSodium                                 142       mmol/L        137 - 143\nCalcium                               2.26       mmol/L        2.19 - 2.5\nCreatinine                              99       umol/L        69 - 110\nGlucose (fasting)                      7.9  H    mmol/L        3.9 - 6\n\n** END OF REPORT **\n-- SIMULATED (LoopBench synthetic patient). Not issued by PathLab Medical Laboratories Ltd.. --"},"R370213E93A2B":{"id":"R370213E93A2B","kind":"consult_note","channel":"cms","available_at":"2027-05-19T17:19","text":"S: FU Hyperlipidemia. Feels well, compliant with meds.\nO: BP 120/89.\nShe will follow up in 2 weeks for repeat imaging."},"R9B9B0B9609BE":{"id":"R9B9B0B9609BE","kind":"lab_report","channel":"fax","available_at":"2027-06-08T09:00","text":"KingMed Diagnostics (Hong Kong) Limited  ** REPORT **\n\nPatient: Ming Kit SZETO (司徒明傑)   D.O.B. 1971-08-29   M\nID: A047XXX(X)   Ref No. KI27-994527   Requested by: Dr CHAN Siu Ming (Harbourview Family Clinic)\nSpecimen received 07/06/2027 12:23; authorised 07/06/2027 23:51\n\n  HDL cholesterol: 0.97 mmol/L v   [> 1]\n  Triglycerides: 1.3 mmol/L   [< 1.7]\n  Total cholesterol: 5 mmol/L   [< 5.2]\n  AST: 15 U/L   [11 - 33]\n  ALT: 15 U/L   [7 - 49]\n  ALP: 73 U/L   [47 - 168]\n  Bilirubin: 8 umol/L   [4 - 21]\n  Albumin: 41 g/L   [38 - 49]\n  eGFR: 103 mL/min/1.73m2   [> 60]\n  Bicarbonate: 23 mmol/L   [22 - 29]\n  Chloride: 108 mmol/L ^   [102 - 109]\n  Potassium: 4.3 mmol/L   [3.6 - 5.2]\n  Sodium: 142 mmol/L   [137 - 143]\n  Calcium: 2.25 mmol/L   [2.19 - 2.5]\n  Creatinine: 84 umol/L   [69 - 110]\n  LDL cholesterol: 2.3 mmol/L   [< 3.4]\n  Glucose (fasting): 4.6 mmol/L   [3.9 - 6]\n  Urea: 6.7 mmol/L   [2.7 - 7.2]\n\n** END OF REPORT **\n-- SIMULATED (LoopBench synthetic patient). Not issued by KingMed Diagnostics (Hong Kong) Limited. --"},"RA79117D146A5":{"id":"RA79117D146A5","kind":"lab_report","channel":"fax","available_at":"2027-06-08T09:00","text":"KingMed Diagnostics (Hong Kong) Limited  ** REPORT **\n\nPatient: Ming Kit LEE (李明傑)   D.O.B. 1990-03-18   M\nID: K662XXX(X)   Ref No. KI27-623852   Requested by: Dr CHAN Siu Ming (Harbourview Family Clinic)\nSpecimen received 07/06/2027 10:03; authorised 08/06/2027 00:02\n\n  Bicarbonate: 24 mmol/L   [22 - 29]\n  Glucose (fasting): 4.5 mmol/L   [3.9 - 6]\n  Urea: 4.4 mmol/L   [2.7 - 7.2]\n  Creatinine: 141 umol/L ^   [69 - 110]\n  HbA1c: 6 %   [4 - 6]\n  HDL cholesterol: 2.03 mmol/L   [> 1]\n  LDL cholesterol: 2.2 mmol/L   [< 3.4]\n  Triglycerides: 1.6 mmol/L   [< 1.7]\n  Total cholesterol: 5 mmol/L   [< 5.2]\n  Chloride: 110 mmol/L ^   [102 - 109]\n  Potassium: 3.9 mmol/L   [3.6 - 5.2]\n  Sodium: 143 mmol/L   [137 - 143]\n  Calcium: 2.25 mmol/L   [2.19 - 2.5]\n\n** END OF REPORT **\n-- SIMULATED (LoopBench synthetic patient). Not issued by KingMed Diagnostics (Hong Kong) Limited. --"},"RADB8342E3894":{"id":"RADB8342E3894","kind":"lab_report","channel":"portal:pathlab","available_at":"2027-06-12T19:40","text":"PATHLAB MEDICAL LABORATORIES LTD.\nLABORATORY REPORT\n\nName : CHAN, Tai Man  陳大文        Sex/Age : M/62Y\nHKID : D505XXX(X)        DOB : 23/09/1964        Lab No : PA27-849629\nClinic : Harbourview Family Clinic        Doctor : Dr CHAN Siu Ming\nCollected : 12/06/2027 09:30        Reported : 12/06/2027 19:40\n\nTEST                                RESULT  FLAG UNIT          REFERENCE RANGE\nPotassium                              6.6  H    mmol/L        3.5 - 5.1\nSodium                                 136       mmol/L        136 - 145\nCreatinine                             132  H    umol/L        62 - 106\neGFR                                    47  L    mL/min/1.73m2 > 60\n\n** END OF REPORT **\n-- SIMULATED (LoopBench synthetic patient). Not issued by PathLab Medical Laboratories Ltd.. --"},"RB91617AFC86A":{"id":"RB91617AFC86A","kind":"lab_report","channel":"courier","available_at":"2027-06-11T09:00","text":"PATHLAB MEDICAL LABORATORIES LTD.\nLABORATORY REPORT\n\nName : CHAN, Kwok Keung  陳國強        Sex/Age : M/49Y\nHKID : Z618XXX(X)        DOB : 08/05/1978        Lab No : PA27-991006\nClinic : Harbourview Family Clinic        Doctor : Dr CHAN Siu Ming\nCollected : 07/06/2027 15:32        Reported : 08/06/2027 22:23\n\nTEST                                RESULT  FLAG UNIT          REFERENCE RANGE\neGFR                                    54  L    mL/min/1.73m2 > 60\nAlbumin                                 39       g/L           38 - 49\nBilirubin                               13       umol/L        4 - 21\nHDL cholesterol                       2.15       mmol/L        > 1\nALT                                     14       U/L           7 - 49\nAST                                     17       U/L           11 - 33\nTotal cholesterol                        6  H    mmol/L        < 5.2\nTriglycerides                          2.1  H    mmol/L        < 1.7\nLDL cholesterol                        2.6       mmol/L        < 3.4\nBicarbonate                             23       mmol/L        22 - 29\nALP                                     74       U/L           47 - 168\nChloride                               105       mmol/L        102 - 109\nSodium                                 142       mmol/L        137 - 143\nCalcium                               2.28       mmol/L        2.19 - 2.5\nCreatinine                             126  H    umol/L        69 - 110\nPotassium                              4.5       mmol/L        3.6 - 5.2\nUrea                                   8.4  H    mmol/L        2.7 - 7.2\nGlucose (fasting)                      5.1       mmol/L        3.9 - 6\n\n** END OF REPORT **\n-- SIMULATED (LoopBench synthetic patient). Not issued by PathLab Medical Laboratories Ltd.. --"},"REABF8BA757E7":{"id":"REABF8BA757E7","kind":"lab_report","channel":"portal:pathlab","available_at":"2027-06-08T22:23","text":"PATHLAB MEDICAL LABORATORIES LTD.\nLABORATORY REPORT\n\nName : CHAN, Kwok Keung  陳國強        Sex/Age : M/49Y\nHKID : Z618XXX(X)        DOB : 08/05/1978        Lab No : PA27-991006\nClinic : Harbourview Family Clinic        Doctor : Dr CHAN Siu Ming\nCollected : 07/06/2027 15:32        Reported : 08/06/2027 22:23\n\nTEST                                RESULT  FLAG UNIT          REFERENCE RANGE\neGFR                                    54  L    mL/min/1.73m2 > 60\nAlbumin                                 39       g/L           38 - 49\nBilirubin                               13       umol/L        4 - 21\nHDL cholesterol                       2.15       mmol/L        > 1\nALT                                     14       U/L           7 - 49\nAST                                     17       U/L           11 - 33\nTotal cholesterol                        6  H    mmol/L        < 5.2\nTriglycerides                          2.1  H    mmol/L        < 1.7\nLDL cholesterol                        2.6       mmol/L        < 3.4\nBicarbonate                             23       mmol/L        22 - 29\nALP                                     74       U/L           47 - 168\nChloride                               105       mmol/L        102 - 109\nSodium                                 142       mmol/L        137 - 143\nCalcium                               2.28       mmol/L        2.19 - 2.5\nCreatinine                             126  H    umol/L        69 - 110\nPotassium                              4.5       mmol/L        3.6 - 5.2\nUrea                                   8.4  H    mmol/L        2.7 - 7.2\nGlucose (fasting)                      5.1       mmol/L        3.9 - 6\n\n** END OF REPORT **\n-- SIMULATED (LoopBench synthetic patient). Not issued by PathLab Medical Laboratories Ltd.. --"}},"consult_note":{"id":"R9B26B22E91E8","kind":"consult_note","channel":"cms","available_at":"2027-06-05T10:52","text":"New patient, 62M. T2DM 12 yrs, HT, CKD 3a. Previously followed up at HA GOPC.\nOutside records reviewed: HA discharge summary (2024), health-check report 20 May 2027 (in Chinese), medication list.\nPenicillin allergy documented (rash, 2019); amoxicillin from the dental clinic stopped today.\nK+ 5.4 on lisinopril and spironolactone, eGFR 52. HbA1c 8.1%.\nRepeat K+ and eGFR in 1 week. HbA1c in 3 months. Refer for diabetic eye screening.\nReturn urgently if rash, facial swelling or breathing difficulty.\nTold pt: 下個禮拜再驗血，check 下個鉀。"},"weekend":{"opened":6,"by_family":{"abnormal_result":5,"planned_review":1},"critical":1},"year":{"documents":885,"items":657,"feed_alarms":4,"by_family":{"abnormal_result":352,"referral":147,"planned_review":69,"test_never_resulted":40,"drug_monitoring":18,"positive_screen":17,"followup_recommended":14}}}</script>
+<!-- DATA:END -->
+
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById('engine-data').textContent);
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function fmtDay(iso) {
+    var d = new Date(iso + ':00');
+    var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return days[d.getDay()] + ' ' + d.getDate() + ' ' + mon[d.getMonth()] + ' ' + iso.slice(11, 16);
+  }
+  var URG = { 4: ['crit', 'Critical'], 3: ['warn', 'Urgent'], 2: ['warn', 'This week'], 1: ['ok', 'Within 2 weeks'] };
+  var FAMILY = { abnormal_result: 'Abnormal result', planned_review: 'Planned review', referral: 'Referral', drug_monitoring: 'Drug monitoring',
+    test_never_resulted: 'Test never resulted', positive_screen: 'Positive screen', followup_recommended: 'Follow-up recommended' };
+
+  // weekend lanes and year tiles, from the engine's data
+  var wk = D.weekend;
+  document.getElementById('w-results').textContent = wk.by_family.abnormal_result || 0;
+  document.getElementById('w-crit').textContent = wk.critical;
+  document.getElementById('w-recall').textContent = wk.by_family.planned_review || 0;
+  document.getElementById('y-docs').textContent = D.year.documents;
+  document.getElementById('y-items').textContent = D.year.items;
+
+  // the engine's trace, in its own words
+  function trace(it) {
+    var rows = it.reasoning.map(function (s) {
+      var cites = (s.cites || []).map(function (c) {
+        if (c.quote) return '<q class="q-engine">' + esc(c.quote) + '</q>';
+        var doc = D.documents[c.record];
+        return '<span class="cite-ref">Cites ' + esc(doc ? doc.kind.replace(/_/g, ' ') + ' of ' + fmtDay(doc.available_at) : c.record) + '</span>';
+      }).join('');
+      return '<div class="step"><span class="k">' + esc(s.step.replace('_', ' ')) + '</span><span>' + esc(s.text) + cites + '</span></div>';
+    }).join('');
+    var known = /Chloride 10[89] mmol\/L, above the report's range of 102-109/.test(JSON.stringify(it.reasoning))
+      ? '<p class="small"><strong>Known issue:</strong> a chloride printed at the top of its range is flagged high by the simulated lab, and the engine repeats the flag. Fix queued.</p>' : '';
+    var gap = it.patient_id === D.mr_chan
+      ? '<p class="small"><strong>A gap this case found:</strong> the engine runs at 08:30, 13:30 and 19:30. This result landed at 19:40, so it waited 13 hours. Paging within minutes is next on the build list.</p>' : '';
+    return '<div class="box-head"><h3>What the engine found</h3><span class="source engine">Engine output · quotes checked</span></div>' +
+      '<p class="small muted">Opened ' + esc(fmtDay(it.opened_at)) + (it.due ? ' · due ' + esc(fmtDay(it.due)) : '') + '. Every quote is checked word for word against the record it cites.</p>' +
+      gap + known + '<div class="trace">' + rows + '</div>';
+  }
+
+  // queue: the engine's open items plus the two WhatsApp-only cases, in urgency order
+  var engine = D.items.map(function (it) {
+    var p = D.patients[it.patient_id];
+    var chan = it.patient_id === D.mr_chan && it.urgency === 4;
+    return { key: chan ? 'chan' : it.id, item: it, u: it.urgency, name: p.name_en + ' · ' + p.name_zh,
+      what: chan ? 'Potassium 6.6, then asked for more spironolactone' : (FAMILY[it.family] || it.family) + ': ' + it.reason.replace(/^Abnormal: /, ''),
+      src: chan ? 'Engine + WhatsApp' : 'Engine', pill: chan ? ['crit', 'Paged 09:30'] : URG[it.urgency] };
+  });
+  var rows = [];
+  engine.forEach(function (r) { rows.push(r); if (r.key === 'chan') rows.push({ key: 'ho', u: 4, name: 'HO Wai Man · 何慧敏', what: 'Asked for her statin; chest tightness and sweating', src: 'WhatsApp · illustrative', pill: ['crit', 'Sent to 999'] }); });
+  var firstRoutine = rows.findIndex(function (r) { return r.u <= 1; });
+  rows.splice(firstRoutine < 0 ? rows.length : firstRoutine, 0, { key: 'wong', u: 1, name: 'WONG Mei Ling · 王美玲', what: 'Repeat amlodipine, prepared and checked', src: 'WhatsApp · illustrative', pill: ['ok', 'Sign Monday'] });
+
+  var queue = document.getElementById('queue'), details = document.getElementById('details');
+  rows.forEach(function (r) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'qrow u' + r.u; b.dataset.key = r.key; b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = '<span class="qline"><span class="qname">' + esc(r.name) + '</span></span><span class="qwhat">' + esc(r.what) +
+      '</span><span class="qmeta"><span class="pill ' + r.pill[0] + '" id="pill-' + esc(r.key) + '">' + esc(r.pill[1]) + '</span><span class="src">' + esc(r.src) + '</span></span>';
+    queue.appendChild(b);
+    if (r.item && r.key !== 'chan') {
+      var a = document.createElement('article');
+      a.className = 'detail'; a.id = 'd-' + r.key;
+      var p = D.patients[r.item.patient_id];
+      a.innerHTML = '<div class="dhead"><span class="pill ' + r.pill[0] + '">' + esc(r.pill[1]) + '</span><h2>' + esc(p.name_en) + ' · ' + esc(p.name_zh) + '</h2><p class="muted">' + esc(r.what) + '</p></div>' +
+        '<div class="box">' + trace(r.item) + '</div>' +
+        '<div class="box"><div class="box-head"><h3>Your decision</h3><span class="pill ' + r.pill[0] + '">' + esc(r.pill[1]) + '</span></div>' +
+        '<p class="small muted">Closing an item is yours alone. The agents only open and raise.</p>' +
+        '<div class="actions"><button class="btn" type="button" data-close="acted">I\'ve acted on it</button><button class="btn ghost" type="button" data-close="already">Already done</button><button class="btn ghost" type="button" data-close="irrelevant">Not relevant</button></div></div>';
+      details.appendChild(a);
+    }
+  });
+  var chanItem = D.items.filter(function (it) { return it.patient_id === D.mr_chan && it.urgency === 4; })[0];
+  document.querySelector('[data-engine-trace="chan"]').innerHTML = trace(chanItem);
+
+  function show(key, scroll) {
+    queue.querySelectorAll('.qrow').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.key === key)); });
+    details.querySelectorAll('.detail').forEach(function (a) { a.classList.toggle('on', a.id === 'd-' + key); });
+    if (scroll && window.matchMedia('(max-width: 900px)').matches) {
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      document.getElementById('d-' + key).scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    }
+  }
+  queue.addEventListener('click', function (e) { var b = e.target.closest('.qrow'); if (b) show(b.dataset.key, true); });
+  show('chan', false);
+
+  document.getElementById('en').addEventListener('change', function (e) { document.body.classList.toggle('no-en', !e.target.checked); });
+
+  // decisions
+  var tally = 0, spent = {};
+  function fmt(s) { return s < 60 ? s + ' s' : Math.floor(s / 60) + ' min' + (s % 60 ? ' ' + (s % 60) + ' s' : ''); }
+  function spend(key, sec) { if (spent[key] !== undefined) tally -= spent[key]; spent[key] = sec; tally += sec; document.getElementById('tally').textContent = fmt(tally); }
+  function setPill(key, text, cls) { var p = document.getElementById('pill-' + key); p.className = 'pill ' + cls; p.textContent = text; }
+  function closeRow(key) { var b = queue.querySelector('[data-key="' + key + '"]'); if (b) b.classList.add('closed'); }
+  function bubble(key, html, cls, meta) {
+    var box = document.getElementById('msgs-' + key);
+    var old = box.querySelector('.decided'); if (old) old.remove();
+    var d = document.createElement('div');
+    d.className = 'b ' + cls + ' pop decided';
+    d.innerHTML = html + '<span class="meta">' + meta + '</span>';
+    box.appendChild(d);
+  }
+  function done(key) { document.getElementById('next-' + key).classList.add('on'); }
+  var SIGN = '✓ Signed by Dr Chan';
+  var acts = {
+    'chan-call': function () { bubble('chan', '陳醫生而家打俾你，請聽電話。<span class="en">Dr Chan is calling you now. Please pick up.</span>', 'doc', 'Sent for Dr Chan · 09:34'); setPill('chan', 'You called · refill held', 'warn'); spend('chan', 300); done('chan'); },
+    'chan-send': function () { bubble('chan', '陳生，你嘅鉀（potassium）好高，係 6.6，會影響心跳。請今日去急症室做心電圖同再驗血，帶埋你啲藥去。暫時唔好食 spironolactone，等我再通知你。<span class="en">Mr Chan, your potassium is very high at 6.6, which can affect the heart. Please go to A&amp;E today for an ECG and a repeat blood test, and bring your medicines. Stop the spironolactone until I tell you.</span>', 'doc', SIGN + ' · 09:34'); setPill('chan', 'Sent to A&E · refill held', 'warn'); spend('chan', 40); done('chan'); },
+    'chan-edit': function () { bubble('chan', '（你自己寫嘅訊息）<span class="en">(Your own message, typed here and signed by you.)</span>', 'doc', SIGN + ' · 09:36'); setPill('chan', 'You replied · refill held', 'warn'); spend('chan', 120); done('chan'); },
+    'ho-send': function () { bubble('ho', '何太，我係陳醫生。好彩你即刻去咗醫院。出院之後影低張出院紙send俾我，我哋再約覆診同埋處理配藥。<span class="en">Mrs Ho, it\'s Dr Chan. I\'m glad you went straight to hospital. When you\'re discharged, send me a photo of the discharge letter and we\'ll arrange your follow-up and medicines.</span>', 'doc', SIGN + ' · 10:05'); setPill('ho', 'Messaged · watching for discharge', 'ok'); spend('ho', 30); done('ho'); },
+    'ho-call': function () { setPill('ho', 'Call later · watching for discharge', 'ok'); spend('ho', 0); done('ho'); },
+    'wong-sign': function () { bubble('wong', '王太，已經幫你配咗：Amlodipine 5mg，每朝一粒，八個星期（56粒）。星期一下午三點後可以喺診所拎，或者覆「送」安排速遞。九月要返嚟覆診。<span class="en">Mrs Wong, refilled: amlodipine 5 mg, one every morning, 8 weeks (56 tablets). Collect at the clinic after 3 pm Monday, or reply 送 for courier delivery. Please come in for a review in September.</span>', 'doc', SIGN + ' · Mon 09:02'); setPill('wong', 'Signed', 'done'); closeRow('wong'); spend('wong', 20); done('wong'); },
+    'wong-see': function () { bubble('wong', '王太，醫生想見下你先再配藥。覆 1 揀星期一，覆 2 揀星期二。<span class="en">Mrs Wong, the doctor would like to see you before refilling. Reply 1 for Monday or 2 for Tuesday.</span>', 'doc', SIGN + ' · Mon 09:02'); setPill('wong', 'Booking a visit', 'ok'); spend('wong', 10); done('wong'); }
+  };
+  details.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act]');
+    if (b) { acts[b.dataset.act](); return; }
+    var c = e.target.closest('[data-close]');
+    if (c) {
+      var key = c.closest('.detail').id.slice(2);
+      var label = { acted: 'Closed by you: acted', already: 'Closed by you: already done', irrelevant: 'Closed by you: not relevant' }[c.dataset.close];
+      setPill(key, label, 'done'); closeRow(key); spend(key, c.dataset.close === 'acted' ? 60 : 15);
+      c.closest('.actions').querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+    }
+  });
+
+  document.getElementById('botswitch').addEventListener('change', function (e) {
+    var bot = e.target.checked;
+    document.getElementById('chan-bot').hidden = !bot;
+    document.getElementById('chan-hold').hidden = bot;
+    document.getElementById('chan-page').hidden = bot;
+    document.getElementById('bot-callout').hidden = !bot;
+  });
+
+  // your numbers
+  function v(k) { return parseFloat(document.getElementById('r-' + k).value); }
+  function calc() {
+    var days = v('days');
+    var now = days * (v('res') * v('resmin') + v('msg') * v('msgmin') + v('rep') * v('repmin')) / 60;
+    var after = days * (v('res') * 0.5 + v('msg') * 0.3 * 0.5 + v('rep') * 0.6 * 0.5 + v('rep') * 0.4 * v('repmin')) / 60;
+    var slots = days * v('rep') * 0.6;
+    [['res', ''], ['resmin', ' min'], ['msg', ''], ['msgmin', ' min'], ['rep', ''], ['repmin', ' min'], ['days', '']].forEach(function (x) {
+      document.getElementById('v-' + x[0]).textContent = v(x[0]) + x[1];
+    });
+    document.getElementById('v-fee').textContent = 'HK$' + v('fee');
+    document.getElementById('o-now').textContent = now.toFixed(1);
+    document.getElementById('o-after').textContent = after.toFixed(1);
+    document.getElementById('o-slots').textContent = Math.round(slots);
+    document.getElementById('o-value').textContent = 'HK$' + Math.round(slots * v('fee')).toLocaleString('en-HK');
+  }
+  document.getElementById('calc').addEventListener('input', calc);
+  document.getElementById('calc').addEventListener('submit', function (e) { e.preventDefault(); });
+  calc();
+})();
+</script>
+</body>
+</html>
