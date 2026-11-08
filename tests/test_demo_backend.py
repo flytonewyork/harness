@@ -74,6 +74,47 @@ def test_care_team_never_signs_prescribes_or_closes():
         assert not re.search(r"\b(prescribed|signed|closed|dismissed|refilled)\b|已經幫你配咗|已批", line, flags=re.I), line
 
 
+CATALOGUE = json.loads((DEMO / "tasks.json").read_text(encoding="utf-8"))
+KINDS = {"scored", "message", "fixed", "never"}
+
+
+def live(family):
+    g = DATA["gate"]
+    years = g["families"].get(family) or []
+    return bool(years) and all(y["on_time_rate"] == 1 and y["missed"] == 0 and y["late"] == 0 for y in years) \
+        and g["hard_fails"] == 0 and g["made_up_quotes"] == 0
+
+
+def test_page_embeds_the_catalogue_unchanged():
+    assert DATA["catalogue"] == CATALOGUE
+
+
+def test_catalogue_never_claims_its_own_status():
+    # Live or not is computed from the simulator's results, never written into the list.
+    for t in CATALOGUE["tasks"]:
+        assert t["kind"] in KINDS, t
+        assert not {"status", "live", "pass", "accuracy"} & set(t), t
+        if t["kind"] == "scored":
+            assert t["family"] in DATA["gate"]["families"], t
+        assert t["zh"] and t["en"]
+
+
+def test_gate_is_strict_and_matches_the_results():
+    assert len(DATA["gate"]["seeds"]) >= 3
+    passing = sorted(t["family"] for t in CATALOGUE["tasks"] if t["kind"] == "scored" and live(t["family"]))
+    assert passing == ["drug_monitoring", "positive_screen", "test_never_resulted"]   # update when the numbers move
+    assert not live("abnormal_result") and not live("followup_recommended")
+
+
+def test_unscored_tasks_are_never_live_and_doctor_acts_stay_off_the_list():
+    agent_text = " ".join(t.get("agents", "") for t in CATALOGUE["tasks"]).lower()
+    for word in ("prescribe", "diagnose", "close", "dismiss", "change the dose"):
+        assert word not in agent_text, word
+    never = " ".join(t["en"] for t in CATALOGUE["tasks"] if t["kind"] == "never").lower()
+    for word in ("diagnosing", "medicine", "antibiotics", "result", "sick leave", "closing"):
+        assert word in never, word
+
+
 def test_only_doctor_actions_close():
     # Close buttons exist only in the doctor's decision box.
     for m in re.finditer(r"data-close=", PAGE):

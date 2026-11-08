@@ -33,6 +33,22 @@ KEEP_ITEM = ("id", "patient_id", "family", "reason", "urgency_at_open", "urgency
 START, END = "<!-- DATA:START -->", "<!-- DATA:END -->"
 
 
+def gate(results: list) -> dict:
+    """Per family: loops, misses and on-time rate in each committed simulated year, plus the run's hard fails and
+    made-up quotes. The page marks a task live only if every year is fully on time and both counts are zero."""
+    fams = {}
+    for row in results:
+        for fam, v in row["on"]["by_family"].items():
+            fams.setdefault(fam, []).append({"seed": row["seed"], "n": v["n"], "missed": v["missed"],
+                                             "late": v.get("late", 0), "on_time_rate": v["on_time_rate"]})
+    return {
+        "families": fams,
+        "hard_fails": sum(r["on"]["hard_fail_count"] for r in results),
+        "made_up_quotes": sum(r["on"]["verification"]["unsupported_claims"] for r in results),   # required, never 0 by default
+        "seeds": [r["seed"] for r in results],
+    }
+
+
 def build(run: dict) -> dict:
     items = [it for it in run["items"]
              if it["opened_at"] <= NOW and (it["resolved_at"] is None or it["resolved_at"] >= NOW)]
@@ -77,8 +93,13 @@ def embed(page: Path, data: dict) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--run", required=True, help="harness-run/1 file from `loopbench product-feed`")
+    ap.add_argument("--results", default=str(HERE.parents[2] / "loopbench" / "results" /
+                                              "hk_solo_apricot_vita_agentic-rules_dev" / "results.json"),
+                    help="LoopBench's committed results for the same clinic, system and harness")
     a = ap.parse_args()
     data = build(load_run(a.run))
+    data["gate"] = gate(json.loads(Path(a.results).read_text(encoding="utf-8")))
+    data["catalogue"] = json.loads((HERE / "tasks.json").read_text(encoding="utf-8"))
     (HERE / "data.json").write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     embed(HERE / "index.html", data)
     print(f"wrote data.json and embedded it: {len(data['items'])} open items at {NOW}, "

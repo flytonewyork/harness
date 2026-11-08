@@ -32,20 +32,30 @@ step away from that and show a GP clinic AI backend. Refills became one input am
    still misses.
 5. **Your numbers:** results, messages and repeat-medicine visits, with the assumptions written out.
 6. **The rules:** what agents may do, what stays the doctor's, fixed rules, remote repeats; what isn't solved.
-7. **The ask:** shadow her clinic for two weeks; nothing reaches a patient.
+7. **The front door:** after a one-off cough visit the doctor offers the care line, Ms Kwok scans a QR card, confirms
+   who she is and consents in WhatsApp, and gets the signed plan, her documents and a menu of what she can do. Her
+   day-3 check-in can be played as better (waits on the doctor's list to close) or worse (fixed rule, doctor alerted,
+   into the queue).
+8. **The task catalogue** (`tasks.json`, after Meta's Muse behaviour evals): the fixed list of what agents may do, in
+   a doctor's view and a patient's view. A task is live only if it is on time in every committed LoopBench year with
+   zero hard fails and zero made-up quotes; the page computes that from the results, and the list never states its
+   own status. Today 3 of 7 scored tasks pass; the 8 WhatsApp tasks aren't scored yet, so the doctor approves every
+   reply; red flags are a fixed rule; 6 things are never an agent's.
+9. **The ask:** shadow her clinic for two weeks; nothing reaches a patient.
 
-`build_data.py` takes a LoopBench product feed and writes `data.json` (the items open at Sun 13 Jun 09:30, their
-cited records, Mr Chan's note, the weekend's and the year's counts), and embeds the same JSON in the page. It reads
+`build_data.py` takes a LoopBench product feed and the committed results for the same configuration, and writes `data.json` (the items open at Sun 13 Jun 09:30, their
+cited records, Mr Chan's note, the weekend's and the year's counts, each task family's on-time rate per year, the catalogue), and embeds the same JSON in the page. It reads
 the run file as the product's adapters do; no LoopBench import. `tests/test_demo_backend.py` checks that the page
 embeds exactly that data, every quote is word for word in its record, no engine text is typed into the markup by
-hand, the care team's copy never claims a doctor's act, and only the doctor's decision box closes.
+hand, the catalogue never states its own status and the gate matches the results, the care team's copy never claims a doctor's act, and only the doctor's decision box closes.
 
 **Done when.** The page works at 390 px and 1440 px with no script errors; the tests pass; the authority line holds.
 
 **Invariants touched.** None in the engine. Synthetic data only: the engine's items come from LoopBench; Mrs Wong and
 Mrs Ho are illustrative and labelled that way.
 
-**Out of scope.** A live model, a real WhatsApp number, WhatsApp intake in the engine, refill logic in the engine.
+**Out of scope.** A live model, a real WhatsApp number or QR code, WhatsApp intake in the engine, refill logic in the
+engine, test cases for the WhatsApp tasks (`NOW.md` Next 7).
 
 **Found while building.**
 1. The engine's context step says "No relevant medicines dispensed at this clinic" for Mr Chan, whose note names

@@ -21,7 +21,8 @@ burden, so that is the question for every next contact.
    might be interested in a clinic running the agentic model. The demo shows the simulated clinic's back office at
    09:30 on a shut Sunday: the engine's real open queue (Mr Chan's critical potassium on top, joined to his WhatsApp
    request for more spironolactone) plus two WhatsApp cases, one queue for the doctor, how it works, the evidence and
-   the rules. It ends with the ask: shadow her clinic for two weeks, with nothing reaching a patient. After the
+   the rules, the patient's front door (QR after the consult, day-3 check-in) and the task catalogue with each
+   task's gate status computed from LoopBench. It ends with the ask: shadow her clinic for two weeks, with nothing reaching a patient. After the
    meeting: update the `signal` issue (#20), then decide what she agreed to.
 
 Done 6 Nov: **the operating system is locked in.** Its test was a task started in Slack coming back as a scored PR, and
@@ -49,13 +50,17 @@ partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`.
 6. LoopBench realism bugs: seed 1 refers a 28-year-old man (FUNG Tai Man) to gynaecology (the referral generator's
    sex check), and a chloride printed at the top of its range (109 on 102-109) is flagged high, which the engine
    repeats as "above the report's range".
-7. Doctor-minutes metric: review time per item with and without verified evidence.
-8. `claude -p` extraction run on the Mac mini, replayed in CI: agentic numbers with a real model. First log the Mac
+7. Task catalogue as the agents' allowlist (spec 002, `demo/clinic-backend/tasks.json`): give each WhatsApp task
+   (join, plan, check-in, questions, sending documents, repeats, booking, copies) its own LoopBench cases and gate
+   it like the loop families: live only at 100% in every year, zero hard fails, zero made-up quotes. Then move the
+   list from the demo into the product.
+8. Doctor-minutes metric: review time per item with and without verified evidence.
+9. `claude -p` extraction run on the Mac mini, replayed in CI: agentic numbers with a real model. First log the Mac
    mini's Claude CLI in (`claude`, then `/login`). Scored honestly since 6 Nov: a document the model never answered
    counts as missed, not as the rules floor's answer (#12, loopbench #4).
-9. LLM harness producing traces against the same seven checks.
-10. Capacity-frontier experiment.
-11. Thomas: held-out scenarios (outside both repos) and sign-off of `loopbench/data/clinical_policy.yaml`.
+10. LLM harness producing traces against the same seven checks.
+11. Capacity-frontier experiment.
+12. Thomas: held-out scenarios (outside both repos) and sign-off of `loopbench/data/clinical_policy.yaml`.
 
 ## Parked until the 1 Feb 2027 review
 
