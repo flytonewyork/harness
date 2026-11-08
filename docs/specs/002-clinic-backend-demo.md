@@ -49,7 +49,16 @@ the run file as the product's adapters do; no LoopBench import. `tests/test_demo
 embeds exactly that data, every quote is word for word in its record, no engine text is typed into the markup by
 hand, the catalogue never states its own status and the gate matches the results, the care team's copy never claims a doctor's act, and only the doctor's decision box closes.
 
-**Landing page (8 Nov).** For sending to doctors: a Design canvas, [tmrw one-page demo](https://claude.ai/artifact/7MzAFXNeTSNMJDLqnvS8Zw), built as a startup landing page: the promise ("Every patient followed up. More of them back with you."), a free-pilot call to action repeated down the page, simulation results labelled as such, the problem, three steps, four follow-up types with their Hong Kong value, why now, safety, pricing, objections and a sign-up form. The monthly price is a placeholder. It lives only in the canvas (`docs/INVENTORY.md`).
+**Landing page (8 Nov).** For sending to doctors: a Design canvas, [tmrw one-page demo](https://claude.ai/artifact/7MzAFXNeTSNMJDLqnvS8Zw), built as a startup landing page: the promise ("Every patient followed up. More of them back with you."), a free-pilot call to action repeated down the page, simulation results labelled as such, the problem, three steps, four follow-up types with their Hong Kong value, why now, safety, pricing, objections and a sign-up form. The monthly price is a placeholder.
+
+**Landing page v3 (9 Nov).** Thomas asked to keep v2 as a version to go back to, then test features for repeat
+prescriptions, blood tests and scans, care after hospital and the written plan after a visit, plus a WhatsApp menu
+that breaks the front desk into self-service requests. Then red-team it: a WhatsApp line that never closes was left
+unanswered, and the answer is set opening hours with the agents escalating. The canvas now holds both as boards. v3
+adds four feature cards, the 10-option menu (a WhatsApp list message's limit) with who finishes each option, an
+"Open when you're open" section (front-desk requests any hour, clinical questions wait with a reply time and a 999
+safety net, red flags get a fixed reply, every message has an owner) and the red-team fixes listed in spec 003.
+Source: `demo/landing/` (v2 frozen by hash in `tests/test_landing.py`).
 
 **Done when.** The page works at 390 px and 1440 px with no script errors; the tests pass; the authority line holds.
 

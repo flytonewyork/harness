@@ -1,6 +1,6 @@
 # NOW
 
-Read this at the start of every session and update it at the end, in the same PR. Last updated 8 Nov 2026.
+Read this at the start of every session and update it at the end, in the same PR. Last updated 9 Nov 2026.
 
 **Milestone: first real-customer signal.** Done when a partner that holds patient data agrees a next step in
 writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health pilot on Apricot VITA.
@@ -23,7 +23,9 @@ burden, so that is the question for every next contact.
    request for more spironolactone) plus two WhatsApp cases, one queue for the doctor, how it works, the evidence and
    the rules, the patient's front door (QR after the consult, day-3 check-in) and the task catalogue with each
    task's gate status computed from LoopBench. It ends with the ask: shadow her clinic for two weeks, with nothing reaching a patient. After the
-   meeting: update the `signal` issue (#20), then decide what she agreed to.
+   meeting: update the `signal` issue (#20), then decide what she agreed to. The doctors' landing page
+   (`demo/landing/`) is saved as v2; v3 (9 Nov) tests the front-desk menu and opening hours. Its live 2-week pilot
+   doesn't match the shadow-mode ask: pick one before either goes out.
 
 Done 6 Nov: **the operating system is locked in.** Its test was a task started in Slack coming back as a scored PR, and
 #10 did (the seven checks in the product). What it set up: Slack with the Claude and GitHub apps; skills and a cloud
