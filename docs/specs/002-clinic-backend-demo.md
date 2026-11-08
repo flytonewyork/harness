@@ -49,6 +49,8 @@ the run file as the product's adapters do; no LoopBench import. `tests/test_demo
 embeds exactly that data, every quote is word for word in its record, no engine text is typed into the markup by
 hand, the catalogue never states its own status and the gate matches the results, the care team's copy never claims a doctor's act, and only the doctor's decision box closes.
 
+**One-page version (8 Nov).** For sending to doctors: a static Design canvas, [tmrw one-page demo](https://claude.ai/artifact/7MzAFXNeTSNMJDLqnvS8Zw), with four jobs that bring in income (results, day-3 check-ins, chronic and Co-Care reviews, vaccines), each with a Cantonese mock-up and a sourced Hong Kong figure, and the hand-run pilot as the ask. It lives only in the canvas (`docs/INVENTORY.md`).
+
 **Done when.** The page works at 390 px and 1440 px with no script errors; the tests pass; the authority line holds.
 
 **Invariants touched.** None in the engine. Synthetic data only: the engine's items come from LoopBench; Mrs Wong and
