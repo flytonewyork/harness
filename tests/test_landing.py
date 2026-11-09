@@ -134,3 +134,17 @@ def test_the_language_switch_changes_the_whatsapp_examples_too():
     for en_name, en_line, zh_name, zh_line in pairs:
         assert en_line in page(en_name) and zh_line not in page(en_name)
         assert zh_line in page(zh_name) and en_line not in page(zh_name)
+
+
+def test_static_build_has_no_canvas_markup_and_links_resolve(tmp_path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("build_landing", LANDING.parents[1] / "scripts" / "build_landing.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    out = mod.build(tmp_path)
+    served = {"/" if p.stem == "index" else "/" + p.stem for p in out.glob("*.html")}
+    for html in out.glob("*.html"):
+        text = html.read_text(encoding="utf-8")
+        assert "{{" not in text and ".dc.html" not in text and "support.js" not in text
+        assert set(re.findall(r'href="(/[^"#]*)"', text)) <= served
