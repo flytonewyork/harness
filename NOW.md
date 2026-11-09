@@ -46,7 +46,8 @@ the default, but nothing reaches a partner or a patient on a default.
    profile update below. Bet: none in `docs/BETS.md`; it serves the Amber pilot on VITA.
 2. **EC Healthcare Phase 0 look-back.** Bet 6. The request is ready (`docs/EC_DATA_REQUEST.md`). Julie's meeting is
    booked for Wed 11 Nov at 4pm; who else comes, the CTO or finance, is still to check (#23). Use it to find the
-   burdens in EC's own system, then agree the Phase 0 scope, fee and data route.
+   burdens in EC's own system, then agree the Phase 0 scope, fee and data route. For the meeting: a sample of the
+   report EC gets back (`demo/ec-phase0/`), made by the real look-back from a simulated export in EC's format.
 
 3. **Josie demo, 8 Nov: the clinic backend** (spec 002, `demo/clinic-backend/`). Bets 1 to 5. Josie, a GP, said on 7 Nov she
    might be interested in a clinic running the agentic model. The demo shows the simulated clinic's back office at

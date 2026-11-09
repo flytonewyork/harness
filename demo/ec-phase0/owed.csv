@@ -1,0 +1,279 @@
+patient_key,follow_up,owed_by,detail,source_keys
+P1e109e203f62aa3,Abnormal results nobody acted on,2027-02-05T19:40,"critical: Potassium 6.9, Creatinine 168",Rc5a063aa7163b40;Ref5b5e626198b28
+P2270a555ed88f12,Planned reviews that didn't happen,2027-02-27T10:25,,Re6643e3653a3323
+P2270a555ed88f12,Monitoring bloods after a new medicine,2027-04-30T10:27,LFT after Simvastatin 10 MG Oral Tablet,Rd8cf68a0bc540f4
+Pdc87b082c410451,Monitoring bloods after a new medicine,2027-03-01T12:25,RFT after Furosemide 40 MG Oral Tablet,Refef77cb713f882
+P1d9988bc2e276b0,Planned reviews that didn't happen,2027-03-05T17:31,,Re70c7ddcbfe81ff
+Pb7e4b6d5b46a9c8,Abnormal results nobody acted on,2027-03-18T09:30,"soon: Glucose (fasting) 7.3, Creatinine 130",R010c2c3c2c8469d
+P28d3a6c7aa90778,Monitoring bloods after a new medicine,2027-03-23T10:12,INR after Warfarin Sodium 5 MG Oral Tablet,Rb20c2715170566c
+P6f79a0294fe39dc,Planned reviews that didn't happen,2027-03-24T18:20,,R83d0bc28b562b01
+P0114ea78f9ea3f1,Abnormal results nobody acted on,2027-03-26T18:38,urgent: Haemoglobin 8.4,Rfee70cd90b4c9f6
+P92f4231204b3de4,Referrals with no reply,2027-04-13T10:02,"private Ear, Nose, Throat (stable)",Re439fd14cabf2dd
+P7f408d5c1739291,Referrals with no reply,2027-04-13T14:47,private Psychiatry (semi_urgent),Rb2e604cba2f22b0
+P222242dfb1d6113,Planned reviews that didn't happen,2027-04-14T10:45,,Reb3d7c4d99fdbdc
+P6989fbafcb71fa4,Referrals with no reply,2027-04-15T12:00,private Eye (stable),R6bb8bd01d827e3a
+P509f26e4c53dc2f,Abnormal results nobody acted on,2027-04-16T19:48,urgent: Potassium 6.2,R7c4fb76ed0b3e37
+P744a3ed07feabb9,Abnormal results nobody acted on,2027-04-22T20:49,"routine: Chloride 109, Urea 7.8",Rb72ccbb650eeb50;R9363e35edf1fc7d
+P8b1db9f33fcf3fd,Abnormal results nobody acted on,2027-04-23T21:39,"routine: Urea 8.4, Chloride 111",R9b14d7039e5217e;R26d6960528b55ec
+P0fcb5ad4538a4e0,Referrals with no reply,2027-04-24T17:00,private Eye (urgent),R133020e34e0633f
+P6963abe94aca016,Planned reviews that didn't happen,2027-04-26T15:00,,Rfd77f9259581ca3
+Pb196c8976f531d1,Referrals with no reply,2027-04-29T09:53,private Surgery (stable),R70004e7c62eb408
+P25b5062cb16e3b7,Referrals with no reply,2027-05-02T10:44,private Orthopaedics & Traumatology (stable),R7ca5ba930e7a5a2
+P242d2812bf162c8,Tests ordered but never resulted,2027-05-04T17:25,,Rc398062d1bf1438
+Pacc4a4e7b8cacce,Abnormal results nobody acted on,2027-05-07T15:49,"urgent: Creatinine 205, eGFR 28",R0fb747fe1ca8784;R8ca96db9baae237
+Pb2d028d6a597ca0,Planned reviews that didn't happen,2027-05-09T09:57,follow-up review,Rdb0e79a6a34aa1a
+Pb2d028d6a597ca0,Abnormal results nobody acted on,2027-07-06T03:39,"routine: Sodium 145, Glucose (fasting) 6.3",R85f82988cba82f3;R21501cbf74230fe
+P3e9c8e56b7fc972,Abnormal results nobody acted on,2027-05-10T10:00,"soon: ALT 145, AST 160",R2940ccea8bbbe46;Rba908559097ef2c
+P3c59157aca820e4,Tests ordered but never resulted,2027-05-11T10:49,GLU / HBA1C / RFT,R4f9911ef1be864c
+Pdc4c95e9a8373f4,Abnormal results nobody acted on,2027-05-13T17:15,"routine: HbA1c 6.6, Glucose (fasting) 6.5, LDL cholesterol 3.6",R6c5121ca8af611e;Rf72d1b01cb7ee08
+P654735625ca9c2f,Referrals with no reply,2027-05-19T20:01,private Gynaecology (stable),R8d64dae27af69f8
+P2f1c441a92e4229,Referrals with no reply,2027-05-25T10:08,private Medicine (semi_urgent),R6f39346260d406a
+P2f1c441a92e4229,Abnormal results nobody acted on,2027-12-20T17:28,soon: Total cholesterol 6.9,R2904f73e4a30161;Re3bbeb1613d499d
+Pcf248ae0dd502fe,Tests ordered but never resulted,2027-05-27T16:00,CBC / GLU / HBA1C / LIPID / RFT,R301e16a23f8d14b
+P81ec93eb3937fd8,Abnormal results nobody acted on,2027-05-28T09:00,"routine: Total cholesterol 5.6, LDL cholesterol 4",R9ce1cb3a69c27d6
+P584398f8d514791,Planned reviews that didn't happen,2027-05-31T10:10,,R59df8dbe6c6eb4e
+P468b9f8edc871d2,Abnormal results nobody acted on,2027-06-05T20:48,"routine: Urea 7.8, Sodium 135, Chloride 110, Bicarbonate 21",Rb1fb0fdeaca1084;R0b8ae09f479024b
+P95f457c8c29477a,Referrals with no reply,2027-06-06T10:40,private Orthopaedics & Traumatology (stable),R79f14603ed73faa
+P49b71b120b4f5c1,Planned reviews that didn't happen,2027-06-06T11:18,follow-up review,R22fd447a284ce43
+P35bace1ca834ef7,Planned reviews that didn't happen,2027-06-07T16:30,,R7d954b16257daa7
+P8008fadd74ed9b5,Abnormal results nobody acted on,2027-06-12T16:12,"routine: Glucose (fasting) 6.6, Sodium 144",Ref9cea362fb975f;R2d238be8054f153
+Pacdb6eab60418df,Abnormal results nobody acted on,2027-06-15T09:53,"routine: Glucose (fasting) 6.1, Bicarbonate 20, Total cholesterol 5.9, LDL cholesterol 3.6",R9b95a49f0921911;R13c8a6f7c55bf6e
+Pacdb6eab60418df,Planned reviews that didn't happen,2027-08-12T09:47,follow-up review,Rfc0ca8ef3826e13
+P3f874a48aa02fa3,Abnormal results nobody acted on,2027-06-15T21:59,"soon: HbA1c 9.9, Bicarbonate 20, Triglycerides 2.2, Chloride 108, Creatinine 68",Rda101acc975af3b;R917eea6a0fe2c2c
+P1a5a980102da4ef,Abnormal results nobody acted on,2027-06-16T05:26,"soon: HDL cholesterol 0.93, Total cholesterol 6.1, Chloride 111, Sodium 135, Creatinine 43, HbA1c 9.4",R829a6b328c0165e;R9f7557b2e64ec62
+P50811f81ef3281d,Tests ordered but never resulted,2027-06-16T11:24,GLU / HBA1C / LIPID / RFT / UACR,Ra9dd0e7f057c867
+Pde144ac0d937ae4,Abnormal results nobody acted on,2027-06-16T12:31,routine: Total cholesterol 5.4,R7ce8785fcdc7e0d;Rd02b4745f57f5b2
+Pb1f59ebd187d9d1,Planned reviews that didn't happen,2027-06-16T17:19,follow-up review,R0c319a5d1f7d65c
+Pf4af54e4ec28df3,Abnormal results nobody acted on,2027-06-19T17:31,"soon: Triglycerides 4.2, Total cholesterol 7.8, MCV 77, HDL cholesterol 0.85",Rf64b1797617c7ad;Rb773f48357ea9d2
+Ped07a9fdfed65e5,Abnormal results nobody acted on,2027-06-19T20:34,"routine: HDL cholesterol 0.95, Bicarbonate 21",R6d2f5c36925acb4;R883420ea4548f62
+P6b0ddf618c36048,Abnormal results nobody acted on,2027-06-20T16:20,"routine: Chloride 110, Total cholesterol 5.5, Calcium 2.51, Urea 8.3",Rbd4d01e2497dcec;R8448b72b145ffb5
+Pf5918ff427f6a01,Abnormal results nobody acted on,2027-06-22T00:32,"routine: Chloride 108, MCV 76",R786957e9bd19513;R2547260f7908ece
+P7f118bc88881c32,Tests ordered but never resulted,2027-06-22T10:57,GLU / HBA1C / LIPID / RFT / UACR,R0e611fb19ad333c
+P7f118bc88881c32,Abnormal results nobody acted on,2028-01-05T16:47,"soon: Urea 15.4, Glucose (fasting) 7, Potassium 5.3, Sodium 145, Calcium 2.07",Rb02fb68daad36f5;R7e8aa33e88e7493
+P3a12fd57e9b9b19,Abnormal results nobody acted on,2027-06-25T12:14,"soon: Glucose (fasting) 6.9, Urea 11.4, Total cholesterol 5.9, Triglycerides 1.9, LDL cholesterol 3.5",R84f0455b953b3c1;R70201cf93b2d76d
+Pdb9ee9c3139008f,Monitoring bloods after a new medicine,2027-06-27T10:57,LFT after Simvastatin 20 MG Oral Tablet,R39d508630e5e3b1
+P83bb81e72faa1b2,Abnormal results nobody acted on,2027-06-29T01:49,routine: Platelets 425,R9414306e62bde7b;R8855e95f2cf2735
+P61ff1be1a7356a2,Tests ordered but never resulted,2027-06-29T10:05,RFT / CBC,Rb9849e4441220ab
+P09dce653991ae0e,Planned reviews that didn't happen,2027-06-30T10:58,,Rab5817d09fac63b
+P0233bb7ad29d021,Abnormal results nobody acted on,2027-07-01T01:05,"routine: Sodium 145, HbA1c 6.3",Raedea42728ac3e2;R9b21ea15c62d90c
+P30f3fd7c43267f4,Planned reviews that didn't happen,2027-07-01T09:34,,Rb3dfbd2f113c8d5
+P641b0c65303f1a6,Abnormal results nobody acted on,2027-07-05T19:04,routine: Total cholesterol 5.9,Rd40d9b7176e0bb6;Rf37830fc8f91c97
+P453612156c121fb,Abnormal results nobody acted on,2027-07-06T11:40,"routine: Urea 2.4, Chloride 108",R9d4ccfccf98858e;R4106d38fd1012df
+P6cc561decbea865,Abnormal results nobody acted on,2027-07-06T16:45,"soon: Platelets 106, Creatinine 58, Bicarbonate 21",R7de5bb53214e2e9;R3b9a59253e67b62
+P11b71cc37b954b3,Abnormal results nobody acted on,2027-07-06T19:35,"routine: Total cholesterol 5.4, Triglycerides 2.2, HDL cholesterol 0.93",Re4799b48814c8e4;Rc144e98b48f20ec
+P56ca074caa2453e,Abnormal results nobody acted on,2027-07-07T05:35,"routine: Total cholesterol 5.3, Bicarbonate 20",Ree61e1ed3475e45;Rd98716c6c15c2d1
+P673d179658a4aa4,Abnormal results nobody acted on,2027-07-07T20:57,routine: Glucose (fasting) 6.7,Rbc4b5a5f8f87ec6;R501d22fde53666e
+P93ab547dccc9a51,Monitoring bloods after a new medicine,2027-07-08T10:38,RFT after Furosemide 40 MG Oral Tablet,R6a346ea380bcf37
+P5832592a3b983ab,Abnormal results nobody acted on,2027-07-09T10:00,"soon: Potassium 5.9, Creatinine 180",R88c5932df860f48;Ra3cca3c45d01599
+P43bf9158bef5539,Referrals with no reply,2027-07-10T14:41,private Orthopaedics & Traumatology (urgent),Rfb6a54953bc7874
+P79454e941b4a813,Abnormal results nobody acted on,2027-07-10T16:09,"soon: HDL cholesterol 0.77, Total cholesterol 5.3",R2f0fbe8962eb600;R6fbbccb6b12bc22
+P8a932b77dc9a987,Follow-up after a hospital stay,2027-07-12T00:00,follow-up review,Rff17f04b2cb1666
+Pc11187fb709574f,Abnormal results nobody acted on,2027-07-12T09:00,"routine: Chloride 109, Creatinine 102, eGFR 50, Albumin 37",R848fa92d97a8c8f
+Pa10281ec2f4e524,Monitoring bloods after a new medicine,2027-07-12T11:03,INR after Warfarin Sodium 5 MG Oral Tablet,R3093113a9b0650c
+Pa455028f403efdd,Abnormal results nobody acted on,2027-07-12T22:59,routine: Glucose (fasting) 6.9,R2e4683ce4eec62d;Rce1686951e2be3e
+P9bf78224c730d50,Planned reviews that didn't happen,2027-07-13T09:22,,R117f58ab2eedde4
+P7ee4caacbd9d203,Abnormal results nobody acted on,2027-07-13T10:06,"routine: MCV 74, Haemoglobin 11.1",R293f58e70ce9992;Rbc5e746730ede8f
+P48c4541d2969a46,Abnormal results nobody acted on,2027-07-13T14:27,routine: Sodium 136,Rc4f98be89ac0cc5;Ra824710caabb209
+Pd1b11e46ac477cb,Tests ordered but never resulted,2027-07-18T10:25,GLU / HBA1C / LIPID / RFT / UACR,R106f0031211d15c
+Pd1b11e46ac477cb,Tests ordered but never resulted,2027-10-17T10:25,GLU / HBA1C / LIPID / RFT / UACR,R889c229d4aae895
+Pd1b11e46ac477cb,Abnormal results nobody acted on,2027-11-02T10:48,"soon: Potassium 3.3, Total cholesterol 7.6, Triglycerides 2.1, LDL cholesterol 5, HbA1c 6.8",R56dde18da8bae0d;R64ddab83b6c52bd
+P832fbc2c085fdc4,Tests ordered but never resulted,2027-07-19T10:55,GLU / LFT / LIPID / RFT,R05dfada738affa8
+P832fbc2c085fdc4,Abnormal results nobody acted on,2027-10-02T14:55,"routine: Sodium 145, Triglycerides 2.2, LDL cholesterol 3.9, HbA1c 6.7, Total cholesterol 6.4, Urea 2.4",Rf9ac5b38cf351d2;R50534796673fbe4
+P49f63c627a4d5da,Abnormal results nobody acted on,2027-07-19T19:53,routine: Chloride 108,R978faa8f7331a30;R85c61e089d381c4
+P494cc542627da91,Abnormal results nobody acted on,2027-07-21T09:00,"routine: Sodium 144, Total cholesterol 5.5, HDL cholesterol 0.96, Bicarbonate 20",Rc57b3909041205e
+P1e1b8713c635670,Abnormal results nobody acted on,2027-07-21T14:53,"routine: MCV 70, Haemoglobin 12.2",Rf995527cf79300d;R8d04c8ff3bfbe4e
+Pc7240c2896f309e,Abnormal results nobody acted on,2027-07-22T00:21,"soon: Sodium 144, Creatinine 154, Glucose (fasting) 3.8, Urea 13.4",R41d350cacaf6f37;R75bf011a80a5333
+Pde0e402c2d3ff9e,Abnormal results nobody acted on,2027-07-22T10:52,"routine: Chloride 109, Urea 8.4",R06c1764f331f66d;Rfcaaeb7511ca743
+Pe7444cb20208332,Follow-up after a hospital stay,2027-07-23T00:00,follow-up review,R5898c31c72656cc
+P4f5f3d25a3f0481,Abnormal results nobody acted on,2027-07-23T10:05,urgent: Sodium 123,R936b347a8f55b3b;R8570fd3325ca67c
+Pba52824f6335bdd,Referrals with no reply,2027-07-24T09:49,private Surgery (stable),R925011f443a55d8
+Pa63831bf8fc7f3b,Tests ordered but never resulted,2027-07-26T10:31,GLU / LFT / LIPID / RFT,Rdf54ecce3977e3d
+Pa63831bf8fc7f3b,Planned reviews that didn't happen,2027-08-16T10:36,,Rc68a535241ce4d0
+Pcad930f4e79381c,Abnormal results nobody acted on,2027-07-27T15:10,routine: Calcium 2.18,R27cb2b30b272092;R9aaca03f29e6e6b
+Pb713394d30ee819,Planned reviews that didn't happen,2027-07-29T10:51,,R2000e227beec19e
+P7ec3d47014f29cf,Abnormal results nobody acted on,2027-08-02T09:00,routine: Total cholesterol 5.4,Ra8cb214c1137c52
+Pa46835fd84fcc49,Tests ordered but never resulted,2027-08-02T10:07,GLU / HBA1C / RFT,R0461ecc61da9172
+P1b5cc72606b5e3a,Abnormal mammograms not followed up,2027-08-04T09:00,abnormal screening mammogram,R54ab7a7872336e5
+P26fae7e1cb1020b,Abnormal results nobody acted on,2027-08-05T09:00,"routine: HbA1c 7.5, Glucose (fasting) 3.7, Chloride 108",R13875424205486f
+P8c2e81bb19ed9fc,Abnormal results nobody acted on,2027-08-05T11:07,"soon: Bicarbonate 21, Chloride 108, Creatinine 111, Urea 9.8",R7776e2b28d0d03d;Ra714b4dd4ce26e0
+P9dd69a6ba4671c4,Abnormal results nobody acted on,2027-08-09T22:59,routine: MCV 79,R4584453d8cc816a;Rcc96b5a421756b8
+P5493e4fe7a8f1c4,Abnormal results nobody acted on,2027-08-11T22:10,"routine: HbA1c 7.1, Total cholesterol 6.3, LDL cholesterol 3.6, Calcium 2.54",R14af8461b090c8b;R94115b638d1fb9c
+P3fbeec61cec2cde,Abnormal results nobody acted on,2027-08-12T07:14,"routine: Calcium 2.17, Sodium 136, Bicarbonate 21",R87cefc50d430750;Ra61efca70f82fe1
+P45ccc7fb62986ec,Tests ordered but never resulted,2027-08-12T09:46,CBC,R2e827275577ea27
+P45ccc7fb62986ec,Planned reviews that didn't happen,2028-02-09T10:43,,R203cb674c9724b5
+Pb74c1a983c1a124,Tests ordered but never resulted,2027-08-12T10:27,GLU / HBA1C / LIPID / RFT / UACR,Rbc498c8a2b591e7
+P3604e7ee43f9fa2,Abnormal results nobody acted on,2027-08-16T21:10,"soon: Urea 13.6, Creatinine 147, Haemoglobin 12.3, HbA1c 6.2",R75cd96f42ef7614;R917910b698c0ddf
+Pd25bdf9f261921c,Planned reviews that didn't happen,2027-08-17T10:40,,R2256a550443e281
+P00f9820e1d17ae6,Abnormal results nobody acted on,2027-08-17T21:41,routine: Total cholesterol 5.7,R03bd0d678bff286;R734e2b7af4bec70
+Pd6e4aaac011f5f7,Abnormal results nobody acted on,2027-08-21T15:34,routine: HDL cholesterol 0.84,Redb709757aef783;Rc843d0732f60ce1
+Pfa4459f03fe1970,Abnormal results nobody acted on,2027-08-24T10:47,routine: Platelets 145,R6bf3b0fab1e2d7e;R200cb4ce1483243
+Pa64f8a373208f87,Abnormal results nobody acted on,2027-08-25T14:07,"soon: HbA1c 6.8, Creatinine 65, HDL cholesterol 0.77",R3b858a290bdc04b;Rfa4caecee55568b
+P8d9b1b955b8638d,Abnormal results nobody acted on,2027-08-27T00:31,"soon: Chloride 108, Total cholesterol 8.1, Glucose (fasting) 6.4, Triglycerides 1.9, LDL cholesterol 7, HDL cholesterol 0.82",R19ba858cae709e6;R28bfd8392b268a9
+Paaff6ce32daa2a7,Abnormal results nobody acted on,2027-08-27T09:00,routine: Glucose (fasting) 6.6,R7f7f3277783c26b
+P59748fc252cd71e,Abnormal results nobody acted on,2027-08-27T09:00,"soon: Creatinine 125, Bicarbonate 20, Urea 12.6",Ra272e451dd267e8
+P2f8e1589f8eb6c2,Monitoring bloods after a new medicine,2027-08-27T17:12,RFT after Lisinopril 10 MG Oral Tablet,R79030dd7c863a74
+P8c75d72f0ca7546,Abnormal results nobody acted on,2027-08-29T12:09,"soon: Triglycerides 4.2, LDL cholesterol 3.7, Total cholesterol 6.3",R9ccbcea5e5b073c;R17d28ab20677610
+P39c1822411476f8,Abnormal results nobody acted on,2027-08-30T23:36,"routine: Urea 7.6, Creatinine 84",R16be89b3dc3c939;Raf67a2eb405b668
+P898fa6f3382bd44,Follow-up after a hospital stay,2027-08-31T00:00,follow-up review,R0c6369369a77c80
+P898fa6f3382bd44,Follow-up after a hospital stay,2027-11-30T00:00,follow-up review,R7a6d317aa453689
+P82bee3011e8ee53,Abnormal results nobody acted on,2027-08-31T02:37,routine: Platelets 431,R208489eac2566f6;Rc8bbaa18d883378
+P6c51c838c52e8eb,Abnormal results nobody acted on,2027-08-31T13:03,"routine: HbA1c 6.4, Glucose (fasting) 6.6",R44ef807c8f40ecb;Rc76c53501a7d895
+Pd388c35a31151d3,Abnormal results nobody acted on,2027-08-31T13:50,routine: Haemoglobin 17.1,R569aedc0ec31ed7;R511c5dcb242da8d
+Pd2550ff3527609e,Abnormal results nobody acted on,2027-08-31T16:27,routine: Total cholesterol 5.3,R5574cedf3e04c35;Rd0e69212b91a0a7
+Pc8a3e6e58091b95,Tests ordered but never resulted,2027-09-02T10:06,CBC / GLU / HBA1C / RFT,Refac6d710aee395
+P572dcc8d04b6c45,Referrals with no reply,2027-09-02T19:59,private Surgery (urgent),Re479dab7cc715de
+Pce4ed858941fe24,Referrals with no reply,2027-09-03T18:03,private Orthopaedics & Traumatology (stable),R9fdbdd55c701d97
+P596c4f3c63568a5,Abnormal results nobody acted on,2027-09-08T04:40,"soon: Creatinine 53, Bicarbonate 20",Re166b713e4a7e42;Rb4f571f05070923
+P406cd9ed39e9878,Abnormal results nobody acted on,2027-09-09T21:33,routine: MCV 73,R12afd707ed74938;R5c85d8b1c97796e
+P5c76f9a7d59a845,Monitoring bloods after a new medicine,2027-09-13T10:35,LFT after Simvastatin 10 MG Oral Tablet,Rfbbd94a4e607c2f
+Pfa8f69c36d37ded,Abnormal results nobody acted on,2027-09-13T17:36,routine: Chloride 108,R39eee1abd1c1802;R82e8381c3209c18
+P7170e825a918d9c,Abnormal results nobody acted on,2027-09-13T23:08,routine: Urea 2.3,Re020838c60b38fd;R23c3c8410e4f10c
+Pa4729e309ca5700,Abnormal results nobody acted on,2027-09-16T12:28,"routine: Chloride 108, Sodium 136",R59af43b54628b0c;Re86a655a3bc7682
+Pbde21bc7fb51246,Abnormal results nobody acted on,2027-09-17T22:21,"soon: Total cholesterol 7.7, Triglycerides 4.8, HDL cholesterol 0.96, MCV 77",R6cd2be0e17baa3d;R0d07e60003c0aab
+P736f3facb3c70d1,Tests ordered but never resulted,2027-09-18T15:33,GLU / HBA1C / RFT,Re611f25b0ec78eb
+P52129db4dd0406b,Planned reviews that didn't happen,2027-09-21T10:44,,Rb600ed0fe60d87c
+P175081803c33871,Abnormal results nobody acted on,2027-09-22T16:42,"routine: LDL cholesterol 3.8, Total cholesterol 6.7",Rf519e36c5937982;R515fb7f2352b223
+P2bd465545a57a3c,Tests ordered but never resulted,2027-09-23T09:45,GLU / HBA1C / RFT,R438bf8232e38720
+P99051237daaa990,Tests ordered but never resulted,2027-09-23T15:35,RFT / CBC,R359106a65feec02
+P6d219f732afd48d,Abnormal results nobody acted on,2027-09-27T23:27,"routine: HbA1c 6.1, Chloride 108, Creatinine 67",R8283baf9bcace19;R9c4be76c68ebdc2
+Pf2bf6138222f2f1,Referrals with no reply,2027-09-28T10:03,private Gynaecology (urgent),Re8dae91c3dcb801
+P8a38b5c809c9e6b,Abnormal results nobody acted on,2027-09-29T08:23,"soon: HbA1c 8.4, Creatinine 42, Potassium 3.3",R143f5b23ad3b002;Rf5ed191596b964f
+Pd413e4b6fd6795f,Planned reviews that didn't happen,2027-09-30T10:15,,Rf682a97aa32f559
+P340be8a9946ce82,Abnormal results nobody acted on,2027-10-01T09:00,"routine: Chloride 109, Total cholesterol 5.3, Triglycerides 1.8",R750ff1618425ea9
+Pd584c563d33f7a3,Abnormal results nobody acted on,2027-10-01T09:00,"routine: Sodium 136, Chloride 110, Bicarbonate 21",Rc0eaf51fa432742
+P340c694d7485757,Abnormal results nobody acted on,2027-10-01T16:35,soon: Total cholesterol 6.8,R3ca8da7fc4fc4e9;Rd0ddb8a12c0da49
+P9b2875bc1ab088f,Abnormal results nobody acted on,2027-10-01T23:17,"routine: Triglycerides 1.9, Sodium 144, Calcium 2.6",R51f0c564e56b852;Recf5527175ea142
+P5914bd862038e04,Abnormal results nobody acted on,2027-10-05T01:05,routine: Chloride 108,R7c9a18f4df2f241;R6ed1f43e7d3c74f
+Pf44000a3a3f5c9a,Abnormal results nobody acted on,2027-10-05T03:16,"routine: Creatinine 88, Urea 7.3",R00f3d0a8e5b210d;Rb52c48f566858ae
+P85520e08bf1e62b,Abnormal results nobody acted on,2027-10-05T03:36,"soon: Sodium 136, Glucose (fasting) 3.6, Triglycerides 3.2, LDL cholesterol 4.7",Rca44b2664755fed;Rb18eb95c9ccf10c
+P9cab2259a252214,Abnormal results nobody acted on,2027-10-05T04:52,"routine: Chloride 108, Sodium 136",Rfcecaabf5fbc296;R571afd725384b5e
+P349e56883ace086,Abnormal results nobody acted on,2027-10-05T06:33,"routine: Bicarbonate 21, Creatinine 106",R20b73d4f4178894;R534c598592b12ba
+P532ec1613b6eff8,Abnormal results nobody acted on,2027-10-05T06:39,routine: MCV 77,Rf1ba0b5b838c1ae;R467dd27a18355b8
+Pcdd9ea1f737de3c,Referrals with no reply,2027-10-05T11:37,private Medicine (stable),Rb86d5831c9ce9aa
+P531a384c386474b,Abnormal results nobody acted on,2027-10-05T13:07,"routine: Chloride 110, LDL cholesterol 4.2, Triglycerides 2, Total cholesterol 6.4",R0194b6042cb7d18;Rc1e4cc60eb8f068
+P0684e9635ab42ec,Referrals with no reply,2027-10-06T17:48,private Eye (urgent),R6dd1087227e28fc
+P8ed6eda793c9c77,Abnormal results nobody acted on,2027-10-09T14:53,"routine: Chloride 110, Triglycerides 2.2, LDL cholesterol 3.6",R5733cf35fc99f8c
+P657d0b63158ce4a,Planned reviews that didn't happen,2027-10-11T10:41,,R60dd35d9f8a86ef
+P0cceabb3b1822ab,Tests ordered but never resulted,2027-10-11T17:21,CBC / LIPID,R5a871a1177b4cf8
+Pa75867df6ef84bf,Abnormal results nobody acted on,2027-10-12T08:15,"routine: Creatinine 45, Bicarbonate 21, Glucose (fasting) 3.8",R6d743a85aa5ef15;R58554a9e63c4802
+Pafe7a97aaeb4b68,Tests ordered but never resulted,2027-10-14T09:09,GLU / HBA1C / LIPID / RFT / UACR,R48d8d04073d3a8a
+Pa955144153ac531,Referrals with no reply,2027-10-14T17:31,private Psychiatry (stable),R0088e01b77b5320
+P9a9981e5b0a86e6,Abnormal results nobody acted on,2027-10-15T07:25,"routine: Sodium 145, Glucose (fasting) 6.5",Re1c2d22c78588e7;Ra2ad1136635cd40
+P9a9981e5b0a86e6,Referrals with no reply,2027-12-28T19:09,private Medicine (stable),R0257375e818a618
+P1a8a4fc66c4fc44,Abnormal results nobody acted on,2027-10-15T09:22,"soon: Bicarbonate 20, Total cholesterol 6.3, Triglycerides 2.6, LDL cholesterol 3.7",R03d063e6a81eb76;R14af4bf490460f8
+Pac817d95a3b3c9d,Abnormal results nobody acted on,2027-10-17T14:00,critical: Glucose (fasting) 27.5,R7a72639dbcf14bc;Rb7a3c11c311ca7a
+Pf9ae604c3cdeae4,Abnormal results nobody acted on,2027-10-19T05:51,"routine: Urea 7.3, Glucose (fasting) 6.8, Sodium 144",Rb3ef6ae8c8028c9;Rb623478526fae24
+Pbcd9710bbef5903,Abnormal results nobody acted on,2027-10-20T01:16,"routine: Bicarbonate 21, Chloride 108",Rcb31750d507fe20;Rfe7e17f54c290b5
+Pbcd9710bbef5903,Positive stool test (FIT) without a colonoscopy,2028-03-08T17:39,FIT positive: colonoscopy,Rea7dd36399f99d7
+P2d1cc42ed9bc522,Tests ordered but never resulted,2027-10-20T10:10,LIPID,Rc6ef4ce6c236182
+P75e256d9a2b4add,Abnormal results nobody acted on,2027-10-20T15:44,"soon: Bilirubin 3, Glucose (fasting) 8.5, Calcium 2.12",R20ade19b2a6ab59;R31289132bdce5e8
+P75e256d9a2b4add,Planned reviews that didn't happen,2027-11-22T18:10,follow-up review,R5b35f1582e91e59
+Pf8b7259296aaa04,Abnormal results nobody acted on,2027-10-21T21:07,"soon: Total cholesterol 5.8, Triglycerides 2.3, LDL cholesterol 4.2",Rc5033da292d9fba;Re0ec15794423fe0
+P7fd06993106e5dd,Abnormal results nobody acted on,2027-10-22T19:31,routine: MCV 73,R1ea3d97881d35bb;R81b2b7392ddca7c
+P454845dfe45ca62,Abnormal results nobody acted on,2027-10-23T16:42,"soon: Platelets 117, Sodium 136, Chloride 108, ALT 58, AST 48",R8a414efea77ea82;R707a3691a795cdc
+Pf588d84b5d68d5e,Abnormal results nobody acted on,2027-10-26T03:28,routine: Creatinine 50,Rf5383536b5442e9;R604d84de3e0638f
+P69d5b4c94c24c7e,Abnormal results nobody acted on,2027-10-26T05:36,"soon: MCV 61, Haemoglobin 11.4, Bicarbonate 21, Chloride 110, Calcium 2.15",Rc691f59e0b0ef9d;R2f424d32dcee1c1
+Pbaa9cb14fefab3b,Abnormal results nobody acted on,2027-10-26T06:28,"soon: Total cholesterol 6.2, HDL cholesterol 0.67",Rc496a422476fe9e;Re6b6a930dd496f8
+P0c270d1550f0297,Abnormal results nobody acted on,2027-10-26T09:56,routine: Total cholesterol 5.5,R06a882b87afcfaf;Rf5bbe2da5caf571
+P8569b32b408bb10,Abnormal results nobody acted on,2027-10-26T10:59,"soon: Bicarbonate 21, Glucose (fasting) 6.8, Urea 11.6, Creatinine 107",Rebe60d7f50e5b06;Rc07ff055888f8fb
+P84e74953a132ad9,Tests ordered but never resulted,2027-10-26T18:34,GLU / LFT / LIPID / RFT,Rdc250088c191265
+P284f053419b3aff,Abnormal results nobody acted on,2027-10-30T11:20,routine: Chloride 109,Ra88f825fe80b848;Rd069d36f91b5b56
+Pddab63536ecfa88,Referrals with no reply,2027-11-01T09:26,private Orthopaedics & Traumatology (stable),R59734d8ad7de609
+Pc595f393711dcf3,Abnormal results nobody acted on,2027-11-01T18:26,"routine: Albumin 36, Sodium 132, Chloride 108, Calcium 2.16",R8fc8eeecd86fe0f;R4328a728b1a3c7c
+P57e0369b90708a6,Abnormal results nobody acted on,2027-11-03T04:40,routine: Chloride 109,R1737794231995f5;Rbf39a81275696f7
+P8cfb7c241d97ff2,Abnormal results nobody acted on,2027-11-04T13:26,"routine: LDL cholesterol 3.8, Total cholesterol 5.5",R16e10bf10f3563e;Rf2ddd6bc4f73f99
+P1f7e2a4964886d5,Abnormal results nobody acted on,2027-11-06T14:30,routine: Sodium 136,R594bb7c44979264
+Pbf1c8fc9992433a,Abnormal results nobody acted on,2027-11-06T23:36,routine: MCV 75,R9d3c22547f7acff;Rd0cabdc703b99e1
+Pfa35445b2e84c03,Abnormal results nobody acted on,2027-11-08T09:00,routine: Total cholesterol 6.5,R3c00d2b68533ebd
+P1ce8d7dce857840,Abnormal results nobody acted on,2027-11-08T20:43,routine: Total cholesterol 6.5,R8e565d7bd4b2418;Rfabced26eb66d52
+P22d350ff1d25c1d,Abnormal results nobody acted on,2027-11-08T21:20,routine: Haemoglobin 16.2,Refa22a246eb958f;Rb89c9efc0fd815f
+Pf140ba8f4800d3e,Abnormal results nobody acted on,2027-11-08T21:21,"routine: Bilirubin 24, Calcium 2.65, Glucose (fasting) 3.8, LDL cholesterol 3.7",Raf960c53248bb64;R04c4f2fd854a9ae
+P3a3c4a9b43316a3,Abnormal results nobody acted on,2027-11-10T09:27,"routine: Chloride 110, Sodium 136",Rbba06c662355c9a;R1e4d9fb995547d5
+P8e63361f164005c,Tests ordered but never resulted,2027-11-10T11:04,GLU / HBA1C / RFT,Ra391bf21138c734
+Pe8a36d2267ca49c,Referrals with no reply,2027-11-10T16:10,private Gynaecology (stable),Ra07bf7d01bc0ad4
+Pada5bd6a3e6c70f,Follow-up after a hospital stay,2027-11-11T00:00,follow-up review,R7e17232d80b8900
+Pe5276a0a441806d,Abnormal results nobody acted on,2027-11-12T22:03,"routine: Total cholesterol 5.3, LDL cholesterol 4.1",Rdf767d256e5845b;R627dc41a5bd0a7d
+Pe5276a0a441806d,Planned reviews that didn't happen,2028-01-26T09:44,,R87abbaf458db134
+P3c3744c5c37cdae,Tests ordered but never resulted,2027-11-15T10:41,GLU / HBA1C / RFT,Rda9edb0ea8e3d53
+P38a74e5033955a7,Monitoring bloods after a new medicine,2027-11-16T09:14,LFT after Simvastatin 10 MG Oral Tablet,Rf2c80825826c85a
+P17a74f79c240fb1,Abnormal results nobody acted on,2027-11-16T13:44,routine: Total cholesterol 5.3,Re4277be45c7cdb0;R93ef9894665c579
+Pff94b48ac8d71b3,Abnormal results nobody acted on,2027-11-17T09:20,"soon: Creatinine 56, Urea 9.8",Ra28237fdb908953;R300ff40f81dd9fb
+Pe6a0bb463540f84,Abnormal results nobody acted on,2027-11-18T09:00,routine: Creatinine 87,R97744ceeddb8e43
+Pea29151fd1a2ffb,Abnormal results nobody acted on,2027-11-18T23:21,"soon: Glucose (fasting) 7.2, Bilirubin 3",R3230a820b8172ea;R6416b5fa6ec2912
+P624b2098ac2d357,Abnormal results nobody acted on,2027-11-19T16:20,routine: Creatinine 67,R91b1a0ab2e34051;R053789c442c4d64
+P0ab715e1f604875,Abnormal results nobody acted on,2027-11-20T17:41,"urgent: HDL cholesterol 0.96, HbA1c 10.1, Glucose (fasting) 19.2, Chloride 109, Triglycerides 2.6, Urea 8.5, Creatinine 50, Potassium 5.4",Rb2c9987a15e87a8;Rb6ea37bc3a679be
+P5fbfee4855e4e35,Abnormal results nobody acted on,2027-11-20T19:48,"routine: Glucose (fasting) 6.3, Calcium 2.17",R702cda5273750cd;R17e5b0405e8715a
+P67e59cd652d3136,Referrals with no reply,2027-11-21T09:44,private Psychiatry (stable),Raa3f66e0790ec61
+P075f78d0603f5af,Abnormal results nobody acted on,2027-11-21T15:00,routine: MCV 73,R9dcf3a4953a9c1a;R6c090302302c6ef
+P0a4f5acad35a584,Planned reviews that didn't happen,2027-11-22T10:30,,Re89de48a660cb60
+P0a4f5acad35a584,Abnormal results nobody acted on,2027-12-16T16:41,"routine: Glucose (fasting) 7.8, HbA1c 6.5",R0410f6be6b24d72;R99905dd0b61c1fa
+P856b040dc67a659,Abnormal results nobody acted on,2027-11-23T20:57,"soon: LDL cholesterol 4.4, Triglycerides 2, Total cholesterol 7",R8ab4bc65a1423b7;R0b27b2e874ddcde
+P1129d3a9ef129ef,Abnormal results nobody acted on,2027-11-24T11:52,"routine: Urea 8.8, Glucose (fasting) 3.7, Bicarbonate 20",R815bd3a5cce6569
+Pee18215b8f2967c,Planned reviews that didn't happen,2027-11-24T18:22,,Rf7941e6219c2e2e
+Pb54a5743f0a5ad0,Abnormal results nobody acted on,2027-11-25T11:13,"routine: LDL cholesterol 3.5, Urea 7.6, Glucose (fasting) 7.3, HbA1c 6.3",R61d668ea4fccbad;R0a207d3119ec552
+P00c5e0fb7b9512d,Referrals with no reply,2027-11-29T15:21,private Medicine (semi_urgent),R0c5a260a1ae0170
+P00c5e0fb7b9512d,Monitoring bloods after a new medicine,2028-01-03T15:23,LFT after Simvastatin 10 MG Oral Tablet,R361babcc801dd23
+Pc841a2fd9f7851d,Abnormal results nobody acted on,2027-11-29T20:55,routine: MCV 77,R03b4bcefd02336a;R8c6479b92502b58
+P786e8ec78ab6fd3,Abnormal results nobody acted on,2027-11-30T01:10,"routine: Glucose (fasting) 6.9, HbA1c 6.6, LDL cholesterol 4.4, Total cholesterol 6.1",R45b355e8e2725be;R1b9fdcd33e93b23
+P36a08dda1f9fcac,Abnormal results nobody acted on,2027-12-01T21:18,"soon: LDL cholesterol 4.6, Total cholesterol 6.2",R94a85bec6b1188e;Re21cfd467278c8a
+P3564c4b8d5317e4,Referrals with no reply,2027-12-03T16:57,private Medicine (stable),Ra7c1a2959d17937
+P4e143d0f5e44978,Referrals with no reply,2027-12-04T12:52,private Gynaecology (stable),Rb40877ee2be8169
+P556005adf2d87e3,Abnormal results nobody acted on,2027-12-04T22:22,"routine: Glucose (fasting) 3.7, Sodium 136",Re7e534b9fc6afcd;Rb7c7e72d4f75d9d
+P5b8a982db519120,Abnormal results nobody acted on,2027-12-05T08:10,"soon: Glucose (fasting) 3.8, Urea 8.4, Creatinine 118",R21e19354d88d4ab;Ra59f165c3937858
+Pd82f875f982b25e,Abnormal results nobody acted on,2027-12-07T10:42,"routine: Haemoglobin 12.7, Chloride 108, Creatinine 115",Rf81aeda4b88b6c7;R443fb29a1e8c29c
+P7bc5d004750e132,Tests ordered but never resulted,2027-12-09T09:48,LIPID,R065a1d6ca727a66
+P1fe4bfa1051ffe8,Positive stool test (FIT) without a colonoscopy,2027-12-10T10:31,FIT positive: colonoscopy,Rea7d03342960a53
+P21e0157fe95c3b3,Abnormal results nobody acted on,2027-12-11T08:37,routine: Creatinine 111,R78d1d46c17bee8e;R92348c0676d243e
+Pb93c1bb7959247d,Abnormal results nobody acted on,2027-12-11T19:38,"routine: Urea 9.2, Sodium 146",Rcbcbd5dc2aa0684;R232ae6a5fbf2851
+P567e387f8942e9b,Tests ordered but never resulted,2027-12-14T09:59,GLU / HBA1C / RFT,R870458a3a9e51f7
+P1aa8a3a621a8ee3,Abnormal results nobody acted on,2027-12-14T15:42,"soon: HbA1c 6.4, Bicarbonate 21, Urea 15.1, Calcium 2.59, Creatinine 106",R09815adc6812e24;Reccc80f62b6eafa
+P47c6bee418ab877,Planned reviews that didn't happen,2027-12-16T10:20,,R1f8eac0fad74905
+Pf5ca9ba6b506a61,Abnormal results nobody acted on,2027-12-18T14:58,routine: White cell count 11.7,Re0fe516a90b7bc0;Rf157d063de160c0
+P1be0d9ba125b2ae,Abnormal results nobody acted on,2027-12-21T16:55,routine: MCV 74,R7cadb9508cb037c;Rd5d57aedc128eac
+Pde6cd3ec57c7066,Abnormal results nobody acted on,2027-12-22T22:31,"routine: Creatinine 111, Urea 9.2",R40cdbab594ac974;R0f70e38c4501af9
+Pa11576ef59df8bc,Abnormal results nobody acted on,2027-12-23T21:38,routine: White cell count 3.7,R1941acbc50d0ea3;Rfff2b1e39a871ac
+Pa166ecb5a3dc812,Abnormal results nobody acted on,2027-12-24T09:00,"soon: Urea 10.2, Sodium 135, HbA1c 6.3",R3b0fa29b6916b02
+P061d6d0a8a0384d,Abnormal results nobody acted on,2027-12-25T12:57,routine: Sodium 144,R25907d53e97ece8;Rf65c37751bc5a33
+Pc318248e08b00a4,Abnormal results nobody acted on,2027-12-26T12:35,"routine: Calcium 2.18, Chloride 108",Re0f115fa08a60bc;R3657b4c8f58573d
+P132357400acf27d,Abnormal results nobody acted on,2027-12-27T22:57,"routine: Glucose (fasting) 6.5, Platelets 142",R13408f1631c8645;Re32737466b04787
+P0c293825d6353c6,Planned reviews that didn't happen,2027-12-28T17:33,,Rafb89352c161b7a
+Pc2d9be90369b211,Abnormal results nobody acted on,2027-12-28T20:25,"soon: LDL cholesterol 4.1, Triglycerides 2.8, Total cholesterol 6.8",R8c43a3e119b3d34;R69a95b85709964c
+P6d290fa2ce50213,Abnormal results nobody acted on,2027-12-30T19:06,"routine: HbA1c 6.7, LDL cholesterol 3.6, Triglycerides 2, Urea 7.6, Calcium 2.16, Sodium 136",R439801e1cd583f2;R228a96e33b5baa0
+Pf2926a12ec989a7,Abnormal results nobody acted on,2027-12-30T21:56,routine: Bicarbonate 21,R1467d4de2e8d923;R1a9f95c400ec6b8
+P84499d45f414a24,Abnormal results nobody acted on,2028-01-01T02:26,"routine: Potassium 3.4, LDL cholesterol 4.3, Total cholesterol 5.9, Chloride 108",R8085e86968b1307;R0c4872482bfe2d5
+P78ea1011bbe9cea,Abnormal results nobody acted on,2028-01-01T15:09,"routine: Total cholesterol 6.6, LDL cholesterol 4",R43097099144c305;R1d5501559ce2435
+P1696c14b7e5589d,Abnormal results nobody acted on,2028-01-03T17:54,routine: Platelets 436,Rc35e340032cb402;R0dc9a74cd04731a
+Ped1888f28d7746f,Abnormal results nobody acted on,2028-01-04T00:02,"routine: Chloride 109, Sodium 136",Reec1e687477eaf7;Rbbcab2a3703a36e
+P608894c88e374cc,Abnormal results nobody acted on,2028-01-04T13:55,"routine: Total cholesterol 5.5, HbA1c 7.1, Glucose (fasting) 3.7, Chloride 108",R7910e8a17f1179f;R1aed10818309c69
+Pac3972395a62667,Abnormal results nobody acted on,2028-01-05T03:30,"soon: Urea 10.1, Creatinine 139, Urine albumin/creatinine ratio 17.9, eGFR 38",R669e3d635d4932a;Rd70b9b59b7cf1d9
+P99208b04c98af94,Abnormal results nobody acted on,2028-01-05T06:02,"soon: Urea 11.4, Calcium 2.52, Sodium 136, HDL cholesterol 0.84, HbA1c 9.5",R3efb40e0231aacd;Rc8e9e903a973df7
+P1e8deac00d65156,Abnormal results nobody acted on,2028-01-05T09:00,routine: HbA1c 6.6,R908c87e8c64ca1a
+Pff575885b5baa76,Abnormal results nobody acted on,2028-01-05T19:54,"routine: HbA1c 6.1, Creatinine 66, Triglycerides 2.1",Rc90107780b9a000;R642b35bc480c479
+P79a2e503fede690,Abnormal results nobody acted on,2028-01-06T06:47,"routine: Total cholesterol 6.4, HDL cholesterol 0.95, Chloride 109, Urea 7.4",Redf9b06e5f317b4;R2b63f85e6bb1fc2
+Pea2dcaca940d03d,Abnormal results nobody acted on,2028-01-06T19:58,routine: Total cholesterol 5.5,Rd6dd00471fcb9a5;R06a9310dc2b4562
+P1bf30334c218262,Abnormal results nobody acted on,2028-01-07T19:58,"soon: eGFR 59, Urea 9.6, Creatinine 99, Total cholesterol 5.6, Bilirubin 2",R07a797e3b3661c6;R51723a0b92bd2d3
+Pc1b3f2c26bbda60,Abnormal results nobody acted on,2028-01-07T23:07,"routine: Glucose (fasting) 3.7, Total cholesterol 5.3",Rc42c1546c7b1c05;Rb5a5f26dbed1d8a
+P18ca7c401fc34ec,Abnormal results nobody acted on,2028-01-08T15:44,"routine: Bicarbonate 20, Chloride 108, Urea 8.2",Rba277abd97df94c;R18bfd380953cb85
+Pbfcba630a686ca9,Abnormal results nobody acted on,2028-01-11T17:55,"routine: Sodium 134, Triglycerides 2",R6d3d43950f4a34e;R6f59a84534b0b69
+P136a562be89c8da,Abnormal results nobody acted on,2028-01-12T02:01,routine: Bicarbonate 20,R50f088fa48a5ec0;Rdaae50de6609a8e
+Pd3e050b1c6a870a,Abnormal results nobody acted on,2028-01-12T02:26,"routine: Total cholesterol 5.3, HbA1c 6.9, HDL cholesterol 0.93, Glucose (fasting) 6.8",Ra1c8248fd81fe83;R760b1823c27c612
+Pc84cb44502d8290,Abnormal results nobody acted on,2028-01-12T03:23,routine: Chloride 110,R4cc6c68ba5d0827;Rc5a9826d40c696f
+P37d8b32e6c6db13,Abnormal results nobody acted on,2028-01-12T05:59,"routine: Creatinine 49, Glucose (fasting) 6.3, Total cholesterol 5.6, LDL cholesterol 3.8",Rb9d677e96bb9375;R4d6f9954ab4e558
+P0c6ea093988fc70,Abnormal results nobody acted on,2028-01-12T14:37,"routine: Glucose (fasting) 6.4, Chloride 108",R7c42de8591a8879;R965ba3c487c5e36
+P37de90bf86c187e,Abnormal results nobody acted on,2028-01-12T22:45,routine: Sodium 129,R17127d0aa834a60;R00af969d6624e6a
+P377981edb0382f6,Abnormal results nobody acted on,2028-01-13T05:40,"routine: Total cholesterol 5.6, LDL cholesterol 4",R890a4f7e4e70790;R64edf36fc0ce282
+P973ef21c0615973,Positive stool test (FIT) without a colonoscopy,2028-01-16T16:00,FIT positive: colonoscopy,Rcf6bc4d6bb268ec
+P0775365de969337,Planned reviews that didn't happen,2028-01-23T09:55,,R0e454003c331375
+Pb0d5218b63030ab,Tests ordered but never resulted,2028-01-23T10:37,LIPID,R870ac16b3553bd1
+Pdaecc7bf3270d41,Monitoring bloods after a new medicine,2028-01-25T11:09,LFT after Simvastatin 20 MG Oral Tablet,Rd51efb86fefc90c
+Pde98ad846894645,Planned reviews that didn't happen,2028-02-09T10:43,,R110546133457b60
+P003a2af276678ca,Planned reviews that didn't happen,2028-02-11T18:03,follow-up review,Rf10b8df01d9ce57
+Pdb748bc3cc0fe06,Planned reviews that didn't happen,2028-02-15T11:02,,Rd9832cd66d08ca5
+P6a1f6b61ebe3112,Planned reviews that didn't happen,2028-02-16T09:48,,R205c845d0d2ae1d
+Pea42a9d17e05876,Referrals with no reply,2028-02-18T15:54,private Psychiatry (stable),R928ee1b877ba480
+Pea42a9d17e05876,Referrals with no reply,2028-02-27T17:42,private Eye (stable),R7a436d60be4ea42
+P99ae7883e45860e,Referrals with no reply,2028-02-29T18:56,"private Ear, Nose, Throat (semi_urgent)",R5217334ad94647d
+P2657e2159ace669,Referrals with no reply,2028-03-02T09:44,private Eye (stable),R145f836ac20024d
+Pc6534d8a5d12680,Positive stool test (FIT) without a colonoscopy,2028-03-04T10:00,FIT positive: colonoscopy,R46f41951dd79303
+P000e09f68677db2,Referrals with no reply,2028-03-27T10:43,private Surgery (semi_urgent),R0f165037458e826
+Pfbde21d4d51a468,Planned reviews that didn't happen,2028-06-04T19:13,follow-up review,Rddc625bd19a1043
