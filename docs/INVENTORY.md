@@ -71,6 +71,7 @@ parked ones are in "Parked until 1 Feb 2027".
 | [tmrw one-page demo](https://claude.ai/artifact/7MzAFXNeTSNMJDLqnvS8Zw) | Design canvas, 8 Nov; v3 and v4 9 Nov | The landing page for family doctors: "Every patient followed up. More of them back with you." Boards: v2 (saved), v3 (front-desk menu, opening hours, red-team fixes) and v4 for clinics and for patients, each in English and Chinese. Price still a placeholder. Source: `demo/landing/`. |
 | [tmrw care line](https://claude.ai/artifact/1PjRfqEUpFFqwPELnZ1Ddp) | Design canvas, 6 Nov; clinic backend section 8 Nov | The landing site: home and one page each for doctors, patients and clinics. Lives only in the canvas. |
 | [Work overview and system map](https://claude.ai/artifact/MvEhKpPrcoi4DY7tWWwPzD) | Artifact, 6 Nov | A snapshot of this file and `OPERATING_SYSTEM.md` on 6 Nov |
+| Partners board (GitHub Project) | Board view, 9 Nov | The open `signal` issues, one per partner, in columns by `Stage` (`OPERATING_SYSTEM.md`, Product management). Thomas sets the stages; Claude sessions can't reach the board, so each signal suggests one. |
 | [Data request: Phase 0 follow-up look-back](https://claude.ai/artifact/KKX86CZh4miqqAs4TC37tn) | Doc, 5 Nov | `docs/EC_DATA_REQUEST.md` |
 | [EC Healthcare demo: talk track and Q&A](https://claude.ai/artifact/81g9RX2ddNQ9mSv6fXpGmp) | Doc, 5 Nov | Partner document |
 | [Amber Health visit: workflow capture sheet](https://claude.ai/artifact/TDPqEUMAnpxwshUjn94hYn) | Doc, 3 Nov | Partner document |
