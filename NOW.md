@@ -57,9 +57,13 @@ partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`.
    it like the loop families: live only at 100% in every year, zero hard fails, zero made-up quotes. Then move the
    list from the demo into the product.
 8. Doctor-minutes metric: review time per item with and without verified evidence.
-9. `claude -p` extraction run on the Mac mini, replayed in CI: agentic numbers with a real model. First log the Mac
-   mini's Claude CLI in (`claude`, then `/login`). Scored honestly since 6 Nov: a document the model never answered
-   counts as missed, not as the rules floor's answer (#12, loopbench #4).
+9. `claude -p` extraction run on the Mac mini, replayed in CI: agentic numbers with a real model. Staged in
+   `~/loopbench-data/extract`: 4,064 dev documents, still current on 6 Nov, with prompt `fu-extract-v2`. Not started
+   as of 6 Nov 14:45: the Mac mini's command-line Claude reads as logged out, and its saved login hadn't changed since
+   that morning, so the 13:30 login didn't reach it. Thomas, in Terminal on the Mac mini: `claude`, then `/login`;
+   then `cd ~/loopbench-data/extract && ./run_extraction.sh`, which checks the login and runs a test batch on screen,
+   then carries on in the background. Scored honestly since 6 Nov: a document the model never answered counts as
+   missed, not as the rules floor's answer (#12, loopbench #4).
 10. LLM harness producing traces against the same seven checks.
 11. Capacity-frontier experiment.
 12. Thomas: held-out scenarios (outside both repos) and sign-off of `loopbench/data/clinical_policy.yaml`.
