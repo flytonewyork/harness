@@ -1,6 +1,6 @@
 # NOW
 
-Read this at the start of every session and update it at the end, in the same PR. Last updated 9 Nov 2026.
+Read this at the start of every session and update it at the end, in the same PR. Last updated 9 Nov 2026 (care line).
 
 **Milestone: first real-customer signal.** Done when a partner that holds patient data agrees a next step in
 writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health pilot on Apricot VITA.
@@ -36,6 +36,13 @@ partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`.
 
 ## Next, in order
 
+0. **WhatsApp care line, after the visit** (spec 004, `backend/careline/`, 9 Nov). Built and running in sim:
+   join by QR, written plan (doctor approves), bookings, "is my result back?", repeat requests, day-3 check-in,
+   red flags, against the simulated clinic, with 63 eval cases on a dashboard (`/careline`). Next, Thomas, on the Mac
+   mini: fill `~/.tmrw-careline/env`, run `scripts/careline_mac_mini.sh` (tester mode), point the tunnel and Meta's
+   webhook at it, scan `/join` from a tester's phone. Then: held-out red-team cases written by someone else, an
+   approved template for the check-in, and the shadow-mode protocol. Live use waits for the decision in
+   `docs/DECISIONS.md` (Open, 9 Nov).
 1. Update the VITA profile from the 6 Nov call (`loopbench/systems/apricot_vita.yaml`); fields still marked unverified
    stay marked.
 2. Put clinic-agent-evals into git (loopbench). The zip isn't on the Mac mini; it is most likely on the MacBook Pro
@@ -56,8 +63,9 @@ partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`.
    sex check), and a chloride printed at the top of its range (109 on 102-109) is flagged high, which the engine
    repeats as "above the report's range".
 7. Task catalogue as the agents' allowlist, with its eval rubric (spec 003, `evals/agent_features.csv`: 54 features,
-   each with what the agent may and must never do, hours, who it escalates to, hard fails and a gate). Write the
-   scripted and red-team cases for the 15 unscored rows first (join, plan, check-in, questions, sending documents,
+   each with what the agent may and must never do, hours, who it escalates to, hard fails and a gate). Part done
+   9 Nov (spec 004): 63 scripted, red-team and fixed-reply cases cover 34 rows, and the message-side checks run on
+   every reply (`evals/careline/`). Left: the scripted and red-team cases for the 15 unscored rows first (join, plan, check-in, questions, sending documents,
    repeats, booking, copies), then the message-side checks, then a shadow-mode protocol. Thomas signs off the gates.
    Then move the list from the demo into the product.
 8. Doctor-minutes metric: review time per item with and without verified evidence.

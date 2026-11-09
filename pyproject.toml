@@ -6,7 +6,9 @@ requires-python = ">=3.12"
 dependencies = ["pydantic>=2.7", "fastapi>=0.115", "uvicorn>=0.30"]
 
 [project.optional-dependencies]
-dev = ["pytest", "httpx"]
+dev = ["pytest", "httpx", "segno"]
+careline = ["httpx", "segno"]
+careline-claude = ["httpx", "segno", "anthropic"]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -14,6 +16,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["backend*"]
+
+[tool.setuptools.package-data]
+"backend.careline" = ["clinic_settings.json", "static/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
