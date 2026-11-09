@@ -2,6 +2,9 @@
 
 Read this at the start of every session and update it at the end, in the same PR. Last updated 9 Nov 2026.
 
+**The system is frozen until 26 Nov.** The operating system, skills and templates change only at a Friday review.
+Every session builds toward the milestone instead.
+
 **Milestone: first real-customer signal.** Done when a partner that holds patient data agrees a next step in
 writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health pilot on Apricot VITA. On the board's
 Partners view, that is a card reaching "Next step in writing".
