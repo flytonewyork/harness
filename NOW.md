@@ -27,7 +27,8 @@ and a pass line for each: `docs/BETS.md`.
    meeting: update the `signal` issue (#20), then decide what she agreed to. The doctors' landing page
    (`demo/landing/`) is saved as v2; v3 (9 Nov) tests the front-desk menu and opening hours; v4 splits it into
    for clinics and for patients, each in English and Chinese. Its live 2-week pilot doesn't match the shadow-mode ask: pick one before either
-   goes out.
+   goes out. v4 is public on Vercel since 9 Nov (`tmrw-landing.vercel.app`, `scripts/build_landing.py --deploy`),
+   with a privacy policy at `/privacy`; its pilot form sends nothing yet, so wire it up or take it down.
 
 Done 6 Nov: **the operating system is locked in.** Its test was a task started in Slack coming back as a scored PR, and
 #10 did (the seven checks in the product). What it set up: Slack with the Claude and GitHub apps; skills and a cloud
