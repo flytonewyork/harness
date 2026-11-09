@@ -54,4 +54,9 @@ python -m backend.lookback --export <dir> --out <dir> [--extractor replay:<raw.j
 ```
 python3 backend/extract/claude_runner.py --docs docs.jsonl --out raw.jsonl --model sonnet --batch 40 --workers 4
 ```
+On the Mac mini the inputs sit in `~/loopbench-data/extract` (the runner, `prompt.py`, and `docs.jsonl` plus
+`docs_smoke300.jsonl` from `loopbench docs`). From Terminal there, `./run_extraction.sh` checks the login and runs
+one test batch on screen, then carries on in the background: the 300-patient smoke set (the full run starts only if
+it comes back clean), then the full dev year, logging to `run.log`. Rerun it to resume; it won't start a second
+copy. Start it from Terminal: a background connection may not see the CLI's login.
 Outputs are cached by prompt version, model and document hash, so scoring runs replay them without calling a model.
