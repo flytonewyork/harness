@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tmrw for patients</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF;color:#0E1116;font-family:'Instrument Sans','Noto Sans TC',system-ui,sans-serif}
+*{box-sizing:border-box}
+a{color:#2346D9}a:hover{color:#1A35A8}
+html{scroll-behavior:smooth}
+@media (max-width: 960px){.nav-links{display:none !important}}
+@media (max-width: 560px){.strip-999{display:none !important}}
+</style>
+</helmet>
+<div style="background: #FFFFFF; color: #0E1116; font-family: 'Instrument Sans', 'Noto Sans TC', system-ui, sans-serif; font-size: 17px; line-height: 1.6">
+
+<div style="background: #F4F5F7; border-bottom: 1px solid #E3E6EB">
+<div style="max-width: 1160px; margin: 0 auto; padding: 0 24px; display: flex; align-items: stretch; justify-content: space-between; gap: 16px; min-height: 48px">
+<nav aria-label="Who this page is for" style="display: flex; align-items: stretch; gap: 24px; font-size: 14px">
+<a href="Landing-v4-clinics.dc.html" style="display: flex; align-items: center; color: #4F5866; font-weight: 500; text-decoration: none; border-bottom: 2px solid transparent">For clinics</a>
+<a href="#top" aria-current="page" style="display: flex; align-items: center; color: #0E1116; font-weight: 600; text-decoration: none; border-bottom: 2px solid {{accent}}">For patients</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px"><nav aria-label="Language" style="display: flex; align-items: center"><span style="display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #CDD2DA; border-radius: 999px; background: #FFFFFF"><a href="#top" aria-current="true" lang="en" style="display: flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 600; text-decoration: none; background: #0E1116; color: #FFFFFF">English</a><a href="Landing-v4-patients-zh.dc.html" lang="zh-HK" hreflang="zh-HK" style="display: flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 600; text-decoration: none; color: #4F5866">中文</a></span></nav><span class="strip-999" style="display: flex; align-items: center; font-size: 14px; font-weight: 600; white-space: nowrap">Emergency? Call 999</span></div>
+</div>
+</div>
+
+<header style="position: sticky; top: 0; z-index: 10; background: rgba(255, 255, 255, 0.94); border-bottom: 1px solid #E3E6EB">
+<nav aria-label="Main" style="max-width: 1160px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px">
+<a href="#top" style="display: flex; align-items: center; gap: 10px; color: #0E1116; text-decoration: none">
+<span style="width: 30px; height: 30px; border-radius: 9px; background: {{accent}}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7"></path><path d="M20 4v4h-4"></path></svg></span>
+<span style="font-weight: 700; font-size: 22px; letter-spacing: -0.04em">tmrw</span>
+</a>
+<div style="display: flex; align-items: center; gap: 24px; font-size: 15px; font-weight: 500">
+<div class="nav-links" style="display: flex; align-items: center; gap: 22px">
+<a href="#can-do" style="color: #0E1116; text-decoration: none">What you can do</a>
+<a href="#hours" style="color: #0E1116; text-decoration: none">Hours</a>
+<a href="#privacy" style="color: #0E1116; text-decoration: none">Your information</a>
+<a href="#faq" style="color: #0E1116; text-decoration: none">FAQ</a>
+</div>
+<a href="#join" style="background: #0E1116; color: #FFFFFF; padding: 10px 18px; border-radius: 999px; font-weight: 600; text-decoration: none; white-space: nowrap">How to join</a>
+</div>
+</nav>
+</header>
+
+<section id="top" style="max-width: 1160px; margin: 0 auto; padding: clamp(48px, 7vw, 96px) 24px clamp(40px, 5vw, 72px); display: flex; flex-wrap: wrap; align-items: center; gap: 56px">
+<div style="flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 24px">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 6px 14px; border-radius: 999px"><span style="width: 8px; height: 8px; border-radius: 50%; background: {{accent}}"></span>For patients of family doctors using tmrw</span>
+<h1 style="margin: 0; font-size: clamp(42px, 5.4vw, 66px); line-height: 1.0; font-weight: 600; letter-spacing: -0.04em; text-wrap: balance">Your clinic on WhatsApp. Your doctor in charge.</h1>
+<p style="margin: 0; max-width: 560px; font-size: clamp(18px, 1.6vw, 20px); color: #4F5866">Book a visit, get your plan in writing, ask for a repeat prescription and find out when your results are back, on the WhatsApp you already use. In Cantonese or English, in your clinic's opening hours.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<a href="#join" style="display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 14px 26px; border-radius: 999px; background: {{accent}}; color: #FFFFFF; font-weight: 600; font-size: 17px; text-decoration: none">How to join <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+<a href="#can-do" style="display: inline-flex; align-items: center; min-height: 52px; padding: 14px 24px; border-radius: 999px; border: 1.5px solid #CDD2DA; color: #0E1116; font-weight: 600; font-size: 17px; text-decoration: none">What you can do</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<p style="margin: 0; font-size: 14.5px; color: #5F6875">Free to use · Nothing to download · Send STOP at any time</p>
+<p style="margin: 0; font-size: 14.5px; font-weight: 600; color: #0E1116">In an emergency, call 999 or go to A&amp;E.</p>
+</div>
+</div>
+
+<div style="flex: 1 1 380px; min-width: 0; background: #F4F5F7; border-radius: 32px; padding: 28px 20px; display: flex; justify-content: center">
+<div style="width: 310px; max-width: 100%; border-radius: 40px; background: #0E1116; padding: 9px">
+<div style="border-radius: 32px; background: #EEF0F3; overflow: hidden">
+<div style="background: #FFFFFF; border-bottom: 1px solid #E3E6EB; padding: 20px 16px 12px; display: flex; align-items: center; gap: 10px">
+<span style="flex: none; width: 34px; height: 34px; border-radius: 50%; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px">L</span>
+<div style="display: flex; flex-direction: column; line-height: 1.25"><span style="font-weight: 600; font-size: 14.5px">Dr Lee's clinic</span><span style="font-size: 12px; color: #5F6875">Care team · open 9:00 to 19:00</span></div>
+</div>
+<div style="padding: 14px 12px 18px; display: flex; flex-direction: column; gap: 8px">
+<span style="align-self: center; font-size: 11.5px; color: #5F6875; background: #E3E6EB; padding: 2px 10px; border-radius: 999px">Monday</span>
+<div style="align-self: flex-start; max-width: 94%; background: #FFFFFF; border-radius: 16px 16px 16px 4px; padding: 8px 11px; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 13.5px; line-height: 1.5">Ms Kwok, here's Dr Lee's advice from today:<br>1. Cough syrup three times a day, after meals<br>2. Drink plenty of water and get early nights<br>3. If the fever lasts more than three days or you're short of breath, come back straight away or go to A&amp;E</span>
+<span style="font-size: 11px; color: #5F6875">Care team · signed by Dr Lee</span>
+</div>
+<span style="align-self: center; font-size: 11.5px; color: #5F6875; background: #E3E6EB; padding: 2px 10px; border-radius: 999px">Thursday</span>
+<div style="align-self: flex-start; width: 78%; display: flex; flex-direction: column; gap: 3px">
+<div style="background: #FFFFFF; border-radius: 16px 16px 4px 4px; padding: 8px 11px; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px">Ms Kwok, is your cough any better?</span><span style="font-size: 11px; color: #5F6875">Care team</span></div>
+<span style="background: #FFFFFF; border-radius: 4px; padding: 7px; text-align: center; font-size: 13.5px; font-weight: 600; color: {{accent}}">Better</span>
+<span style="background: #FFFFFF; border-radius: 4px; padding: 7px; text-align: center; font-size: 13.5px; font-weight: 600; color: {{accent}}">About the same</span>
+<span style="background: #FFFFFF; border-radius: 4px 4px 16px 16px; padding: 7px; text-align: center; font-size: 13.5px; font-weight: 600; color: {{accent}}">Worse</span>
+</div>
+<span style="align-self: flex-end; max-width: 80%; background: #DCE5FC; border-radius: 16px 16px 4px 16px; padding: 8px 11px; font-size: 14px">About the same</span>
+<div style="align-self: flex-start; max-width: 92%; background: #FFFFFF; border-radius: 16px 16px 16px 4px; padding: 8px 11px; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; line-height: 1.45">Thanks for letting us know. Dr Lee has a slot at 4:30 this afternoon. Shall we keep it for you?</span><span style="font-size: 11px; color: #5F6875">Care team</span></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<section id="can-do" style="background: #F4F5F7; border-top: 1px solid #E3E6EB; border-bottom: 1px solid #E3E6EB">
+<div style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="max-width: 760px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">What you can do</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.06; font-weight: 600; letter-spacing: -0.035em; text-wrap: balance">Everything you'd phone the clinic for.</h2>
+<p style="margin: 0; font-size: 18px; color: #4F5866">Open the menu on your clinic's WhatsApp and choose what you need.</p>
+</div>
+<div style="margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 8px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #E6ECFD; color: #1A35A8; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg></span>
+<span style="font-size: 17.5px; font-weight: 600">Book or change a visit</span>
+<span style="font-size: 15px; color: #4F5866">See free times and book in a few taps, with a reminder the day before.</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 8px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #E6ECFD; color: #1A35A8; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"></path><path d="M14 3.5V8h4M9 12.5h6M9 16.5h4"></path></svg></span>
+<span style="font-size: 17.5px; font-weight: 600">Your plan in writing</span>
+<span style="font-size: 15px; color: #4F5866">What your doctor said, on your phone before you reach the lift. Read it again any time.</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 8px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #E6ECFD; color: #1A35A8; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 4V3h6v1M8.5 13l2.5 2.5 4.5-5"></path></svg></span>
+<span style="font-size: 17.5px; font-weight: 600">Is my result back?</span>
+<span style="font-size: 15px; color: #4F5866">See whether it has arrived and whether your doctor has seen it. Your doctor goes through it with you.</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 8px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #E6ECFD; color: #1A35A8; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="8.25" width="18.4" height="7.5" rx="3.75" transform="rotate(-45 12 12)"></rect><path d="M9.35 9.35l5.3 5.3"></path></svg></span>
+<span style="font-size: 17.5px; font-weight: 600">Repeat prescription</span>
+<span style="font-size: 15px; color: #4F5866">Ask for more of your regular medicine. Your doctor checks and signs it, or asks to see you first.</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 8px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #E6ECFD; color: #1A35A8; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"></path><path d="M7.5 15h9"></path></svg></span>
+<span style="font-size: 17.5px; font-weight: 600">Blood tests and scans</span>
+<span style="font-size: 15px; color: #4F5866">How to prepare and where to go, for the test your doctor ordered.</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 8px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #E6ECFD; color: #1A35A8; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V7l8-4 8 4v14"></path><path d="M12 9v6M9 12h6M3 21h18"></path></svg></span>
+<span style="font-size: 17.5px; font-weight: 600">Home from hospital</span>
+<span style="font-size: 15px; color: #4F5866">Send a photo of your discharge letter. Your doctor reads it, and you get a follow-up visit.</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 8px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #E6ECFD; color: #1A35A8; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21z"></path><path d="M9 8h6M9 12h6M9 16h3"></path></svg></span>
+<span style="font-size: 17.5px; font-weight: 600">Receipts and letters</span>
+<span style="font-size: 15px; color: #4F5866">Copies of receipts, sick leave and referral letters from your visit.</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 8px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #E6ECFD; color: #1A35A8; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.5 0-2.6.8-2.6 1.9 0 2.6 5.4 1.4 5.4 4.2 0 1.1-1.2 1.9-2.8 1.9-1.2 0-2.2-.5-2.7-1.3M12 6.5V8M12 16v1.5"></path></svg></span>
+<span style="font-size: 17.5px; font-weight: 600">Fees and vouchers</span>
+<span style="font-size: 15px; color: #4F5866">Your clinic's fees, and how to use health care vouchers there.</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 8px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #E6ECFD; color: #1A35A8; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z"></path></svg></span>
+<span style="font-size: 17.5px; font-weight: 600">Talk to the clinic</span>
+<span style="font-size: 15px; color: #4F5866">Ask for a person. Your clinic's team replies in opening hours.</span>
+</div>
+</div>
+</div>
+</section>
+
+<section id="hours" style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="max-width: 760px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">Opening hours</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.06; font-weight: 600; letter-spacing: -0.035em; text-wrap: balance">It keeps your clinic's hours.</h2>
+<p style="margin: 0; font-size: 18px; color: #4F5866">The care line is not an emergency service. Here's what happens when you write.</p>
+</div>
+<div style="margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 20px">
+<div style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 26px 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px">
+<span style="font-size: 13px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 3px 12px; border-radius: 999px">Any time</span>
+<h3 style="margin: 0; font-size: 21px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em">Front-desk requests</h3>
+<p style="margin: 0; font-size: 15.5px; color: #4F5866">Booking, opening hours, receipts, and whether your result is back are answered straight away.</p>
+</div>
+<div style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 26px 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px">
+<span style="font-size: 13px; font-weight: 600; color: #3A424E; background: #E3E6EB; padding: 3px 12px; border-radius: 999px">Clinic hours</span>
+<h3 style="margin: 0; font-size: 21px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em">Questions about your health</h3>
+<p style="margin: 0; font-size: 15.5px; color: #4F5866">Questions about symptoms, medicines or results go to your doctor or nurse. You'll be told who will reply and when.</p>
+</div>
+<div style="background: #0E1116; color: #FFFFFF; border-radius: 24px; padding: 26px 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px">
+<span style="font-size: 13px; font-weight: 600; color: #0E1116; background: #FFFFFF; padding: 3px 12px; border-radius: 999px">Emergency</span>
+<h3 style="margin: 0; font-size: 21px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; color: #FFFFFF">Call 999 or go to A&amp;E</h3>
+<p style="margin: 0; font-size: 15.5px; color: #C2C8D2">Don't wait for a WhatsApp reply. If you write about chest pain, trouble breathing or another danger sign, the reply tells you to call 999 now, and your clinic is told.</p>
+</div>
+</div>
+</section>
+
+<section style="background: #0E1116; color: #FFFFFF">
+<div style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="max-width: 760px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9DB2FF">Safety</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.06; font-weight: 600; letter-spacing: -0.035em; color: #FFFFFF; text-wrap: balance">Your doctor stays in charge.</h2>
+</div>
+<div style="margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 32px 40px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 19px; font-weight: 600">It's an assistant, and it says so</span>
+<span style="font-size: 15.5px; color: #C2C8D2">The care team is software working for your clinic. Every message says whether it's from the care team, the clinic's staff or your doctor.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 19px; font-weight: 600">Your doctor approves your care</span>
+<span style="font-size: 15.5px; color: #C2C8D2">Your plan, repeat prescriptions and invitations to discuss a result are approved by your doctor before they reach you.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 19px; font-weight: 600">It never diagnoses or prescribes</span>
+<span style="font-size: 15.5px; color: #C2C8D2">It won't tell you what a symptom or a result means, or change a medicine. That stays with your doctor.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 19px; font-weight: 600">A person is always there</span>
+<span style="font-size: 15.5px; color: #C2C8D2">Choose "Talk to the clinic" and the team replies in opening hours. You can still phone or walk in.</span>
+</div>
+</div>
+</div>
+</section>
+
+<section id="privacy" style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="max-width: 760px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">Your information</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.06; font-weight: 600; letter-spacing: -0.035em; text-wrap: balance">Your messages, your choice.</h2>
+</div>
+<div style="margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 28px 40px">
+<div style="border-top: 2px solid #0E1116; padding-top: 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 18px; font-weight: 600">You choose what you get</span>
+<span style="font-size: 15.5px; color: #4F5866">You agree when you join. Invitations, like flu vaccine reminders, come only if you say yes to them separately.</span>
+</div>
+<div style="border-top: 2px solid #0E1116; padding-top: 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 18px; font-weight: 600">It checks it's you</span>
+<span style="font-size: 15.5px; color: #4F5866">Before sending a result or a document, it checks your name and date of birth.</span>
+</div>
+<div style="border-top: 2px solid #0E1116; padding-top: 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 18px; font-weight: 600">Private results stay private</span>
+<span style="font-size: 15.5px; color: #4F5866">Sensitive results are never named in a message. Your doctor talks them through with you.</span>
+</div>
+<div style="border-top: 2px solid #0E1116; padding-top: 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 18px; font-weight: 600">Family can help</span>
+<span style="font-size: 15.5px; color: #4F5866">A son, daughter or carer can book or get reminders for you, but only if you say so.</span>
+</div>
+<div style="border-top: 2px solid #0E1116; padding-top: 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 18px; font-weight: 600">Stop any time</span>
+<span style="font-size: 15.5px; color: #4F5866">Send STOP and the messages stop. Your clinic can still phone you about anything urgent.</span>
+</div>
+<div style="border-top: 2px solid #0E1116; padding-top: 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 18px; font-weight: 600">Kept with your records</span>
+<span style="font-size: 15.5px; color: #4F5866">Your messages are kept with your clinic's records, like your doctor's notes.</span>
+</div>
+</div>
+</section>
+
+<section id="join" style="background: #F4F5F7; border-top: 1px solid #E3E6EB; border-bottom: 1px solid #E3E6EB">
+<div style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px; display: flex; flex-wrap: wrap; gap: 40px 64px; align-items: center">
+<div style="flex: 2 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">How to join</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.06; font-weight: 600; letter-spacing: -0.035em; text-wrap: balance">Join at your next visit.</h2>
+<ol style="margin: 24px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 20px">
+<li style="display: flex; gap: 16px; align-items: flex-start"><span style="flex: none; width: 36px; height: 36px; border-radius: 11px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700">1</span><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 19px; font-weight: 600">Say yes at the end of your visit</span><span style="font-size: 15.5px; color: #4F5866">Your doctor or the front desk will offer it. It's your choice.</span></span></li>
+<li style="display: flex; gap: 16px; align-items: flex-start"><span style="flex: none; width: 36px; height: 36px; border-radius: 11px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700">2</span><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 19px; font-weight: 600">Scan the QR code at the desk</span><span style="font-size: 15.5px; color: #4F5866">WhatsApp opens with your clinic's care line. Nothing to download.</span></span></li>
+<li style="display: flex; gap: 16px; align-items: flex-start"><span style="flex: none; width: 36px; height: 36px; border-radius: 11px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700">3</span><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 19px; font-weight: 600">Confirm it's you</span><span style="font-size: 15.5px; color: #4F5866">Send your name and date of birth, and choose what you'd like to receive.</span></span></li>
+</ol>
+</div>
+<div style="flex: 1 1 260px; min-width: 0; display: flex; justify-content: center">
+<div style="width: 268px; max-width: 100%; background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 24px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; box-shadow: 0 24px 48px -32px rgba(14, 17, 22, 0.45)">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600"><span style="width: 26px; height: 26px; border-radius: 50%; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">L</span>Dr Lee's clinic</span>
+<svg aria-hidden="true" width="168" height="168" viewBox="-2 -2 29 29" style="display: block"><rect x="-2" y="-2" width="29" height="29" fill="#FFFFFF"></rect><path fill="#0E1116" d="M0 0h7v1h-7zM8 0h1v1h-1zM11 0h2v1h-2zM16 0h1v1h-1zM18 0h7v1h-7zM0 1h1v1h-1zM6 1h1v1h-1zM8 1h1v1h-1zM10 1h1v1h-1zM13 1h1v1h-1zM15 1h2v1h-2zM18 1h1v1h-1zM24 1h1v1h-1zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM9 2h1v1h-1zM12 2h1v1h-1zM14 2h1v1h-1zM16 2h1v1h-1zM18 2h1v1h-1zM20 2h3v1h-3zM24 2h1v1h-1zM0 3h1v1h-1zM2 3h3v1h-3zM6 3h1v1h-1zM8 3h1v1h-1zM11 3h1v1h-1zM13 3h1v1h-1zM15 3h2v1h-2zM18 3h1v1h-1zM20 3h3v1h-3zM24 3h1v1h-1zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM10 4h2v1h-2zM18 4h1v1h-1zM20 4h3v1h-3zM24 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM14 5h3v1h-3zM18 5h1v1h-1zM24 5h1v1h-1zM0 6h7v1h-7zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h7v1h-7zM10 7h1v1h-1zM15 7h2v1h-2zM3 8h1v1h-1zM5 8h2v1h-2zM10 8h2v1h-2zM13 8h1v1h-1zM16 8h2v1h-2zM20 8h2v1h-2zM24 8h1v1h-1zM1 9h1v1h-1zM7 9h1v1h-1zM9 9h1v1h-1zM11 9h2v1h-2zM15 9h2v1h-2zM18 9h1v1h-1zM20 9h1v1h-1zM1 10h1v1h-1zM3 10h1v1h-1zM6 10h1v1h-1zM11 10h1v1h-1zM14 10h2v1h-2zM17 10h1v1h-1zM20 10h1v1h-1zM23 10h2v1h-2zM2 11h3v1h-3zM9 11h1v1h-1zM14 11h2v1h-2zM18 11h1v1h-1zM20 11h3v1h-3zM0 12h3v1h-3zM4 12h1v1h-1zM6 12h1v1h-1zM8 12h1v1h-1zM11 12h2v1h-2zM16 12h3v1h-3zM20 12h3v1h-3zM24 12h1v1h-1zM0 13h1v1h-1zM3 13h1v1h-1zM9 13h2v1h-2zM13 13h2v1h-2zM16 13h1v1h-1zM20 13h2v1h-2zM23 13h1v1h-1zM0 14h1v1h-1zM2 14h2v1h-2zM6 14h1v1h-1zM8 14h1v1h-1zM16 14h1v1h-1zM20 14h5v1h-5zM0 15h5v1h-5zM7 15h2v1h-2zM10 15h8v1h-8zM19 15h2v1h-2zM22 15h2v1h-2zM1 16h1v1h-1zM3 16h1v1h-1zM6 16h3v1h-3zM12 16h1v1h-1zM16 16h6v1h-6zM24 16h1v1h-1zM10 17h1v1h-1zM12 17h1v1h-1zM14 17h1v1h-1zM16 17h1v1h-1zM20 17h3v1h-3zM0 18h7v1h-7zM9 18h1v1h-1zM12 18h2v1h-2zM16 18h1v1h-1zM18 18h1v1h-1zM20 18h1v1h-1zM22 18h1v1h-1zM24 18h1v1h-1zM0 19h1v1h-1zM6 19h1v1h-1zM8 19h1v1h-1zM12 19h5v1h-5zM20 19h1v1h-1zM24 19h1v1h-1zM0 20h1v1h-1zM2 20h3v1h-3zM6 20h1v1h-1zM10 20h1v1h-1zM12 20h2v1h-2zM16 20h5v1h-5zM23 20h2v1h-2zM0 21h1v1h-1zM2 21h3v1h-3zM6 21h1v1h-1zM8 21h1v1h-1zM11 21h2v1h-2zM19 21h1v1h-1zM0 22h1v1h-1zM2 22h3v1h-3zM6 22h1v1h-1zM9 22h4v1h-4zM14 22h1v1h-1zM18 22h1v1h-1zM23 22h1v1h-1zM0 23h1v1h-1zM6 23h1v1h-1zM8 23h1v1h-1zM10 23h1v1h-1zM14 23h5v1h-5zM23 23h2v1h-2zM0 24h7v1h-7zM8 24h2v1h-2zM13 24h1v1h-1zM15 24h2v1h-2zM21 24h2v1h-2zM24 24h1v1h-1z"></path></svg>
+<span style="font-size: 17px; font-weight: 600">Scan to join</span>
+<span style="font-size: 13px; color: #5F6875; text-align: center">WhatsApp care line · Cantonese or English</span>
+</div>
+</div>
+</div>
+</section>
+
+<section id="faq" style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.06; font-weight: 600; letter-spacing: -0.035em">Questions patients ask</h2>
+<div style="margin-top: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 28px 48px">
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">Am I talking to a person?</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">Mostly to the care team, an automated assistant for your clinic. Every message says who sent it, and you can ask for a person at any time.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">Does it cost anything?</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">The care line is free to use. Visits and medicines are charged by your clinic as usual.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">What if it's an emergency?</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">Call 999 or go to A&amp;E. Don't wait for a reply on WhatsApp.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">Which languages can I use?</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">Cantonese or English. For anything else, ask for the clinic's team.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">Can I still phone or walk in?</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">Of course. The care line is an extra way to reach your clinic, not the only one.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">How do I stop?</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">Send STOP. You can join again at your next visit.</p></div>
+</div>
+</section>
+
+<section style="max-width: 1160px; margin: 0 auto; padding: 0 24px clamp(64px, 8vw, 112px)">
+<div style="background: #0E1116; color: #FFFFFF; border-radius: 32px; padding: clamp(28px, 5vw, 64px); display: flex; flex-wrap: wrap; gap: 32px 56px; align-items: center; justify-content: space-between">
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: clamp(30px, 4vw, 46px); line-height: 1.05; font-weight: 600; letter-spacing: -0.035em; color: #FFFFFF; text-wrap: balance">Want this at your clinic?</h2>
+<p style="margin: 0; font-size: 18px; color: #C2C8D2">Ask your doctor about tmrw at your next visit. Doctors can start with a free pilot.</p>
+</div>
+<a href="Landing-v4-clinics.dc.html" style="display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 14px 26px; border-radius: 999px; background: #FFFFFF; color: #0E1116; font-weight: 600; font-size: 17px; text-decoration: none">tmrw for clinics <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</div>
+</section>
+
+<footer style="border-top: 1px solid #E3E6EB">
+<div style="max-width: 1160px; margin: 0 auto; padding: 40px 24px 56px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 40px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 700; font-size: 20px; letter-spacing: -0.04em">tmrw</span>
+<span style="font-size: 14px; color: #4F5866">The WhatsApp care line for family doctors' clinics. Hong Kong.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #4F5866; max-width: 520px">
+<span>Not an emergency service. In an emergency, call 999.</span>
+<span>Your clinic is responsible for your care; tmrw runs the care line for it.</span>
+<span>The clinic, doctor and messages shown are examples.</span>
+</div>
+</div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2346D9","options":["#2346D9","#0E1116","#0B6E5A","#B4441F"]},"$preview":{"width":1440,"height":5680}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2346D9' };
+  }
+}
+</script>
+</body>
+</html>
