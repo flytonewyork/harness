@@ -32,6 +32,11 @@ LINKS = {
     "Landing-v4-patients.dc.html": "/patients",
     "Landing-v4-patients-zh.dc.html": "/patients-zh",
 }
+STATIC = ["privacy.html", "privacy-zh.html"]
+PRIVACY_LINK = (
+    '<div style="max-width: 1160px; margin: 0 auto; padding: 0 24px 40px; font-size: 14px">'
+    '<a href="{href}" style="color: #4F5866">{label}</a></div>\n</footer>'
+)
 
 
 def accent_default(src):
@@ -39,7 +44,7 @@ def accent_default(src):
     return json.loads(m.group(1))["accent"]["default"]
 
 
-def to_static(src):
+def to_static(src, zh=False):
     accent = accent_default(src)
     src = re.sub(r'<script src="\./support\.js"></script>\n?', "", src)
     src = re.sub(r'<script type="text/x-dc".*?</script>\n?', "", src, flags=re.S)
@@ -50,6 +55,10 @@ def to_static(src):
     src = src.replace("{{accent}}", accent)
     for canvas, path in LINKS.items():
         src = src.replace(f'href="{canvas}"', f'href="{path}"')
+    link = PRIVACY_LINK.format(href="/privacy-zh", label="私隱政策") if zh else PRIVACY_LINK.format(
+        href="/privacy", label="Privacy policy")
+    assert src.count("</footer>") == 1
+    src = src.replace("</footer>", link)
     leftover = re.findall(r"\{\{[^}]*\}\}|\.dc\.html|support\.js|<helmet|<x-dc", src)
     if leftover:
         raise ValueError(f"canvas markup left after build: {sorted(set(leftover))}")
@@ -59,7 +68,10 @@ def to_static(src):
 def build(out):
     out.mkdir(parents=True, exist_ok=True)
     for canvas, served in PAGES.items():
-        (out / served).write_text(to_static((LANDING / canvas).read_text(encoding="utf-8")), encoding="utf-8")
+        page = to_static((LANDING / canvas).read_text(encoding="utf-8"), zh=canvas.endswith("-zh.dc.html"))
+        (out / served).write_text(page, encoding="utf-8")
+    for name in STATIC:
+        (out / name).write_text((LANDING / name).read_text(encoding="utf-8"), encoding="utf-8")
     (out / "vercel.json").write_text(json.dumps({"cleanUrls": True}, indent=2) + "\n", encoding="utf-8")
     return out
 

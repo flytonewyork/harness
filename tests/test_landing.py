@@ -148,3 +148,5 @@ def test_static_build_has_no_canvas_markup_and_links_resolve(tmp_path):
         text = html.read_text(encoding="utf-8")
         assert "{{" not in text and ".dc.html" not in text and "support.js" not in text
         assert set(re.findall(r'href="(/[^"#]*)"', text)) <= served
+        if html.stem.startswith(("index", "zh", "patients")):
+            assert 'href="/privacy' in text
