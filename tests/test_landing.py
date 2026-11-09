@@ -99,9 +99,10 @@ def test_v4_chinese_patient_page_keeps_hours_and_points_emergencies_to_999():
     assert "跟進團隊 · 服務時間 9:00 至 19:00" in patients
 
 
-def test_v3_menu_fits_one_whatsapp_list_message():
+@pytest.mark.parametrize("name", ["v3.dc.html", "v4-clinics.dc.html", "v4-clinics-zh.dc.html"])
+def test_menus_fit_one_whatsapp_list_message(name):
     # WhatsApp list messages hold at most 10 rows in all, and each row title is at most 24 characters.
-    titles = MENU_ROW.findall(page("v3.dc.html"))
+    titles = MENU_ROW.findall(page(name))
     assert len(titles) == 10
     assert all(len(t) <= 24 for t in titles)
 
@@ -113,3 +114,23 @@ def test_v3_says_who_finishes_every_menu_option_in_menu_order():
     for row in rows:
         pills = re.findall(r'white-space: nowrap">([^<]+)</span>', row)
         assert len(pills) == 1 and pills[0] in OWNERS, row
+
+
+def x_dc_body(text):
+    return text.split("<x-dc>", 1)[1].split("</x-dc>", 1)[0]
+
+
+@pytest.mark.parametrize("name", ["v4-clinics.dc.html", "v4-patients.dc.html"])
+def test_english_v4_pages_are_in_english_including_the_whatsapp_examples(name):
+    # The only Chinese left is the switch's own label.
+    assert re.findall(r"[\u4e00-\u9fff]+", x_dc_body(page(name))) == ["中文"]
+
+
+def test_the_language_switch_changes_the_whatsapp_examples_too():
+    pairs = [("v4-clinics.dc.html", "Hi Mr Chan, Dr Lee has looked at last week's blood test",
+              "v4-clinics-zh.dc.html", "陳生你好，李醫生已經睇咗你上星期驗血嘅報告"),
+             ("v4-patients.dc.html", "Ms Kwok, is your cough any better?",
+              "v4-patients-zh.dc.html", "郭小姐，咳好啲未？")]
+    for en_name, en_line, zh_name, zh_line in pairs:
+        assert en_line in page(en_name) and zh_line not in page(en_name)
+        assert zh_line in page(zh_name) and en_line not in page(zh_name)
