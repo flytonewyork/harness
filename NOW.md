@@ -3,22 +3,49 @@
 Read this at the start of every session and update it at the end, in the same PR. Last updated 9 Nov 2026.
 
 **Milestone: first real-customer signal.** Done when a partner that holds patient data agrees a next step in
-writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health pilot on Apricot VITA.
+writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health pilot on Apricot VITA. On the board's
+Partners view, that is a card reaching "Next step in writing".
 
-Toward the 26 Nov go/no-go, 4 partner conversations are logged: EC (#5), Amber (#6), Adrian (#8) and Virtus (#11).
-Today's Apricot call (#7) makes 5. All of them point at doctors' workload, but no partner has yet named the specific
-burden, so that is the question for every next contact. The bets behind the go/no-go, with odds set before testing
-and a pass line for each: `docs/BETS.md`.
+Toward the 26 Nov go/no-go, six partners are in conversation. Their latest signals: EC (#23), Josie (#20), Amber
+(#6), Apricot (#15), Adrian (#8) and Virtus (#11). All of them point at doctors' workload, but no partner has yet
+named the specific burden, so all six are at Talking, and that is the question for every next contact. The bets
+behind the go/no-go, with odds set before testing and a pass line for each: `docs/BETS.md`.
+
+## Waiting on you
+
+Decisions and steps only Thomas can take, each with Claude's default and a date. Until he decides, work goes ahead on
+the default, but nothing reaches a partner or a patient on a default.
+
+- **The board.** Turn off Auto-close issue, add the `Stage` field and the Partners view (`docs/OPERATING_SYSTEM.md`,
+  Install 5), and reopen #23, #20, #6 and #15, which closed when their cards moved to Done. Default: none. By Wed
+  11 Nov, so the brief preps the EC meeting from an open #23.
+- **Josie, 8 Nov.** Your notes on what she agreed to and her answers for bets 1 and 5, so #20 and `docs/BETS.md` get
+  their results. Default: none. By Tue 10 Nov.
+- **The pilot offer.** Landing v4 offers a free 2-week pilot with up to 30 patients on the care line; the Josie ask is
+  shadow mode; `docs/BETS.md` runs bets 2 and 3 by hand, with no AI and no data leaving her clinic. Default: by hand,
+  as `docs/BETS.md` plans; shadow mode waits for an agreed data route, and v4's pilot copy changes to match before it
+  goes out. By Fri 13 Nov.
+- **Price and who pays.** The pages say the clinic pays [PRICE] a month after the pilot and the line is free to
+  patients. Default: keep that model, with the price off every page until bet 1 has a result. By Fri 13 Nov.
+- **The Chinese pages.** Default: nobody sees them until a native reader has checked them. By Fri 13 Nov.
+- **The rubric's gates** (Next 7). Default: the gates stand as drafted in spec 003. By Fri 13 Nov.
+- **Four PRs outside the queue:** harness #13 (the product direction), #16 (the care line) and #18 (the self-service
+  catalogue), stacked in that order, and loopbench #5 (the self-service suite, from #18's spec). #13 and #16 use spec
+  numbers 002 and 003, which main has already taken. Default: Claude renumbers them and rebases the stack, and you
+  merge, close or park each at the Friday review. By Fri 13 Nov.
+- **In progress 1 is done:** the Apricot call happened on 6 Nov (#15). Default: Next 1, the VITA profile update, takes
+  its place. By Fri 13 Nov.
 
 ## In progress (three at most)
 
 1. **Apricot call, 6 Nov.** Learn how VITA really works (`loopbench/docs/APRICOT_DEMO_PREP.md`). Studio polish for the
    call: merged 6 Nov (loopbench #2); republish Studio before the call. After the call: a signal note, then the VITA
-   profile update below.
-2. **EC Healthcare Phase 0 look-back.** The request is ready (`docs/EC_DATA_REQUEST.md`). Julie is arranging a call
-   with EC's CTO (#5). Use it to find the burdens in EC's own system, then agree the Phase 0 scope, fee and data route.
+   profile update below. Bet: none in `docs/BETS.md`; it serves the Amber pilot on VITA.
+2. **EC Healthcare Phase 0 look-back.** Bet 6. The request is ready (`docs/EC_DATA_REQUEST.md`). Julie's meeting is
+   booked for Wed 11 Nov at 4pm; who else comes, the CTO or finance, is still to check (#23). Use it to find the
+   burdens in EC's own system, then agree the Phase 0 scope, fee and data route.
 
-3. **Josie demo, 8 Nov: the clinic backend** (spec 002, `demo/clinic-backend/`). Josie, a GP, said on 7 Nov she
+3. **Josie demo, 8 Nov: the clinic backend** (spec 002, `demo/clinic-backend/`). Bets 1 to 5. Josie, a GP, said on 7 Nov she
    might be interested in a clinic running the agentic model. The demo shows the simulated clinic's back office at
    09:30 on a shut Sunday: the engine's real open queue (Mr Chan's critical potassium on top, joined to his WhatsApp
    request for more spironolactone) plus two WhatsApp cases, one queue for the doctor, how it works, the evidence and
@@ -33,6 +60,10 @@ Done 6 Nov: **the operating system is locked in.** Its test was a task started i
 #10 did (the seven checks in the product). What it set up: Slack with the Claude and GitHub apps; skills and a cloud
 setup script in both repos; cloud sessions as the default; CI green with the scoreboard gate; the weekday brief; and
 partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`.
+
+Done 9 Nov: **product management runs on four lists** (`docs/OPERATING_SYSTEM.md`, Product management): customers,
+bets, work and the decisions waiting on you, each with one home. `tests/test_queue.py` checks the queue's shape, and
+the brief checks the rest each morning.
 
 ## Next, in order
 
