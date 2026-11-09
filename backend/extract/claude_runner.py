@@ -3,7 +3,8 @@
 
 Standard library only, so it runs wherever the `claude` CLI is logged in. It writes the raw model output for
 each batch; parsing, validation and verbatim-quote checks happen in backend.extract.extractor. Resumable:
-batches already in --out are skipped.
+batches already in --out are skipped. Exits 1 when it stopped on a login error or every batch failed, so a
+script can gate on it.
 
     python3 claude_runner.py --docs docs.jsonl --out raw.jsonl --model sonnet --batch 40 --workers 4
 
@@ -116,9 +117,11 @@ def main(argv=None):
                 n_fail += r["returncode"] != 0
                 print(f"[{n_ok + n_fail}/{len(batches)}] {r['batch_id']} rc={r['returncode']} {r['seconds']}s"
                       + (f" ERR {r['stderr'][:200]}" if r["returncode"] else ""), flush=True)
+    stopped = bool(n_fail) and n_ok + n_fail < len(batches)   # only a login error cancels batches
     print(f"done: {n_ok} ok, {n_fail} failed" + (" (stopped: claude is not logged in; run `claude` then /login)"
-                                                 if n_fail and n_ok + n_fail < len(batches) else ""), flush=True)
+                                                 if stopped else ""), flush=True)
+    return 1 if stopped or (batches and not n_ok) else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
