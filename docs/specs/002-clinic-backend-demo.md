@@ -60,6 +60,8 @@ adds four feature cards, the 10-option menu (a WhatsApp list message's limit) wi
 safety net, red flags get a fixed reply, every message has an owner) and the red-team fixes listed in spec 003.
 Source: `demo/landing/` (v2 frozen by hash in `tests/test_landing.py`).
 
+**Landing page v4 (9 Nov): for clinics and for patients.** Thomas asked for a version with "for clinics" and "for patients". The clinic page is v3 with a switch at the top. The patient page is new: what patients can do on the WhatsApp menu, the opening hours and 999, the doctor in charge, their information and choices, how to join with the QR code, and their questions. It makes no statistical claims. Before patients see it, it needs a Traditional Chinese version.
+
 **Done when.** The page works at 390 px and 1440 px with no script errors; the tests pass; the authority line holds.
 
 **Invariants touched.** None in the engine. Synthetic data only: the engine's items come from LoopBench; Mrs Wong and
