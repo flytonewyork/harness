@@ -39,7 +39,8 @@ partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`.
 0. **WhatsApp care line, after the visit** (spec 004, `backend/careline/`, 9 Nov). Built and running in sim:
    join by QR, written plan (doctor approves), bookings, "is my result back?", repeat requests, day-3 check-in,
    red flags, against the simulated clinic, with 63 eval cases on a dashboard (`/careline`). Next, Thomas, on the Mac
-   mini: fill `~/.tmrw-careline/env`, run `scripts/careline_mac_mini.sh` (tester mode), point the tunnel and Meta's
+   mini: run `scripts/careline_mac_mini.sh setup` (asks for the Meta values, checks them, installs a
+   background service in tester mode), point the tunnel and Meta's
    webhook at it, scan `/join` from a tester's phone. Then: held-out red-team cases written by someone else, an
    approved template for the check-in, and the shadow-mode protocol. Live use waits for the decision in
    `docs/DECISIONS.md` (Open, 9 Nov).
