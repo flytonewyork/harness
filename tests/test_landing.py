@@ -7,6 +7,8 @@ import hashlib
 import re
 from pathlib import Path
 
+import pytest
+
 LANDING = Path(__file__).resolve().parents[1] / "demo" / "landing"
 V2_SHA256 = "0a56829ee10d110a68c62ec440b04b446f361bbd0c06f01124318cad28566835"
 
@@ -27,13 +29,35 @@ def test_v2_is_kept_exactly_as_saved():
     assert hashlib.sha256((LANDING / "v2.dc.html").read_bytes()).hexdigest() == V2_SHA256
 
 
-def test_v3_keeps_opening_hours_and_promises_no_round_the_clock_replies():
-    v3 = page("v3.dc.html")
-    for phrase in ("24/7", "replies in minutes", "never closes", "Nothing sent without your approval"):
-        assert phrase not in v3, phrase
-    assert "Open when you're open." in v3
-    assert v3.count("Nothing clinical sent without your approval") == 2  # the hero and the sign-up box
-    assert v3.count("Care team · open 9:00 to 19:00") == 3  # every phone mock shows the hours
+ROUND_THE_CLOCK = ("24/7", "replies in minutes", "never closes", "Nothing sent without your approval")
+
+
+@pytest.mark.parametrize("name", ["v3.dc.html", "v4-clinics.dc.html"])
+def test_clinic_pages_keep_opening_hours_and_promise_no_round_the_clock_replies(name):
+    text = page(name)
+    for phrase in ROUND_THE_CLOCK:
+        assert phrase not in text, phrase
+    assert "Open when you're open." in text
+    assert text.count("Nothing clinical sent without your approval") == 2  # the hero and the sign-up box
+    assert text.count("Care team · open 9:00 to 19:00") == 3  # every phone mock shows the hours
+
+
+def test_v4_pages_switch_between_clinics_and_patients():
+    clinics, patients = page("v4-clinics.dc.html"), page("v4-patients.dc.html")
+    assert re.search(r'aria-current="page"[^>]*>For clinics</a>', clinics)
+    assert re.search(r'href="Landing-v4-patients.dc.html"[^>]*>For patients</a>', clinics)
+    assert re.search(r'aria-current="page"[^>]*>For patients</a>', patients)
+    assert re.search(r'href="Landing-v4-clinics.dc.html"[^>]*>For clinics</a>', patients)
+
+
+def test_v4_patient_page_keeps_hours_and_points_emergencies_to_999():
+    patients = page("v4-patients.dc.html")
+    for phrase in ROUND_THE_CLOCK:
+        assert phrase not in patients, phrase
+    assert "The care line is not an emergency service." in patients
+    assert "Not an emergency service. In an emergency, call 999." in patients
+    assert "Emergency? Call 999" in patients
+    assert "Care team · open 9:00 to 19:00" in patients
 
 
 def test_v3_menu_fits_one_whatsapp_list_message():
