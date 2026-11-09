@@ -42,12 +42,40 @@ def test_clinic_pages_keep_opening_hours_and_promise_no_round_the_clock_replies(
     assert text.count("Care team · open 9:00 to 19:00") == 3  # every phone mock shows the hours
 
 
-def test_v4_pages_switch_between_clinics_and_patients():
-    clinics, patients = page("v4-clinics.dc.html"), page("v4-patients.dc.html")
-    assert re.search(r'aria-current="page"[^>]*>For clinics</a>', clinics)
-    assert re.search(r'href="Landing-v4-patients.dc.html"[^>]*>For patients</a>', clinics)
-    assert re.search(r'aria-current="page"[^>]*>For patients</a>', patients)
-    assert re.search(r'href="Landing-v4-clinics.dc.html"[^>]*>For clinics</a>', patients)
+# file in the repo -> (its name on the canvas, its language, its audience)
+V4 = {
+    "v4-clinics.dc.html": ("Landing-v4-clinics.dc.html", "en", "clinics"),
+    "v4-patients.dc.html": ("Landing-v4-patients.dc.html", "en", "patients"),
+    "v4-clinics-zh.dc.html": ("Landing-v4-clinics-zh.dc.html", "zh", "clinics"),
+    "v4-patients-zh.dc.html": ("Landing-v4-patients-zh.dc.html", "zh", "patients"),
+}
+AUDIENCE_LABEL = {("en", "clinics"): "For clinics", ("en", "patients"): "For patients",
+                  ("zh", "clinics"): "診所專區", ("zh", "patients"): "病人專區"}
+LANGUAGE_LABEL = {"en": "English", "zh": "中文"}
+
+
+def canvas_name(lang, audience):
+    return next(c for c, l, a in V4.values() if l == lang and a == audience)
+
+
+@pytest.mark.parametrize("name", sorted(V4))
+def test_v4_pages_switch_audience_within_their_language(name):
+    _, lang, audience = V4[name]
+    other = "patients" if audience == "clinics" else "clinics"
+    text = page(name)
+    assert re.search(rf'aria-current="page"[^>]*>{AUDIENCE_LABEL[lang, audience]}</a>', text)
+    assert re.search(rf'href="{canvas_name(lang, other)}"[^>]*>{AUDIENCE_LABEL[lang, other]}</a>', text)
+
+
+@pytest.mark.parametrize("name", sorted(V4))
+def test_v4_pages_switch_language_and_default_to_english(name):
+    _, lang, audience = V4[name]
+    other = "zh" if lang == "en" else "en"
+    text = page(name)
+    assert text.count('aria-label="Language"' if lang == "en" else 'aria-label="語言"') == 1
+    assert re.search(rf'aria-current="true"[^>]*>{LANGUAGE_LABEL[lang]}</a>', text)
+    assert re.search(rf'href="{canvas_name(other, audience)}"[^>]*>{LANGUAGE_LABEL[other]}</a>', text)
+    assert ('<html lang="zh-HK">' if lang == "zh" else '<html lang="en">') in text
 
 
 def test_v4_patient_page_keeps_hours_and_points_emergencies_to_999():
@@ -58,6 +86,17 @@ def test_v4_patient_page_keeps_hours_and_points_emergencies_to_999():
     assert "Not an emergency service. In an emergency, call 999." in patients
     assert "Emergency? Call 999" in patients
     assert "Care team · open 9:00 to 19:00" in patients
+    assert "In an emergency, call 999 or go to A&amp;E." in patients  # the hero line phones keep
+
+
+def test_v4_chinese_patient_page_keeps_hours_and_points_emergencies_to_999():
+    patients = page("v4-patients-zh.dc.html")
+    for phrase in ROUND_THE_CLOCK:
+        assert phrase not in patients, phrase
+    assert "跟進服務並非緊急服務。" in patients
+    assert "本服務並非緊急服務。如遇緊急情況，請致電 999。" in patients
+    assert "如遇緊急情況，請致電 999 或前往急症室。" in patients
+    assert "跟進團隊 · 服務時間 9:00 至 19:00" in patients
 
 
 def test_v3_menu_fits_one_whatsapp_list_message():
