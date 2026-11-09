@@ -6,7 +6,7 @@ Read this at the start of every session and update it at the end, in the same PR
 Every session builds toward the milestone instead.
 
 **Milestone: first real-customer signal.** Done when a partner that holds patient data agrees a next step in
-writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health pilot on Apricot VITA. On the board's
+writing: a discovery at one EC Healthcare clinic, or an Amber Health pilot on Apricot VITA. On the board's
 Partners view, that is a card reaching "Next step in writing".
 
 Toward the 26 Nov go/no-go, six partners are in conversation. Their latest signals: EC (#23), Josie (#20), Amber
@@ -38,15 +38,19 @@ the default, but nothing reaches a partner or a patient on a default.
   merge, close or park each at the Friday review. By Fri 13 Nov.
 - **In progress 1 is done:** the Apricot call happened on 6 Nov (#15). Default: Next 1, the VITA profile update, takes
   its place. By Fri 13 Nov.
+- **The EC discovery's fee.** Default: the one-page scope names a fixed fee you set, and nobody names one at the
+  meeting. By Thu 12 Nov, when the scope goes out.
 
 ## In progress (three at most)
 
 1. **Apricot call, 6 Nov.** Learn how VITA really works (`loopbench/docs/APRICOT_DEMO_PREP.md`). Studio polish for the
    call: merged 6 Nov (loopbench #2); republish Studio before the call. After the call: a signal note, then the VITA
    profile update below. Bet: none in `docs/BETS.md`; it serves the Amber pilot on VITA.
-2. **EC Healthcare Phase 0 look-back.** Bet 6. The request is ready (`docs/EC_DATA_REQUEST.md`). Julie's meeting is
-   booked for Wed 11 Nov at 4pm; who else comes, the CTO or finance, is still to check (#23). Use it to find the
-   burdens in EC's own system, then agree the Phase 0 scope, fee and data route.
+2. **EC Healthcare: exploratory, Julie on Wed 11 Nov at 4pm** (#23). Bets 6 and 7. Thomas isn't formally engaged,
+   so the ask needs no patient data: a follow-up with a clinic lead and IT, then a two-to-three-week discovery at one
+   clinic. The demo is the care line and the clinic backend on EC's EMR (`demo/ec-care-line/`); the prep is
+   `docs/EC_MEETING_PREP.md`. The look-back becomes the safety analysis once EC is ready; its report waits on the
+   branch `ec-phase0-report`, and the data request (`docs/EC_DATA_REQUEST.md`) waits with it.
 
 3. **Josie demo, 8 Nov: the clinic backend** (spec 002, `demo/clinic-backend/`). Bets 1 to 5. Josie, a GP, said on 7 Nov she
    might be interested in a clinic running the agentic model. The demo shows the simulated clinic's back office at
