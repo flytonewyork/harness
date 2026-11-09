@@ -47,6 +47,47 @@ def test_lookback_flags_what_never_closed(tmp_path):
     assert out["summary"]["unfiled_results_linked_by_request_number"] == 1
 
 
+def test_report_counts_what_the_lookback_found(tmp_path):
+    """The Phase 0 report (backend/lookback/report.py) adds up to the look-back's own summary, keys only."""
+    import json
+
+    from backend.lookback import write
+    from backend.lookback.report import FEES, figures, load, owed_csv, render
+    rows = {
+        "patients": [{"patient_key": f"P{i}", "birth_year": "1960", "sex": "F"} for i in range(1, 11)],
+        "lab_results": [res("R1", "P1", "PA-1", "2027-03-02T18:00", "Potassium", 6.2, 3.5, 5.1, "H")],
+        "referrals": [{"referral_key": "F1", "patient_key": "P3", "datetime": "2027-03-01T11:00", "destination": "HA",
+                       "specialty": "Eye", "urgency": "stable"}],
+        "prescriptions": [{"rx_key": "X1", "patient_key": "P4", "datetime": "2027-03-01T10:00",
+                           "drug": "Lisinopril 10 MG <script>", "new_start": "Y"}],
+        "consultations": [{"encounter_key": "E9", "patient_key": "P9", "datetime": "2027-12-31T10:00",
+                           "visit_type": "walk-in", "plan_text": "URTI."}],
+    }
+    exp = tmp_path / "export"
+    exp.mkdir()
+    export(exp, rows)
+    write(run(exp), tmp_path / "lookback")
+    data = load(exp, tmp_path / "lookback")
+    fig = figures(data)
+    s = data["summary"]
+    assert fig["patients"] == 10
+    for k in ("unclosed", "late", "unknown"):
+        assert fig["total"][k] == sum(c[k] for c in s["by_kind"].values())
+    assert fig["not_done_per_1000"] == round((fig["total"]["unclosed"] + fig["total"]["late"]) * 100, 1)
+    assert fig["hkd_co_care"] == s["missed_consultations"] * FEES["co_care"]
+    assert {r["patient_key"] for r in fig["owed"]} == {"P1", "P4"}      # the HA referral is "can't tell", not owed
+    page = render(data, fig)
+    assert "Sample on a simulated clinic" not in page                    # no MANIFEST says simulated
+    assert "<script>" not in page and "&lt;script&gt;" in page          # details are escaped
+    (exp / "MANIFEST.json").write_text(json.dumps({"simulated": True}))
+    assert "Sample on a simulated clinic" in render(load(exp, tmp_path / "lookback"), fig)
+    owed_csv(fig, tmp_path / "owed.csv")
+    with (tmp_path / "owed.csv").open(encoding="utf-8") as fh:
+        owed = list(csv.DictReader(fh))
+    assert {r["patient_key"] for r in owed} == {"P1", "P4"}
+    assert not any(r["detail"].startswith("urgency ") for r in owed)      # urgency by name, as the engine says it
+
+
 def test_data_request_lists_every_field():
     """docs/EC_DATA_REQUEST.md is what EC is asked for; it must match the format the look-back reads."""
     from pathlib import Path
