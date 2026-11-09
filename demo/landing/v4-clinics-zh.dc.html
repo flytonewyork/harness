@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<title>tmrw 診所專區</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF;color:#0E1116;font-family:'Instrument Sans','Noto Sans TC',system-ui,sans-serif}
+*{box-sizing:border-box}
+a{color:#2346D9}a:hover{color:#1A35A8}
+html{scroll-behavior:smooth}
+.fd-row{display:grid;grid-template-columns:minmax(0,190px) minmax(0,1fr) 96px;grid-template-areas:"name what who";gap:4px 20px;align-items:center}
+.fd-name{grid-area:name}.fd-what{grid-area:what}.fd-who{grid-area:who;justify-self:end}
+@media (max-width: 960px){.nav-links{display:none !important}}
+@media (max-width: 680px){.fd-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name who" "what what"}}
+</style>
+</helmet>
+<div style="background: #FFFFFF; color: #0E1116; font-family: 'Instrument Sans', 'Noto Sans TC', system-ui, sans-serif; font-size: 17px; line-height: 1.6">
+
+<div style="background: #F4F5F7; border-bottom: 1px solid #E3E6EB">
+<div style="max-width: 1160px; margin: 0 auto; padding: 0 24px; display: flex; align-items: stretch; justify-content: space-between; gap: 16px; min-height: 48px">
+<nav aria-label="本頁對象" style="display: flex; align-items: stretch; gap: 24px; font-size: 14px">
+<a href="#top" aria-current="page" style="display: flex; align-items: center; color: #0E1116; font-weight: 600; text-decoration: none; border-bottom: 2px solid {{accent}}">診所專區</a>
+<a href="Landing-v4-patients-zh.dc.html" style="display: flex; align-items: center; color: #4F5866; font-weight: 500; text-decoration: none; border-bottom: 2px solid transparent">病人專區</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px"><nav aria-label="語言" style="display: flex; align-items: center"><span style="display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #CDD2DA; border-radius: 999px; background: #FFFFFF"><a href="Landing-v4-clinics.dc.html" lang="en" hreflang="en" style="display: flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 600; text-decoration: none; color: #4F5866">English</a><a href="#top" aria-current="true" lang="zh-HK" style="display: flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 600; text-decoration: none; background: #0E1116; color: #FFFFFF">中文</a></span></nav></div>
+</div>
+</div>
+
+<header style="position: sticky; top: 0; z-index: 10; background: rgba(255, 255, 255, 0.94); border-bottom: 1px solid #E3E6EB">
+<nav aria-label="主選單" style="max-width: 1160px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px">
+<a href="#top" style="display: flex; align-items: center; gap: 10px; color: #0E1116; text-decoration: none">
+<span style="width: 30px; height: 30px; border-radius: 9px; background: {{accent}}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7"></path><path d="M20 4v4h-4"></path></svg></span>
+<span style="font-weight: 700; font-size: 22px; letter-spacing: -0.04em">tmrw</span>
+</a>
+<div style="display: flex; align-items: center; gap: 24px; font-size: 15px; font-weight: 500">
+<div class="nav-links" style="display: flex; align-items: center; gap: 22px">
+<a href="#how" style="color: #0E1116; text-decoration: none">運作方式</a>
+<a href="#front-desk" style="color: #0E1116; text-decoration: none">接待處</a>
+<a href="#hours" style="color: #0E1116; text-decoration: none">服務時間</a>
+<a href="#safety" style="color: #0E1116; text-decoration: none">安全</a>
+<a href="#pricing" style="color: #0E1116; text-decoration: none">收費</a>
+<a href="#faq" style="color: #0E1116; text-decoration: none">常見問題</a>
+</div>
+<a href="#start" style="background: #0E1116; color: #FFFFFF; padding: 10px 18px; border-radius: 999px; font-weight: 600; text-decoration: none; white-space: nowrap">免費試用</a>
+</div>
+</nav>
+</header>
+
+<section id="top" style="max-width: 1160px; margin: 0 auto; padding: clamp(48px, 7vw, 96px) 24px clamp(40px, 5vw, 72px); display: flex; flex-wrap: wrap; align-items: center; gap: 56px">
+<div style="flex: 1 1 540px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 24px">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 6px 14px; border-radius: 999px"><span style="width: 8px; height: 8px; border-radius: 50%; background: {{accent}}"></span>香港家庭醫生現可免費試用</span>
+<h1 style="margin: 0; font-size: clamp(42px, 5.4vw, 66px); line-height: 1.15; font-weight: 600; letter-spacing: 0.01em; text-wrap: balance"><span style="display: inline-block">每位病人都有跟進。</span><span style="display: inline-block">更多病人回來覆診。</span></h1>
+<p style="margin: 0; max-width: 580px; font-size: clamp(18px, 1.6vw, 20px); color: #4F5866">tmrw 是家庭醫生的 AI 跟進團隊。它在你診所的 WhatsApp 上處理接待處事務和跟進工作，由覆配藥物、驗血，到出院後的護理，再為病人預約回來覆診。以廣東話或英文溝通，按你的診所時間運作。所有臨床事宜，一按由你批准。</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<a href="#start" style="display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 14px 26px; border-radius: 999px; background: {{accent}}; color: #FFFFFF; font-weight: 600; font-size: 17px; text-decoration: none">開始免費試用 <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+<a href="#how" style="display: inline-flex; align-items: center; min-height: 52px; padding: 14px 24px; border-radius: 999px; border: 1.5px solid #CDD2DA; color: #0E1116; font-weight: 600; font-size: 17px; text-decoration: none">了解運作方式</a>
+</div>
+<p style="margin: 0; font-size: 14.5px; color: #5F6875">免費試用兩星期 · 無需新軟件 · 臨床訊息須經你批准才發出</p>
+</div>
+
+<div style="flex: 1 1 380px; min-width: 0; background: #F4F5F7; border-radius: 32px; padding: 28px 20px; display: flex; flex-direction: column; align-items: center; gap: 16px">
+<div style="width: 300px; max-width: 100%; background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; box-shadow: 0 18px 36px -28px rgba(14, 17, 22, 0.45)">
+<span style="flex: none; width: 34px; height: 34px; border-radius: 50%; background: #E6ECFD; color: #1A35A8; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+<div style="min-width: 0; display: flex; flex-direction: column"><span style="font-size: 14.5px; font-weight: 600">李醫生已批准，09:40</span><span style="font-size: 13px; color: #5F6875">邀請陳先生回來講解驗血結果</span></div>
+</div>
+<div style="width: 300px; max-width: 100%; border-radius: 40px; background: #0E1116; padding: 9px">
+<div style="border-radius: 32px; background: #EEF0F3; overflow: hidden">
+<div style="background: #FFFFFF; border-bottom: 1px solid #E3E6EB; padding: 20px 16px 12px; display: flex; align-items: center; gap: 10px">
+<span style="flex: none; width: 34px; height: 34px; border-radius: 50%; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px">李</span>
+<div style="display: flex; flex-direction: column; line-height: 1.25"><span style="font-weight: 600; font-size: 14.5px">李醫生診所</span><span style="font-size: 12px; color: #5F6875">跟進團隊 · 服務時間 9:00 至 19:00</span></div>
+</div>
+<div style="padding: 14px 12px 18px; display: flex; flex-direction: column; gap: 9px">
+<span style="align-self: center; font-size: 11.5px; color: #5F6875; background: #E3E6EB; padding: 2px 10px; border-radius: 999px">星期二</span>
+<div style="align-self: flex-start; max-width: 92%; background: #FFFFFF; border-radius: 16px 16px 16px 4px; padding: 9px 11px; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 14px; line-height: 1.45">陳生你好，李醫生已經睇咗你上星期驗血嘅報告，想約你返嚟傾下結果。星期四下午三點，定係星期五上午十點？</span>
+<span style="font-size: 11.5px; color: #5F6875">跟進團隊 · 李醫生已批准</span>
+</div>
+<div style="align-self: flex-end; max-width: 80%; background: #DCE5FC; border-radius: 16px 16px 4px 16px; padding: 9px 11px">
+<span style="font-size: 14px">星期五十點啱，唔該。</span>
+</div>
+<div style="align-self: flex-start; max-width: 92%; background: #FFFFFF; border-radius: 16px 16px 16px 4px; padding: 9px 11px; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 14px; line-height: 1.45">已幫你預約：星期五上午十點。到時見！</span>
+<span style="font-size: 11.5px; color: #5F6875">跟進團隊</span>
+</div>
+</div>
+</div>
+</div>
+<div style="width: 300px; max-width: 100%; background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 18px 36px -28px rgba(14, 17, 22, 0.45)">
+<div style="display: flex; flex-direction: column"><span style="font-size: 14.5px; font-weight: 600">已預約覆診</span><span style="font-size: 13px; color: #5F6875">陳先生 · 星期五 10:00</span></div>
+<span style="font-size: 13px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 4px 10px; border-radius: 999px">+1 次診症</span>
+</div>
+</div>
+</section>
+
+<section aria-label="模擬測試結果" style="border-top: 1px solid #E3E6EB; border-bottom: 1px solid #E3E6EB; background: #F4F5F7">
+<div style="max-width: 1160px; margin: 0 auto; padding: 28px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 20px 48px">
+<p style="margin: 0; flex: 1 1 260px; font-size: 15px; font-weight: 500; color: #4F5866">在任何病人使用之前已經測試：在一間香港家庭醫生診所模擬運作一整年。</p>
+<div style="flex: 3 1 560px; display: flex; flex-wrap: wrap; gap: 16px 32px">
+<div style="flex: 1 1 150px; display: flex; flex-direction: column"><span style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em">89%</span><span style="font-size: 14px; color: #4F5866">遺漏的跟進減少</span></div>
+<div style="flex: 1 1 150px; display: flex; flex-direction: column"><span style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em">≈270</span><span style="font-size: 14px; color: #4F5866">每年多出的覆診</span></div>
+<div style="flex: 1 1 150px; display: flex; flex-direction: column"><span style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em">0</span><span style="font-size: 14px; color: #4F5866">安全失誤</span><span style="font-size: 12.5px; color: #5F6875">沒有認錯病人、捏造內容或錯誤報平安</span></div>
+</div>
+</div>
+</section>
+
+<section style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="max-width: 760px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">問題</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.2; font-weight: 600; letter-spacing: 0.01em; text-wrap: balance">病人一離開診症室，照顧就停了。</h2>
+</div>
+<div style="margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 20px">
+<div style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 26px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 38px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.15">高達 62%</span>
+<span style="font-size: 18px; font-weight: 600; line-height: 1.3">的報告無人跟進</span>
+<span style="font-size: 15px; color: #4F5866">門診研究發現，7% 至 62% 的檢查結果從未被跟進，病人一直不知道。</span>
+</div>
+<div style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 26px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 38px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.15">40–80%</span>
+<span style="font-size: 18px; font-weight: 600; line-height: 1.3">醫生所講的會被忘記</span>
+<span style="font-size: 15px; color: #4F5866">醫生所講的，病人很多轉頭就忘記。寫下來的建議會記得更清楚。</span>
+</div>
+<div style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 26px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 38px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.15">41%</span>
+<span style="font-size: 18px; font-weight: 600; line-height: 1.3">出院時仍有報告未出</span>
+<span style="font-size: 15px; color: #4F5866">一項涵蓋 2,644 名出院病人的研究發現，41% 病人回家後才有檢查結果送到；當中需要處理的，醫生往往並不知道。</span>
+</div>
+<div style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 26px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 38px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.15">80%</span>
+<span style="font-size: 18px; font-weight: 600; line-height: 1.3">一年內會看另一位醫生</span>
+<span style="font-size: 15px; color: #4F5866">即使有固定醫生，香港病人仍會轉看其他醫生，最常見的原因是病情未有好轉。</span>
+</div>
+</div>
+</section>
+
+<section id="how" style="background: #F4F5F7; border-top: 1px solid #E3E6EB; border-bottom: 1px solid #E3E6EB">
+<div style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="max-width: 760px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">運作方式</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.2; font-weight: 600; letter-spacing: 0.01em; text-wrap: balance">三個步驟，無需新軟件。</h2>
+</div>
+<div style="margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 20px">
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700">1</span>
+<span style="font-size: 21px; font-weight: 600; letter-spacing: -0.01em">病人診症後加入</span>
+<span style="font-size: 15.5px; color: #4F5866">診症結束時問一句，病人在接待處掃描 QR code，就會加入你診所的跟進服務，無需下載任何程式。</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700">2</span>
+<span style="font-size: 21px; font-weight: 600; letter-spacing: -0.01em">跟進團隊負責跟進</span>
+<span style="font-size: 15.5px; color: #4F5866">治療計劃、檢查準備、覆配藥物、跟進問候及出院跟進，以廣東話或英文進行，只用你批准過的回覆。</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700">3</span>
+<span style="font-size: 21px; font-weight: 600; letter-spacing: -0.01em">你批准，病人回來。</span>
+<span style="font-size: 15.5px; color: #4F5866">所有臨床事宜都等你一按批准。預約會直接排入你的時間表，跟進團隊會一直跟進，直至每件事完成。</span>
+</div>
+</div>
+</div>
+</section>
+
+<section style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="max-width: 760px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">功能</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.2; font-weight: 600; letter-spacing: 0.01em; text-wrap: balance">更多病人回來，花你更少時間。</h2>
+</div>
+<div style="margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px">
+
+<article style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<h3 style="margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: 0.01em">每次診症後，治療計劃白紙黑字</h3>
+<p style="margin: 0; font-size: 15.5px; color: #4F5866">診症結束時簽署治療計劃，病人未走到電梯，計劃已經在手機上，有廣東話或英文版本。到第三天，跟進團隊會問候病人，如未好轉，便為他預約你下一個空檔。</p>
+<div style="background: #EEF0F3; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 6px">
+<div style="align-self: flex-start; max-width: 94%; background: #FFFFFF; border-radius: 14px 14px 14px 4px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 14px; line-height: 1.5">郭小姐，李醫生今日嘅建議：<br>1. 咳藥水每日三次，飯後飲<br>2. 多啲飲水，早啲休息<br>3. 發燒超過三日或者氣促，即刻覆診或者去急症室</span>
+<span style="font-size: 11.5px; color: #5F6875">跟進團隊 · 李醫生已簽署</span>
+</div>
+</div>
+<div style="margin-top: auto; padding-top: 6px; border-top: 1px solid #E3E6EB; display: flex; flex-direction: column"><span style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: {{accent}}">HK$400</span><span style="font-size: 14px; color: #4F5866">一次本來會流失到其他診所的診症</span></div>
+</article>
+
+<article style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<h3 style="margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: 0.01em">驗血及影像檢查，由頭跟到尾</h3>
+<p style="margin: 0; font-size: 15.5px; color: #4F5866">病人會收到你所安排檢查的準備須知及地點。每份報告一送到就會被閱讀、對應到正確病歷，再交到你面前。如果報告一直未到，跟進團隊會向化驗所追查。</p>
+<div style="background: #EEF0F3; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 6px">
+<span style="align-self: flex-start; max-width: 94%; background: #FFFFFF; border-radius: 14px 14px 14px 4px; padding: 8px 10px; font-size: 14px">陳生，聽朝九點抽血。今晚十點之後唔好食嘢，可以飲水。</span>
+<span style="align-self: flex-end; max-width: 80%; background: #DCE5FC; border-radius: 14px 14px 4px 14px; padding: 8px 10px; font-size: 14px">收到，唔該。</span>
+</div>
+<div style="margin-top: auto; padding-top: 6px; border-top: 1px solid #E3E6EB; display: flex; flex-direction: column"><span style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: {{accent}}">≈230</span><span style="font-size: 14px; color: #4F5866">單計報告跟進，模擬單人診所每年多出的覆診，每次約 HK$400</span></div>
+</article>
+
+<article style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<h3 style="margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: 0.01em">覆配藥物，準備好等你簽署</h3>
+<p style="margin: 0; font-size: 15.5px; color: #4F5866">病情穩定的病人在 WhatsApp 提出要求。跟進團隊會確認未到覆診時間，詢問家中量度的數據和副作用，標示任何未處理的報告，然後擬好覆配單。你可以簽署，或先見病人。</p>
+<div style="background: #EEF0F3; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 6px">
+<span style="align-self: flex-end; max-width: 80%; background: #DCE5FC; border-radius: 14px 14px 4px 14px; padding: 8px 10px; font-size: 14px">血壓藥就食完，想再配。</span>
+<span style="align-self: flex-start; max-width: 94%; background: #FFFFFF; border-radius: 14px 14px 14px 4px; padding: 8px 10px; font-size: 14px">收到何太。麻煩 send 最近三次度嘅血壓俾我哋，李醫生睇完會覆你。</span>
+</div>
+<div style="margin-top: auto; padding-top: 6px; border-top: 1px solid #E3E6EB; display: flex; flex-direction: column"><span style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: {{accent}}">HK$316</span><span style="font-size: 14px; color: #4F5866">一次按時進行的慢病共治覆診，另加每季 HK$105 藥物資助</span></div>
+</article>
+
+<article style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<h3 style="margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: 0.01em">出院回家，回到你這裡覆診</h3>
+<p style="margin: 0; font-size: 15.5px; color: #4F5866">病人在 WhatsApp 傳送出院摘要。跟進團隊會存檔，為你列出藥物改動及仍未出的報告，並預約覆診。</p>
+<div style="background: #EEF0F3; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 6px">
+<div style="align-self: flex-end; max-width: 80%; background: #DCE5FC; border-radius: 14px 14px 4px 14px; padding: 6px 6px 8px; display: flex; flex-direction: column; gap: 6px">
+<span aria-hidden="true" style="width: 150px; height: 82px; border-radius: 9px; background: #FFFFFF; padding: 11px 12px; display: flex; flex-direction: column; gap: 7px"><span style="height: 6px; width: 64%; border-radius: 3px; background: #AEB5C0"></span><span style="height: 5px; width: 92%; border-radius: 3px; background: #D5DAE1"></span><span style="height: 5px; width: 84%; border-radius: 3px; background: #D5DAE1"></span><span style="height: 5px; width: 90%; border-radius: 3px; background: #D5DAE1"></span><span style="height: 5px; width: 52%; border-radius: 3px; background: #D5DAE1"></span></span>
+<span style="padding: 0 4px; font-size: 14px">上星期出咗院，呢張係出院紙。</span>
+</div>
+<span style="align-self: flex-start; max-width: 94%; background: #FFFFFF; border-radius: 14px 14px 14px 4px; padding: 8px 10px; font-size: 14px">收到陳生，李醫生會睇你嘅出院紙。星期二上午十點覆診，得唔得？</span>
+</div>
+<div style="margin-top: auto; padding-top: 6px; border-top: 1px solid #E3E6EB; display: flex; flex-direction: column"><span style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: {{accent}}">HK$400</span><span style="font-size: 14px; color: #4F5866">一次覆診，出院摘要和藥物改動已為你準備好</span></div>
+</article>
+
+</div>
+</section>
+
+<section id="front-desk" style="background: #F4F5F7; border-top: 1px solid #E3E6EB; border-bottom: 1px solid #E3E6EB">
+<div style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="max-width: 760px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">自助服務</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.2; font-weight: 600; letter-spacing: 0.01em; text-wrap: balance">你的接待處，搬到 WhatsApp。</h2>
+<p style="margin: 0; font-size: 18px; color: #4F5866">我們把接待處的工作，拆解成病人實際會提出的要求。選單上每個選項都有固定流程：由跟進團隊完成，或轉交你的職員或你。</p>
+</div>
+<div style="margin-top: 44px; display: flex; flex-wrap: wrap; gap: 40px 56px; align-items: flex-start">
+
+<div style="flex: 0 1 320px; min-width: 0; margin: 0 auto">
+<div style="width: 320px; max-width: 100%; border-radius: 40px; background: #0E1116; padding: 9px">
+<div style="border-radius: 32px; background: #EEF0F3; overflow: hidden">
+<div aria-hidden="true" style="opacity: 0.5">
+<div style="background: #FFFFFF; border-bottom: 1px solid #E3E6EB; padding: 20px 16px 12px; display: flex; align-items: center; gap: 10px">
+<span style="flex: none; width: 34px; height: 34px; border-radius: 50%; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px">李</span>
+<div style="display: flex; flex-direction: column; line-height: 1.25"><span style="font-weight: 600; font-size: 14.5px">李醫生診所</span><span style="font-size: 12px; color: #5F6875">跟進團隊 · 服務時間 9:00 至 19:00</span></div>
+</div>
+<div style="padding: 12px">
+<div style="max-width: 92%; background: #FFFFFF; border-radius: 16px 16px 16px 4px; overflow: hidden">
+<span style="display: block; padding: 9px 11px 8px; font-size: 14px">陳生你好！有咩可以幫到你？</span>
+<span style="display: block; padding: 8px; border-top: 1px solid #E3E6EB; text-align: center; font-size: 14px; font-weight: 600; color: {{accent}}">選項</span>
+</div>
+</div>
+</div>
+<div style="background: #FFFFFF; border-radius: 22px 22px 0 0; padding: 10px 0 14px; box-shadow: 0 -12px 30px -18px rgba(14, 17, 22, 0.5)">
+<span aria-hidden="true" style="display: block; width: 36px; height: 4px; border-radius: 2px; background: #CDD2DA; margin: 0 auto 8px"></span>
+<div style="display: flex; align-items: center; padding: 2px 16px 10px; border-bottom: 1px solid #E3E6EB"><span aria-hidden="true" style="width: 24px; font-size: 20px; line-height: 1; color: #5F6875">×</span><span style="flex: 1; margin-right: 24px; text-align: center; font-size: 15px; font-weight: 600">選項</span></div>
+<p style="margin: 0; padding: 12px 16px 2px; font-size: 12px; font-weight: 600; color: #1A35A8">預約及查詢</p>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="display: flex; align-items: center; gap: 12px; padding: 7px 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 14.5px; font-weight: 600">預約 / 改期</span><span style="font-size: 12.5px; color: #5F6875">預約、更改或取消診症</span></span><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #AEB5C0"></span></li>
+<li style="display: flex; align-items: center; gap: 12px; padding: 7px 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 14.5px; font-weight: 600">診所資料</span><span style="font-size: 12.5px; color: #5F6875">診所時間、地址及假期安排</span></span><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #AEB5C0"></span></li>
+<li style="display: flex; align-items: center; gap: 12px; padding: 7px 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 14.5px; font-weight: 600">搵職員</span><span style="font-size: 12.5px; color: #5F6875">與診所職員對話</span></span><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #AEB5C0"></span></li>
+</ul>
+<p style="margin: 0; padding: 12px 16px 2px; font-size: 12px; font-weight: 600; color: #1A35A8">報告及藥物</p>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="display: flex; align-items: center; gap: 12px; padding: 7px 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 14.5px; font-weight: 600">我嘅報告</span><span style="font-size: 12.5px; color: #5F6875">我的報告出了沒有？</span></span><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #AEB5C0"></span></li>
+<li style="display: flex; align-items: center; gap: 12px; padding: 7px 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 14.5px; font-weight: 600">驗血 / 照X光</span><span style="font-size: 12.5px; color: #5F6875">檢查前準備及地點</span></span><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #AEB5C0"></span></li>
+<li style="display: flex; align-items: center; gap: 12px; padding: 7px 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 14.5px; font-weight: 600">覆配藥物</span><span style="font-size: 12.5px; color: #5F6875">申請覆配藥物</span></span><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #AEB5C0"></span></li>
+</ul>
+<p style="margin: 0; padding: 12px 16px 2px; font-size: 12px; font-weight: 600; color: #1A35A8">睇醫生之後</p>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="display: flex; align-items: center; gap: 12px; padding: 7px 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 14.5px; font-weight: 600">我嘅計劃</span><span style="font-size: 12.5px; color: #5F6875">你的治療計劃及相關問題</span></span><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #AEB5C0"></span></li>
+<li style="display: flex; align-items: center; gap: 12px; padding: 7px 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 14.5px; font-weight: 600">出院跟進</span><span style="font-size: 12.5px; color: #5F6875">剛出院？傳送出院摘要</span></span><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #AEB5C0"></span></li>
+</ul>
+<p style="margin: 0; padding: 12px 16px 2px; font-size: 12px; font-weight: 600; color: #1A35A8">文件及收費</p>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="display: flex; align-items: center; gap: 12px; padding: 7px 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 14.5px; font-weight: 600">收據 / 文件</span><span style="font-size: 12.5px; color: #5F6875">收據、信件及證明書</span></span><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #AEB5C0"></span></li>
+<li style="display: flex; align-items: center; gap: 12px; padding: 7px 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 14.5px; font-weight: 600">收費 / 醫療券</span><span style="font-size: 12.5px; color: #5F6875">收費、醫療券及保險</span></span><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #AEB5C0"></span></li>
+</ul>
+<p style="margin: 8px 0 0; padding: 10px 16px 0; border-top: 1px solid #E3E6EB; font-size: 12.5px; color: #5F6875; text-align: center">緊急情況請致電 999</p>
+</div>
+</div>
+</div>
+</div>
+
+<div style="flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; color: #4F5866">
+<span style="display: inline-flex; align-items: center; gap: 8px"><span style="font-size: 13px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 3px 10px; border-radius: 999px">跟進團隊</span>完成</span>
+<span style="display: inline-flex; align-items: center; gap: 8px"><span style="font-size: 13px; font-weight: 600; color: #3A424E; background: #E3E6EB; padding: 3px 10px; border-radius: 999px">職員</span>由你的團隊接手</span>
+<span style="display: inline-flex; align-items: center; gap: 8px"><span style="font-size: 13px; font-weight: 600; color: #FFFFFF; background: #0E1116; padding: 3px 10px; border-radius: 999px">你</span>由你決定</span>
+</div>
+<div role="table" aria-label="每個選項背後的處理方式" style="background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 24px; padding: 6px 24px">
+<div role="row" class="fd-row" style="padding: 13px 0; border-bottom: 1px solid #E3E6EB"><span role="cell" class="fd-name" style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 15.5px; font-weight: 600">預約或更改診症</span><span style="font-size: 13px; color: #5F6875">預約 / 改期</span></span><span role="cell" class="fd-what" style="font-size: 15px; line-height: 1.45; color: #4F5866">提供你的空檔、完成預約，並在前一天提醒病人。</span><span role="cell" class="fd-who"><span style="font-size: 13px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 3px 10px; border-radius: 999px; white-space: nowrap">跟進團隊</span></span></div>
+<div role="row" class="fd-row" style="padding: 13px 0; border-bottom: 1px solid #E3E6EB"><span role="cell" class="fd-name" style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 15.5px; font-weight: 600">診所時間及地址</span><span style="font-size: 13px; color: #5F6875">診所資料</span></span><span role="cell" class="fd-what" style="font-size: 15px; line-height: 1.45; color: #4F5866">根據你診所的資料回答，包括公眾假期。</span><span role="cell" class="fd-who"><span style="font-size: 13px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 3px 10px; border-radius: 999px; white-space: nowrap">跟進團隊</span></span></div>
+<div role="row" class="fd-row" style="padding: 13px 0; border-bottom: 1px solid #E3E6EB"><span role="cell" class="fd-name" style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 15.5px; font-weight: 600">與診所職員對話</span><span style="font-size: 13px; color: #5F6875">搵職員</span></span><span role="cell" class="fd-what" style="font-size: 15px; line-height: 1.45; color: #4F5866">連同摘要把對話轉交你的職員，並告訴病人何時會有回覆。</span><span role="cell" class="fd-who"><span style="font-size: 13px; font-weight: 600; color: #3A424E; background: #E3E6EB; padding: 3px 10px; border-radius: 999px; white-space: nowrap">職員</span></span></div>
+<div role="row" class="fd-row" style="padding: 13px 0; border-bottom: 1px solid #E3E6EB"><span role="cell" class="fd-name" style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 15.5px; font-weight: 600">我的報告</span><span style="font-size: 13px; color: #5F6875">我嘅報告</span></span><span role="cell" class="fd-what" style="font-size: 15px; line-height: 1.45; color: #4F5866">告訴病人報告是否已出、你是否已看過，再預約時間由你講解。</span><span role="cell" class="fd-who"><span style="font-size: 13px; font-weight: 600; color: #FFFFFF; background: #0E1116; padding: 3px 10px; border-radius: 999px; white-space: nowrap">你</span></span></div>
+<div role="row" class="fd-row" style="padding: 13px 0; border-bottom: 1px solid #E3E6EB"><span role="cell" class="fd-name" style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 15.5px; font-weight: 600">驗血及影像檢查</span><span style="font-size: 13px; color: #5F6875">驗血 / 照X光</span></span><span role="cell" class="fd-what" style="font-size: 15px; line-height: 1.45; color: #4F5866">按你安排的檢查，傳送準備須知及地點。</span><span role="cell" class="fd-who"><span style="font-size: 13px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 3px 10px; border-radius: 999px; white-space: nowrap">跟進團隊</span></span></div>
+<div role="row" class="fd-row" style="padding: 13px 0; border-bottom: 1px solid #E3E6EB"><span role="cell" class="fd-name" style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 15.5px; font-weight: 600">覆配藥物</span></span><span role="cell" class="fd-what" style="font-size: 15px; line-height: 1.45; color: #4F5866">確認未到覆診時間，收集量度數據和副作用，擬好覆配單給你簽署。</span><span role="cell" class="fd-who"><span style="font-size: 13px; font-weight: 600; color: #FFFFFF; background: #0E1116; padding: 3px 10px; border-radius: 999px; white-space: nowrap">你</span></span></div>
+<div role="row" class="fd-row" style="padding: 13px 0; border-bottom: 1px solid #E3E6EB"><span role="cell" class="fd-name" style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 15.5px; font-weight: 600">我的治療計劃</span><span style="font-size: 13px; color: #5F6875">我嘅計劃</span></span><span role="cell" class="fd-what" style="font-size: 15px; line-height: 1.45; color: #4F5866">重新傳送你簽署的治療計劃。病人的問題會以你批准的回覆解答，否則轉交給你。</span><span role="cell" class="fd-who"><span style="font-size: 13px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 3px 10px; border-radius: 999px; white-space: nowrap">跟進團隊</span></span></div>
+<div role="row" class="fd-row" style="padding: 13px 0; border-bottom: 1px solid #E3E6EB"><span role="cell" class="fd-name" style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 15.5px; font-weight: 600">出院跟進</span></span><span role="cell" class="fd-what" style="font-size: 15px; line-height: 1.45; color: #4F5866">存檔出院摘要，列出藥物改動及未出的報告，並預約你的覆診。</span><span role="cell" class="fd-who"><span style="font-size: 13px; font-weight: 600; color: #FFFFFF; background: #0E1116; padding: 3px 10px; border-radius: 999px; white-space: nowrap">你</span></span></div>
+<div role="row" class="fd-row" style="padding: 13px 0; border-bottom: 1px solid #E3E6EB"><span role="cell" class="fd-name" style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 15.5px; font-weight: 600">收據及信件</span><span style="font-size: 13px; color: #5F6875">收據 / 文件</span></span><span role="cell" class="fd-what" style="font-size: 15px; line-height: 1.45; color: #4F5866">核實查詢者身份後，傳送你在診症時發出的文件副本。</span><span role="cell" class="fd-who"><span style="font-size: 13px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 3px 10px; border-radius: 999px; white-space: nowrap">跟進團隊</span></span></div>
+<div role="row" class="fd-row" style="padding: 13px 0"><span role="cell" class="fd-name" style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 15.5px; font-weight: 600">收費及醫療券</span><span style="font-size: 13px; color: #5F6875">收費 / 醫療券</span></span><span role="cell" class="fd-what" style="font-size: 15px; line-height: 1.45; color: #4F5866">按你的收費表報價，說明如何使用醫療券，並傳送保險表格。</span><span role="cell" class="fd-who"><span style="font-size: 13px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 3px 10px; border-radius: 999px; white-space: nowrap">跟進團隊</span></span></div>
+</div>
+<p style="margin: 0; font-size: 15px; color: #4F5866">跟進團隊未能完成的事，會連同病人的原話轉交合適的人，不用再翻查對話紀錄。</p>
+<a href="Landing-v4-patients-zh.dc.html" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 15.5px; font-weight: 600; text-decoration: none">看看病人看到的頁面 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</div>
+
+</div>
+</div>
+</section>
+
+<section id="hours" style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="max-width: 760px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">服務時間</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.2; font-weight: 600; letter-spacing: 0.01em; text-wrap: balance">按你的診所時間運作。</h2>
+<p style="margin: 0; font-size: 18px; color: #4F5866">跟進服務的時間由你設定。任何時候，病人都可以預約、索取收據或查看報告是否已出。臨床問題會等你處理，緊急情況每次都會收到同一個安全回覆。</p>
+</div>
+<div style="margin-top: 44px; display: flex; flex-wrap: wrap; gap: 40px 56px; align-items: center">
+
+<div style="flex: 1 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 24px 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px">
+<span style="font-size: 13px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 3px 12px; border-radius: 999px">任何時間</span>
+<h3 style="margin: 0; font-size: 21px; line-height: 1.25; font-weight: 600; letter-spacing: 0.01em">接待處事務即時完成</h3>
+<p style="margin: 0; font-size: 15.5px; color: #4F5866">預約、診所時間、收據、檢查準備及報告是否已出，全用你批准過的回覆。</p>
+</div>
+<div style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 24px 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px">
+<span style="font-size: 13px; font-weight: 600; color: #3A424E; background: #E3E6EB; padding: 3px 12px; border-radius: 999px">你的診所時間</span>
+<h3 style="margin: 0; font-size: 21px; line-height: 1.25; font-weight: 600; letter-spacing: 0.01em">臨床問題等你處理</h3>
+<p style="margin: 0; font-size: 15.5px; color: #4F5866">病人會知道由誰回覆、何時回覆，以及等不及時應該怎樣做。你開診時，他們的訊息排在最前。</p>
+</div>
+<div style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 24px 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px">
+<span style="font-size: 13px; font-weight: 600; color: #FFFFFF; background: #0E1116; padding: 3px 12px; border-radius: 999px">即時</span>
+<h3 style="margin: 0; font-size: 21px; line-height: 1.25; font-weight: 600; letter-spacing: 0.01em">緊急情況有固定回覆</h3>
+<p style="margin: 0; font-size: 15.5px; color: #4F5866">提到危險徵兆的訊息，例如胸口痛或呼吸困難，只會收到一個指示：致電 999 或前往急症室。你指定的人會收到通知。</p>
+</div>
+</div>
+
+<div style="flex: 0 1 320px; min-width: 0; margin: 0 auto">
+<div style="width: 320px; max-width: 100%; border-radius: 40px; background: #0E1116; padding: 9px">
+<div style="border-radius: 32px; background: #EEF0F3; overflow: hidden">
+<div style="background: #FFFFFF; border-bottom: 1px solid #E3E6EB; padding: 20px 16px 12px; display: flex; align-items: center; gap: 10px">
+<span style="flex: none; width: 34px; height: 34px; border-radius: 50%; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px">李</span>
+<div style="display: flex; flex-direction: column; line-height: 1.25"><span style="font-weight: 600; font-size: 14.5px">李醫生診所</span><span style="font-size: 12px; color: #5F6875">跟進團隊 · 服務時間 9:00 至 19:00</span></div>
+</div>
+<div style="padding: 14px 12px 18px; display: flex; flex-direction: column; gap: 8px">
+<span style="align-self: center; font-size: 11.5px; color: #5F6875; background: #E3E6EB; padding: 2px 10px; border-radius: 999px">星期二深夜</span>
+<div style="align-self: flex-end; max-width: 82%; background: #DCE5FC; border-radius: 16px 16px 4px 16px; padding: 8px 11px; display: flex; flex-direction: column"><span style="font-size: 14px">想約聽日睇醫生</span><span style="align-self: flex-end; font-size: 11px; color: #5F6875">23:40</span></div>
+<div style="align-self: flex-start; max-width: 90%; background: #FFFFFF; border-radius: 16px 16px 16px 4px; padding: 8px 11px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; line-height: 1.45">聽日有 10:15 同 15:30，想要邊個？</span><span style="font-size: 11px; color: #5F6875">跟進團隊 · 23:40</span></div>
+<div style="align-self: flex-end; max-width: 82%; background: #DCE5FC; border-radius: 16px 16px 4px 16px; padding: 8px 11px; display: flex; flex-direction: column"><span style="font-size: 14px">10:15，唔該</span><span style="align-self: flex-end; font-size: 11px; color: #5F6875">23:41</span></div>
+<div style="align-self: flex-start; max-width: 90%; background: #FFFFFF; border-radius: 16px 16px 16px 4px; padding: 8px 11px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; line-height: 1.45">已經幫你約好：星期三上午 10:15。</span><span style="font-size: 11px; color: #5F6875">跟進團隊 · 23:41</span></div>
+<div style="align-self: flex-end; max-width: 82%; background: #DCE5FC; border-radius: 16px 16px 4px 16px; padding: 8px 11px; display: flex; flex-direction: column"><span style="font-size: 14px; line-height: 1.45">另外，我嘅咳藥水可唔可以飲多啲？</span><span style="align-self: flex-end; font-size: 11px; color: #5F6875">23:52</span></div>
+<div style="align-self: flex-start; max-width: 90%; background: #FFFFFF; border-radius: 16px 16px 16px 4px; padding: 8px 11px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; line-height: 1.45">呢個問題要李醫生答。診所明早 9 點開，佢會第一時間覆你。如果情況緊急，請即刻打 999 或者去急症室。</span><span style="font-size: 11px; color: #5F6875">跟進團隊 · 你批准的回覆 · 23:52</span></div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<div style="margin-top: 48px; padding-top: 32px; border-top: 1px solid #E3E6EB; display: flex; flex-wrap: wrap; gap: 24px 56px; align-items: center">
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: 0.01em">每個訊息都有人負責</h3>
+<p style="margin: 0; font-size: 15.5px; color: #4F5866">接待處事務交給你的職員，臨床訊息交給你。如果在你設定的時間內無人接手，訊息會轉給名單上的下一位，而且只有真人才能結束它。除非你選擇，否則你不用候召。</p>
+</div>
+<ol aria-label="等待中的訊息下一步交給誰" style="flex: 1 1 420px; min-width: 0; margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<li style="display: flex; align-items: center; gap: 10px"><span style="font-size: 14px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 6px 14px; border-radius: 999px">跟進團隊</span><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3B0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></li>
+<li style="display: flex; align-items: center; gap: 10px"><span style="font-size: 14px; font-weight: 600; color: #3A424E; background: #E3E6EB; padding: 6px 14px; border-radius: 999px">你的職員</span><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3B0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></li>
+<li style="display: flex; align-items: center; gap: 10px"><span style="font-size: 14px; font-weight: 600; color: #FFFFFF; background: #0E1116; padding: 6px 14px; border-radius: 999px">你</span><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3B0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></li>
+<li style="display: flex; align-items: center"><span style="font-size: 14px; font-weight: 600; color: #0E1116; border: 1.5px solid #0E1116; padding: 5px 13px; border-radius: 999px">代診醫生</span></li>
+</ol>
+</div>
+</section>
+
+<section style="border-top: 1px solid #E3E6EB">
+<div style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px; display: flex; flex-wrap: wrap; gap: 40px 64px; align-items: flex-start">
+<div style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">為何是現在</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.2; font-weight: 600; letter-spacing: 0.01em; text-wrap: balance">香港正把醫療重心移向家庭醫生。</h2>
+<p style="margin: 0; font-size: 16px; color: #4F5866">公營門診收費上升，政府資助私家家庭醫生管理慢性病，而你的病人早已在用 WhatsApp。</p>
+</div>
+<div style="flex: 2 1 520px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 20px">
+<div style="border-top: 2px solid #0E1116; padding-top: 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 34px; font-weight: 600; letter-spacing: -0.02em">HK$150</span>
+<span style="font-size: 15px; color: #4F5866">是自 2026 年 1 月起公營家庭醫學門診的每次收費，以往為 HK$50。病人經慢病共治計劃在你診所求診，費用已差不多。</span>
+</div>
+<div style="border-top: 2px solid #0E1116; padding-top: 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 34px; font-weight: 600; letter-spacing: -0.02em">200,000+</span>
+<span style="font-size: 15px; color: #4F5866">人參加慢病共治計劃，計劃已於 2026 年 3 月恒常化。每人都需要定期由家庭醫生覆診。</span>
+</div>
+<div style="border-top: 2px solid #0E1116; padding-top: 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 34px; font-weight: 600; letter-spacing: -0.02em">70.6%</span>
+<span style="font-size: 15px; color: #4F5866">的香港人使用 WhatsApp。你的病人無需下載新程式。</span>
+</div>
+</div>
+</div>
+</section>
+
+<section id="safety" style="background: #0E1116; color: #FFFFFF">
+<div style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="max-width: 760px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9DB2FF">安全</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.2; font-weight: 600; letter-spacing: 0.01em; color: #FFFFFF; text-wrap: balance">跟進團隊負責追蹤，你依然是醫生。</h2>
+</div>
+<div style="margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 32px 40px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 19px; font-weight: 600">臨床事宜由你批准</span>
+<span style="font-size: 15.5px; color: #C2C8D2">治療計劃、報告覆診邀請及覆配藥物，都等你一按批准。</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 19px; font-weight: 600">它從不診斷或處方</span>
+<span style="font-size: 15.5px; color: #C2C8D2">它負責詢問、提醒、預約和追蹤。解釋報告和更改藥物，仍然由你負責。</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 19px; font-weight: 600">逐項任務啟用</span>
+<span style="font-size: 15.5px; color: #C2C8D2">每項任務必須先在模擬中、再在你的診所通過測試，才可自行運作。在此之前，每一步都等你批准。</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 19px; font-weight: 600">它會核實對方身份</span>
+<span style="font-size: 15.5px; color: #C2C8D2">報告和文件只會在核對資料後，發給病人本人或病人指定的家人。</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 19px; font-weight: 600">緊急情況固定回覆</span>
+<span style="font-size: 15.5px; color: #C2C8D2">遇到危險徵兆，每次都給同一個指示：致電 999 或前往急症室。你指定的人會收到通知。</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 19px; font-weight: 600">每個訊息都有紀錄</span>
+<span style="font-size: 15.5px; color: #C2C8D2">每個訊息、每次核對和每個決定都連同證據保存，就如醫務委員會的遙距醫療指引所期望。</span>
+</div>
+</div>
+<div style="margin-top: 56px; padding-top: 32px; border-top: 1px solid #2B313B; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 32px">
+<p style="margin: 0; flex: 1 1 420px; font-size: clamp(22px, 2.4vw, 28px); line-height: 1.3; font-weight: 500; letter-spacing: -0.015em; color: #FFFFFF">「病人離開診症室，照顧不應就此停止。」</p>
+<p style="margin: 0; flex: 1 1 300px; font-size: 15px; color: #C2C8D2">tmrw 由一位香港及澳洲註冊醫生建立。每項改動在接觸病人之前，都會先在一間香港診所的模擬年度中測試。</p>
+</div>
+</div>
+</section>
+
+<section id="pricing" style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="max-width: 760px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">收費</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.2; font-weight: 600; letter-spacing: 0.01em; text-wrap: balance">先免費試用，見到覆診才付款。</h2>
+</div>
+<div style="margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 20px">
+<div style="border: 2px solid {{accent}}; border-radius: 24px; padding: 32px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px"><span style="font-size: 20px; font-weight: 600">試用</span><span style="font-size: 13px; font-weight: 600; color: #1A35A8; background: #E6ECFD; padding: 4px 10px; border-radius: 999px">由此開始</span></div>
+<div style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 48px; font-weight: 600; letter-spacing: -0.03em">免費</span><span style="font-size: 16px; color: #4F5866">為期兩星期</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 15.5px">
+<span>✓ 最多 30 位病人使用你的跟進服務</span>
+<span>✓ 與你一起在診所的 WhatsApp Business 號碼上設定</span>
+<span>✓ 接待處選單、治療計劃、覆配藥物、檢查及出院跟進</span>
+<span>✓ 報告每一次帶回來的覆診</span>
+</div>
+<a href="#start" style="margin-top: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 999px; background: {{accent}}; color: #FFFFFF; font-weight: 600; text-decoration: none">開始免費試用</a>
+</div>
+<div style="border: 1px solid #E3E6EB; border-radius: 24px; padding: 32px; display: flex; flex-direction: column; gap: 16px">
+<span style="font-size: 20px; font-weight: 600">診所</span>
+<div style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 48px; font-weight: 600; letter-spacing: -0.03em">[價格]</span><span style="font-size: 16px; color: #4F5866">每月，試用期後</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 15.5px">
+<span>✓ 所有加入你跟進服務的病人</span>
+<span>✓ 本頁所有功能</span>
+<span>✓ 你的時間、你的回覆、你診所的名稱</span>
+<span>✓ 隨時取消</span>
+</div>
+<a href="#start" style="margin-top: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 999px; border: 1.5px solid #CDD2DA; color: #0E1116; font-weight: 600; text-decoration: none">聯絡我們</a>
+</div>
+</div>
+</section>
+
+<section id="faq" style="background: #F4F5F7; border-top: 1px solid #E3E6EB; border-bottom: 1px solid #E3E6EB">
+<div style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.2; font-weight: 600; letter-spacing: 0.01em">醫生常問的問題</h2>
+<div style="margin-top: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 28px 48px">
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">病人會期望凌晨三點有回覆嗎？</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">不會。跟進服務按你的診所時間運作，病人加入時已經知道。晚上它會完成接待處事務，把臨床問題留到早上並提醒病人緊急時致電 999，遇到緊急情況則發出固定回覆。</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">它說的話由誰負責？</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">由你負責，就像你診所發出的任何訊息一樣。所以它從不自行提供醫療建議：只用你批准過的回覆，所有臨床事宜都交到你面前。</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">晚上出現危急報告怎麼辦？</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">tmrw 不會改變化驗所通知你危急結果的方式。它會把報告放在你待辦清單的最前，在你看過之前，病人不會收到任何消息。</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">病人真的會用嗎？</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">它在 WhatsApp 上運作，大部分香港人每天都在用。病人在你的接待處掃描 QR code 就能加入，年長病人可以加入子女幫忙。</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">病人知道它不是真人嗎？</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">知道。加入時會告知，每個訊息都註明發出者，而「與診所職員對話」會轉到你的職員。</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">這樣做合規嗎？</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">醫務委員會的遙距醫療指引要求醫生識別病人、作出臨床決定並保存紀錄。tmrw 把這三樣都留給你，而發給病人的訊息只陳述事實，不含任何優惠或利誘。</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">要花我多少時間？</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">接待處事務不會找你。臨床事宜只需一按：批准、修改，或親自見病人。</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">我需要更換診所系統嗎？</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">不需要。它與你現有的系統並行，使用診所的 WhatsApp Business 號碼，你的職員可以繼續在應用程式中回覆。</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 18px; font-weight: 600">病人資料怎樣處理？</h3><p style="margin: 0; font-size: 15.5px; color: #4F5866">發送任何訊息前，病人都會先同意，並另外選擇是否接收流感疫苗等邀請。敏感報告絕不會在訊息中寫明。</p></div>
+</div>
+</div>
+</section>
+
+<section id="start" style="max-width: 1160px; margin: 0 auto; padding: clamp(64px, 8vw, 112px) 24px">
+<div style="background: #0E1116; color: #FFFFFF; border-radius: 32px; padding: clamp(28px, 5vw, 64px); display: flex; flex-wrap: wrap; gap: 40px 56px; align-items: center">
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<h2 style="margin: 0; font-size: clamp(32px, 4.4vw, 52px); line-height: 1.2; font-weight: 600; letter-spacing: 0.01em; color: #FFFFFF; text-wrap: balance">頭兩星期，看看誰回來覆診。</h2>
+<p style="margin: 0; font-size: 18px; color: #C2C8D2">告訴我們你的診所資料，我們會在 WhatsApp 聯絡你，安排免費試用。</p>
+<p style="margin: 0; font-size: 14.5px; color: #9AA3B0">免費兩星期 · 臨床訊息須經你批准才發出 · 隨時取消</p>
+</div>
+<form aria-label="申請免費試用" style="flex: 1 1 360px; min-width: 0; background: #FFFFFF; color: #0E1116; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<label for="f-name" style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">你的名字<input id="f-name" type="text" placeholder="陳大文醫生" style="min-height: 48px; padding: 10px 14px; border: 1.5px solid #CDD2DA; border-radius: 12px; font: inherit; font-weight: 400; font-size: 16px"></label>
+<label for="f-clinic" style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">診所<input id="f-clinic" type="text" placeholder="診所名稱及地區" style="min-height: 48px; padding: 10px 14px; border: 1.5px solid #CDD2DA; border-radius: 12px; font: inherit; font-weight: 400; font-size: 16px"></label>
+<label for="f-phone" style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">WhatsApp 號碼<input id="f-phone" type="tel" placeholder="+852" style="min-height: 48px; padding: 10px 14px; border: 1.5px solid #CDD2DA; border-radius: 12px; font: inherit; font-weight: 400; font-size: 16px"></label>
+<label for="f-size" style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">每日病人數目<select id="f-size" style="min-height: 48px; padding: 10px 14px; border: 1.5px solid #CDD2DA; border-radius: 12px; font: inherit; font-weight: 400; font-size: 16px; background: #FFFFFF"><option>20 位以下</option><option>20 至 40 位</option><option>40 位以上</option></select></label>
+<button type="submit" style="margin-top: 4px; min-height: 52px; border: 0; border-radius: 999px; background: {{accent}}; color: #FFFFFF; font: inherit; font-weight: 600; font-size: 17px">申請免費試用</button>
+</form>
+</div>
+</section>
+
+<footer style="border-top: 1px solid #E3E6EB">
+<div style="max-width: 1160px; margin: 0 auto; padding: 40px 24px 56px; display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 40px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 700; font-size: 20px; letter-spacing: -0.04em">tmrw</span>
+<span style="font-size: 14px; color: #4F5866">家庭醫生的 AI 跟進團隊。香港。</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #4F5866; max-width: 520px">
+<span>本服務並非緊急服務。如遇緊急情況，請致電 999。</span>
+<span>示例中的病人、醫生及訊息均屬虛構。</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 1.5; color: #5F6875">
+<span style="font-weight: 600; color: #4F5866">資料來源</span>
+<span>模擬數字：LoopBench，tmrw 對一間香港單人家庭醫生診所的一年模擬，共運行三次。遺漏的跟進按傷害程度加權，並與沒有 tmrw 的同一診所比較。覆診次數涵蓋所有跟進類型，其中每年約 230 次來自報告。</span>
+<span>無人跟進的報告：Callen et al., Journal of General Internal Medicine, 2012（系統性回顧）。遺忘的建議：Kessels, Journal of the Royal Society of Medicine, 2003（回顧）。出院後的報告：Roy et al., Annals of Internal Medicine, 2005（波士頓兩間醫院共 2,644 名病人）。轉看其他醫生：中大基層醫療調查（Griffiths, 2011）。轉換醫生的原因：International Journal for Quality in Health Care, 1994；Hong Kong Medical Journal, 2013。</span>
+<span>HK$400：非專科普通科醫生收費中位數，Hong Kong Medical Journal, 2026。慢病共治計劃的資助、共付額及藥物資助：醫務衞生局及立法會文件，2023 至 2025 年；逾 200,000 名參加者及計劃恒常化：政府新聞公報，2026 年 3 月 13 日。公營家庭醫學門診收費：醫院管理局，2026 年 1 月 1 日起。WhatsApp 使用率：香港數碼報告，2025 年。</span>
+</div>
+</div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2346D9","options":["#2346D9","#0E1116","#0B6E5A","#B4441F"]},"$preview":{"width":1440,"height":10040}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2346D9' };
+  }
+}
+</script>
+</body>
+</html>
