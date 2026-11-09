@@ -7,7 +7,8 @@ writing: EC Healthcare's Phase 0 look-back on their export, or an Amber Health p
 
 Toward the 26 Nov go/no-go, 4 partner conversations are logged: EC (#5), Amber (#6), Adrian (#8) and Virtus (#11).
 Today's Apricot call (#7) makes 5. All of them point at doctors' workload, but no partner has yet named the specific
-burden, so that is the question for every next contact.
+burden, so that is the question for every next contact. The bets behind the go/no-go, with odds set before testing
+and a pass line for each: `docs/BETS.md`.
 
 ## In progress (three at most)
 
