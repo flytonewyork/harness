@@ -47,16 +47,18 @@ partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`.
 4. Repeat dispensing in the LoopBench world model, so reasoning traces can cite current medicines. The clinic backend
    demo shows why: for Mr Chan the engine says "No relevant medicines dispensed at this clinic" while his note names
    lisinopril and spironolactone.
-5. Critical results out of hours. The engine runs at 08:30, 13:30 and 19:30, so Mr Chan's potassium of 6.6, posted
-   at 19:40 on a Saturday, waited 13 hours. A 24/7 care line needs an overnight check for criticals; score it in
-   LoopBench as time from posting to page.
+5. Critical results out of hours. The care line keeps the clinic's hours for patients (spec 003), but labs post at
+   any hour. The engine runs at 08:30, 13:30 and 19:30, so Mr Chan's potassium of 6.6, posted at 19:40 on a
+   Saturday, waited 13 hours. Add an overnight check that pages the doctor the clinic names (rubric row RT-07); score
+   it in LoopBench as time from posting to page.
 6. LoopBench realism bugs: seed 1 refers a 28-year-old man (FUNG Tai Man) to gynaecology (the referral generator's
    sex check), and a chloride printed at the top of its range (109 on 102-109) is flagged high, which the engine
    repeats as "above the report's range".
-7. Task catalogue as the agents' allowlist (spec 002, `demo/clinic-backend/tasks.json`): give each WhatsApp task
-   (join, plan, check-in, questions, sending documents, repeats, booking, copies) its own LoopBench cases and gate
-   it like the loop families: live only at 100% in every year, zero hard fails, zero made-up quotes. Then move the
-   list from the demo into the product.
+7. Task catalogue as the agents' allowlist, with its eval rubric (spec 003, `evals/agent_features.csv`: 54 features,
+   each with what the agent may and must never do, hours, who it escalates to, hard fails and a gate). Write the
+   scripted and red-team cases for the 15 unscored rows first (join, plan, check-in, questions, sending documents,
+   repeats, booking, copies), then the message-side checks, then a shadow-mode protocol. Thomas signs off the gates.
+   Then move the list from the demo into the product.
 8. Doctor-minutes metric: review time per item with and without verified evidence.
 9. `claude -p` extraction run on the Mac mini, replayed in CI: agentic numbers with a real model. Staged in
    `~/loopbench-data/extract`: 4,064 dev documents, still current on 6 Nov, with prompt `fu-extract-v2`. Not started
