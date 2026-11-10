@@ -38,8 +38,8 @@ the default, but nothing reaches a partner or a patient on a default.
   merge, close or park each at the Friday review. By Fri 13 Nov.
 - **In progress 1 is done:** the Apricot call happened on 6 Nov (#15). Default: Next 1, the VITA profile update, takes
   its place. By Fri 13 Nov.
-- **The EC discovery's fee.** Default: the one-page scope names a fixed fee you set, and nobody names one at the
-  meeting. By Thu 12 Nov, when the scope goes out.
+- **The EC discovery's fee.** Default: the one-page scope (`docs/EC_DISCOVERY_SCOPE.md`, drafted 10 Nov) names a
+  fixed fee you set, and nobody names one at the meeting. By Thu 12 Nov, when the scope goes out.
 
 ## In progress (three at most)
 

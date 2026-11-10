@@ -150,3 +150,13 @@ def test_only_doctor_actions_close(page):
     for m in re.finditer(r"data-close=", page):
         before = page[max(0, m.start() - 600): m.start()]
         assert "Your decision" in before
+
+
+def test_ec_discovery_scope_needs_no_patient_data():
+    # The scope that follows Wednesday's meeting asks for people's time only, and says so.
+    scope = (DEMO.parents[1] / "docs" / "EC_DISCOVERY_SCOPE.md").read_text(encoding="utf-8")
+    needs = re.search(r"## What it needs from EC\n(.*?)\n## ", scope, flags=re.S).group(1)
+    assert not re.search(r"patient (records?|data)|an export of|access to|credentials|log-?in", needs, flags=re.I), needs
+    never = re.search(r"## What it never needs\n(.*?)\n## ", scope, flags=re.S).group(1)
+    for word in ("No patient records", "exports", "access"):
+        assert word in never, word
