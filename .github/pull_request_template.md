@@ -1,5 +1,6 @@
 ## What this moves
 `NOW.md` item:
+Bet it tests (`docs/BETS.md`), or none:
 Spec (if any):
 
 ## Proof

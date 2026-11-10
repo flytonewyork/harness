@@ -1,8 +1,8 @@
-# Operating system (v2, 5 Nov 2026)
+# Operating system (v2.1, 9 Nov 2026)
 
 One product, one queue, one gate. Every session, on every surface, works from this repo and ends in a pull request.
 This replaces the 28 Oct "AI-Native Builder: Operating System" doc. It changes at the 1 Feb 2027 review, or by a PR
-that says why in `docs/DECISIONS.md`.
+that says why in `docs/DECISIONS.md`. v2.1 (9 Nov) adds how the product is managed: four lists, each with one home.
 
 ## The one thing
 
@@ -76,8 +76,9 @@ to react to.
 
 1. **GitHub is the only home.** A chat, a container, a Claude Doc or an artifact is scratch space until its content is
    in a PR. If it isn't in GitHub, it doesn't exist.
-2. **One queue.** `NOW.md` holds one milestone, at most three items in progress, and everything else in order. A new
-   idea gets one line under Parked and waits for the 1 Feb review.
+2. **One queue.** `NOW.md` holds one milestone, the decisions waiting on you, at most three items in progress, and
+   everything else in order. Every open PR in either repo is named in it. A new idea gets one line under Parked and
+   waits for the 1 Feb review.
 3. **Same start, same end.** Start by reading `NOW.md`. End with a PR that names the item it moves, carries the
    scoreboard and updates `NOW.md`. The session protocol is in `CLAUDE.md`.
 4. **Small, proven PRs.** One item per PR. Behaviour changes go behind a new rules version, so the v1.0 floor stays
@@ -87,6 +88,35 @@ to react to.
 6. **Write it down once.** A correction made twice becomes a line in `CLAUDE.md`, a test or a check.
 7. **Synthetic data only** in repos, chats, Slack and frontier models. Real data stays where the partner allows, on a
    model permitted in Hong Kong.
+
+## Product management: four lists
+
+Claude can build more than you can review, so building isn't the constraint. Your review time, partner meetings and
+decisions are. Product management keeps four lists, each with one home that every Claude session can read and
+change. The one exception is a partner's stage, which lives on the board because only you set it.
+
+| List | Home | Rule |
+|---|---|---|
+| Customers | The latest `signal` issue for each partner, kept open | A new signal closes the partner's previous one ("Superseded by #N"). Nothing else closes a signal. Its stage is set on the board |
+| Bets | `docs/BETS.md` | Every item in progress names the bet it tests, or says it tests none. A result goes in within a day of its test |
+| Work | `NOW.md`, then pull requests | At most three PRs wait for your review across both repos; a stack counts as one, and drafts don't count. A PR idle for five days is merged, closed or parked on Friday |
+| Decisions | "Waiting on you" at the top of `NOW.md` | Each has Claude's recommended default and a date. Until you decide, work goes ahead on the default, but nothing reaches a partner or a patient on a default |
+
+**Partner stages.** The board's Partners view puts each open signal in a column of its `Stage` field, so the
+milestone is a card reaching the third column. You set the stage; Claude sessions can't reach the board, so every
+signal issue suggests one.
+
+1. **Talking:** we've met, and no specific burden has been named.
+2. **Burden named:** they've named a burden on their doctors, in their own words.
+3. **Next step in writing:** they've agreed in writing to a next step involving their data or patients. The milestone.
+4. **Data access:** their data or patients come through the agreed route.
+5. **Pilot:** it's running with their doctors.
+6. **Paused:** on hold, or they said no.
+
+`tests/test_queue.py` checks what the repo can show: at most three items in progress, a bet named on each, a default
+and a date on every decision waiting, and no spec number used twice. The brief checks the rest each morning: open PRs
+that `NOW.md` doesn't name, PRs idle for five days, next steps past their date, and a partner whose latest signal is
+closed.
 
 ## Where work runs
 
@@ -112,7 +142,7 @@ once, most of them started away from the desk, each ending in a PR you review.
 
 | When | Where | What you do |
 |---|---|---|
-| Before 8, 10 minutes | Phone: `#daily` | Read the brief, including the prep for today's `[tmrw]` calls, and answer every ❓. Start the day's tasks from the top of `NOW.md`, one `@Claude` thread each in `#thomas-claude`. |
+| Before 8, 10 minutes | Phone: `#daily` | Read the brief, including the prep for today's `[tmrw]` calls, and answer every ❓ and every decision past its date. Start the day's tasks from the top of `NOW.md`, one `@Claude` thread each in `#thomas-claude`. |
 | Morning, the deep block | Desk: a cloud session from the desktop app or claude.ai/code | The item that needs your judgment: a spec, a partner document, a hard engine change. Plan mode first, then let it run. |
 | Between other work | Phone: Slack | Steer a session by replying in its thread. A new idea gets `park this`. A partner contact goes in `#signals` the same day. |
 | Afternoon, 30 minutes | GitHub | Review what came back: the scoreboard and the pre-review on each PR. Merge, or reply with the fix. |
@@ -129,7 +159,7 @@ The skills in `.claude/skills/` turn a short ask into the whole protocol, on any
 | Say | Skill | You get back |
 |---|---|---|
 | `@Claude in harness: <task>` | ship | A scored PR that names its `NOW.md` item |
-| `@Claude in harness, file this signal: <notes>` (in `#signals`) | signal | A `signal` issue, and a `NOW.md` PR if the order changes |
+| `@Claude in harness, file this signal: <notes>` (in `#signals`) | signal | A `signal` issue that replaces the partner's last one, with a suggested stage, and a `NOW.md` PR if the order changes |
 | `@Claude in harness, park this: <idea>` | park | One line under Parked, in a small PR |
 | `@Claude in harness, brief me` | brief | Where things stand, in at most 12 lines |
 | `@Claude in harness, review PR 12` | review | The gate, the invariants, the risks and a merge call |
@@ -190,7 +220,9 @@ when the ladder is built.
 
 - **Every session:** the protocol in `CLAUDE.md`.
 - **Every partner contact:** a signal note within 24 hours (Capture, below).
-- **Fridays, 30 minutes:** read the week's merged PRs, signals and scoreboards, re-order `NOW.md`, prune `CLAUDE.md`.
+- **Fridays, 30 minutes,** in this order: the week's signals and each partner's stage; bets with a result due; the
+  decisions waiting on you; then the queue, merging, closing or parking any PR idle for five days and re-ordering
+  `NOW.md` from the week's merged PRs and scoreboards; and last, prune `CLAUDE.md`.
 - **1 Feb 2027:** the direction review. Parked items are debated then, not before.
 
 ## Capture: every partner contact, online and offline
@@ -208,6 +240,9 @@ go/no-go counts them.
    changes.
 4. **What isn't captured automatically:** WhatsApp, in-person conversation and call audio. Recording a call needs the
    other side's consent, and new capture tools are parked until 1 Feb. Dictating right after the call is the method.
+5. **One open signal per partner.** Filing a new signal closes the partner's previous one with "Superseded by #N".
+   Nothing else closes a signal: on the board its stage moves instead, which is why the board's Auto-close issue
+   workflow is off.
 
 Filed on 6 Nov: EC Healthcare (#5), Amber Health (#6), Apricot (#7), Adrian's longevity clinic (#8) and Virtus
 Healthcare (#11). The first four were backfilled from earlier notes and confirmed by Thomas the same day.
@@ -241,3 +276,9 @@ sessions can't enter credentials, change a token's access or sign in for you.
    of a zip.
 4. **Mac mini, only when a job needs it.** Before the first `claude -p` model run (`NOW.md`), log the Claude CLI in
    (`claude`, then `/login`) and turn on Remote Control for each repo. Nothing else waits on it.
+5. **The board's Partners view (5 minutes, on github.com).** On the project, open the ⋯ menu, then Workflows, and
+   switch Auto-close issue off, so moving a card never closes a signal. In a table view, click + in the rightmost
+   header, then New field: `Stage`, Single select, with the six stages in Product management. Then New view, Board;
+   in the view's settings, set Column field to Stage, filter it with `label:signal is:open`, and save it as Partners.
+   Started 9 Nov, when moving cards to Done closed the latest signals for EC (#23), Josie (#20), Amber (#6) and
+   Apricot (#15): reopen those four.

@@ -6,7 +6,8 @@ description: Use for any build task in harness or loopbench, started from Slack,
 # Ship one item
 
 1. **Find the item.** Read `NOW.md`. Work on the item you were given, or the top one in progress. If the ask isn't in
-   `NOW.md`, add it in order (or under Parked) in your first commit.
+   `NOW.md`, add it in order (or under Parked) in your first commit. Note the bet it tests (`docs/BETS.md`), or that
+   it tests none.
 2. **Check the setup.** In a cloud session, `scripts/cloud_setup.sh` has already installed this repo and cloned
    `../loopbench`, and its notes say if it couldn't. Elsewhere: `pip install -e ".[dev]"`, with the test bed beside
    this repo. Screen changes also need `cd frontend && npm install && npm run build`.
@@ -16,7 +17,9 @@ description: Use for any build task in harness or loopbench, started from Slack,
 5. **Prove it.** Run `python -m pytest -q`. For engine changes, also run
    `cd ../loopbench && PYTHONPATH=src python scripts/scoreboard.py --seeds 1`. Hard fails and made-up quotes must be 0.
    If the numbers move on purpose, say so in the PR.
-6. **Open the PR** with the template filled in, and update `NOW.md` in the same PR. One item per PR.
+6. **Open the PR** with the template filled in, and update `NOW.md` in the same PR. One item per PR. If three PRs
+   already wait for Thomas's review across both repos (a stack counts as one), open yours as a draft and say why at
+   the top: drafts don't count toward the three.
 7. **Report back.** If Slack started you, reply in the thread with one line: the PR link and ✅, or ❓ and your question.
 
 Never:
