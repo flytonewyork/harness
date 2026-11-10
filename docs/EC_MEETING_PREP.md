@@ -43,10 +43,11 @@ The demo: `demo/ec-care-line/index.html`.
    live one task at a time.
 
 Don't ask for data, exports, access or a shadow. Don't name a fee at the meeting: it goes in the one-page scope
-(`NOW.md`, Waiting on you).
+(`docs/EC_DISCOVERY_SCOPE.md`; `NOW.md`, Waiting on you).
 
 ## Afterwards
 
-- Within 24 hours: send the one-page scope for the discovery. Julie's yes to it is the next step in writing.
+- Within 24 hours: send the one-page scope for the discovery (`docs/EC_DISCOVERY_SCOPE.md`: fill in the
+  clinic, IT contact, date and fee). Julie's yes to it is the next step in writing.
 - File the signal in `#signals`, with the stage it suggests.
 - Score bets 6 and 7 in `docs/BETS.md` when their dates pass.
