@@ -21,6 +21,7 @@ being prompted.
 | 4 | At least 25% of those who join message again, unprompted, within 30 days | 35% | | Hand-run pilot · 1 month | | |
 | 5 | Chronic Co-Care is the best first market: Josie is a Co-Care family doctor and names its follow-up or admin work as a burden | 40% | | Ask her · 2 questions, 8 Nov | | |
 | 6 | EC Healthcare agrees a written next step, with data access, by 26 Nov | 20% | | Phase 0 look-back (#5) · already running | | |
+| 7 | EC Healthcare agrees in writing to a discovery at one clinic that needs no patient data, by 26 Nov (set 9 Nov) | 35% | | Ask Julie on 11 Nov, then a one-page scope · 1 hour | | |
 
 Side bet on 4: at least 40% reply to a check-in, 65%. A reply to a prompt proves much less than coming back
 unprompted.
@@ -65,6 +66,14 @@ If it fails: chronic private patients outside the scheme, or EC's corporate pati
 **6. A clinic group pays for recovered visits (20% by 26 Nov).** Data deals rarely close in 18 days, and the call with
 EC's CTO hasn't happened yet. About 45% that clinic groups pay for this at all.
 If it fails by 26 Nov: it isn't a verdict. Set the next date and keep the look-back offer open.
+
+**7. EC agrees to a no-data discovery (35% by 26 Nov).** Added on 9 Nov, before the 11 Nov meeting, when it became
+clear the talks are exploratory: Thomas isn't formally engaged, so EC approving data access now is very unlikely, and
+bet 6 will probably miss. A discovery asks only for people's time (half a day at one clinic, 30 minutes with IT), but
+corporate sign-off, finance included, can take longer than 15 days. A paid discovery is a stronger signal than a free
+one; either passes.
+If it fails: ask what would make a first step easy to approve, and offer the new GP practice, if it goes ahead, as
+the place to build this in from day one.
 
 **Not a bet, a gate:** whichever model may touch Hong Kong patient data must pass the task catalogue's gate
 (`demo/clinic-backend/tasks.json`, `NOW.md`). It matters only once a bet above has passed.
