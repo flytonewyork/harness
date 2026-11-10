@@ -21,6 +21,7 @@ being prompted.
 | 4 | At least 25% of those who join message again, unprompted, within 30 days | 35% | | Hand-run pilot · 1 month | | |
 | 5 | Chronic Co-Care is the best first market: Josie is a Co-Care family doctor and names its follow-up or admin work as a burden | 40% | | Ask her · 2 questions, 8 Nov | | |
 | 6 | EC Healthcare agrees a written next step, with data access, by 26 Nov | 20% | | Phase 0 look-back (#5) · already running | | |
+| 8 | At least 2 doctors besides Thomas use the line in a normal week by 1 Feb, without being chased (set 10 Nov) | 30% | | The live line (spec 005) · Jose from launch, then others | | |
 
 Side bet on 4: at least 40% reply to a check-in, 65%. A reply to a prompt proves much less than coming back
 unprompted.
@@ -34,6 +35,20 @@ running them cheaply and quickly, and knowing in advance what each miss means.
 2. Next: bets 2 and 3 in one pilot run by hand from Josie's own clinic WhatsApp, by her staff or Thomas, with the
    patients' consent, no AI and no data leaving her clinic.
 3. Bet 4 comes out of the same pilot.
+
+## 10 Nov: the live line decides the shape
+
+The direction is locked (spec 005), and the live line is now the test for bets 2, 3, 4 and 8, run on Thomas's and
+Jose's own patients instead of a hand-run pilot. Bet 1 changes shape: Thomas and Jose are the doctors, so the open
+question is whether other doctors would charge (bet 8 tests whether they use it at all). Pass lines for the 1 Feb
+review, all measured by the line itself:
+- Bet 3: at least 40% of patients shown the QR code join.
+- Bet 4: at least 25% of those who join message again, unprompted, within 30 days.
+- Bet 2: at least 3 in 10 patients offered a paid repeat or result review pay for it.
+- Bet 8: at least 2 doctors besides Thomas use it in a normal week.
+
+If they pass: the doctor-owned line is the company; raise on it. If they don't: the 1 Feb review weighs joining Heidi
+against a clinic-facing business, which the 10 Nov direction rules out for now.
 
 ## Each bet
 

@@ -24,4 +24,4 @@
 - **The product never imports LoopBench.** Adapters translate; the engine talks only to the port.
 - **Never credit one model with another's answers.** A replay miss filled by the rules floor carries the floor's name and is cached under it (`fell_back`). LoopBench scores a replayed model run without the floor: a document the model never answered counts as missed.
 - **Model choice is pluggable** (`backend/extract/models.py`): which model may touch EC data is still open. Outputs are cached by prompt version + model + document hash so runs are reproducible.
-- Synthetic data only in this repo and its tests. No real patient data, ever.
+- Synthetic data only in this repo, its tests and every Claude session. Real patient data exists only in the live care line's Google Cloud project (spec 005): never in git, CI, logs, Slack, docs or chats.
