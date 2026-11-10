@@ -408,3 +408,51 @@ def test_nothing_reaches_a_patient_who_stopped(line):
     tap(line, DOC_WA, T0 + timedelta(hours=2), f"q:send:{h['id']}")
     line.tick(T0 + timedelta(days=4))
     assert len(line.tx.to(PAT_WA)) == n
+
+
+# ---- the patient membership (bet 9) ----------------------------------------------------------------------------------------
+def test_membership_offer_join_and_what_it_includes(line):
+    d = line.store.get("doctor", "D1")
+    d["membership_hkd"] = 400
+    line.store.put("doctor", "D1", d)
+    p, _ = joined_with_plan(line)
+    sent = last(line, DOC_WA)[0]
+    assert [b["title"] for b in sent["buttons"]] == ["Offer membership"]
+    tap(line, DOC_WA, T0 + timedelta(minutes=3), sent["buttons"][0]["id"])
+    offer = last(line, PAT_WA)[0]
+    assert "Dr Thomas Hu's fee HK$400 + tmrw service fee HK$40 = HK$440 a month" in offer["body"] and "Cancel any time" in offer["body"]
+    assert not [e for e in line.store.all("event") if e["event"] == "blocked"], "the offer must pass the outbound checks"
+    pay = line.store.one("payment", kind="membership")
+    assert line.stripe.sessions[pay["session_id"]]["mode"] == "subscription"
+    tap(line, DOC_WA, T0 + timedelta(minutes=4), sent["buttons"][0]["id"])                 # offered once only
+    assert "was already offered membership" in last(line, DOC_WA)[0]["body"]
+    line.paid(pay["id"], T0 + timedelta(minutes=10), subscription="sub_FAKE1")
+    assert "Welcome to Dr Thomas Hu's care membership" in last(line, PAT_WA)[0]["body"]
+    assert line.store.get("patient", p["id"])["member"]["active"]
+    # a repeat is included: no payment link
+    tap(line, PAT_WA, T0 + timedelta(days=20), "med:0")
+    h = line.store.one("handoff", kind="repeat")
+    tap(line, DOC_WA, T0 + timedelta(days=20, minutes=5), f"rp:ok:{h['id']}")
+    assert "included in your membership" in line.tx.to(PAT_WA)[-2]["body"] and last(line, PAT_WA)[0]["type"] == "list"
+    assert len(line.store.find("payment", kind="repeat")) == 0
+    # a report goes straight to the doctor
+    line.tx.media["m-r"] = (b"%PDF synthetic", "application/pdf")
+    msg(line, PAT_WA, T0 + timedelta(days=21), "", kind="document", media_id="m-r", mime="application/pdf")
+    assert "reply by" in last(line, PAT_WA)[0]["body"] and not line.store.find("payment", kind="result")
+    # cancel by message
+    msg(line, PAT_WA, T0 + timedelta(days=30), "cancel membership")
+    assert "membership is cancelled" in last(line, PAT_WA)[0]["body"] and line.stripe.cancelled == ["sub_FAKE1"]
+    assert not line.store.get("patient", p["id"])["member"]["active"]
+
+
+def test_membership_needs_a_price_and_can_be_declined(line):
+    p, _ = joined_with_plan(line)
+    assert not last(line, DOC_WA)[0]["buttons"]                       # no price set: no offer button
+    assert "Set a monthly membership price" in line.offer_membership(line.store.get("doctor", "D1"), p["id"], T0)[0].body
+    d = line.store.get("doctor", "D1")
+    d["membership_hkd"] = 300
+    line.store.put("doctor", "D1", d)
+    line.deliver(line.offer_membership(d, p["id"], T0 + timedelta(minutes=5)), T0 + timedelta(minutes=5))
+    tap(line, PAT_WA, T0 + timedelta(minutes=6), "mb:no")
+    assert "Nothing changes" in last(line, PAT_WA)[0]["body"]
+    assert line.membership_ended("sub_unknown", T0) == []

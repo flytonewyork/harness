@@ -72,6 +72,7 @@ async function load() {
   $("stats").innerHTML = [
     [st.joined, "patients joined"], [st.with_plan, "have a written plan"], [st.open, "waiting for you"],
     [`HK$${m.earned_hkd}`, `earned from ${m.paid_count} paid follow-up(s)`],
+    [`${S.membership.members} / ${S.membership.offered}`, `members / offered membership (HK$${S.membership.monthly_hkd} a month to you)`],
     [m.subscription_hkd ? `HK$${m.subscription_hkd}` : "HK$0", m.subscription_hkd ? "subscription" : `subscription during the pilot (would be HK$${m.shadow_subscription_hkd})`],
   ].map(([b, s]) => `<div class="stat"><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join("");
 
@@ -92,14 +93,16 @@ async function load() {
   $("queue").innerHTML = q.length ? q.join("") : `<p class="empty">Nothing waiting.</p>`;
 
   $("patients").innerHTML = S.patients.length ? `<table><tr><th>Name</th><th>Born</th><th>Joined</th><th></th></tr>` +
-    S.patients.map((p) => `<tr><td>${esc(p.name)}${p.state === "stopped" ? ' <span class="pill">stopped</span>' : ""}</td><td>${esc((p.dob || "").slice(0, 4))}</td>
-      <td>${esc((p.joined_at || "").slice(0, 10))}</td><td><button onclick="open_('${p.id}')">Open</button></td></tr>`).join("") + `</table>`
+    S.patients.map((p) => `<tr><td>${esc(p.name)}${p.state === "stopped" ? ' <span class="pill">stopped</span>' : ""}${p.member ? ' <span class="pill">member</span>' : ""}</td><td>${esc((p.dob || "").slice(0, 4))}</td>
+      <td>${esc((p.joined_at || "").slice(0, 10))}</td><td><button onclick="open_('${p.id}')">Open</button>
+      ${!p.member && !p.membership_offered && d.membership_hkd && p.state !== "stopped" ? `<button onclick="offer('${p.id}')">Offer membership</button>` : ""}</td></tr>`).join("") + `</table>`
     : `<p class="empty">No patients yet. Show your <a href="${esc(S.qr)}" target="_blank">QR card</a> at the end of a consult.</p>`;
 
   $("fees").innerHTML = `<div class="row">Repeat prescription HK$<input type=number id="f-repeat" value="${d.fees?.repeat ?? 0}" min=0>
      Result review HK$<input type=number id="f-result" value="${d.fees?.result ?? 0}" min=0>
+     Membership HK$<input type=number id="f-member" value="${d.membership_hkd ?? 0}" min=0> a month (0 = off)
      <button onclick="saveFees()">Save</button></div>
-     <p class="meta">Patients also pay a HK$30 tmrw service fee on each paid follow-up. Your fee goes to your own Stripe account in full. Replies: ${esc(S.hours_text)}.</p>`;
+     <p class="meta">Patients also pay a HK$30 tmrw service fee on each paid follow-up, and ${S.membership.fee_pct}% on a membership, shown on its own line. Members get repeats and result reviews with no per-item charge. You offer membership one patient at a time, once. Your fee goes to your own Stripe account in full. Replies: ${esc(S.hours_text)}.</p>`;
 }
 
 async function open_(pid) {
@@ -115,7 +118,8 @@ async function open_(pid) {
 async function plan(id, what) { await post(`/api/doctor/plan/${id}/${what}`); load(); }
 async function act(id, what) { await post(`/api/doctor/handoff/${id}/${what}`); load(); }
 async function reply(id) { const t = $("r-" + id).value.trim(); if (!t) return; await post(`/api/doctor/handoff/${id}/reply`, { text: t }); load(); }
-async function saveFees() { await post("/api/doctor/settings", { fees: { repeat: +$("f-repeat").value, result: +$("f-result").value } }); load(); }
+async function saveFees() { await post("/api/doctor/settings", { fees: { repeat: +$("f-repeat").value, result: +$("f-result").value }, membership_hkd: +$("f-member").value }); load(); }
+async function offer(pid) { const r = await post(`/api/doctor/patient/${pid}/offer`); alert(r.note.replace(/^tmrw · /, "")); load(); }
 $("payouts").onclick = async (e) => { e.preventDefault(); const r = await api("/api/doctor/payouts"); if (r.url) location.href = r.url; };
 
 load().then(() => { const m = location.hash.match(/patient=(\w+)/); if (m) open_(m[1]); }).catch(() => {});

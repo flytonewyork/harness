@@ -36,6 +36,7 @@ THANKS = re.compile(r"^\W*(thanks?( you)?|thx|ty|多謝|唔該|thank u|ok thanks
 GREETING = re.compile(r"^\W*(hi|hello|hey|menu|help|你好|哈囉|選單)\W*$", re.I)
 WANT_PLAN = re.compile(r"\b(my plan|the plan|plan again|resend)\b|計劃", re.I)
 WANT_REPEAT = re.compile(r"\b(repeat|refill|more (of )?(my )?(medicine|meds|tablets|pills))\b|覆配|配藥|攞藥|拎藥", re.I)
+CANCEL_MEMBERSHIP = re.compile(r"^\W*cancel( my)? membership\W*$|取消會籍", re.I)
 WANT_RESULT = re.compile(r"\b(result|report|blood test results?)\b|報告", re.I)
 DOC_CMD = re.compile(r"^\s*(help|queue|web|qr|resume|pause)(?:\s+(\d+))?\s*$", re.I)
 MODE_MINUTES = 30
@@ -424,6 +425,11 @@ class Line:
             return self._review_answer(p, d, rid, now)
         if rid.startswith("pickup:"):
             return self._pickup(p, d, rid, now)
+        if rid == "mb:no":
+            self.store.event(now, "membership_declined", patient=p["id"])
+            return [self._out(p, d, say("membership_declined", lang), "MB-01")]
+        if CANCEL_MEMBERSHIP.search(text) and self.is_member(p):
+            return self._cancel_membership(p, d, now)
         if m.get("kind") in ("image", "document"):
             return self._result_received(p, d, m, now)
         if m.get("kind") == "audio":
@@ -501,7 +507,8 @@ class Line:
         h = self.open_handoff(now, p, d, "repeat", med, med=med)
         fee = int((d.get("fees") or {}).get("repeat", 0))
         return [self._out(p, d, say("repeat_sent", lang, med=med, doctor=self.dname(d, lang), when=self._when(d, h, now, lang)), "MD-01"),
-                self._console(d, dsay("repeat", name=self.pname(p), med=med, fee=fee, service_fee=self.cfg.service_fee_hkd),
+                self._console(d, dsay("repeat", name=self.pname(p), med=med, fee=fee, service_fee=self.cfg.service_fee_hkd)
+                              + (" Included in their membership: no charge to them." if self.is_member(p) else ""),
                               ctx={"patient_id": p["id"], "handoff_id": h["id"]}, type="buttons",
                               buttons=[{"id": f"rp:ok:{h['id']}", "title": dsay("btn_approve")},
                                        {"id": f"rp:visit:{h['id']}", "title": dsay("btn_visit")},
@@ -526,6 +533,11 @@ class Line:
         fee = int((d.get("fees") or {}).get("repeat", 0))
         h["approved_at"] = iso(now)
         self.store.put("handoff", hid, h)
+        if self.is_member(p):
+            self.close_handoff(now, hid, d["id"], "approved (membership)")
+            return [self._out(p, d, say("member_repeat", lang, doctor=self.dname(d, lang), med=h["med"], clinic=cname), "MD-01"),
+                    self._pickup_menu(p, d, h["med"], None, now),
+                    self._console(d, dsay("repeat_done", name=self.pname(p), what="was approved (included in their membership)"))]
         pay = self._payment(p, d, "repeat", fee, hid, now, title=f"{d['name_en']}: repeat prescription ({h['med']})")
         if pay and pay.get("url"):
             f = say("fees_line", lang, doctor=self.dname(d, lang), **{k: pay[k] for k in ("doctor_fee", "service_fee", "total")})
@@ -578,8 +590,8 @@ class Line:
         fee = int((d.get("fees") or {}).get("result", 0))
         p.setdefault("reports", []).append({"ref": m.get("media_ref"), "at": iso(now), "mime": m.get("mime")})
         self.store.put("patient", p["id"], p)
-        if not (self.cfg.payments and d.get("stripe_account") and fee > 0):
-            h = self.open_handoff(now, p, d, "result", m.get("text") or "[report]", media_ref=m.get("media_ref"))
+        if self.is_member(p) or not (self.cfg.payments and d.get("stripe_account") and fee > 0):
+            h = self.open_handoff(now, p, d, "result", m.get("text") or "[report]", media_ref=m.get("media_ref"), member=self.is_member(p))
             return [self._ack(p, d, h, now), self._result_to_doctor(p, d, h, now, paid=None)]
         f = say("fees_line", lang, doctor=self.dname(d, lang), doctor_fee=fee, service_fee=self.cfg.service_fee_hkd, total=fee + self.cfg.service_fee_hkd)
         ref = m.get("media_ref") or ""
@@ -606,6 +618,73 @@ class Line:
                              type="buttons", buttons=[{"id": f"q:write:{h['id']}", "title": dsay("btn_write")},
                                                       {"id": f"q:call:{h['id']}", "title": dsay("btn_call")}])
 
+    # ---- the patient membership ------------------------------------------------------------------------------------------
+    @staticmethod
+    def is_member(p) -> bool:
+        return bool((p.get("member") or {}).get("active"))
+
+    def membership_fees(self, d) -> dict | None:
+        price = int(d.get("membership_hkd") or 0)
+        if price <= 0:
+            return None
+        svc = round(price * self.cfg.membership_fee_pct / 100)
+        return {"doctor_fee": price, "service_fee": svc, "total": price + svc}
+
+    def offer_membership(self, d, pid, now) -> list[Out]:
+        """The doctor invites one patient, once. Never sent by the line on its own (spec 003: no invitation without a yes)."""
+        p = self.store.get("patient", pid)
+        if not p or p["doctor_id"] != d["id"]:
+            return [self._console(d, "That patient isn't on your line.")]
+        f = self.membership_fees(d)
+        if not (f and self.cfg.payments and self.stripe and d.get("stripe_account")):
+            return [self._console(d, dsay("membership_off"))]
+        if self.is_member(p) or p.get("membership_offered"):
+            state = "is already a member" if self.is_member(p) else f"was already offered membership on {p['membership_offered'][:10]}"
+            return [self._console(d, dsay("membership_already", name=self.pname(p), state=state))]
+        if p.get("state") != "joined":
+            return [self._console(d, f"{self.pname(p)} has stopped messages from the line.")]
+        pay_id = new_id("PAY")
+        sess = self.stripe.subscription_checkout(account=d["stripe_account"], doctor_fee=f["doctor_fee"], service_fee=f["service_fee"],
+                                                 title=f"{d['name_en']}: care membership", payment_id=pay_id,
+                                                 success_url=f"{self.cfg.base_url}/paid?p={pay_id}", cancel_url=f"{self.cfg.base_url}/paid?p={pay_id}&cancel=1")
+        self.store.put("payment", pay_id, {"id": pay_id, "patient_id": p["id"], "doctor_id": d["id"], "kind": "membership", **f,
+                                           "currency": "HKD", "status": "pending", "session_id": sess["id"], "url": sess["url"],
+                                           "created_at": iso(now), "recurring": "month"})
+        p["membership_offered"] = iso(now)
+        self.store.put("patient", p["id"], p)
+        self.store.event(now, "membership_offered", patient=p["id"], doctor=d["id"], total=f["total"])
+        lang = p["lang"]
+        fees = say("fees_line", lang, doctor=self.dname(d, lang), **f)
+        body = say("membership_offer", lang, doctor=self.dname(d, lang), fees=fees, url=sess["url"])
+        return [self._out(p, d, body, "MB-01", type="buttons", buttons=[{"id": "mb:no", "title": say("btn_no_thanks", lang)}],
+                          template={"name": "line_payment", "lang": lang_code(lang, "line_payment"),
+                                    "params": [self.dname(d, lang), fees, sess["url"]]}),
+                self._console(d, dsay("membership_offered", name=self.pname(p), fees=say("fees_line", "en", doctor=d["name_en"], **f)))]
+
+    def membership_ended(self, subscription_id: str, now: datetime | None = None) -> list[str]:
+        now = now or hours.now_hk()
+        with self.store.lock:
+            pay = self.store.one("payment", subscription=subscription_id)
+            if not pay:
+                return []
+            p, d = self.store.get("patient", pay["patient_id"]), self.doctor(pay["doctor_id"])
+            if not self.is_member(p):
+                return []
+            p["member"].update(active=False, ended=iso(now))
+            self.store.put("patient", p["id"], p)
+            self.store.event(now, "membership_ended", patient=p["id"])
+            return self.deliver([self._console(d, dsay("membership_ended", name=self.pname(p)), ctx={"patient_id": p["id"]})], now)
+
+    def _cancel_membership(self, p, d, now) -> list[Out]:
+        sub = (p.get("member") or {}).get("subscription")
+        if sub and self.stripe:
+            self.stripe.cancel_subscription(sub)
+        p["member"].update(active=False, ended=iso(now))
+        self.store.put("patient", p["id"], p)
+        self.store.event(now, "membership_cancelled", patient=p["id"])
+        return [self._out(p, d, say("membership_cancelled", p["lang"]), "MB-01"),
+                self._console(d, dsay("membership_ended", name=self.pname(p)), ctx={"patient_id": p["id"]})]
+
     # ---- payments ---------------------------------------------------------------------------------------------------------
     def _payment(self, p, d, kind, doctor_fee, hid, now, title, media_ref=None) -> dict | None:
         if not (self.cfg.payments and self.stripe and d.get("stripe_account") and doctor_fee > 0):
@@ -620,17 +699,23 @@ class Line:
         self.store.event(now, "payment_created", payment=pid, kind=kind, total=f["total"])
         return pay
 
-    def paid(self, payment_id: str, now: datetime | None = None) -> list[str]:
+    def paid(self, payment_id: str, now: datetime | None = None, subscription: str | None = None) -> list[str]:
         """Stripe says a checkout completed. Idempotent."""
         now = now or hours.now_hk()
         with self.store.lock:
             pay = self.store.get("payment", payment_id)
             if not pay or pay["status"] == "paid":
                 return []
-            pay.update(status="paid", paid_at=iso(now))
+            pay.update(status="paid", paid_at=iso(now), **({"subscription": subscription} if subscription else {}))
             self.store.put("payment", payment_id, pay)
             self.store.event(now, "paid", payment=payment_id, kind=pay["kind"], total=pay["total"])
             p, d = self.store.get("patient", pay["patient_id"]), self.doctor(pay["doctor_id"])
+            if pay["kind"] == "membership":
+                p["member"] = {"active": True, "since": iso(now), "payment_id": payment_id, "subscription": subscription,
+                               "doctor_fee": pay["doctor_fee"], "service_fee": pay["service_fee"]}
+                self.store.put("patient", p["id"], p)
+                return self.deliver([self._out(p, d, say("membership_joined", p["lang"], doctor=self.dname(d, p["lang"])), "MB-01"),
+                                     self._console(d, dsay("membership_joined", name=self.pname(p), fee=pay["doctor_fee"]), ctx={"patient_id": p["id"]})], now)
             outs = [self._console(d, dsay("paid", name=self.pname(p), total=pay["total"], what="repeat" if pay["kind"] == "repeat" else "result review"),
                                   ctx={"patient_id": p["id"]})]
             if pay["kind"] == "repeat":
@@ -755,6 +840,8 @@ class Line:
             return self.question_action(d, parts[2], parts[1], now)
         if parts[0] == "rp" and len(parts) == 3:
             return self.repeat_decision(d, parts[2], parts[1], now)
+        if parts[0] == "mb" and len(parts) == 3 and parts[1] == "offer":
+            return self.offer_membership(d, parts[2], now)
         if parts[0] == "conf" and len(parts) == 3:
             p = self.store.get("patient", parts[2])
             if p and p["doctor_id"] == d["id"]:
@@ -855,7 +942,9 @@ class Line:
             days, rem = self._schedule(d, p, plan, now)
             outs.append(self.menu(p, d))
             r = f", and {rem} reminder(s)" if rem else ""
-            outs.append(self._console(d, dsay("sent", name=self.pname(p), days=days, reminders=r)))
+            offer = self.membership_fees(d) and self.cfg.payments and not self.is_member(p) and not p.get("membership_offered")
+            outs.append(self._console(d, dsay("sent", name=self.pname(p), days=days, reminders=r), ctx={"patient_id": p["id"]},
+                                      **({"type": "buttons", "buttons": [{"id": f"mb:offer:{p['id']}", "title": dsay("btn_offer")}]} if offer else {})))
         else:
             if plan.get("handoff_id"):
                 h = self.store.get("handoff", plan["handoff_id"])

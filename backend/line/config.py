@@ -18,6 +18,7 @@ class Config:
     timezone: str = "Asia/Hong_Kong"
     service_fee_hkd: int = 30                         # tmrw's fee to the patient on a paid follow-up (10 Nov decision)
     subscription_hkd: int = 0                         # the doctor subscription: a setting, off (0) during the pilot
+    membership_fee_pct: int = 10                      # tmrw's share of a patient membership, shown to the patient on its own line
     shadow_subscription_hkd: int = 480                # what the dashboard shows a subscription would have cost
     payments: bool = False                            # Stripe on; off in sim unless a fake is wired
     store: str = "memory"                             # memory | sqlite:<path> | firestore
@@ -48,6 +49,7 @@ class Config:
             mode=e("LINE_MODE", "sim"), base_url=e("LINE_BASE_URL", "http://localhost:8080").rstrip("/"),
             service_fee_hkd=int(e("LINE_SERVICE_FEE_HKD", "30")), subscription_hkd=int(e("LINE_SUBSCRIPTION_HKD", "0")),
             shadow_subscription_hkd=int(e("LINE_SHADOW_SUBSCRIPTION_HKD", "480")),
+            membership_fee_pct=int(e("LINE_MEMBERSHIP_FEE_PCT", "10")),
             payments=e("LINE_PAYMENTS", "off") == "on", store=e("LINE_STORE", "memory"), store_prefix=e("LINE_STORE_PREFIX", "line_"), model=e("LINE_MODEL", "fake"),
             vertex_project=e("VERTEX_PROJECT", e("GOOGLE_CLOUD_PROJECT", "")), vertex_region=e("VERTEX_REGION", "asia-east2"),
             vertex_model=e("VERTEX_MODEL", "gemini-2.5-flash"),

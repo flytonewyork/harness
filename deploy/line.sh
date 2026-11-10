@@ -114,7 +114,7 @@ urls)
   n="WA_VERIFY_TOKEN${SUF//-/_}"; n="${n^^}"
   echo "Meta webhook (WhatsApp → Configuration): $URL/webhook/whatsapp   verify token: $(gcloud secrets versions access latest --secret="$n")"
   echo "  subscribe to: messages"
-  echo "Stripe webhook (Developers → Webhooks): $URL/webhook/stripe   events: checkout.session.completed, account.updated"
+  echo "Stripe webhook (Developers → Webhooks): $URL/webhook/stripe   events: checkout.session.completed, account.updated, customer.subscription.deleted"
   echo "  then: deploy/line.sh secret $ENVN STRIPE_WEBHOOK_SECRET, and deploy again"
   ;;
 *) sed -n 2,15p "$0" ;;

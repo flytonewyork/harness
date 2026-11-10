@@ -125,3 +125,15 @@ def test_live_mode_refuses_without_sign_off():
     with pytest.raises(SystemExit):
         Config(mode="live", signed_off=True, store="memory", model="fake", wa_token="x", wa_phone_number_id="x", wa_app_secret="x",
                wa_verify_token="x", wa_number="x", cron_secret="x", session_secret="y").check()
+
+
+def test_subscription_cancelled_in_stripe_ends_the_membership(tmp_path):
+    c = cfg(media_dir=str(tmp_path))
+    app = create_app(c)
+    line = app.state.line
+    line.store.put("patient", "P1", {"id": "P1", "wa": "85261234567", "doctor_id": "D1", "lang": "en", "state": "joined", "consent": {"at": "x"},
+                                     "name": "TEST Person", "member": {"active": True, "subscription": "sub_1"}})
+    line.store.put("payment", "PAYM", {"id": "PAYM", "patient_id": "P1", "doctor_id": "D1", "kind": "membership", "status": "paid", "subscription": "sub_1"})
+    tc = TestClient(app)
+    r = tc.post("/webhook/stripe", content=json.dumps({"type": "customer.subscription.deleted", "data": {"object": {"id": "sub_1"}}}))
+    assert r.status_code == 200 and not line.store.get("patient", "P1")["member"]["active"]

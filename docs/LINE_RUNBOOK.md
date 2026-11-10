@@ -57,8 +57,10 @@ For each doctor, do at least 10 role-played visits, covering:
 4. a red-flag message ("chest pain");
 5. STOP, then JOIN;
 6. a repeat that's approved and paid with Stripe's test card 4242 4242 4242 4242, then picked up;
-7. a result review sent as a photo;
-8. the day-3 check-in: run the scheduler, or wait.
+7. a membership: set a price on the web page, tap "Offer membership", join with the test card, then ask for a repeat
+   (no charge) and write CANCEL MEMBERSHIP;
+8. a result review sent as a photo;
+9. the day-3 check-in: run the scheduler, or wait.
 
 Measure:
 - time from the end of the voice note to the patient getting the plan (target under 2 minutes);

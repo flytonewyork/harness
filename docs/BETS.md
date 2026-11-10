@@ -22,6 +22,7 @@ being prompted.
 | 5 | Chronic Co-Care is the best first market: Josie is a Co-Care family doctor and names its follow-up or admin work as a burden | 40% | | Ask her · 2 questions, 8 Nov | | |
 | 6 | EC Healthcare agrees a written next step, with data access, by 26 Nov | 20% | | Phase 0 look-back (#5) · already running | | |
 | 8 | At least 2 doctors besides Thomas use the line in a normal week by 1 Feb, without being chased (set 10 Nov) | 30% | | The live line (spec 005) · Jose from launch, then others | | |
+| 9 | At least 10% of patients the doctor offers a monthly membership to subscribe within 14 days of the offer (set 10 Nov) | 30% | | The live line · offered one patient at a time; best tested in a self-pay setting (Adrian's clinic) | | |
 
 Side bet on 4: at least 40% reply to a check-in, 65%. A reply to a prompt proves much less than coming back
 unprompted.
@@ -46,8 +47,14 @@ review, all measured by the line itself:
 - Bet 4: at least 25% of those who join message again, unprompted, within 30 days.
 - Bet 2: at least 3 in 10 patients offered a paid repeat or result review pay for it.
 - Bet 8: at least 2 doctors besides Thomas use it in a normal week.
+- Bet 9: at least 10% of patients offered a membership subscribe within 14 days.
 
-If they pass: the doctor-owned line is the company; raise on it. If they don't: the 1 Feb review weighs joining Heidi
+Why bet 9 exists: Hong Kong outpatient care is cheap and often bundled (insurer passes from HK$80 a visit, telco
+video consults), and many working adults have outpatient cover. So paying per item out of pocket competes with a
+covered or cheap visit, and bet 2 may miss in the mass market for that reason alone. Continuity with your own doctor
+is the thing those bundles don't sell. A membership tests whether people will pay for that.
+
+If they pass (bet 2 or bet 9, with 3 or 4): the doctor-owned line is the company; raise on it. If they don't: the 1 Feb review weighs joining Heidi
 against a clinic-facing business, which the 10 Nov direction rules out for now.
 
 ## Each bet

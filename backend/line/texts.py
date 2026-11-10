@@ -136,6 +136,23 @@ T: dict[str, dict[str, str]] = {
     "fees_line": {"en": "{doctor}'s fee HK${doctor_fee} + tmrw service fee HK${service_fee} = HK${total}",
                   "zh": "{doctor}診金 HK${doctor_fee} + tmrw 服務費 HK${service_fee} = HK${total}"},
 
+    # the patient membership (offered one to one by the doctor, at most once)
+    "membership_offer": {
+        "en": ("{doctor} has invited you to {doctor}'s care membership: {fees} a month. Cancel any time.\n"
+               "It includes repeat prescriptions and result reviews here, with no per-item charge, on top of everything "
+               "the line already does.\nJoin here: {url}"),
+        "zh": ("{doctor}邀請你加入{doctor}護理會籍：{fees}，按月收費，可隨時取消。\n"
+               "會籍包括喺度覆配藥物同睇報告，唔使逐次收費，另外照用熱線所有服務。\n加入：{url}"),
+    },
+    "btn_no_thanks": {"en": "No thanks", "zh": "唔使喇"},
+    "membership_declined": {"en": "No problem. Nothing changes; the line works as before.", "zh": "冇問題，熱線照常運作。"},
+    "membership_joined": {"en": "Welcome to {doctor}'s care membership. Repeats and result reviews here are now included. To stop it, write CANCEL MEMBERSHIP.",
+                          "zh": "歡迎加入{doctor}護理會籍。喺度覆配藥物同睇報告已經包括喺會籍入面。如想取消，請寫 CANCEL MEMBERSHIP。"},
+    "membership_cancelled": {"en": "Your membership is cancelled; you won't be charged again. The line keeps working as before.",
+                             "zh": "你嘅會籍已經取消，唔會再收費。熱線照常運作。"},
+    "member_repeat": {"en": "{doctor} approved your repeat of {med}. It's included in your membership. Choose a time to collect it at {clinic}.",
+                      "zh": "{doctor}批准咗覆配{med}，已包括喺你嘅會籍入面。請揀時間去{clinic}取藥。"},
+
     # waiting outside WhatsApp's 24-hour window
     "outbox_flushed": {"en": "Here's what {doctor}'s care line has for you:", "zh": "{doctor}護理熱線有以下訊息俾你："},
 }
@@ -192,6 +209,12 @@ D: dict[str, str] = {
     "resumed": "You're back on. Patients will get your usual hours again.",
     "not_doctor_cmd": "I didn't catch that. Send HELP for what I can do.",
     "model_failed": "Sorry, I couldn't draft that ({why}). Send it again, or type the plan as text.",
+    "btn_offer": "Offer membership",
+    "membership_off": "Set a monthly membership price on your web page first (send WEB).",
+    "membership_already": "{name} {state}.",
+    "membership_offered": "Offered {name} your care membership ({fees} a month). You'll hear if they join.",
+    "membership_joined": "{name} joined your care membership: HK${fee} a month to you.",
+    "membership_ended": "{name}'s care membership has ended.",
 }
 
 MENU_KEYS = ("plan", "ask", "repeat", "result")

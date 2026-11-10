@@ -55,6 +55,17 @@ class FakeStripe:
     def refund(self, session_id: str) -> bool:
         return True
 
+    def subscription_checkout(self, *, account: str, doctor_fee: int, service_fee: int, title: str, payment_id: str,
+                              success_url: str, cancel_url: str) -> dict:
+        sid = f"cs_test_FAKESUB{next(self._n)}"
+        self.sessions[sid] = {"account": account, "doctor_fee": doctor_fee, "service_fee": service_fee, "payment_id": payment_id,
+                              "mode": "subscription"}
+        return {"id": sid, "url": f"https://checkout.stripe.test/{sid}"}
+
+    def cancel_subscription(self, subscription_id: str) -> bool:
+        self.cancelled = getattr(self, "cancelled", []) + [subscription_id]
+        return True
+
 
 class StripeConnect:
     API = "https://api.stripe.com/v1"
@@ -101,6 +112,27 @@ class StripeConnect:
         }
         r = self._post("/checkout/sessions", data)
         return {"id": r["id"], "url": r["url"]}
+
+    def subscription_checkout(self, *, account, doctor_fee, service_fee, title, payment_id, success_url, cancel_url) -> dict:
+        """A monthly membership: one recurring price (doctor's fee + tmrw's fee); tmrw's share is the application fee
+        percentage, so the doctor's fee reaches the doctor's account in full."""
+        total = doctor_fee + service_fee
+        data = {
+            "mode": "subscription", "success_url": success_url, "cancel_url": cancel_url, "client_reference_id": payment_id,
+            "metadata[payment_id]": payment_id, "subscription_data[metadata][payment_id]": payment_id,
+            "line_items[0][quantity]": "1", "line_items[0][price_data][currency]": "hkd",
+            "line_items[0][price_data][unit_amount]": str(total * 100),
+            "line_items[0][price_data][recurring][interval]": "month",
+            "line_items[0][price_data][product_data][name]": title,
+            "subscription_data[application_fee_percent]": f"{100 * service_fee / total:.2f}",
+            "subscription_data[transfer_data][destination]": account,
+        }
+        r = self._post("/checkout/sessions", data)
+        return {"id": r["id"], "url": r["url"]}
+
+    def cancel_subscription(self, subscription_id: str) -> bool:
+        r = self.http.delete(f"{self.API}/subscriptions/{subscription_id}")
+        return r.status_code < 300
 
     def refund(self, session_id: str) -> bool:
         s = self.http.get(f"{self.API}/checkout/sessions/{session_id}").json()

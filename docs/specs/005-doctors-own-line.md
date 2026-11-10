@@ -90,7 +90,15 @@ This is the first time tmrw holds real patient data, so the boundary is written 
 |---|---|---|
 | Patient | The doctor's own fee for a repeat or a result review | The doctor's Stripe account |
 | Patient | HK$30 tmrw service fee, shown on its own line | tmrw (the Connect application fee) |
+| Patient (member) | The doctor's monthly membership price, plus tmrw's 10% on its own line; repeats and result reviews then carry no per-item charge | The doctor's Stripe account; tmrw's share as the Connect application fee |
 | Doctor | Nothing during the pilot. Subscription switch off; its price and limits are settings | tmrw, once switched on |
+
+**The membership (bet 9).** The doctor sets a monthly price on the web page (0 means off). After a plan is sent, the
+doctor's confirmation carries an "Offer membership" button, and the web page has one per patient. Each patient is
+offered once, by the doctor's own choice; the line never offers it by itself, and "No thanks" is a button. Joining is
+a Stripe subscription (Checkout in subscription mode, destination charge, tmrw's share as the application fee
+percentage). Members' repeats and result reviews go straight through with no per-item charge. CANCEL MEMBERSHIP
+cancels the Stripe subscription; a cancellation in Stripe ends it too (`customer.subscription.deleted`).
 
 Stripe's fees on a destination charge are paid by the platform, so tmrw nets about HK$16 on a HK$300 repeat (HK$330
 charged). The doctor's dashboard shows what a subscription would have cost them each month, so its price can be
@@ -124,7 +132,7 @@ tested later without switching it on.
 
 ## Where the build stands (10 Nov)
 
-- Built: `backend/line/` with the simulator (`python -m backend.line sim`), 33 tests (`tests/test_line.py`,
+- Built: `backend/line/` with the patient membership (bet 9), the simulator (`python -m backend.line sim`), 38 tests (`tests/test_line.py`,
   `tests/test_line_api.py`), the deploy script and `docs/LINE_RUNBOOK.md`.
 - Proven only with fakes so far. The Vertex adapter is tested with Google's client faked. The first real-model
   drafts, in Cantonese especially, come in the rehearsal week.

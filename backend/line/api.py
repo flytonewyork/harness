@@ -105,7 +105,9 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
         if ev.get("type") in ("checkout.session.completed", "checkout.session.async_payment_succeeded") and obj.get("payment_status") in ("paid", None):
             pid = (obj.get("metadata") or {}).get("payment_id") or obj.get("client_reference_id")
             if pid:
-                line.paid(pid)
+                line.paid(pid, subscription=obj.get("subscription"))
+        if ev.get("type") == "customer.subscription.deleted" and obj.get("id"):
+            line.membership_ended(obj["id"])
         if ev.get("type") == "account.updated":
             d = line.store.one("doctor", stripe_account=obj.get("id"))
             if d:
@@ -251,6 +253,16 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
                 return {"sent": line.deliver(line.repeat_decision(d, hid, what, now), now)}
         raise HTTPException(400)
 
+    @app.post("/api/doctor/patient/{pid}/offer")
+    def doctor_offer(pid: str, request: Request):
+        d = session_doctor(request)
+        own(d, line.store.get("patient", pid))
+        now = hours.now_hk(cfg.timezone)
+        with line.store.lock:
+            outs = line.offer_membership(d, pid, now)
+            note = outs[-1].body if outs else ""
+            return {"sent": line.deliver(outs, now), "note": note}
+
     @app.post("/api/doctor/settings")
     async def doctor_settings(request: Request):
         d = session_doctor(request)
@@ -260,6 +272,8 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
                 d[k] = body[k]
         if "fees" in body:
             d["fees"] = {k: max(0, int(v)) for k, v in body["fees"].items() if k in ("repeat", "result")}
+        if "membership_hkd" in body:
+            d["membership_hkd"] = max(0, int(body["membership_hkd"]))
         hours.clock(d)                                   # refuses hours it can't read
         line.store.put("doctor", d["id"], d)
         return {"ok": True}
@@ -323,15 +337,19 @@ def state_for(line: Line, cfg: Config, d: dict) -> dict:
         x["patient_name"] = (by_id.get(x["patient_id"]) or {}).get("name", "?")
     earned = sum(x["doctor_fee"] for x in pays if x.get("paid_at", "").startswith(month))
     return {
-        "doctor": {k: d.get(k) for k in ("id", "code", "name_en", "name_zh", "hours", "fees", "paused_until", "stripe_account", "stripe_ready")},
+        "doctor": {k: d.get(k) for k in ("id", "code", "name_en", "name_zh", "hours", "fees", "membership_hkd", "paused_until", "stripe_account", "stripe_ready")},
         "hours_text": hours.hours_text(d, "en"),
         "qr": f"{cfg.base_url}/j/{d['code']}",
         "queue": open_h, "drafts": drafts,
-        "patients": sorted([{k: p.get(k) for k in ("id", "name", "dob", "joined_at", "state", "plan_id", "lang")} for p in pats],
+        "patients": sorted([{**{k: p.get(k) for k in ("id", "name", "dob", "joined_at", "state", "plan_id", "lang", "membership_offered")},
+                             "member": Line.is_member(p)} for p in pats],
                            key=lambda p: p.get("joined_at") or "", reverse=True),
         "money": {"month": month, "earned_hkd": earned, "paid_count": sum(1 for x in pays if x.get("paid_at", "").startswith(month)),
                   "service_fees_hkd": sum(x["service_fee"] for x in pays if x.get("paid_at", "").startswith(month)),
                   "subscription_hkd": cfg.subscription_hkd, "shadow_subscription_hkd": cfg.shadow_subscription_hkd},
+        "membership": {"members": sum(1 for p in pats if Line.is_member(p)), "offered": sum(1 for p in pats if p.get("membership_offered")),
+                       "monthly_hkd": sum((p.get("member") or {}).get("doctor_fee", 0) for p in pats if Line.is_member(p)),
+                       "fee_pct": cfg.membership_fee_pct},
         "stats": {"joined": len(pats), "with_plan": sum(1 for p in pats if p.get("plan_id")),
                   "stopped": sum(1 for p in pats if p.get("state") == "stopped"), "open": len(open_h)},
         "payments_on": bool(cfg.payments),
