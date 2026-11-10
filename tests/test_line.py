@@ -249,7 +249,7 @@ def test_paid_result_review(line):
     pay = line.store.one("payment", kind="result")
     line.paid(pay["id"], T0 + timedelta(days=14, minutes=2))
     assert "will review your report" in last(line, PAT_WA)[0]["body"]
-    assert doctor_got(line, "paid for a result review") and doctor_got(line, "See the report on your web page")
+    assert doctor_got(line, "paid for a result review") and doctor_got(line, "See it on your web page")
 
 
 # ---- the 24-hour window ----------------------------------------------------------------------------------------------------
@@ -434,11 +434,13 @@ def test_membership_offer_join_and_what_it_includes(line):
     h = line.store.one("handoff", kind="repeat")
     tap(line, DOC_WA, T0 + timedelta(days=20, minutes=5), f"rp:ok:{h['id']}")
     assert "included in your membership" in line.tx.to(PAT_WA)[-2]["body"] and last(line, PAT_WA)[0]["type"] == "list"
+    assert "Paid" not in last(line, PAT_WA)[0]["body"], "a member's repeat isn't paid for item by item"
     assert len(line.store.find("payment", kind="repeat")) == 0
     # a report goes straight to the doctor
     line.tx.media["m-r"] = (b"%PDF synthetic", "application/pdf")
     msg(line, PAT_WA, T0 + timedelta(days=21), "", kind="document", media_id="m-r", mime="application/pdf")
     assert "reply by" in last(line, PAT_WA)[0]["body"] and not line.store.find("payment", kind="result")
+    assert doctor_got(line, "sent a report to review (included in their membership)")
     # cancel by message
     msg(line, PAT_WA, T0 + timedelta(days=30), "cancel membership")
     assert "membership is cancelled" in last(line, PAT_WA)[0]["body"] and line.stripe.cancelled == ["sub_FAKE1"]
@@ -456,3 +458,149 @@ def test_membership_needs_a_price_and_can_be_declined(line):
     tap(line, PAT_WA, T0 + timedelta(minutes=6), "mb:no")
     assert "Nothing changes" in last(line, PAT_WA)[0]["body"]
     assert line.membership_ended("sub_unknown", T0) == []
+
+
+# ---- found in the final review (10 Nov) ---------------------------------------------------------------------------------------
+def test_returning_patient_gets_a_new_plan_and_keeps_their_medicines(line):
+    p, first = joined_with_plan(line)
+    later = T0 + timedelta(days=30)
+    msg(line, PAT_WA, later, "Hi Dr Hu [TH01]")                        # scans the card again at the next visit
+    assert doctor_got(line, "CHAN Tai Man (b. 1964) is back")
+    dictate(line, later + timedelta(minutes=1), "Add Metformin 500 mg twice a day. Review in 3 months.")
+    plan = line.store.one("plan", patient_id=p["id"], status="draft")
+    assert plan["job"] == "plan" and plan["id"] != first["id"]
+    tap(line, DOC_WA, later + timedelta(minutes=2), f"plan:send:{plan['id']}")
+    tap(line, PAT_WA, later + timedelta(minutes=3), "menu:repeat")
+    assert [r["title"] for r in last(line, PAT_WA)[0]["rows"]] == ["Metformin 500 mg", "Amlodipine 5 mg"]
+    assert line.store.get("patient", p["id"])["awaiting_plan"] is None
+
+
+def test_a_later_message_to_a_patient_is_confirmed_first_and_is_not_a_new_plan(line):
+    p, plan = joined_with_plan(line)
+    sent_note = [s for s in line.tx.to(DOC_WA) if "Sent to CHAN Tai Man" in s["body"]][-1]
+    n = len(line.tx.to(PAT_WA))
+    msg(line, DOC_WA, T0 + timedelta(days=5), "Your blood test is booked for Friday at the clinic.", context_id=sent_note["id"])
+    assert len(line.tx.to(PAT_WA)) == n, "typed text with no open question waits for Send"
+    shown = last(line, DOC_WA, 2)[0]["body"]
+    assert "Message to CHAN Tai Man, exactly as you wrote it" in shown and "Your blood test is booked for Friday" in shown
+    draft = line.store.one("plan", patient_id=p["id"], status="draft")
+    assert draft["job"] == "reply"
+    tap(line, DOC_WA, T0 + timedelta(days=5, minutes=1), f"plan:send:{draft['id']}")
+    line_out = [s for s in line.tx.sent if s["to"] == PAT_WA and "booked for Friday" in (s["body"] or "")]
+    waiting = line.store.get("wa", PAT_WA).get("outbox", [])
+    assert line_out or any("booked for Friday" in o["body"] for o in waiting)
+    assert line.store.get("patient", p["id"])["plan_id"] == plan["id"], "the plan itself is unchanged"
+
+
+def test_not_my_patient_closes_the_line_to_that_number(line):
+    p = join(line)
+    tap(line, DOC_WA, T0 + timedelta(minutes=1), f"conf:no:{p['id']}")
+    assert "couldn't match this number" in last(line, PAT_WA)[0]["body"]
+    n = len(line.tx.to(PAT_WA))
+    msg(line, PAT_WA, T0 + timedelta(minutes=5), "hello? can I have my plan")
+    assert len(line.tx.to(PAT_WA)) == n and not line.store.find("handoff", patient_id=p["id"])
+    msg(line, PAT_WA, T0 + timedelta(minutes=6), "I have chest pain")       # safety still answers
+    assert "Call 999 now" in last(line, PAT_WA)[0]["body"]
+    dictate(line, T0 + timedelta(minutes=7))
+    assert not line.store.all("plan")
+
+
+def test_stop_half_way_through_joining_keeps_nothing(line):
+    msg(line, PAT_WA, T0, "Hi Dr Hu [TH01]")
+    msg(line, PAT_WA, T0, "", reply_id="consent:yes", kind="interactive")
+    msg(line, PAT_WA, T0, "STOP")
+    assert line.store.get("wa", PAT_WA) is None and not line.store.all("patient")
+    assert "Nothing has been kept" in last(line, PAT_WA)[0]["body"]
+
+
+def test_long_messages_are_split_to_whatsapps_limits(line):
+    p = join(line)
+    long = " ".join(f"Take Amlodipine 5 mg in the morning and note number {i}." for i in range(1, 140))
+    dictate(line, T0 + timedelta(minutes=1), long)
+    plan = line.store.one("plan", patient_id=p["id"])
+    tap(line, DOC_WA, T0 + timedelta(minutes=2), f"plan:send:{plan['id']}")
+    parts = [s for s in line.tx.to(PAT_WA) if s["kind"] == "approved"]
+    assert len(parts) > 1 and all(len(s["body"]) <= 4096 for s in parts)
+    assert all(s["body"].startswith("Dr Thomas Hu's care line (approved by Dr Thomas Hu)") for s in parts)
+    assert all(len(s["body"]) <= 1024 for s in line.tx.sent if s["type"] in ("buttons", "list"))
+    msg(line, PAT_WA, T0 + timedelta(hours=1), "Is this right? " + "It is a very long question. " * 60)
+    q = [s for s in line.tx.to(DOC_WA) if s["type"] == "buttons"][-1]
+    assert len(q["body"]) <= 1024 and "I'll write" in [b["title"] for b in q["buttons"]]
+
+
+def test_a_failed_send_does_not_stop_the_line(line):
+    p, _ = joined_with_plan(line)
+    real = line.tx.send
+
+    def flaky(o):
+        if o.to == PAT_WA:
+            raise RuntimeError("WhatsApp send failed: 500")
+        return real(o)
+    line.tx.send = flaky
+    msg(line, PAT_WA, T0 + timedelta(hours=1), "Can I take it with food?")
+    assert any(e["event"] == "send_failed" for e in line.store.all("event"))
+    assert any("could not be sent" in s["body"] for s in line.tx.to(DOC_WA))
+    assert any("CHAN Tai Man asks" in s["body"] for s in line.tx.to(DOC_WA)), "the doctor still gets the question"
+
+
+def test_one_number_on_two_doctors_lines(line):
+    line.store.put("doctor", "D2", doctor(id="D2", code="JS01", name_en="Dr Jose Santos", name_zh="山醫生", short_en="Dr Santos", wa="85290000002"))
+    line.store.put("wa", "85290000002", {"wa": "85290000002", "last_in": T0.isoformat(timespec="minutes"), "outbox": []})
+    pa, plan_a = joined_with_plan(line)
+    msg(line, PAT_WA, T0 + timedelta(hours=1), "Hi Dr Santos [JS01]")
+    tap(line, PAT_WA, T0 + timedelta(hours=1), "consent:yes")
+    msg(line, PAT_WA, T0 + timedelta(hours=1), "CHAN Tai Man")
+    msg(line, PAT_WA, T0 + timedelta(hours=1), "23/09/1964")
+    assert len(line.store.find("patient", wa=PAT_WA)) == 2
+    line.tick(T0 + timedelta(days=3, hours=1))                          # Dr Hu's day-3 check-in, while Dr Santos's line is "current"
+    assert not [e for e in line.store.all("event") if e["event"] == "blocked"]
+    tap(line, PAT_WA, T0 + timedelta(days=3, hours=2), "checkin:worse")
+    h = line.store.one("handoff", kind="question")
+    assert h["doctor_id"] == "D1" and h["patient_id"] == pa["id"], "the answer goes to the doctor who asked"
+
+
+def test_sensitive_reminders_never_name_the_test(line):
+    p = join(line)
+    dictate(line, T0 + timedelta(minutes=1), "Start Amlodipine 5 mg once a day. HIV test in 2 weeks.")
+    plan = line.store.one("plan", patient_id=p["id"])
+    tap(line, DOC_WA, T0 + timedelta(minutes=2), f"plan:send:{plan['id']}")
+    msg(line, PAT_WA, T0 + timedelta(days=14), "hi")                    # opens their window
+    n = len(line.tx.sent)
+    line.tick(T0 + timedelta(days=14, hours=1))
+    new = [s for s in line.tx.sent[n:] if s["to"] == PAT_WA]
+    assert new and all("HIV" not in (s["body"] or "") + str(s.get("template")) for s in new)
+    assert any("a next step in your plan" in (s["body"] or "") for s in new)
+
+
+def test_editing_a_plan_drops_its_reminders_and_says_so(line):
+    p = join(line)
+    dictate(line, T0 + timedelta(minutes=1))
+    plan = line.store.one("plan", patient_id=p["id"])
+    assert "reminder on day 14" in last(line, DOC_WA, 2)[0]["body"]
+    tap(line, DOC_WA, T0 + timedelta(minutes=2), f"plan:edit:{plan['id']}")
+    msg(line, DOC_WA, T0 + timedelta(minutes=3), "Amlodipine 5 mg every morning.")
+    assert "reminders were dropped" in last(line, DOC_WA, 2)[0]["body"]
+    tap(line, DOC_WA, T0 + timedelta(minutes=4), f"plan:send:{plan['id']}")
+    assert {i["kind"] for i in line.store.find("item", patient_id=p["id"])} == {"checkin"}
+
+
+def test_a_draft_reply_with_a_number_the_plan_lacks_is_dropped(line):
+    class Inventive(FakeModel):
+        def draft_reply(self, **kw):
+            return {"draft": "Yes, you can double it to 10 mg.", "uses": []}
+    p, _ = joined_with_plan(line)
+    line.model = Inventive()
+    msg(line, PAT_WA, T0 + timedelta(hours=1), "Can I take more if my pressure is high?")
+    q = [s for s in line.tx.to(DOC_WA) if "CHAN Tai Man asks" in s["body"]][-1]
+    assert "Draft reply" not in q["body"] and "Send draft" not in [b["title"] for b in q["buttons"]]
+    assert any(e["event"] == "draft_dropped" for e in line.store.all("event"))
+
+
+def test_quotes_survive_punctuation_and_spoken_numbers():
+    t = "OK, so start amlodipine 5mg — once a day, in the morning. 兩個禮拜後覆診，每次食半粒。"
+    assert drafting.quoted("Start Amlodipine 5 mg once a day in the morning", t)
+    assert not drafting.quoted("stop amlodipine", t)
+    assert drafting.numbers_ok("Review in 2 weeks; 0.5 tablet each time", "兩個禮拜後覆診，每次食半粒") == []
+    assert drafting.numbers_ok("25 mg for 20 days", "廿五毫克，食二十日") == []
+    assert drafting.numbers_ok("2 times a day for 1 week at 9:00", "twice a day for a week at nine") == []
+    assert drafting.numbers_ok("Take 10 mg", "take five milligrams") == ["10"]

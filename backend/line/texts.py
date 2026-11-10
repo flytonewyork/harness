@@ -58,6 +58,10 @@ T: dict[str, dict[str, str]] = {
     "stopped": {"en": "You won't get any more messages from {doctor}'s care line, and {doctor} has been told. To start again, write JOIN.",
                 "zh": "你唔會再收到{doctor}護理熱線嘅訊息，我哋已經通知{doctor}。想重新開始，請寫 JOIN。"},
 
+    "removed": {"en": "{doctor} couldn't match this number to a patient, so this care line can't be used from it. If that's a mistake, please tell the clinic at your next visit.\nFor an emergency, call 999 or go to A&E.",
+                "zh": "{doctor}未能將呢個號碼對應到病人，所以呢個號碼用唔到護理熱線。如果有誤會，請喺下次覆診話俾診所知。\n如有緊急情況，請即打999或去急症室。"},
+    "choose": {"en": "Please choose:", "zh": "請選擇："},
+
     # the plan (AV-01): headings around the doctor's approved items
     "plan_header": {"en": "Your plan from {doctor}, {date}:", "zh": "{doctor}俾你嘅計劃（{date}）："},
     "sec_take": {"en": "Medicines", "zh": "藥物"},
@@ -104,6 +108,8 @@ T: dict[str, dict[str, str]] = {
     "checkin_worse": {"en": "Thank you for telling us. {doctor} will read this and reply by {when}. Tell us what's worse if you can.\nIf it can't wait, call 999 or go to A&E.",
                       "zh": "多謝話俾我哋知。{doctor}會喺{when}之前回覆。如果可以，請講低邊方面差咗。\n如果唔可以等，請即打999或去急症室。"},
     "reminder": {"en": "A reminder from your plan: {text}", "zh": "計劃提提你：{text}"},
+    "reminder_generic": {"en": "A reminder: a next step in your plan from {doctor} is due. Choose My plan from the menu to see it.",
+                         "zh": "提提你：{doctor}俾你嘅計劃有一項下一步到期。請喺選單揀「我嘅計劃」睇返。"},
 
     # repeats (MD-01), paid
     "repeat_pick": {"en": "Which medicine do you need again? These are from your plan:", "zh": "你想覆配邊隻藥？以下係你計劃入面嘅藥："},
@@ -120,6 +126,9 @@ T: dict[str, dict[str, str]] = {
     "repeat_declined": {"en": "{doctor} can't repeat {med} through the line. {doctor} will tell you more, or you can book a visit at {clinic}: {phone}. Nothing has been charged.",
                         "zh": "{doctor}未能經熱線覆配{med}。醫生會再同你講，或者你可以預約{clinic}：{phone}。冇收任何費用。"},
     "pickup_pick": {"en": "Paid, thank you. When will you collect {med} at {clinic}?", "zh": "已收款，多謝。你幾時去{clinic}取{med}？"},
+    "pickup_pick_free": {"en": "When will you collect {med} at {clinic}?", "zh": "你幾時去{clinic}取{med}？"},
+    "repeat_sent_member": {"en": "Your request for {med} is with {doctor}, who decides whether it can be repeated without a visit. You'll hear by {when}. It's included in your membership.",
+                           "zh": "你覆配{med}嘅要求已經交咗俾{doctor}。醫生會決定唔使覆診可唔可以覆配，你會喺{when}之前收到回覆。呢項已包括喺你嘅會籍入面。"},
     "pickup_set": {"en": "Done: collect {med} at {clinic}, {address}, {when}. Bring your HKID.",
                    "zh": "已安排：{when}去{clinic}（{address}）取{med}。請帶身份證。"},
 
@@ -138,10 +147,10 @@ T: dict[str, dict[str, str]] = {
 
     # the patient membership (offered one to one by the doctor, at most once)
     "membership_offer": {
-        "en": ("{doctor} has invited you to {doctor}'s care membership: {fees} a month. Cancel any time.\n"
+        "en": ("{doctor} has invited you to a monthly care membership: {fees} a month. Cancel any time.\n"
                "It includes repeat prescriptions and result reviews here, with no per-item charge, on top of everything "
                "the line already does.\nJoin here: {url}"),
-        "zh": ("{doctor}邀請你加入{doctor}護理會籍：{fees}，按月收費，可隨時取消。\n"
+        "zh": ("{doctor}邀請你加入每月護理會籍：{fees}，按月收費，可隨時取消。\n"
                "會籍包括喺度覆配藥物同睇報告，唔使逐次收費，另外照用熱線所有服務。\n加入：{url}"),
     },
     "btn_no_thanks": {"en": "No thanks", "zh": "唔使喇"},
@@ -169,6 +178,11 @@ D: dict[str, str] = {
              "Every draft comes back to you with Send / Edit / Skip; nothing clinical reaches a patient until you tap Send.\n"
              "Commands: QUEUE (open items), WEB (sign-in link), QR (your QR card), PAUSE <days>, RESUME."),
     "joined": "{name} (b. {year}) just joined your line{where}. Reply to this message with a voice note or text for their plan.",
+    "back": "{name} (b. {year}) is back{where}. Reply to this message with a voice note or text for today's plan.",
+    "drafting": "Got it. Drafting…",
+    "will_send": "After you tap Send: check-in on day {days}{reminders}.",
+    "edited_note": "You edited the plan, so its reminders were dropped (the check-in stays).",
+    "message_for": "Message to {name}, exactly as you wrote it",
     "plan_for": "Draft plan for {name}",
     "heard": "Heard: “{transcript}”",
     "dropped": "Left out, because it wasn't in what you said: {items}",
@@ -195,7 +209,7 @@ D: dict[str, str] = {
     "btn_visit": "Needs a visit",
     "btn_decline": "Decline",
     "repeat_done": "Done: {name} {what}.",
-    "result": "{name} paid for a result review. See the report on your web page: {url}\nReply to this with a voice note or text explaining it; I'll draft it for you to approve.",
+    "result": "{name} {how}. See it on your web page: {url}\nReply to this with a voice note or text explaining it; I'll draft it for you to approve.",
     "red_flag": "⚠ {name} wrote something that may be an emergency: “{quote}”\nThey were told to call 999 or go to A&E. Please call them: {phone}",
     "checkin_worse": "{name} answered the day-{days} check-in: Worse.{quote}\nReply by {when}.",
     "pickup": "{name} will collect {med} at {clinic}, {when}. (Paid HK${fee}.)",

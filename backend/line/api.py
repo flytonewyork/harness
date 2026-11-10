@@ -23,6 +23,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
@@ -64,8 +65,12 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
             m = work.get()
             try:
                 line.handle(m)
-            except Exception:  # noqa: BLE001  never let one message stop the line; ids only in the log
+            except Exception as e:  # noqa: BLE001  never let one message stop the line; ids only in the log
                 log.exception("handle failed for message %s", m.get("msg_id"))
+                try:
+                    line.store.event(hours.now_hk(cfg.timezone), "handle_failed", why=type(e).__name__)
+                except Exception:  # noqa: BLE001
+                    pass
             finally:
                 work.task_done()
 
@@ -85,9 +90,9 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
         body = await request.body()
         if cfg.mode != "sim" and not verify_signature(body, x_hub_signature_256, cfg.wa_app_secret):
             raise HTTPException(401, "bad signature")
-        from .hours import now_hk
-        for m in parse_line_webhook(json.loads(body or b"{}")):
-            m["at"] = m.get("at") or now_hk(cfg.timezone)
+        tz = ZoneInfo(cfg.timezone)                              # the line's clock is Hong Kong's, whatever the server's is
+        for m in parse_line_webhook(json.loads(body or b"{}"), clock=lambda ts: datetime.fromtimestamp(ts, tz).replace(tzinfo=None)):
+            m["at"] = m.get("at") or hours.now_hk(cfg.timezone)
             if cfg.mode == "sim":
                 line.handle(m)
             else:
@@ -127,28 +132,36 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
         return {"ok": True, "mode": cfg.mode, "model": getattr(line.model, "name", "?"), "store": cfg.store}
 
     # ---- public pages ---------------------------------------------------------------------------------------------
-    def wa_link(d: dict) -> str:
+    def wa_link(d: dict, c: int = 1) -> str:
         from urllib.parse import quote
-        return f"https://wa.me/{cfg.wa_number or '85200000000'}?text=" + quote(f"Hi {d.get('short_en', d['name_en'])} [{d['code']}]")
+        tag = d["code"] if c <= 1 else f"{d['code']}.{c}"         # .2, .3: the doctor's second and third clinic
+        return f"https://wa.me/{cfg.wa_number or '85200000000'}?text=" + quote(f"Hi {d.get('short_en', d['name_en'])} [{tag}]")
+
+    def clinic_no(d: dict, c: int) -> int:
+        return c if 1 <= c <= max(1, len(d.get("clinics") or [])) and c <= 9 else 1
 
     @app.get("/j/{code}.png")
-    def qr_png(code: str):
+    def qr_png(code: str, c: int = 1):
         d = line.store.one("doctor", code=code)
         if not d:
             raise HTTPException(404)
+        c = clinic_no(d, c)
         import io
         import segno
         buf = io.BytesIO()
-        segno.make(wa_link(d), error="m").save(buf, kind="png", scale=10, border=2)
+        segno.make(wa_link(d, c), error="m").save(buf, kind="png", scale=10, border=2)
         return Response(buf.getvalue(), media_type="image/png")
 
     @app.get("/j/{code}", response_class=HTMLResponse)
-    def qr_card(code: str):
+    def qr_card(code: str, c: int = 1):
         d = line.store.one("doctor", code=code)
         if not d:
             raise HTTPException(404)
+        c = clinic_no(d, c)
+        cl = (d.get("clinics") or [{}])[c - 1]
         page = (STATIC / "card.html").read_text(encoding="utf-8")
-        rep = {"{{NAME_EN}}": d["name_en"], "{{NAME_ZH}}": d.get("name_zh", ""), "{{CODE}}": code, "{{LINK}}": wa_link(d),
+        rep = {"{{NAME_EN}}": d["name_en"], "{{NAME_ZH}}": d.get("name_zh", ""), "{{CODE}}": code, "{{LINK}}": wa_link(d, c), "{{C}}": str(c),
+               "{{CLINIC}}": " · ".join(x for x in (cl.get("name_en"), cl.get("name_zh")) if x) if len(d.get("clinics") or []) > 1 else "",
                "{{HOURS_EN}}": hours.hours_text(d, "en"), "{{HOURS_ZH}}": hours.hours_text(d, "zh")}
         for k, v in rep.items():
             page = page.replace(k, _esc(v))
@@ -179,7 +192,15 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
             raise HTTPException(401)
         return d
 
-    @app.get("/d/{token}")
+    @app.get("/d/{token}", response_class=HTMLResponse)
+    def sign_in_page(token: str):
+        # Opening the link doesn't use it up (link previews and scanners open links too); pressing the button does.
+        return (f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width, initial-scale=1'><title>Sign in</title>"
+                f"<body style='font:18px system-ui;padding:32px 16px;max-width:420px;margin:auto;text-align:center'><p>Your care line</p>"
+                f"<form method=post action='/d/{_esc(token)}'><button style='font:inherit;padding:12px 28px;border-radius:999px;border:0;"
+                f"background:#0f7b5f;color:#fff'>Sign in</button></form>")
+
+    @app.post("/d/{token}")
     def sign_in(token: str):
         did = line.redeem(token, hours.now_hk(cfg.timezone))
         if not did:
@@ -199,6 +220,10 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
             raise HTTPException(404)
         return p
 
+    def thread(p) -> list[dict]:
+        """What passed between the line and this patient's number, for this doctor's record: not the doctor's console."""
+        return sorted([m for m in line.store.find("msg", patient_id=p["id"]) if m.get("wa") == p["wa"]], key=lambda m: m["at"])
+
     @app.get("/api/doctor/state")
     def doctor_state(request: Request):
         d = session_doctor(request)
@@ -208,7 +233,7 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
     def doctor_patient(pid: str, request: Request):
         d = session_doctor(request)
         p = own(d, line.store.get("patient", pid))
-        msgs = sorted([m for m in line.store.find("msg", patient_id=pid)], key=lambda m: m["at"])
+        msgs = thread(p)
         return {"patient": p, "messages": msgs, "plans": line.store.find("plan", patient_id=pid),
                 "handoffs": line.store.find("handoff", patient_id=pid), "payments": line.store.find("payment", patient_id=pid)}
 
@@ -292,7 +317,7 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
     def doctor_export(pid: str, request: Request):
         d = session_doctor(request)
         p = own(d, line.store.get("patient", pid))
-        msgs = sorted(line.store.find("msg", patient_id=pid), key=lambda m: m["at"])
+        msgs = thread(p)
         rows = "".join(f"<tr><td>{_esc(m['at'])}</td><td>{'Patient' if m['dir'] == 'in' else _esc(m.get('kind', ''))}</td>"
                        f"<td style='white-space:pre-wrap'>{_esc(m.get('text') or '[' + m.get('kind', '') + ']')}</td></tr>" for m in msgs)
         return (f"<!doctype html><meta charset=utf-8><title>Care line record</title><body style='font:13px system-ui;margin:24px'>"
@@ -325,7 +350,7 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
 def state_for(line: Line, cfg: Config, d: dict) -> dict:
     now = hours.now_hk(cfg.timezone)
     pats = line.store.find("patient", doctor_id=d["id"])
-    pays = [x for x in line.store.find("payment", doctor_id=d["id"]) if x["status"] == "paid"]
+    pays = [x for x in line.store.find("payment", doctor_id=d["id"]) if x["status"] == "paid" and x["kind"] != "membership"]
     month = now.strftime("%Y-%m")
     by_id = {p["id"]: p for p in pats}
     open_h = sorted([h for h in line.store.find("handoff", doctor_id=d["id"]) if h["status"] == "open"], key=lambda h: h["reply_by"])
@@ -340,6 +365,8 @@ def state_for(line: Line, cfg: Config, d: dict) -> dict:
         "doctor": {k: d.get(k) for k in ("id", "code", "name_en", "name_zh", "hours", "fees", "membership_hkd", "paused_until", "stripe_account", "stripe_ready")},
         "hours_text": hours.hours_text(d, "en"),
         "qr": f"{cfg.base_url}/j/{d['code']}",
+        "qrs": [{"name": c.get("name_en", ""), "url": f"{cfg.base_url}/j/{d['code']}" + (f"?c={i}" if i > 1 else "")}
+                for i, c in enumerate(d.get("clinics") or [], 1)],
         "queue": open_h, "drafts": drafts,
         "patients": sorted([{**{k: p.get(k) for k in ("id", "name", "dob", "joined_at", "state", "plan_id", "lang", "membership_offered")},
                              "member": Line.is_member(p)} for p in pats],

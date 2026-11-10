@@ -91,7 +91,9 @@ def test_doctor_sign_in_and_only_own_patients(client):
     sim(client, "85261234567", "23/09/1964")
     assert client.get("/api/doctor/state").status_code == 401
     url = client.get("/api/sim/login").json()["url"]
-    r = client.get(url, follow_redirects=False)
+    assert "Sign in" in client.get(url).text and "Sign in" in client.get(url).text      # opening the link doesn't use it up
+    assert client.get("/api/doctor/state").status_code == 401
+    r = client.post(url, follow_redirects=False)
     assert r.status_code == 303 and "line_session" in r.cookies
     s = client.get("/api/doctor/state").json()
     assert s["stats"]["joined"] == 1 and s["money"]["shadow_subscription_hkd"] == 480
@@ -101,7 +103,7 @@ def test_doctor_sign_in_and_only_own_patients(client):
     line.store.put("patient", "POTHER", {"id": "POTHER", "doctor_id": "D2", "wa": "85260000000", "reports": [{"ref": "abc"}]})
     assert client.get("/api/doctor/patient/POTHER").status_code == 404
     assert client.get("/api/doctor/media/abc").status_code == 404
-    assert client.get(url, follow_redirects=False).status_code == 401          # one use
+    assert client.post(url, follow_redirects=False).status_code == 401         # one use
 
 
 def test_qr_card_and_privacy(client):
@@ -137,3 +139,33 @@ def test_subscription_cancelled_in_stripe_ends_the_membership(tmp_path):
     tc = TestClient(app)
     r = tc.post("/webhook/stripe", content=json.dumps({"type": "customer.subscription.deleted", "data": {"object": {"id": "sub_1"}}}))
     assert r.status_code == 200 and not line.store.get("patient", "P1")["member"]["active"]
+
+
+def test_webhook_times_are_hong_kong_time_and_ids_with_slashes_are_safe(client):
+    from backend.line.store import FirestoreStore
+    from datetime import datetime, timezone
+    ts = int(datetime(2026, 11, 24, 12, 0, tzinfo=timezone.utc).timestamp())      # 12:00 UTC is 20:00 in Hong Kong
+    payload = {"entry": [{"changes": [{"value": {"messages": [{"from": "85261234567", "id": "wamid.HBg/M+x==", "timestamp": str(ts),
+                                                                "type": "text", "text": {"body": "Hi Dr Hu [TH01]"}}]}}]}]}
+    assert client.post("/webhook/whatsapp", content=json.dumps(payload)).status_code == 200
+    line = client.app.state.line
+    assert line.store.get("wa", "85261234567")["last_in"] == "2026-11-24T20:00"
+    assert FirestoreStore._key("wamid.HBg/M+x==") == "wamid.HBg_M+x==" and FirestoreStore._key("..") == "id_.." and FirestoreStore._key("__x__") == "id___x__"
+
+
+def test_one_qr_card_per_clinic(client):
+    line = client.app.state.line
+    d = line.store.get("doctor", "D1")
+    d["clinics"].append({"id": "c2", "name_en": "Peak Clinic (synthetic)", "name_zh": "山頂診所（模擬）", "address_en": "2 Test Road",
+                         "address_zh": "測試路2號", "phone": "2000 0002"})
+    line.store.put("doctor", "D1", d)
+    card = client.get("/j/TH01", params={"c": 2}).text
+    assert "%5BTH01.2%5D" in card and "Peak Clinic" in card and "TH01.png?c=2" in card
+    assert "%5BTH01%5D" in client.get("/j/TH01", params={"c": 7}).text       # no such clinic: the first one
+    sim(client, "85261234567", "Hi Dr Hu [TH01.2]")
+    sim(client, "85261234567", "Yes", reply_id="consent:yes", kind="interactive")
+    sim(client, "85261234567", "CHAN Tai Man")
+    sim(client, "85261234567", "23/09/1964")
+    assert line.store.one("patient", wa="85261234567")["clinic_id"] == "c2"
+    waiting = (line.store.get("wa", "85290000001") or {}).get("outbox", [])     # the doctor hasn't written yet: it waits behind a template
+    assert any("joined your line at Peak Clinic" in (m.get("body") or "") for m in line.tx.to("85290000001") + waiting)

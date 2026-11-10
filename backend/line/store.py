@@ -105,16 +105,23 @@ class FirestoreStore(Store):
     def _c(self, coll):
         return self.db.collection(self.prefix + coll)
 
+    @staticmethod
+    def _key(id: str) -> str:
+        """A Firestore document id can't hold '/', be '.' or '..', or look like __x__. WhatsApp message ids are base64
+        and can hold '/'."""
+        k = str(id).replace("/", "_")
+        return ("id_" + k) if k in (".", "..") or (k.startswith("__") and k.endswith("__")) or not k else k[:1400]
+
     def get(self, coll, id):
-        s = self._c(coll).document(id).get()
+        s = self._c(coll).document(self._key(id)).get()
         return s.to_dict() if s.exists else None
 
     def put(self, coll, id, doc):
-        self._c(coll).document(id).set(json.loads(json.dumps(doc, ensure_ascii=False, default=str)))
+        self._c(coll).document(self._key(id)).set(json.loads(json.dumps(doc, ensure_ascii=False, default=str)))
         return doc
 
     def delete(self, coll, id):
-        self._c(coll).document(id).delete()
+        self._c(coll).document(self._key(id)).delete()
 
     def all(self, coll):
         return [s.to_dict() for s in self._c(coll).stream()]

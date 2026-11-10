@@ -102,6 +102,7 @@ async function load() {
      Result review HK$<input type=number id="f-result" value="${d.fees?.result ?? 0}" min=0>
      Membership HK$<input type=number id="f-member" value="${d.membership_hkd ?? 0}" min=0> a month (0 = off)
      <button onclick="saveFees()">Save</button></div>
+     <p class="meta">QR cards, one per clinic: ${S.qrs.map((q) => `<a href="${esc(q.url)}" target="_blank">${esc(q.name || "card")}</a>`).join(" · ")}</p>
      <p class="meta">Patients also pay a HK$30 tmrw service fee on each paid follow-up, and ${S.membership.fee_pct}% on a membership, shown on its own line. Members get repeats and result reviews with no per-item charge. You offer membership one patient at a time, once. Your fee goes to your own Stripe account in full. Replies: ${esc(S.hours_text)}.</p>`;
 }
 

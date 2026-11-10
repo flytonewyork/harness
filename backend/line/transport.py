@@ -32,7 +32,8 @@ class Out:
 
 def template_body(o: Out) -> dict:
     t = o.template or {}
-    comps = [{"type": "body", "parameters": [{"type": "text", "text": str(p)[:1000]} for p in t.get("params", [])]}]
+    # Meta refuses template variables with new lines, tabs or runs of spaces
+    comps = [{"type": "body", "parameters": [{"type": "text", "text": " ".join(str(p).split())[:1000]} for p in t.get("params", [])]}]
     for i, p in enumerate(t.get("payloads", [])):
         comps.append({"type": "button", "sub_type": "quick_reply", "index": str(i), "parameters": [{"type": "payload", "payload": p}]})
     return {"messaging_product": "whatsapp", "to": o.to, "type": "template",

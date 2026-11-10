@@ -113,7 +113,8 @@ class Line:
         w.pop("waiting_sent", None)
         outbox, w["outbox"] = w.get("outbox", []), []
         self.store.put("wa", m["wa"], w)
-        sent = self._flush(outbox, now)
+        cur = self.store.get("patient", w["current"]) if w.get("current") else None
+        sent = [] if cur and cur.get("state") != "joined" else self._flush(outbox, now)
         d = self.doctor_by_wa(m["wa"])
         if d:
             outs = self._doctor(d, m, now)
@@ -176,18 +177,59 @@ class Line:
             ids += self._send(Out(**od), now)
         return ids
 
+    def _parts(self, o: Out) -> list[Out]:
+        """WhatsApp's limits: 4096 characters in a text, 1024 in the body of a message with buttons or a list."""
+        if o.type == "template":
+            return [o]
+        label, _, rest = o.body.partition("\n")
+        head = (label + "\n") if o.kind != "console" and rest else ""
+        if o.type in ("buttons", "list") and len(o.body) > 1000:
+            lang = "zh" if re.search(r"[\u4e00-\u9fff]", label) else "en"
+            ask = Out(**{**o.__dict__, "body": (head or f"{dsay('prefix')} ") + say("choose", lang)})
+            return self._parts(Out(**{**o.__dict__, "type": "text", "buttons": [], "rows": [], "button": ""})) + [ask]
+        if len(o.body) <= 4000:
+            return [o]
+        parts, cur = [], ""
+        for line in o.body.split("\n"):
+            while len(line) > 3800:
+                line, cur = line[3800:], cur + line[:3800]
+                parts.append(cur)
+                cur = head
+            if len(cur) + len(line) + 1 > 3800:
+                parts.append(cur.rstrip("\n"))
+                cur = head
+            cur += line + "\n"
+        parts.append(cur.rstrip("\n"))
+        return [Out(**{**o.__dict__, "body": b}) for b in parts if b.strip()]
+
     def _send(self, o: Out, now) -> list[str]:
-        mid = self.tx.send(o)
-        w = self.store.get("wa", o.to) or {}
-        pid = (o.ctx or {}).get("patient_id") or (w.get("current") if not self.doctor_by_wa(o.to) else None)
-        mdoc = {"id": mid, "wa": o.to, "dir": "out", "at": iso(now), "feature": o.feature, "kind": o.kind, "type": o.type,
-                "text": o.body if o.type != "template" else f"[template {o.template['name']}] " + " | ".join(map(str, o.template.get("params", []))),
-                "patient_id": pid, "text_version": TEXT_VERSION}
-        self.store.put("msg", mid, mdoc)
-        if o.ctx:
-            self.store.put("ctx", mid, {"id": mid, **o.ctx})
-        self.store.event(now, "out", feature=o.feature, kind=o.kind, type=o.type, msg=mid)
-        return [mid]
+        ids = []
+        for part in self._parts(o):
+            try:
+                mid = self.tx.send(part)
+            except Exception as e:  # noqa: BLE001  one failed send must not stop the line; ids and names only in the trail
+                self.store.event(now, "send_failed", feature=o.feature, type=o.type, why=type(e).__name__)
+                if o.kind != "console":
+                    p = self.store.get("patient", (o.ctx or {}).get("patient_id") or "")
+                    d = self.doctor(p["doctor_id"]) if p else None
+                    if d:
+                        self._send(self._console(d, f"A message to {self.pname(p)} could not be sent ({o.feature}). Please contact them yourself."), now)
+                break
+            w = self.store.get("wa", o.to) or {}
+            to_doctor = bool(self.doctor_by_wa(o.to))
+            pid = (o.ctx or {}).get("patient_id") or (w.get("current") if not to_doctor else None)
+            if not to_doctor and pid and w and w.get("current") != pid and o.kind != "console":
+                w["current"] = pid                                 # their reply goes to the doctor who wrote last
+                self.store.put("wa", o.to, w)
+            self.store.put("msg", mid, {"id": mid, "wa": o.to, "dir": "out", "at": iso(now), "feature": o.feature, "kind": o.kind,
+                                        "type": part.type, "patient_id": pid, "text_version": TEXT_VERSION,
+                                        "text": part.body if part.type != "template" else f"[template {part.template['name']}] "
+                                        + " | ".join(map(str, part.template.get("params", [])))})
+            if o.ctx:
+                self.store.put("ctx", mid, {"id": mid, **o.ctx})
+            self.store.event(now, "out", feature=o.feature, kind=o.kind, type=part.type, msg=mid)
+            ids.append(mid)
+        return ids
 
     def _label(self, d: dict, lang: str, kind: str) -> str:
         key = {"fixed": "label", "approved": "label_approved", "doctor": "label_doctor"}[kind]
@@ -198,14 +240,17 @@ class Line:
         if o.kind == "console" or o.type == "template":
             return o
         w = self.wa_doc(o.to)
-        p = self.store.get("patient", w.get("current") or "") if w.get("current") else None
+        pid = (o.ctx or {}).get("patient_id") or w.get("current")
+        p = self.store.get("patient", pid) if pid else None
+        if p and p.get("wa") != o.to:
+            p = None
         d = self.doctor(p["doctor_id"]) if p else (self.doctor(w["doctor_id"]) if w.get("doctor_id") else None)
         lang = (p or w).get("lang", "en")
         if not d:
             return o
         label = self._label(d, lang, o.kind)
         full = o.body + "\n" + "\n".join(b["title"] for b in o.buttons) + "\n" + "\n".join(r["title"] for r in o.rows)
-        consent = (bool(p and p.get("consent")) and (p or {}).get("state") != "stopped") or o.feature in ("AC-01", "HE-03", "HE-04", "AC-04")
+        consent = (bool(p and p.get("consent")) and (p or {}).get("state") == "joined") or o.feature in ("AC-01", "HE-03", "HE-04", "AC-04")
         if o.kind == "doctor":
             fails = [] if full.startswith(label) else ["impersonation"]
             fails += [] if consent else ["no_consent"]
@@ -227,6 +272,8 @@ class Line:
     # ---- message builders ------------------------------------------------------------------------------------------------
     def _out(self, p_or_w: dict, d: dict, body: str, feature: str, kind: str = "fixed", **kw) -> Out:
         lang = p_or_w.get("lang", "en")
+        if "doctor_id" in p_or_w and "consent" in p_or_w and p_or_w.get("id") and not kw.get("ctx"):
+            kw["ctx"] = {"patient_id": p_or_w["id"]}            # which of this number's records the message is for
         return Out(to=p_or_w["wa"], body=f"{self._label(d, lang, kind)}\n{body}", feature=feature, kind=kind, **kw)
 
     def _console(self, d: dict, body: str, ctx: dict | None = None, **kw) -> Out:
@@ -288,12 +335,20 @@ class Line:
             d = self.store.one("doctor", code=code.group(1))
             if d:
                 existing = self.store.one("patient", wa=m["wa"], doctor_id=d["id"])
-                if existing and existing.get("state") == "joined":
+                if existing and existing.get("state") == "removed":
+                    return [Out(to=m["wa"], body=f"{self._label(d, w['lang'], 'fixed')}\n" + say("removed", w["lang"], doctor=self.dname(d, w["lang"])),
+                                feature="AC-01")]
+                if existing and existing.get("state") == "joined":      # back for another visit, perhaps at another clinic
                     w["current"] = existing["id"]
                     self.store.put("wa", m["wa"], w)
-                    existing["lang"] = w["lang"]
+                    existing.update(lang=w["lang"], awaiting_plan=iso(now), clinic_id=f"c{code.group(2) or 1}")
                     self.store.put("patient", existing["id"], existing)
-                    return [self.menu(existing, d)]
+                    self.store.event(now, "back", patient=existing["id"], doctor=d["id"])
+                    c = self.clinic(d, existing["clinic_id"])
+                    where = f" at {c['name_en']}" if d.get("clinics") and len(d["clinics"]) > 1 else ""
+                    return [self.menu(existing, d),
+                            self._console(d, dsay("back", name=self.pname(existing), year=existing.get("dob", "")[:4], where=where),
+                                          ctx={"patient_id": existing["id"], "plan": True})]
                 w.update(state="awaiting_consent", doctor_id=d["id"], clinic_id=f"c{code.group(2) or 1}", current=None)
                 self.store.put("wa", m["wa"], w)
                 return [self._welcome(w, d)]
@@ -307,6 +362,9 @@ class Line:
             return [Out(to=m["wa"], body=say("no_code", w["lang"]), feature="no_code", kind="console")]
         # 3. joining
         if not p:
+            if safety.is_stop(text):                            # changed their mind half-way: nothing is kept
+                self.store.delete("wa", m["wa"])
+                return [Out(to=m["wa"], body=f"{self._label(d, w['lang'], 'fixed')}\n{say('declined', w['lang'])}", feature="AC-01")]
             return self._join(m, now, w, d, text)
         p["lang"] = w["lang"]
         self.store.put("patient", p["id"], p)
@@ -319,6 +377,8 @@ class Line:
             self.store.event(now, "stopped", patient=p["id"])
             return [self._out(p, d, say("stopped", p["lang"], doctor=self.dname(d, p["lang"])), "AC-04"),
                     self._console(d, f"{self.pname(p)} stopped messages from the line.", ctx={"patient_id": p["id"]})]
+        if p.get("state") == "removed":
+            return []
         if p.get("state") == "stopped":
             if re.fullmatch(r"\W*(join|加入)\W*", text, re.I):
                 p["state"] = "joined"
@@ -367,18 +427,15 @@ class Line:
                 return [Out(to=m["wa"], body=f"{self._label(d, lang, 'fixed')}\n{say('bad_dob', lang)}", feature="AC-01")]
             p = {"id": new_id("P"), "wa": m["wa"], "doctor_id": d["id"], "clinic_id": w.get("clinic_id", "c1"),
                  "name": w.get("name", ""), "dob": dob, "lang": lang, "consent": w["consent"], "state": "joined",
-                 "confirmed": False, "joined_at": iso(now), "plan_id": None}
+                 "confirmed": False, "joined_at": iso(now), "plan_id": None, "awaiting_plan": iso(now)}
             self.store.put("patient", p["id"], p)
             w = {"wa": m["wa"], "state": "joined", "lang": lang, "current": p["id"], "last_in": w.get("last_in"), "outbox": []}
             self.store.put("wa", m["wa"], w)
             self.store.event(now, "joined", patient=p["id"], doctor=d["id"])
             c = self.clinic(d, p["clinic_id"])
-            sess = self.store.get("dsession", d["id"]) or {"id": d["id"]}
-            sess.update(focus=p["id"], focus_at=iso(now), chosen=False)
-            self.store.put("dsession", d["id"], sess)
             where = f" at {c['name_en']}" if d.get("clinics") and len(d["clinics"]) > 1 else ""
             return [self._out(p, d, say("joined", lang, first=self.first(p), doctor=self.dname(d, lang), hours=hours.hours_text(d, lang)), "AC-01"),
-                    self._console(d, dsay("joined", name=self.pname(p), year=dob[:4], where=where), ctx={"patient_id": p["id"]},
+                    self._console(d, dsay("joined", name=self.pname(p), year=dob[:4], where=where), ctx={"patient_id": p["id"], "plan": True},
                                   type="buttons", buttons=[{"id": f"conf:no:{p['id']}", "title": "Not my patient"}])]
         self.store.put("wa", m["wa"], w)
         return [self._welcome(w, d)]
@@ -458,10 +515,14 @@ class Line:
         if plan and h["quote"] != "[voice note]":
             try:
                 r = self.model.draft_reply(question=h["quote"], plan_text=plan["text"], doctor=d, lang=p["lang"])
-                h["draft"] = r.get("draft", "")
-                self.store.put("handoff", h["id"], h)
-                body += "\n\n" + dsay("draft_reply", draft=h["draft"])
-                buttons.insert(0, {"id": f"q:send:{h['id']}", "title": dsay("btn_send_draft")})
+                draft = (r.get("draft") or "").strip()
+                if draft and not drafting.numbers_ok(draft, plan["text"]):       # no number the approved plan doesn't have
+                    h["draft"] = draft
+                    self.store.put("handoff", h["id"], h)
+                    body += "\n\n" + dsay("draft_reply", draft=draft)
+                    buttons.insert(0, {"id": f"q:send:{h['id']}", "title": dsay("btn_send_draft")})
+                elif draft:
+                    self.store.event(now, "draft_dropped", handoff=h["id"], why="numbers_not_in_plan")
             except Exception as e:  # noqa: BLE001  the doctor still gets the question
                 self.store.event(now, "model_failed", job="draft_reply", why=type(e).__name__)
         return self._console(d, body, ctx={"patient_id": p["id"], "handoff_id": h["id"]}, type="buttons", buttons=buttons)
@@ -489,8 +550,12 @@ class Line:
 
     # ---- repeats (paid) --------------------------------------------------------------------------------------------------
     def _meds(self, p) -> list[str]:
-        plan = self.store.get("plan", p["plan_id"]) if p.get("plan_id") else None
-        return drafting.medicines(plan["items"]) if plan else []
+        plans = sorted([x for x in self.store.find("plan", patient_id=p["id"], status="sent") if x.get("job") == "plan"],
+                       key=lambda x: x.get("sent_at", ""), reverse=True)
+        meds: list[str] = []
+        for x in plans:                                          # every medicine the doctor has put in a plan, newest first
+            meds += [m for m in drafting.medicines(x["items"]) if m not in meds]
+        return meds
 
     def _repeat_menu(self, p, d) -> Out:
         meds, lang = self._meds(p), p["lang"]
@@ -506,7 +571,8 @@ class Line:
         med, lang = meds[int(i)], p["lang"]
         h = self.open_handoff(now, p, d, "repeat", med, med=med)
         fee = int((d.get("fees") or {}).get("repeat", 0))
-        return [self._out(p, d, say("repeat_sent", lang, med=med, doctor=self.dname(d, lang), when=self._when(d, h, now, lang)), "MD-01"),
+        return [self._out(p, d, say("repeat_sent_member" if self.is_member(p) else "repeat_sent", lang, med=med, doctor=self.dname(d, lang),
+                                  when=self._when(d, h, now, lang)), "MD-01"),
                 self._console(d, dsay("repeat", name=self.pname(p), med=med, fee=fee, service_fee=self.cfg.service_fee_hkd)
                               + (" Included in their membership: no charge to them." if self.is_member(p) else ""),
                               ctx={"patient_id": p["id"], "handoff_id": h["id"]}, type="buttons",
@@ -552,7 +618,7 @@ class Line:
     def _pickup_menu(self, p, d, med, pay_id, now) -> Out:
         lang, c = p["lang"], self.clinic(d, p.get("clinic_id"))
         s = hours.clock({**d, "hours": c.get("hours") or d.get("hours")})
-        rows, t = [], now
+        rows = []
         for i in range(0, 14):
             day = (now + timedelta(days=i)).date()
             for a, b in s.sessions(day):
@@ -563,7 +629,10 @@ class Line:
         cname = c.get("name_zh" if lang == "zh" else "name_en") or c["name_en"]
         p.setdefault("pickup_med", {})[pay_id or "free"] = med
         self.store.put("patient", p["id"], p)
-        return self._out(p, d, say("pickup_pick", lang, med=med, clinic=cname), "MD-01", type="list", rows=rows,
+        if not rows:                                             # no hours on file: the doctor arranges it
+            h = self.open_handoff(now, p, d, "question", f"Collection time for {med}")
+            return self._ack(p, d, h, now)
+        return self._out(p, d, say("pickup_pick" if pay_id else "pickup_pick_free", lang, med=med, clinic=cname), "MD-01", type="list", rows=rows,
                          button="揀時間" if lang == "zh" else "Choose a time")
 
     def _pickup(self, p, d, rid, now) -> list[Out]:
@@ -614,7 +683,9 @@ class Line:
 
     def _result_to_doctor(self, p, d, h, now, paid) -> Out:
         url = f"{self.cfg.base_url}/doctor#patient={p['id']}"
-        return self._console(d, dsay("result", name=self.pname(p), url=url), ctx={"patient_id": p["id"], "handoff_id": h["id"]},
+        how = ("paid for a result review" if paid else "sent a report to review (included in their membership)" if self.is_member(p)
+               else "sent a report")
+        return self._console(d, dsay("result", name=self.pname(p), how=how, url=url), ctx={"patient_id": p["id"], "handoff_id": h["id"]},
                              type="buttons", buttons=[{"id": f"q:write:{h['id']}", "title": dsay("btn_write")},
                                                       {"id": f"q:call:{h['id']}", "title": dsay("btn_call")}])
 
@@ -656,9 +727,8 @@ class Line:
         lang = p["lang"]
         fees = say("fees_line", lang, doctor=self.dname(d, lang), **f)
         body = say("membership_offer", lang, doctor=self.dname(d, lang), fees=fees, url=sess["url"])
-        return [self._out(p, d, body, "MB-01", type="buttons", buttons=[{"id": "mb:no", "title": say("btn_no_thanks", lang)}],
-                          template={"name": "line_payment", "lang": lang_code(lang, "line_payment"),
-                                    "params": [self.dname(d, lang), fees, sess["url"]]}),
+        # no template: outside the 24-hour window the offer waits behind "tap to read", so it never arrives without its explanation
+        return [self._out(p, d, body, "MB-01", type="buttons", buttons=[{"id": "mb:no", "title": say("btn_no_thanks", lang)}]),
                 self._console(d, dsay("membership_offered", name=self.pname(p), fees=say("fees_line", "en", doctor=d["name_en"], **f)))]
 
     def membership_ended(self, subscription_id: str, now: datetime | None = None) -> list[str]:
@@ -749,7 +819,7 @@ class Line:
             data, mime = self.tx.download(m["media_id"])
             m["media_ref"] = self.media.put(data, mime or m.get("mime") or "application/octet-stream")
             m["mime"] = mime or m.get("mime")
-        self._record_in(m, now, (ctx or {}).get("patient_id"), d["id"])
+        self._record_in(m, now, None, d["id"])                 # the doctor's own messages never sit in a patient's thread
         # buttons
         if rid:
             return self._doctor_button(d, sess, rid, now)
@@ -771,13 +841,13 @@ class Line:
         # what is this about? the swiped message, else the patient who just joined
         target = ctx or {}
         if not target:                                          # no swipe-reply: only if exactly one patient is waiting for a plan
-            recent = [p for p in self.store.find("patient", doctor_id=d["id"]) if not p.get("plan_id") and not p.get("not_mine")
-                      and p.get("joined_at") and now - datetime.fromisoformat(p["joined_at"]) < timedelta(hours=3)]
+            recent = [p for p in self.store.find("patient", doctor_id=d["id"]) if p.get("state") == "joined" and p.get("awaiting_plan")
+                      and now - datetime.fromisoformat(p["awaiting_plan"]) < timedelta(hours=3)]
             chosen = sess.get("focus") if sess.get("focus_at") and now - datetime.fromisoformat(sess["focus_at"]) < timedelta(minutes=10) and sess.get("chosen") else None
             if chosen:
                 target = {"patient_id": chosen}
             elif len(recent) == 1:
-                target = {"patient_id": recent[0]["id"]}
+                target = {"patient_id": recent[0]["id"], "plan": True}
         if mode == "write" and m.get("kind") == "audio":
             target = {"patient_id": sess.get("patient_id"), "handoff_id": sess.get("handoff_id")}
         if m.get("kind") not in ("audio", "text"):
@@ -798,7 +868,8 @@ class Line:
         return self._console(d, dsay("welcome", name=d["name_en"], qr=f"{self.cfg.base_url}/j/{d['code']}", stripe=stripe))
 
     def _who_for(self, d) -> Out:
-        recent = sorted(self.store.find("patient", doctor_id=d["id"]), key=lambda p: p.get("joined_at", ""), reverse=True)[:10]
+        recent = sorted([p for p in self.store.find("patient", doctor_id=d["id"]) if p.get("state") == "joined"],
+                        key=lambda p: (p.get("awaiting_plan") or "", p.get("joined_at", "")), reverse=True)[:10]
         if not recent:
             return self._console(d, dsay("no_patients", qr=f"{self.cfg.base_url}/j/{d['code']}"))
         rows = [{"id": f"for:{p['id']}", "title": (p.get("name") or "?")[:24], "description": f"b. {p.get('dob', '')[:4]}, joined {p.get('joined_at', '')[:10]}"} for p in recent]
@@ -844,14 +915,12 @@ class Line:
             return self.offer_membership(d, parts[2], now)
         if parts[0] == "conf" and len(parts) == 3:
             p = self.store.get("patient", parts[2])
-            if p and p["doctor_id"] == d["id"]:
-                p["confirmed"] = False
-                p["not_mine"] = iso(now)
+            if p and p["doctor_id"] == d["id"] and not p.get("plan_id"):
+                out = self._out(p, d, say("removed", p["lang"], doctor=self.dname(d, p["lang"])), "AC-01")
+                p.update(confirmed=False, not_mine=iso(now), state="removed", awaiting_plan=None)
                 self.store.put("patient", p["id"], p)
-                if sess.get("focus") == p["id"]:
-                    sess.pop("focus", None)
-                    self.store.put("dsession", d["id"], sess)
-                return [self._console(d, f"Noted: {self.pname(p)} isn't your patient. Nothing from your notes will be shared with them.")]
+                self.store.event(now, "removed", patient=p["id"], doctor=d["id"])
+                return [out, self._console(d, f"Noted: {self.pname(p)} isn't your patient. They've been told, and the line is closed to that number.")]
         if parts[0] == "for" and len(parts) == 2:
             pend = sess.pop("pending", None)
             sess.update(focus=parts[1], focus_at=iso(now), chosen=True)
@@ -870,48 +939,70 @@ class Line:
         if h and h["status"] == "open" and kind == "text":                       # a typed reply: the doctor's own words
             sess.update(mode="write", patient_id=p["id"], handoff_id=h["id"], mode_at=iso(now))
             return self._doctor_writes(d, sess, text, now)
-        audio = None
-        if kind == "audio" and self.media and media_ref:
-            audio, mime = self.media.get(media_ref)
-        job = "reply" if h and h["status"] == "open" else "plan"
-        try:
-            raw = self.model.compose(kind=job, audio=audio, mime=mime, text=None if audio else text, patient=None, doctor=None,
-                                     context=("Reply to the patient's message: " + h["quote"][:300]) if job == "reply" else "")
-        except Exception as e:  # noqa: BLE001
-            self.store.event(now, "model_failed", job="compose", why=type(e).__name__)
-            return [self._console(d, dsay("model_failed", why=type(e).__name__))]
-        chk = drafting.check(raw)
-        if not chk["items"]:
-            return [self._console(d, dsay("model_failed", why="nothing in it could be quoted from what you said"))]
+        if p.get("state") != "joined":
+            return [self._console(d, f"{self.pname(p)} is no longer on your line.")]
+        answering = bool(h and h["status"] == "open")
+        # a plan for a new or returning patient; otherwise a message to a patient who already has one
+        job = "reply" if answering else ("plan" if target.get("plan") or p.get("awaiting_plan") or not p.get("plan_id") else "reply")
         lang = p["lang"]
-        if job == "plan":
-            body = drafting.render_plan(chk["items"], lang, doctor={lg: self.dname(d, lg) for lg in ("en", "zh")},
-                                        date={"en": f"{now.day} {now.strftime('%b')}", "zh": f"{now.month}月{now.day}日"},
-                                        hours={lg: hours.hours_text(d, lg) for lg in ("en", "zh")})
+        if job == "reply" and kind == "text":                   # typed, no open question: confirm before it goes, word for word
+            chk = {"transcript": text, "items": [], "dropped": [], "numbers": [], "reminders": [], "checkin_days": None, "model": None, "prompt": None}
+            body = text
         else:
-            body = "\n".join(it[lang] for it in chk["items"])
-        plan = {"id": new_id("PL"), "patient_id": p["id"], "doctor_id": d["id"], "job": job, "handoff_id": h["id"] if h else None,
+            audio = None
+            if kind == "audio" and self.media and media_ref:
+                audio, mime = self.media.get(media_ref)
+            self.deliver([self._console(d, dsay("drafting"))], now)
+            try:
+                raw = self.model.compose(kind=job, audio=audio, mime=mime, text=None if audio else text, patient=None, doctor=None,
+                                         context=("Reply to the patient's message: " + h["quote"][:300]) if answering else "")
+            except Exception as e:  # noqa: BLE001
+                self.store.event(now, "model_failed", job="compose", why=type(e).__name__)
+                return [self._console(d, dsay("model_failed", why=type(e).__name__))]
+            chk = drafting.check(raw)
+            if not chk["items"]:
+                return [self._console(d, dsay("model_failed", why="nothing in it could be quoted from what you said"))]
+            if job == "plan":
+                body = drafting.render_plan(chk["items"], lang, doctor={lg: self.dname(d, lg) for lg in ("en", "zh")},
+                                            date={"en": f"{now.day} {now.strftime('%b')}", "zh": f"{now.month}月{now.day}日"},
+                                            hours={lg: hours.hours_text(d, lg) for lg in ("en", "zh")})
+            else:
+                body = "\n".join(it[lang] for it in chk["items"])
+                chk.update(reminders=[], checkin_days=None)
+        for old in self.store.find("plan", patient_id=p["id"], status="draft"):      # one open draft per patient and job
+            if old["job"] == job:
+                old.update(status="replaced")
+                self.store.put("plan", old["id"], old)
+        plan = {"id": new_id("PL"), "patient_id": p["id"], "doctor_id": d["id"], "job": job, "handoff_id": h["id"] if answering else None,
                 "status": "draft", "source": kind, "media_ref": media_ref, **chk, "text": body, "created_at": iso(now), "edited": False}
         self.store.put("plan", plan["id"], plan)
         self.store.event(now, "draft", plan=plan["id"], job=job, kept=len(chk["items"]), dropped=len(chk["dropped"]), model=str(chk.get("model")))
-        sess.pop("mode", None)
+        for k in ("mode", "mode_at", "patient_id", "handoff_id"):
+            sess.pop(k, None)
         self.store.put("dsession", d["id"], sess)
         return self._show_draft(d, p, plan)
 
     def _show_draft(self, d, p, plan) -> list[Out]:
-        lines = [dsay("plan_for", name=self.pname(p)) if plan["job"] == "plan" else f"Draft reply to {self.pname(p)}"]
+        if plan["job"] == "plan":
+            lines = [dsay("plan_for", name=self.pname(p))]
+        else:
+            lines = [dsay("message_for", name=self.pname(p)) if plan["source"] == "text" else f"Draft reply to {self.pname(p)}"]
         if plan.get("transcript") and plan["source"] == "audio":
             lines.append(dsay("heard", transcript=plan["transcript"][:600]))
         lines += ["—", plan["text"]]
         if plan.get("dropped"):
-            lines.append("—")
-            lines.append(dsay("dropped", items="; ".join((x.get("en") or x.get("quote") or "")[:80] for x in plan["dropped"])))
+            lines += ["—", dsay("dropped", items="; ".join((x.get("en") or x.get("quote") or "")[:80] for x in plan["dropped"]))]
+        if plan["job"] == "plan":
+            rem = "".join(f"; reminder on day {r['due_in_days']}: {r['en'][:80]}" for r in plan.get("reminders", []))
+            lines += ["—", dsay("will_send", days=plan.get("checkin_days") or 3, reminders=rem)]
+            if plan.get("edited"):
+                lines.append(dsay("edited_note"))
         ctx = {"patient_id": p["id"], "plan_id": plan["id"]}
+        ask = dsay("send_q", name=self.pname(p)) if plan["job"] == "plan" else f"Send this to {self.pname(p)}?"
         return [self._console(d, "\n".join(lines), ctx=ctx),
-                self._console(d, dsay("send_q", name=self.pname(p)) if plan["job"] == "plan" else f"Send this reply to {self.pname(p)}?", ctx=ctx,
-                              type="buttons", buttons=[{"id": f"plan:send:{plan['id']}", "title": dsay("btn_send")},
-                                                       {"id": f"plan:edit:{plan['id']}", "title": dsay("btn_edit")},
-                                                       {"id": f"plan:skip:{plan['id']}", "title": dsay("btn_skip")}])]
+                self._console(d, ask, ctx=ctx, type="buttons", buttons=[{"id": f"plan:send:{plan['id']}", "title": dsay("btn_send")},
+                                                                         {"id": f"plan:edit:{plan['id']}", "title": dsay("btn_edit")},
+                                                                         {"id": f"plan:skip:{plan['id']}", "title": dsay("btn_skip")}])]
 
     def plan_action(self, d, plan_id, what, now) -> list[Out]:
         plan = self.store.get("plan", plan_id)
@@ -928,7 +1019,13 @@ class Line:
         if what == "skip":
             plan.update(status="skipped", skipped_at=iso(now))
             self.store.put("plan", plan_id, plan)
-            return [self._console(d, dsay("skipped", name=self.pname(p)))]
+            if plan["job"] == "plan":
+                p["awaiting_plan"] = None
+                self.store.put("patient", p["id"], p)
+                return [self._console(d, dsay("skipped", name=self.pname(p)))]
+            return [self._console(d, "Skipped. Nothing was sent.")]
+        if p.get("state") != "joined":
+            return [self._console(d, f"{self.pname(p)} has stopped messages from the line, so nothing was sent.")]
         # send: the doctor's approval is this tap, for exactly this text
         plan.update(status="sent", approved_at=iso(now), approved_by=d["id"], approved_hash=hashlib.sha256(plan["text"].encode()).hexdigest(), sent_at=iso(now))
         self.store.put("plan", plan_id, plan)
@@ -937,7 +1034,7 @@ class Line:
                   kind="approved", ctx={"patient_id": p["id"], "plan_id": plan_id, "approved_hash": plan["approved_hash"]})
         outs = [out]
         if plan["job"] == "plan":
-            p.update(plan_id=plan_id, confirmed=True)
+            p.update(plan_id=plan_id, confirmed=True, awaiting_plan=None)
             self.store.put("patient", p["id"], p)
             days, rem = self._schedule(d, p, plan, now)
             outs.append(self.menu(p, d))
@@ -955,12 +1052,14 @@ class Line:
 
     def _plan_edited(self, d, sess, text, now) -> list[Out]:
         plan = self.store.get("plan", sess.get("plan_id", ""))
-        sess.pop("mode", None)
+        for k in ("mode", "mode_at", "plan_id"):
+            sess.pop(k, None)
         self.store.put("dsession", d["id"], sess)
         if not plan or plan["status"] != "draft":
             return [self._console(d, "That draft is no longer open.")]
         p = self.store.get("patient", plan["patient_id"])
-        plan.update(text=text, edited=True, items=[{"section": "other", "quote": text, "en": text, "zh": text, "med": ""}] + [it for it in plan["items"] if it["section"] == "take"])
+        plan.update(text=text, edited=True, reminders=[],
+                    items=[{"section": "other", "quote": text, "en": text, "zh": text, "med": ""}] + [it for it in plan["items"] if it["section"] == "take"])
         self.store.put("plan", plan["id"], plan)
         return self._show_draft(d, p, plan)
 
@@ -1044,6 +1143,14 @@ class Line:
                                   ctx={"patient_id": p["id"]})
                 else:
                     plan = self.store.get("plan", it["plan_id"])
+                    if safety._any(safety.SENSITIVE, it["en"] + " " + it["zh"]) or len(it[lang]) > 300:
+                        # a reminder can show on a lock screen: never name a sensitive test there (RP-02)
+                        ids += self.deliver([self._out(p, d, say("reminder_generic", lang, doctor=self.dname(d, lang)), "AV-05",
+                                                       template={"name": "line_waiting", "lang": lang_code(lang, "line_waiting"),
+                                                                 "params": [self.dname(d, lang)], "payloads": ["read"]})], now)
+                        it.update(status="sent", sent_at=iso(now), generic=True)
+                        self.store.put("item", it["id"], it)
+                        continue
                     o = Out(to=p["wa"], body=f"{self._label(d, lang, 'approved')}\n{say('reminder', lang, text=it[lang])}", feature="AV-05",
                             kind="approved", template={"name": "line_reminder", "lang": lang_code(lang, "line_reminder"),
                                                        "params": [self.dname(d, lang), it[lang]]},

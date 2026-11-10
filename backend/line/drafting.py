@@ -12,32 +12,68 @@ import unicodedata
 from .models import SECTIONS
 from .texts import say
 
-NUM = re.compile(r"\d+(?:[.,]\d+)?")
-CN_NUM = {"一": "1", "二": "2", "兩": "2", "三": "3", "四": "4", "五": "5", "六": "6", "七": "7", "八": "8", "九": "9", "十": "10"}
+NUM = re.compile(r"\d+(?:\.\d+)?")
+CN_DIGIT = {"零": 0, "〇": 0, "一": 1, "二": 2, "兩": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+CN_UNIT = {"十": 10, "百": 100, "千": 1000}
+CN_RUN = re.compile("[零〇一二兩两三四五六七八九十百千廿卅]+")
+EN_WORDS = {"zero": 0, "one": 1, "once": 1, "a": 1, "an": 1, "each": 1, "every": 1, "daily": 1, "single": 1, "two": 2, "twice": 2,
+            "both": 2, "couple": 2, "three": 3, "thrice": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+            "eleven": 11, "twelve": 12, "fourteen": 14, "fifteen": 15, "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+            "sixty": 60, "ninety": 90, "hundred": 100, "thousand": 1000, "fortnight": 2}
 
 
 def _norm(s: str) -> str:
-    s = unicodedata.normalize("NFKC", s or "").lower()
-    s = re.sub(r"[“”\"'‘’`]", "", s)
-    return re.sub(r"\s+", " ", s).strip()
+    """Words only: case, spacing and punctuation don't count, so a model tidying a comma can't sink a true quote."""
+    s = unicodedata.normalize("NFKC", s or "").casefold()
+    return "".join(ch for ch in s if not ch.isspace() and unicodedata.category(ch)[0] not in ("P", "S"))
 
 
 def quoted(quote: str, transcript: str) -> bool:
-    q = _norm(quote).rstrip(".。!！?？,，")
-    return bool(q) and q in _norm(transcript)
+    q = _norm(quote)
+    return len(q) >= 2 and q in _norm(transcript)
+
+
+def _fmt(x: float) -> str:
+    return str(int(x)) if float(x).is_integer() else f"{x:.3f}".rstrip("0")
+
+
+def _cn(run: str) -> int:
+    run = run.replace("廿", "二十").replace("卅", "三十")
+    total, num = 0, 0
+    for ch in run:
+        if ch in CN_DIGIT:
+            num = CN_DIGIT[ch]
+        else:
+            total += (num or 1) * CN_UNIT[ch]
+            num = 0
+    return total + num
 
 
 def numbers(s: str) -> set[str]:
+    """Numbers written as digits ('5', '2.5', '1,000')."""
+    s = re.sub(r"(?<=\d),(?=\d{3}\b)", "", unicodedata.normalize("NFKC", s or ""))
+    s = re.sub(r"\b(\d{1,2}):00\b", r"\1", s)               # "9:00" is "nine o'clock": the 00 was never said
+    return {_fmt(float(n)) for n in NUM.findall(s)}
+
+
+def spoken_numbers(s: str) -> set[str]:
+    """Numbers as a doctor says them: digits, Chinese numerals (兩個禮拜, 二十, 廿五, 半粒) and English words (twice, a week)."""
     s = unicodedata.normalize("NFKC", s or "")
-    found = {n.replace(",", ".").rstrip("0").rstrip(".") if "." in n else n for n in NUM.findall(s)}
-    return found
+    out = numbers(s) | {_fmt(_cn(r)) for r in CN_RUN.findall(s)}
+    for ch in s:                                                # 二五 read digit by digit also allows 2 and 5
+        if ch in CN_DIGIT:
+            out.add(str(CN_DIGIT[ch]))
+    words = re.findall(r"[a-z]+", s.lower())
+    out |= {str(EN_WORDS[w]) for w in words if w in EN_WORDS}
+    if "半" in s or "half" in words:
+        out |= {"0.5", "1.5", "2.5"} if re.search(r"半|and a half", s.lower()) else {"0.5"}
+    return out
 
 
 def numbers_ok(text: str, quote: str) -> list[str]:
-    """Numbers in the patient text that aren't in the doctor's quote (Chinese numerals in the quote count)."""
-    q = unicodedata.normalize("NFKC", quote or "")
-    qn = numbers(q) | {v for k, v in CN_NUM.items() if k in q}
-    return sorted(n for n in numbers(text) if n not in qn)
+    """Numbers in the patient text that the doctor didn't say in the quote. An empty list means all were said."""
+    said = spoken_numbers(quote)
+    return sorted(n for n in numbers(text) if n not in said)
 
 
 def check(draft: dict) -> dict:

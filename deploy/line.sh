@@ -62,18 +62,23 @@ deploy)
   read -rp "The shared WhatsApp number for $ENVN, digits only (e.g. 85291234567): " WA_NUMBER
   read -rp "Its phone number ID (Meta → WhatsApp → API setup): " WA_PNID
   read -rp "Comma-separated tester numbers (staging only; Enter for none): " TESTERS
+  read -rp "Gemini model offered in $REGION (Vertex AI → Model Garden; Enter for gemini-2.5-flash): " VMODEL
+  VMODEL="${VMODEL:-gemini-2.5-flash}"
   MODE="$ENVN"; SIGN=""
   if [ "$ENVN" = live ]; then
     read -rp "Live mode sends to real patients. As the doctor, do you sign off (type yes)? " ok
     [ "$ok" = yes ] || { echo "Not deployed."; exit 1; }
-    SIGN=",CARELINE_I_HAVE_SIGN_OFF=yes"
+    SIGN="@CARELINE_I_HAVE_SIGN_OFF=yes"
   fi
-  gcloud builds submit --config deploy/cloudbuild.line.yaml --region="$REGION" .
+  gcloud builds submit --config deploy/cloudbuild.line.yaml .
   sec=""; for s in "${SECRETS[@]}"; do n="${s}${SUF//-/_}"; n="${n^^}"; gcloud secrets describe "$n" >/dev/null 2>&1 && sec+="${s}=${n}:latest,"; done
   URL="$(gcloud run services describe "$SVC" --region="$REGION" --format='value(status.url)' 2>/dev/null || true)"
+  PAY=off; [[ "$sec" == *STRIPE_SECRET_KEY=* && "$sec" == *STRIPE_WEBHOOK_SECRET=* ]] && PAY=on
+  [ "$PAY" = on ] || echo "Payments are OFF until both Stripe secrets are set (deploy/line.sh secret $ENVN STRIPE_SECRET_KEY, then STRIPE_WEBHOOK_SECRET)."
+  # '@' separates the settings, because the tester list has commas in it
   gcloud run deploy "$SVC" --image="$IMAGE" --region="$REGION" --service-account="$SA" --allow-unauthenticated \
     --min-instances=1 --max-instances=1 --no-cpu-throttling --memory=1Gi --timeout=120 \
-    --set-env-vars="LINE_MODE=$MODE,LINE_STORE=firestore,LINE_STORE_PREFIX=$PREFIX,LINE_MODEL=vertex,VERTEX_PROJECT=$PROJECT,VERTEX_REGION=$REGION,LINE_MEDIA_BUCKET=$BUCKET,LINE_PAYMENTS=on,WA_NUMBER=$WA_NUMBER,WA_PHONE_NUMBER_ID=$WA_PNID,LINE_TESTERS=${TESTERS// /},LINE_BASE_URL=${URL:-https://placeholder}${SIGN}" \
+    --set-env-vars="^@^LINE_MODE=$MODE@LINE_STORE=firestore@LINE_STORE_PREFIX=$PREFIX@LINE_MODEL=vertex@VERTEX_PROJECT=$PROJECT@VERTEX_REGION=$REGION@VERTEX_MODEL=$VMODEL@LINE_MEDIA_BUCKET=$BUCKET@LINE_PAYMENTS=$PAY@WA_NUMBER=$WA_NUMBER@WA_PHONE_NUMBER_ID=$WA_PNID@LINE_TESTERS=${TESTERS// /}@LINE_BASE_URL=${URL:-https://placeholder}${SIGN}" \
     --set-secrets="${sec%,}"
   URL="$(gcloud run services describe "$SVC" --region="$REGION" --format='value(status.url)')"
   gcloud run services update "$SVC" --region="$REGION" --update-env-vars="LINE_BASE_URL=$URL" >/dev/null
