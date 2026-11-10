@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Care line privacy notice</title>
+<style>
+  body { margin:0; font:16px/1.55 system-ui, -apple-system, "Segoe UI", "PingFang HK", "Noto Sans HK", sans-serif; color:#16201c; background:#fff; }
+  main { max-width:680px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:24px; } h2 { font-size:18px; margin-top:28px; }
+  .draft { background:#fff6e0; border:1px solid #f0d58a; padding:10px 12px; border-radius:8px; font-size:14px; }
+  .zh { color:#3c4a44; }
+</style>
+</head>
+<body>
+<main>
+<p class="draft">Draft for review before launch (spec 005). Not legal advice; to be checked by a Hong Kong lawyer.</p>
+<h1>Care line privacy notice<br><span class="zh">護理熱線私隱聲明</span></h1>
+
+<h2>Who we are</h2>
+<p>The care line is an automated WhatsApp service run by tmrw (TMRW CONSULTING LIMITED) for your doctor. Your doctor
+decides what the line is used for, and is responsible for your medical care and records. tmrw processes your
+information on your doctor's behalf, under the Personal Data (Privacy) Ordinance.</p>
+
+<h2>What we collect</h2>
+<ul>
+  <li>Your WhatsApp number, the name and date of birth you give us, and your language.</li>
+  <li>The messages, photos and documents you send, and the messages we send you.</li>
+  <li>Your plan and replies, written from your doctor's own words and approved by your doctor.</li>
+  <li>If you pay for a follow-up: what you paid for and when. Card details go to Stripe, never to us.</li>
+</ul>
+
+<h2>How we use it</h2>
+<ul>
+  <li>To send you your doctor's plan, check-ins, reminders and replies, and to pass your messages to your doctor.</li>
+  <li>To draft text for your doctor to check. We use Google's Vertex AI service (Gemini models) for drafting. A draft
+      never reaches you unless your doctor approves it, and the model never writes to you on its own.</li>
+  <li>We don't sell your information, and we don't use it for advertising.</li>
+</ul>
+
+<h2>Where it is kept</h2>
+<p>On Google Cloud, in the Hong Kong region. Voice notes and photos are deleted 30 days after they are used. Your
+messages are kept as part of your care record for as long as your doctor needs them for your medical records, then
+deleted. Your doctor can export your record into their clinical notes.</p>
+
+<h2>Who sees it</h2>
+<p>Your doctor, and the small team at tmrw who run the line, only when needed to keep it working. Meta (WhatsApp)
+carries the messages. Stripe handles payments. Google hosts the service and the drafting model.</p>
+
+<h2>Your choices</h2>
+<ul>
+  <li>Write STOP at any time to stop messages. Write JOIN to start again.</li>
+  <li>You can ask to see or correct your information, or ask us to delete what isn't part of your medical record:
+      email <a href="mailto:me@thomashu.com">me@thomashu.com</a> or ask your doctor.</li>
+  <li>The care line isn't for emergencies. If it can't wait, call 999 or go to A&amp;E.</li>
+</ul>
+
+<h2 class="zh">中文摘要</h2>
+<p class="zh">護理熱線係 tmrw（TMRW CONSULTING LIMITED）為你嘅醫生提供嘅自動WhatsApp服務。你嘅醫生負責你嘅醫療護理同紀錄，tmrw
+按《個人資料（私隱）條例》代表醫生處理你嘅資料。我哋收集你嘅WhatsApp號碼、你提供嘅姓名同出世日期、你send嘅訊息同文件，
+以及醫生批核嘅計劃同回覆。我哋用Google Vertex AI幫醫生起草內容，所有草稿必須經醫生批核先會send俾你。資料儲存喺Google
+Cloud香港區域，錄音同相片會喺使用後30日刪除。付款經Stripe處理，我哋唔會接觸你嘅信用卡資料。你可以隨時寫 STOP 停止收訊息，
+或者電郵 me@thomashu.com 查閱、更正或刪除資料。護理熱線唔係緊急服務，如有緊急情況請打999或去急症室。</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Care line simulator</title>
+<style>
+  :root { --ink:#16201c; --soft:#5b6b64; --line:#dfe6e2; --accent:#0f7b5f; --wa:#e7f6df; --bg:#eef1ef; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.4 system-ui, -apple-system, "Segoe UI", "PingFang HK", "Noto Sans HK", sans-serif; color:var(--ink); background:var(--bg); }
+  .bar { padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .bar b { margin-right:auto; }
+  .phones { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; padding:16px; max-width:1000px; margin:0 auto; }
+  .phone { background:#fff; border:1px solid var(--line); border-radius:22px; display:flex; flex-direction:column; height:78vh; min-height:480px; overflow:hidden; }
+  .phone h2 { font-size:15px; margin:0; padding:12px 14px; border-bottom:1px solid var(--line); }
+  .log { flex:1; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:8px; background:#f7f5f0; }
+  .msg { max-width:88%; padding:8px 10px; border-radius:10px; white-space:pre-wrap; background:#fff; border:1px solid var(--line); }
+  .msg.me { align-self:flex-end; background:var(--wa); }
+  .msg .btns { display:flex; flex-direction:column; gap:4px; margin-top:6px; }
+  .msg .btns button { border:none; border-top:1px solid var(--line); background:none; color:#0a6fc2; padding:6px; cursor:pointer; font:inherit; }
+  .tpl { font-size:12px; color:var(--soft); }
+  .reply-to { font-size:11px; color:var(--soft); cursor:pointer; text-decoration:underline; }
+  form { display:flex; gap:6px; padding:8px; border-top:1px solid var(--line); flex-wrap:wrap; }
+  input, textarea { flex:1; font:inherit; padding:8px; border:1px solid var(--line); border-radius:999px; min-width:0; }
+  textarea { border-radius:10px; min-height:44px; }
+  button { font:inherit; border:1px solid var(--line); background:#fff; border-radius:999px; padding:6px 12px; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .ctx { font-size:12px; color:var(--accent); padding:0 10px; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <b>Care line simulator · synthetic people only · nothing leaves this machine</b>
+  <input id="clock" type="datetime-local" style="flex:0 0 auto;border-radius:8px">
+  <button onclick="setClock()">Set clock</button>
+  <button onclick="tick()">Run scheduler</button>
+  <button onclick="pay()">Pay pending</button>
+  <button onclick="web()">Doctor's web page</button>
+</div>
+<div class="phones">
+  <div class="phone"><h2>Patient · +852 6123 4567</h2><div class="log" id="log-p"></div>
+    <form onsubmit="send(event,'p')"><input id="in-p" placeholder="Type a message (first: Hi Dr Hu [TH01])"><button class="primary">Send</button>
+      <button type="button" onclick="report()">Send a report (PDF)</button></form></div>
+  <div class="phone"><h2>Doctor · +852 9000 0001</h2><div class="log" id="log-d"></div>
+    <div class="ctx" id="ctx-d"></div>
+    <form onsubmit="send(event,'d')"><input id="in-d" placeholder="Text, or a command: QUEUE, WEB, HELP"><button class="primary">Send</button></form>
+    <form onsubmit="dictate(event)"><textarea id="dict" placeholder="Voice note (type what you'd say), e.g. Start Amlodipine 5 mg once a day. Come back if you get chest pain. Blood test in 2 weeks."></textarea><button class="primary">🎤 Send voice note</button></form></div>
+</div>
+<script>
+const WA = { p: "85261234567", d: "85290000001" };
+let ctx = null;
+const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+async function post(path, body) { const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) }); return r.json(); }
+
+async function render(who) {
+  const r = await (await fetch(`/api/sim/log?wa=${WA[who]}`)).json();
+  const el = document.getElementById("log-" + who);
+  el.innerHTML = r.sent.map((s) => bubble(s, who)).join("") + (r.outbox ? `<div class="tpl">${r.outbox} message(s) waiting behind a template</div>` : "");
+  el.scrollTop = el.scrollHeight;
+}
+function bubble(s, who) {
+  if (s.mine) return `<div class="msg me">${esc(s.body)}</div>`;
+  let body = s.type === "template" ? `<span class="tpl">Template ${esc(s.template.name)}: ${esc((s.template.params || []).join(" | "))}</span>` : esc(s.body);
+  const btns = (s.buttons || []).map((b) => `<button onclick="tap('${who}','${b.id}','${esc(b.title)}')">${esc(b.title)}</button>`)
+    .concat((s.rows || []).map((b) => `<button onclick="tap('${who}','${b.id}','${esc(b.title)}')">${esc(b.title)}</button>`))
+    .concat(s.type === "template" ? (s.template.payloads || []).map((p) => `<button onclick="tap('${who}','${p}','${p}')">${esc(p)}</button>`) : []);
+  const rt = who === "d" ? `<div class="reply-to" onclick="setCtx('${s.id}')">reply to this</div>` : "";
+  return `<div class="msg">${body}${btns.length ? `<div class="btns">${btns.join("")}</div>` : ""}${rt}</div>`;
+}
+function setCtx(id) { ctx = id; document.getElementById("ctx-d").textContent = "Replying to message " + id + " (click to clear)"; document.getElementById("ctx-d").onclick = () => { ctx = null; document.getElementById("ctx-d").textContent = ""; }; }
+function both() { render("p"); render("d"); }
+async function send(e, who) { e.preventDefault(); const i = document.getElementById("in-" + who); const t = i.value.trim(); if (!t) return; i.value = "";
+  await post("/api/sim/send", { wa: WA[who], text: t, context_id: who === "d" ? ctx : null }); if (who === "d") { ctx = null; document.getElementById("ctx-d").textContent = ""; } both(); }
+async function tap(who, id, title) { await post("/api/sim/send", { wa: WA[who], text: title, reply_id: id, kind: "interactive" }); both(); }
+async function dictate(e) { e.preventDefault(); const t = document.getElementById("dict").value.trim(); if (!t) return; document.getElementById("dict").value = "";
+  await post("/api/sim/send", { wa: WA.d, audio_text: t, context_id: ctx }); ctx = null; document.getElementById("ctx-d").textContent = ""; both(); }
+async function report() { await post("/api/sim/send", { wa: WA.p, file_text: "%PDF synthetic lab report: creatinine 88" }); both(); }
+async function setClock() { const v = document.getElementById("clock").value; await post("/api/sim/clock", { at: v || null }); }
+async function tick() { await post("/api/sim/tick"); both(); }
+async function pay() { await post("/api/sim/pay"); both(); }
+async function web() { const r = await (await fetch("/api/sim/login")).json(); window.open(r.url, "_blank"); }
+both(); setInterval(both, 4000);
+</script>
+</body>
+</html>

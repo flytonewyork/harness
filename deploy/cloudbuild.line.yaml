@@ -1,0 +1,5 @@
+# Builds the line's image. Used by deploy/line.sh: gcloud builds submit --config deploy/cloudbuild.line.yaml
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "deploy/line.Dockerfile", "-t", "asia-east2-docker.pkg.dev/$PROJECT_ID/tmrw/line:latest", "."]
+images: ["asia-east2-docker.pkg.dev/$PROJECT_ID/tmrw/line:latest"]

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NAME_EN}}'s care line</title>
+<style>
+  :root { --ink:#16201c; --soft:#5b6b64; --line:#d9e2dd; --accent:#0f7b5f; --bg:#f6f8f7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.45 system-ui, -apple-system, "Segoe UI", "PingFang HK", "Noto Sans HK", sans-serif; color:var(--ink); background:var(--bg); }
+  .card { max-width:420px; margin:24px auto; background:#fff; border:1px solid var(--line); border-radius:20px; padding:28px 24px; text-align:center; }
+  h1 { font-size:24px; margin:0 0 2px; }
+  .zh { font-size:20px; color:var(--soft); margin:0 0 18px; }
+  .qr { width:240px; height:240px; image-rendering:pixelated; }
+  .scan { font-size:18px; font-weight:600; margin:14px 0 4px; }
+  .scan-zh { color:var(--soft); margin:0 0 16px; }
+  .hours { font-size:14px; color:var(--soft); border-top:1px solid var(--line); padding-top:14px; }
+  .sos { font-size:14px; margin-top:10px; }
+  .by { font-size:12px; color:var(--soft); margin-top:16px; }
+  a.open { display:inline-block; margin-top:12px; background:var(--accent); color:#fff; text-decoration:none; padding:10px 18px; border-radius:999px; font-weight:600; }
+  @media print { body { background:#fff; } .card { border:none; margin:0 auto; } a.open { display:none; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>{{NAME_EN}}'s care line</h1>
+  <p class="zh">{{NAME_ZH}}護理熱線</p>
+  <img class="qr" src="/j/{{CODE}}.png" alt="QR code to join on WhatsApp">
+  <p class="scan">Scan to get your plan on WhatsApp</p>
+  <p class="scan-zh">掃描二維碼，喺WhatsApp收你嘅治療計劃</p>
+  <a class="open" href="{{LINK}}">Open in WhatsApp</a>
+  <p class="hours">Replies {{HOURS_EN}}<br>回覆時間：{{HOURS_ZH}}</p>
+  <p class="sos">Emergency? Call 999 or go to A&amp;E. 緊急情況請打999或去急症室。</p>
+  <p class="by">Automated care line by tmrw · <a href="/privacy">Privacy 私隱</a></p>
+</div>
+</body>
+</html>

@@ -13,6 +13,7 @@
 - Tests: `python -m pytest -q` (no simulator needed)
 - API + screen: `python -m backend.api --run <harness-run json>` (build the screen first: `cd frontend && npm run build`)
 - Care line (WhatsApp, spec 004): `python -m backend.careline --run <harness-run json> --mode sim`, dashboard at `/careline`; evals `python -m backend.careline.evals --run tests/fixtures/careline_run.json`; on the Mac mini `scripts/careline_mac_mini.sh setup` once, then `status`, `logs`, `stop`
+- The doctor's own line (spec 005): `python -m backend.line sim` (two-phone simulator at `/sim`); tests `tests/test_line*.py`; deploy and run it with `deploy/line.sh` and `docs/LINE_RUNBOOK.md` (Thomas, in Cloud Shell)
 - Look-back: `python -m backend.lookback --export DIR --out DIR`
 - `claude -p` extraction runs on the Mac (logged-in CLI), never in this container: `backend/extract/claude_runner.py`
 - Full scoring happens in LoopBench (sibling checkout `../loopbench`): `PYTHONPATH=src python -m loopbench.cli run --harness rules-v1.1 ...`

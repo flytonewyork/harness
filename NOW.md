@@ -10,12 +10,13 @@ between visits, not clinic software (`docs/DECISIONS.md`, spec 005).
 
 ## In progress (three at most)
 
-1. **The doctor's own line, live** (spec 005, `backend/careline/`). Built on PR #26. Order: doctors and clinics on
-   one shared number, the doctor's WhatsApp console, the plan from a voice note (Vertex Gemini, Hong Kong), check-ins
-   and reminders, ask the doctor, paid repeats and result reviews (Stripe Connect, HK$30 service fee), the doctor's
-   web page, hosting (Cloud Run `asia-east2`). Then a rehearsal week in `staging` with role-play patients, then
-   launch with Thomas and Jose about two weeks out (around 24 Nov). Thomas, in parallel: the account setup in the
-   spec 005 PR, each clinic's written OK, Jose's details, and a lawyer's look at the fee structure (recommended, not
+1. **The doctor's own line, live** (spec 005, `backend/line/`; how to run it: `docs/LINE_RUNBOOK.md`). Built 10 Nov
+   and running in the simulator (`python -m backend.line sim`). Built on PR #26: one shared number for many doctors, the
+   doctor's WhatsApp console, the plan from a voice note (Vertex Gemini, Hong Kong), check-ins and reminders, ask the
+   doctor, paid repeats and result reviews (Stripe Connect, HK$30 service fee), the doctor's web page, and the deploy
+   script (Cloud Run `asia-east2`). Next: staging, then a rehearsal week with role-play patients, then launch with
+   Thomas and Jose around 24 Nov. Thomas, in parallel: the accounts in
+   `docs/LINE_RUNBOOK.md` (Meta, Google Cloud, Stripe), each clinic's written OK, Jose's details, and a lawyer's look at the fee structure (recommended, not
    a gate).
 2. **EC Healthcare, Wed 11 Nov 4pm** (#23). Keep it light: ask which burden on EC's doctors to take away first and
    for a discovery that needs no patient data (PR #25). Build nothing more for EC.
