@@ -127,6 +127,8 @@ T: dict[str, dict[str, str]] = {
                         "zh": "{doctor}未能經熱線覆配{med}。醫生會再同你講，或者你可以預約{clinic}：{phone}。冇收任何費用。"},
     "pickup_pick": {"en": "Paid, thank you. When will you collect {med} at {clinic}?", "zh": "已收款，多謝。你幾時去{clinic}取{med}？"},
     "pickup_pick_free": {"en": "When will you collect {med} at {clinic}?", "zh": "你幾時去{clinic}取{med}？"},
+    "repeat_sent_free": {"en": "Your request for {med} is with {doctor}, who decides whether it can be repeated without a visit. You'll hear by {when}.",
+                         "zh": "你覆配{med}嘅要求已經交咗俾{doctor}。醫生會決定唔使覆診可唔可以覆配，你會喺{when}之前收到回覆。"},
     "repeat_sent_member": {"en": "Your request for {med} is with {doctor}, who decides whether it can be repeated without a visit. You'll hear by {when}. It's included in your membership.",
                            "zh": "你覆配{med}嘅要求已經交咗俾{doctor}。醫生會決定唔使覆診可唔可以覆配，你會喺{when}之前收到回覆。呢項已包括喺你嘅會籍入面。"},
     "pickup_set": {"en": "Done: collect {med} at {clinic}, {address}, {when}. Bring your HKID.",

@@ -15,6 +15,9 @@ backend/          Python 3.12+, FastAPI, Pydantic
   lookback/       Phase 0 look-back over a clinic's export
   adapters/       data in: LoopBench runs, EC-style export
   api/            items, evidence, actions (agent: open or raise only; doctor closes)
+  careline/       the WhatsApp care line's safety core and its 63 eval cases (spec 004)
+  line/           the doctor's own line: the live, multi-doctor WhatsApp care line (spec 005)
+deploy/           the line on Google Cloud, Hong Kong region (`deploy/line.sh`)
 frontend/         React + TypeScript (Vite): the doctor's follow-up list
 docs/             operating system, decisions, specs, EC data request
 NOW.md            the one queue for this repo and LoopBench
@@ -44,6 +47,14 @@ cd .. && python -m backend.api --run ../loopbench/results/product/<run>.json    
 The screen replays the recorded year: pick a moment (Mr Chan's critical potassium, the day-7 raise, the day-14
 copy to the locum, the PathLab outage) or any date. `--lookback <out dir>,<export dir>` shows a Phase 0
 look-back's flags instead.
+
+**The doctor's own line** (spec 005; setup, rehearsal and launch in [`docs/LINE_RUNBOOK.md`](docs/LINE_RUNBOOK.md)):
+```
+pip install -e ".[dev,careline]"
+python -m backend.line sim          # a patient's phone and the doctor's phone, at http://localhost:8080/sim
+```
+Fakes stand in for WhatsApp, the model and Stripe, so nothing leaves the machine. Real patient data exists only in
+the live deployment, never in this repo.
 
 **Phase 0 look-back** on an export in `backend/lookback/schema.py` format (what `docs/EC_DATA_REQUEST.md` asks for):
 ```

@@ -604,3 +604,20 @@ def test_quotes_survive_punctuation_and_spoken_numbers():
     assert drafting.numbers_ok("25 mg for 20 days", "廿五毫克，食二十日") == []
     assert drafting.numbers_ok("2 times a day for 1 week at 9:00", "twice a day for a week at nine") == []
     assert drafting.numbers_ok("Take 10 mg", "take five milligrams") == ["10"]
+
+
+def test_a_clinic_can_have_charging_switched_off(line):
+    d = line.store.get("doctor", "D1")
+    d["membership_hkd"] = 400
+    d["clinics"][0]["charge"] = False
+    line.store.put("doctor", "D1", d)
+    p, _ = joined_with_plan(line)
+    assert not last(line, DOC_WA)[0]["buttons"], "no membership offer at a clinic that doesn't charge"
+    tap(line, PAT_WA, T0 + timedelta(hours=3), "med:0")
+    assert "charged" not in last(line, PAT_WA)[0]["body"]
+    h = line.store.one("handoff", kind="repeat")
+    tap(line, DOC_WA, T0 + timedelta(hours=3), f"rp:ok:{h['id']}")
+    assert last(line, PAT_WA)[0]["type"] == "list" and "Paid" not in last(line, PAT_WA)[0]["body"]
+    line.tx.media["m-r"] = (b"%PDF synthetic", "application/pdf")
+    msg(line, PAT_WA, T0 + timedelta(hours=4), "", kind="document", media_id="m-r", mime="application/pdf")
+    assert "reply by" in last(line, PAT_WA)[0]["body"] and not line.store.all("payment")

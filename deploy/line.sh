@@ -98,16 +98,25 @@ doctor)
   read -rp "Id (e.g. D1): " ID; read -rp "QR code (2 letters + 2 digits, e.g. TH01): " CODE
   read -rp "Name in English (e.g. Dr Thomas Hu): " NE; read -rp "Name in Chinese (e.g. 胡醫生): " NZ
   read -rp "Short name (e.g. Dr Hu): " SE; read -rp "Doctor's own WhatsApp number, digits only: " WA
-  read -rp "Clinic: name|中文名|address|地址|phone: " CL; read -rp "Repeat fee HK$: " RF; read -rp "Result review fee HK$: " XF
-  IFS='|' read -r c1 c2 c3 c4 c5 <<< "$CL"
-  python3 - "$URL" "$TOKEN" <<PY
-import json, sys, urllib.request
-body = {"id": "$ID", "code": "$CODE", "name_en": "$NE", "name_zh": "$NZ", "short_en": "$SE", "short_zh": "$NZ", "wa": "$WA",
-        "fees": {"repeat": int("${RF:-0}"), "result": int("${XF:-0}")},
-        "clinics": [{"id": "c1", "name_en": "$c1", "name_zh": "$c2", "address_en": "$c3", "address_zh": "$c4", "phone": "$c5"}]}
+  echo "Clinics, as name|中文名|address|地址|phone. Separate several clinics with ';'. Add |nocharge to a clinic where patients are never charged."
+  read -rp "Clinics: " CL
+  read -rp "Repeat fee HK$: " RF; read -rp "Result review fee HK$: " XF
+  ID="$ID" CODE="$CODE" NE="$NE" NZ="$NZ" SE="$SE" WA="$WA" CL="$CL" RF="${RF:-0}" XF="${XF:-0}" python3 - "$URL" "$TOKEN" <<'PY'
+import json, os, sys, urllib.request
+e = os.environ
+clinics = []
+for i, c in enumerate([x for x in e["CL"].split(";") if x.strip()], 1):
+    f = ([y.strip() for y in c.split("|")] + [""] * 6)[:6]
+    clinics.append({"id": f"c{i}", "name_en": f[0], "name_zh": f[1], "address_en": f[2], "address_zh": f[3], "phone": f[4],
+                    "charge": f[5].lower() != "nocharge"})
+body = {"id": e["ID"], "code": e["CODE"].upper(), "name_en": e["NE"], "name_zh": e["NZ"], "short_en": e["SE"] or e["NE"], "short_zh": e["NZ"],
+        "wa": e["WA"].lstrip("+").replace(" ", ""), "fees": {"repeat": int(e["RF"]), "result": int(e["XF"])}, "clinics": clinics}
 req = urllib.request.Request(sys.argv[1] + "/api/admin/doctor", data=json.dumps(body).encode(), method="POST",
                              headers={"Authorization": "Bearer " + sys.argv[2], "Content-Type": "application/json"})
-print(urllib.request.urlopen(req).read().decode())
+try:
+    print(urllib.request.urlopen(req).read().decode())
+except urllib.error.HTTPError as err:
+    print("Not saved:", err.read().decode())
 PY
   ;;
 secret)

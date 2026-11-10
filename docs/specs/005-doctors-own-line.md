@@ -33,40 +33,48 @@ Each doctor works from their own WhatsApp, with a web page for the long view. It
 **Patient (target: plan in hand before they leave the room).**
 1. At the end of the consult the doctor shows a QR card. The patient scans it and WhatsApp opens with
    "Hi Dr Hu [TH01]" already typed. They tap send.
-2. "This is Dr Thomas Hu's care line, by tmrw." Two buttons: join or not now. Then their name and date of birth.
-3. Within about two minutes their plan arrives in English and Chinese, in the doctor's words: what to take, what to
-   watch for, what happens next and when. It ends with the doctor's hours and the safety line ("if it can't wait,
-   call 999 or go to A&E").
-4. Day 3: "How are you going since Tuesday?" with Better / Same / Worse.
-5. Any question, any hour: an instant reply saying who answers and by when ("Dr Hu replies by 6 pm today").
+2. "You've reached Dr Thomas Hu's care line, an automated service by tmrw." Two buttons: join or not now. Then their
+   name and date of birth.
+3. Within about two minutes their plan arrives in English and Chinese, in the doctor's words: medicines, what to
+   watch for, next steps. It ends with the doctor's hours and the safety line ("if it can't wait, call 999 or go to
+   A&E").
+4. Day 3: "It's 3 days since your visit with Dr Thomas Hu. How are you feeling?" with Better / About the same / Worse.
+5. Any question, any hour: an instant reply saying who answers and by when ("Dr Thomas Hu will read this and reply
+   by today 15:15").
 
 **Doctor (target: first plan sent within 60 seconds of finishing the voice note).**
 1. Thomas adds the doctor (`deploy/line.sh doctor`). The doctor's first message to the line gets a welcome with
-   their QR card, a payouts link (Stripe, about 10 minutes) and the commands; fees and hours are on the web page.
-2. When a patient joins, the doctor's chat shows "Chan Tai Man (b. 1964) joined at Clinic X. Reply with a voice
-   note for their plan."
-3. The doctor holds the mic for 20 seconds, in English, Cantonese or both. About 15 seconds later a draft plan
-   comes back with Send / Edit / Skip. Every line in it is tied to words the doctor actually said.
-4. Later: questions arrive sorted, each with a drafted reply (Send / Edit / I'll call). A repeat request arrives as
-   "Approve HK$X / Needs a visit / Decline". The web page shows the day's earnings.
+   their QR card, a payouts link (Stripe, about 10 minutes) and the commands. Fees, the membership price and one QR
+   card per clinic are on the web page.
+2. When a patient joins, the doctor's chat shows "CHAN Tai Man (b. 1964) just joined your line at Clinic X. Reply to
+   this message with a voice note or text for their plan."
+3. The doctor holds the mic for 20 seconds, in English, Cantonese or both. The line answers "Got it. Drafting…",
+   then a draft plan with Send / Edit / Skip. Every line in it is tied to words the doctor said, and the draft lists
+   the check-in and reminders that Send will schedule.
+4. Later: questions arrive with a drafted reply (Send draft / I'll write / I'll call). A repeat request arrives as
+   Approve / Needs a visit / Decline. The web page shows the month's earnings and members.
 
 ## How it works
 
-| Part | File (new or changed) | What it does |
+| Part | File | What it does |
 |---|---|---|
-| Doctors and clinics | `agent.py`, `store.py` | Many doctors on one number. A doctor has a code, names, clinics, hours, fees and a Stripe account. Each clinic has hours, pickup windows, a contact, and whether consent is on file. A message's sender decides its role: a doctor's registered number is the doctor; anyone else is a patient. |
+| Doctors and clinics | `agent.py`, `store.py` | Many doctors on one number. A doctor has a code, names, their own WhatsApp number, hours, fees, a membership price, a Stripe account and up to nine clinics (name, address, phone, optional hours, and a switch that turns charging off for that clinic's patients). A message's sender decides its side: a registered doctor's number is the doctor; anyone else is a patient. |
 | Store | `store.py` | Memory in tests, SQLite on a laptop, Firestore live (serverless, `asia-east2`, no database to run). Collections: doctor, patient, wa, plan, item, handoff, payment, msg, ctx, dsession, token, seen, event. The record keeps every message and decision (RP-01); the audit trail (`event`) refuses message text, names and numbers. |
-| Join | `agent.py` | The QR's pre-typed code picks the doctor. Then consent, name and date of birth. With no EMR, the doctor confirms the link from their chat. Only after that does anything from the record go out. |
-| Doctor console | `agent.py` (`_doctor`) | The doctor's side of the same number: voice note → plan, buttons on every draft, typed replies to a patient (sent as the doctor's own words, still through `check_outbound`), `queue`, `hours`, `pause`. |
-| Plan from a voice note | `drafting.py`, `models.py` | Vertex Gemini turns the audio into a transcript, then into a structured plan (medicines, what to watch for, next steps, check-in day, reminders), each item carrying the transcript words it came from. A plan item whose quote isn't word for word in the transcript is dropped and flagged, the `unsupported_claim` rule from LoopBench. The patient's text is built from fixed bilingual layouts around the doctor's items. The doctor approves every word before it is sent. |
-| Model port | `models.py` | `VertexGemini` (region from settings, `asia-east2` by default) and `FakeModel` for tests and sim. Nothing in tests or CI calls a real model. |
-| Ask the doctor | `agent.py`, `drafting.py` | A clinical question gets the fixed acknowledgement with a reply-by time in the doctor's hours, and goes to the doctor with a drafted reply grounded only in the approved plan and the thread. Red flags keep spec 004's fixed reply and alert. |
-| Check-ins and reminders | `agent.py` (`tick`) | Due items come from the approved plan. Outside WhatsApp's 24-hour window they go out as approved utility templates. A Cloud Scheduler tick every minute sends what's due, in the doctor's hours only. |
-| Paid follow-ups | `payments.py`, `agent.py` | Repeat: the patient picks a medicine from their approved plan; the doctor taps Approve / Needs a visit / Decline; only on Approve does the patient get a Stripe Checkout link (doctor's fee + HK$30); once paid, the patient picks a collection window in the clinic's hours and the doctor is told (the doctor arranges it with the clinic). Result review: the patient sends a photo or PDF; the line quotes the fee; once paid, the doctor gets the file and a draft explanation for their eyes only, then approves what the patient sees. No charge when the doctor says a visit is needed. |
-| Stripe | `payments.py` | Connect Express accounts for doctors, onboarded by a link in their chat. Destination charges with `application_fee_amount` = HK$30, and a webhook for `checkout.session.completed`. The subscription switch is in settings, off. |
-| Doctor web page | `static/doctor.html`, `api.py` | Opened by a one-time link sent to the doctor's WhatsApp. Today, queue, patients (thread, plan, payments), settings, earnings, and record export as a PDF for the doctor's own notes (record-keeping stays the doctor's duty). |
-| Templates | `templates.py`, `python -m backend.line templates submit` | Utility templates in English and Chinese: check-in, reminder, "Dr X has replied", payment link, and the doctor's "new item" (the doctor is outside the 24-hour window too). Submitted by script, with status read back. |
+| Join | `agent.py` | The QR's pre-typed code picks the doctor, and the clinic (`[TH01.2]` is the doctor's second clinic). Then consent, name and date of birth. There is no EMR to match against, so the doctor is the check: the "joined" message shows the name and birth year with a "Not my patient" button, which tells the person and closes the line to that number. Nothing clinical reaches a patient until the doctor sends it. Someone who says no, or STOP half-way, leaves nothing behind. |
+| Returning patients | `agent.py` | A patient who scans the card again at a later visit, at any of the doctor's clinics, is "back": the doctor is told, and the next note becomes a new plan. Medicines from every plan stay available for repeats. This is what "the line follows the doctor" means in the product. |
+| Doctor console | `agent.py` (`_doctor`) | The doctor's side of the same number. A voice note or text becomes a plan when the patient is new or back; otherwise it is a message to that patient, shown back for Send first. A typed swipe-reply to an open question goes out at once, word for word, labelled as written by the doctor. With no swipe-reply and more than one patient waiting, the line asks who it is for. Commands: QUEUE, WEB, QR, PAUSE, RESUME, HELP. |
+| Plan from a voice note | `drafting.py`, `models.py` | Vertex Gemini turns the audio into a transcript, then into items (medicines, what to watch for, next steps, check-in day, reminders), each carrying the transcript words it came from. An item whose quote isn't in the transcript is dropped and shown to the doctor (`unsupported_claim`, LoopBench's rule). So is one with a number the doctor didn't say; the check reads digits, Chinese numerals and English number words. The patient's text is fixed bilingual headings around the doctor's items. Editing a plan sends the doctor's typed text exactly and drops the plan's reminders. |
+| Model port | `models.py` | `VertexGemini` (region and model from settings, `asia-east2` by default) and `FakeModel` for tests and sim. Nothing in tests or CI calls a real model. |
+| Ask the doctor | `agent.py`, `drafting.py` | A question gets the fixed acknowledgement with a reply-by time in the doctor's hours and goes to the doctor, with a draft reply written only from the approved plan. A draft with a number the plan doesn't have is dropped. Red flags and crisis messages keep spec 004's fixed replies and alert the doctor with the patient's number. |
+| Check-ins and reminders | `agent.py` (`tick`) | Due items come from the approved plan. Cloud Scheduler ticks every minute and sends what's due in the daytime (09:00–20:00). Outside WhatsApp's 24-hour window they go out as approved utility templates. A reminder that names a sensitive test is replaced by "a next step in your plan is due", so it never shows on a lock screen. |
+| Sending | `agent.py` (`deliver`, `_guard`, `_send`), `transport.py` | Every patient message passes the outbound checks (spec 003's message-side hard fails, plus a hash check that approved text is exactly what the doctor approved). Messages are split to WhatsApp's limits. Outside the 24-hour window, a message without a template waits behind a "tap to read" template. A failed send is recorded and the doctor is told. |
+| Paid follow-ups | `payments.py`, `agent.py` | Repeat: the patient picks a medicine from their plans; the doctor taps Approve / Needs a visit / Decline; only on Approve does the patient get a Stripe Checkout link (doctor's fee + HK$30); once paid, the patient picks a collection window in the clinic's hours and the doctor is told (the doctor arranges it with the clinic). Result review: the patient sends a photo or PDF; the line quotes the fee; once paid, the doctor opens the file from the web page and answers by voice note or text. The model never reads the report. No charge when the doctor says a visit is needed. |
+| Membership | `payments.py`, `agent.py` | Below, under Money. |
+| Stripe | `payments.py` | Connect Express accounts for doctors, onboarded by a link in their chat. Destination charges: `application_fee_amount` HK$30 per item, `application_fee_percent` on memberships. Webhook events: `checkout.session.completed`, `customer.subscription.deleted`, `account.updated`. |
+| Doctor web page | `static/doctor.html`, `api.py` | Opened by a one-time link sent to the doctor's WhatsApp; the link is used up by pressing Sign in, not by opening it. This month's numbers, the queue, patients with their thread and reports, a printable record for the doctor's own notes (record-keeping stays the doctor's duty), fees, membership, QR cards and payouts. A doctor sees only their own patients. |
+| Templates | `templates.py`, `python -m backend.line templates submit` | Five utility templates, in English and Chinese: check-in, reminder, "has a message for you", payment link, and the doctor's "new items" (the doctor is outside the 24-hour window too). |
 | Hosting | `deploy/line.sh`, `deploy/line.Dockerfile` | Cloud Run (`asia-east2`, exactly one instance with CPU always on, so the webhook is never cold and messages are handled in order), Firestore, Secret Manager, Cloud Storage for media (deleted after 30 days by a lifecycle rule), Cloud Scheduler every minute. Deployed by Thomas from Cloud Shell with one script, so no cloud keys live in GitHub or in Claude sessions. |
+| Simulator | `static/sim.html`, `api.py` (`add_sim`) | `python -m backend.line sim`: a patient's phone and the doctor's phone on one page, with fakes for WhatsApp, the model and Stripe. Sim mode only. |
 
 **Modes.** `sim` (fakes for WhatsApp, the model and Stripe), `staging` (real WhatsApp test number, Stripe test mode,
 role-play patients only), `live`. `live` still refuses to start without `CARELINE_I_HAVE_SIGN_OFF=yes`; Thomas gives
@@ -75,7 +83,7 @@ that sign-off as the doctor.
 ## Where real patient data may be
 
 This is the first time tmrw holds real patient data, so the boundary is written down.
-- **Only** in the live service's Google Cloud project (Cloud SQL, Cloud Storage, Vertex calls), in `asia-east2`.
+- **Only** in the live service's Google Cloud project (Firestore, Cloud Storage, Vertex calls), in `asia-east2`.
 - **Never** in git, tests, CI, logs, Slack, the morning brief, Claude Docs, artifacts or Claude sessions. Logs carry
   ids and event names, never message text, names or numbers. Claude sessions work on `sim` and `staging` only.
 - Google's documentation says regional endpoints "don't guarantee data residency or in-region ML processing". Before
@@ -106,20 +114,22 @@ tested later without switching it on.
 
 ## Done when
 
-- `python -m pytest -q` passes, including new cases for:
-  - the doctor console;
-  - plan faithfulness: synthetic transcripts in English, Cantonese and both mixed, with planted items that aren't in
-    the transcript, which must be dropped;
-  - joining with a doctor code;
-  - the paid repeat and result review paths;
-  - templates outside the 24-hour window;
-  - hours.
-- `python -m backend.careline.evals` reports zero hard fails on the old 63 cases plus the new ones.
+- `python -m pytest -q` passes. The line's own cases are in `tests/test_line.py` and `tests/test_line_api.py`:
+  - joining, declining, STOP, "Not my patient", returning patients, one number on two doctors' lines;
+  - plan faithfulness: planted items and doses the doctor never said are dropped; Cantonese numerals and spoken
+    English numbers are read; an edit goes out word for word;
+  - questions in and out of hours, red flags and crisis messages before and after joining;
+  - paid repeats and result reviews, the membership, Stripe's signature and retries;
+  - the 24-hour window, templates, WhatsApp's length limits, a failed send;
+  - the outbound checks, the audit trail's refusal of patient text, sign-in, and what a doctor may see.
+- Spec 004's 63 eval cases still pass with zero hard fails (`tests/test_careline.py`). The line's cases are tests,
+  not yet rows on the evals dashboard by feature id: that port, and held-out red-team cases written by someone other
+  than the builder, are `NOW.md` Next 1.
 - A rehearsal week in `staging`, with Thomas and Jose role-playing at least 10 patients each, has measured:
   - time from voice note to the patient receiving the plan (target under 2 minutes);
   - the share of plan drafts sent without edits.
-- Before `live`: Meta has approved the templates, a test payment has been made and refunded, and each clinic has
-  agreed in writing.
+- Before `live`: Meta has approved the templates, a test payment has been made and refunded, Thomas has approved
+  every text, and each clinic has agreed in writing.
 
 ## Invariants touched
 
@@ -132,11 +142,17 @@ tested later without switching it on.
 
 ## Where the build stands (10 Nov)
 
-- Built: `backend/line/` with the patient membership (bet 9), the simulator (`python -m backend.line sim`), 38 tests (`tests/test_line.py`,
-  `tests/test_line_api.py`), the deploy script and `docs/LINE_RUNBOOK.md`.
-- Proven only with fakes so far. The Vertex adapter is tested with Google's client faked. The first real-model
-  drafts, in Cantonese especially, come in the rehearsal week.
+- Built and reviewed: `backend/line/`, 52 tests, the simulator, the deploy script and `docs/LINE_RUNBOOK.md`.
+- Proven only with fakes so far. The Vertex adapter is tested with Google's client faked, and the deploy script has
+  not been run. The first real-model drafts, in Cantonese especially, and the first real WhatsApp and Stripe calls
+  come in staging. Expect small fixes there.
 - Not yet: Meta templates approved, a staging deployment, the texts approved by Thomas, the clinics' OK.
+- Known limits, accepted for the pilot:
+  - one message is handled at a time, so a draft in progress (about 15 seconds) holds up other messages briefly;
+  - identity is the doctor's own check of name and birth year, not a match against a record;
+  - a patient on two doctors' lines talks to whichever doctor wrote to them last, until they scan a card again;
+  - the doctor arranges collection with the clinic; the line only tells the doctor the window the patient chose;
+  - Mandarin and other languages reach the doctor as typed.
 
 ## Out of scope
 

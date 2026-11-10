@@ -55,6 +55,19 @@ Kong government tables, HA specialist-clinic waits, NAMCS, the vendored three.js
 run: the documents (`docs.jsonl`, `docs_smoke300.jsonl`), the same `claude_runner.py` as `backend/extract/`, and
 `run_extraction.sh`. Its outputs get committed to loopbench as the replay cache.
 
+## The doctor's own line (spec 005), added 10 Nov
+
+| Piece | Where | State on 10 Nov |
+|---|---|---|
+| The line's code, tests and simulator | `backend/line/`, `tests/test_line*.py` | Built; runs in sim with fakes |
+| Deploy script and runbook | `deploy/line.sh`, `docs/LINE_RUNBOOK.md` | Written; not yet run against a real project |
+| Staging and live services | Google Cloud, `asia-east2`: Cloud Run, Firestore, Secret Manager, Cloud Storage, Cloud Scheduler | Not created yet (runbook steps 1 and 2) |
+| WhatsApp number and templates | Thomas's Meta Business account | He has a WhatsApp API number (his answer on 10 Nov); the line's five templates aren't submitted yet |
+| Payments | Stripe (Hong Kong) | He has an account (10 Nov); Connect isn't set up for the line yet |
+
+**Real patient data** will live only in the live Google Cloud project. It is never copied into git, CI, Slack, the
+brief, Claude Docs, artifacts or Claude sessions (`docs/DECISIONS.md`, 10 Nov).
+
 ## Views and documents
 
 Claude Docs, artifacts and Claude Project docs. Each one is a live view, a partner document, or retired. On the

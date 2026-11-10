@@ -336,6 +336,15 @@ def create_app(cfg: Config | None = None, line: Line | None = None) -> FastAPI:
         need = {"id", "code", "name_en", "wa"}
         if not need <= set(body):
             raise HTTPException(400, f"needs {sorted(need)}")
+        import re as _re
+        body["wa"] = str(body["wa"]).lstrip("+").replace(" ", "")
+        if not _re.fullmatch(r"[A-Z]{2}\d{2}", str(body["code"])) or not body["wa"].isdigit():
+            raise HTTPException(400, "code is two capital letters and two digits (TH01); wa is digits only")
+        for other in line.store.all("doctor"):
+            if other["id"] != body["id"] and (other["code"] == body["code"] or other["wa"] == body["wa"]):
+                raise HTTPException(409, "another doctor already has that code or number")
+        if len(body.get("clinics") or []) > 9:
+            raise HTTPException(400, "at most 9 clinics")
         d = {**(line.store.get("doctor", body["id"]) or {}), **body}
         hours.clock(d)
         line.store.put("doctor", d["id"], d)

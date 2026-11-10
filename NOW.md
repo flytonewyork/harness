@@ -5,21 +5,33 @@ Read this at the start of every session and update it at the end, in the same PR
 
 **Milestone: patients use the doctor's own line.** Done when Thomas's and Jose's real patients have joined, received
 plans and paid for a follow-up through it. The pass lines that decide the shape at the 1 Feb review are in
-`docs/BETS.md` (bets 2–4 and 8). The direction, locked 10 Nov: tmrw is the doctor's own care line, paid from care
+`docs/BETS.md` (bets 2–4, 8 and 9). The direction, locked 10 Nov: tmrw is the doctor's own care line, paid from care
 between visits, not clinic software (`docs/DECISIONS.md`, spec 005).
 
 ## In progress (three at most)
 
-1. **The doctor's own line, live** (spec 005, `backend/line/`; how to run it: `docs/LINE_RUNBOOK.md`). Built 10 Nov
-   and running in the simulator (`python -m backend.line sim`). Built on PR #26: one shared number for many doctors, the
-   doctor's WhatsApp console, the plan from a voice note (Vertex Gemini, Hong Kong), check-ins and reminders, ask the
-   doctor, paid repeats and result reviews (Stripe Connect, HK$30 service fee), the doctor's web page, and the deploy
-   script (Cloud Run `asia-east2`). Next: staging, then a rehearsal week with role-play patients, then launch with
-   Thomas and Jose around 24 Nov. Thomas, in parallel: the accounts in
-   `docs/LINE_RUNBOOK.md` (Meta, Google Cloud, Stripe), each clinic's written OK, Jose's details, and a lawyer's look at the fee structure (recommended, not
-   a gate).
-2. **EC Healthcare, Wed 11 Nov 4pm** (#23). Keep it light: ask which burden on EC's doctors to take away first and
-   for a discovery that needs no patient data (PR #25). Build nothing more for EC.
+1. **The doctor's own line, live** (spec 005, `backend/line/`; how to run it: `docs/LINE_RUNBOOK.md`). Built and
+   reviewed on 10 Nov (PR #28, stacked on #26), and running in the simulator: `python -m backend.line sim`. It has
+   only run against fakes; the deploy script hasn't been run. What's in it:
+   - one shared number for many doctors, each working from their own WhatsApp, with a web page;
+   - the plan from a voice note (Vertex Gemini, Hong Kong), every line quoted from what the doctor said;
+   - returning patients and one QR card per clinic;
+   - check-ins and reminders, and questions with draft replies;
+   - paid repeats and result reviews (Stripe Connect, HK$30 service fee) and the patient membership (bet 9).
+
+   Next, in order:
+   1. Thomas: merge #26, then #28.
+   2. Thomas: the accounts in runbook §1 (Meta test number and templates, a Google Cloud project, Stripe Connect).
+   3. Thomas: staging from Cloud Shell (runbook §2). The first real voice note in Cantonese is the first real test.
+   4. Thomas and Jose: the rehearsal week with role-play patients (runbook §3), and approve every text in
+      `backend/line/texts.py`.
+   5. Each clinic's written OK (for EC, see item 2), Jose's details, and a lawyer's look at the fees and the
+      membership (recommended, not a gate).
+   6. Launch around 24 Nov.
+2. **EC Healthcare, Wed 11 Nov 4pm** (#23, `docs/EC_MEETING_PREP.md`). Learn which burden EC wants gone first, and
+   ask for one thing in writing: Thomas may run his line in his own sessions at an EC practice (bet 10). Show the
+   simulator for five minutes. Ask for no data, name no fee, build nothing more for EC. Afterwards: the signal the
+   same day, and a one-page scope within 24 hours. The prep doc replaces the one on PR #25.
 3. **Josie** (#20). File what she agreed to on 8 Nov, then ask whether she'd be the third doctor on the line.
 
 Done 6 Nov: **the operating system is locked in.** Its test was a task started in Slack coming back as a scored PR, and
@@ -29,8 +41,9 @@ partner contacts as `signal` issues. How it works: `docs/OPERATING_SYSTEM.md`.
 
 ## Next, in order
 
-1. Held-out red-team cases for the care line, written by someone other than the builder (spec 003 rows the live line
-   uses: join, plan, check-in, questions, repeats, results).
+1. The line's cases on the evals dashboard by feature id (they are tests today, `tests/test_line*.py`), and held-out
+   red-team cases written by someone other than the builder (spec 003 rows the live line uses: join, plan, check-in,
+   questions, repeats, results).
 2. Each doctor on their own WhatsApp number, once Meta approves display names.
 3. The doctor subscription switched on, priced from what the dashboard's shadow price showed.
 4. Doctor-minutes metric: review time per item, measured on the live line.

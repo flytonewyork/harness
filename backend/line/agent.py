@@ -75,6 +75,10 @@ class Line:
         cs = d.get("clinics") or [{"id": "c1", "name_en": "the clinic", "name_zh": "診所", "address_en": "", "address_zh": "", "phone": ""}]
         return next((c for c in cs if c["id"] == cid), cs[0])
 
+    def charges(self, d: dict, p: dict) -> bool:
+        """Paid follow-ups and the membership can be off for one clinic (a clinic that doesn't want its patients charged)."""
+        return bool(self.cfg.payments and self.stripe and d.get("stripe_account")) and self.clinic(d, p.get("clinic_id")).get("charge", True)
+
     def first(self, p: dict) -> str:
         n = (p.get("name") or "").strip()
         if re.search(r"[一-鿿]", n):
@@ -571,9 +575,11 @@ class Line:
         med, lang = meds[int(i)], p["lang"]
         h = self.open_handoff(now, p, d, "repeat", med, med=med)
         fee = int((d.get("fees") or {}).get("repeat", 0))
-        return [self._out(p, d, say("repeat_sent_member" if self.is_member(p) else "repeat_sent", lang, med=med, doctor=self.dname(d, lang),
+        key = "repeat_sent_member" if self.is_member(p) else ("repeat_sent" if self.charges(d, p) and fee > 0 else "repeat_sent_free")
+        return [self._out(p, d, say(key, lang, med=med, doctor=self.dname(d, lang),
                                   when=self._when(d, h, now, lang)), "MD-01"),
-                self._console(d, dsay("repeat", name=self.pname(p), med=med, fee=fee, service_fee=self.cfg.service_fee_hkd)
+                self._console(d, (dsay("repeat", name=self.pname(p), med=med, fee=fee, service_fee=self.cfg.service_fee_hkd)
+                                  if self.charges(d, p) and fee > 0 else f"{self.pname(p)} asks for a repeat: “{med}”.\nNo charge to them.")
                               + (" Included in their membership: no charge to them." if self.is_member(p) else ""),
                               ctx={"patient_id": p["id"], "handoff_id": h["id"]}, type="buttons",
                               buttons=[{"id": f"rp:ok:{h['id']}", "title": dsay("btn_approve")},
@@ -659,7 +665,7 @@ class Line:
         fee = int((d.get("fees") or {}).get("result", 0))
         p.setdefault("reports", []).append({"ref": m.get("media_ref"), "at": iso(now), "mime": m.get("mime")})
         self.store.put("patient", p["id"], p)
-        if self.is_member(p) or not (self.cfg.payments and d.get("stripe_account") and fee > 0):
+        if self.is_member(p) or not (self.charges(d, p) and fee > 0):
             h = self.open_handoff(now, p, d, "result", m.get("text") or "[report]", media_ref=m.get("media_ref"), member=self.is_member(p))
             return [self._ack(p, d, h, now), self._result_to_doctor(p, d, h, now, paid=None)]
         f = say("fees_line", lang, doctor=self.dname(d, lang), doctor_fee=fee, service_fee=self.cfg.service_fee_hkd, total=fee + self.cfg.service_fee_hkd)
@@ -707,8 +713,10 @@ class Line:
         if not p or p["doctor_id"] != d["id"]:
             return [self._console(d, "That patient isn't on your line.")]
         f = self.membership_fees(d)
-        if not (f and self.cfg.payments and self.stripe and d.get("stripe_account")):
+        if not f:
             return [self._console(d, dsay("membership_off"))]
+        if not self.charges(d, p):
+            return [self._console(d, f"Payments are off for {self.pname(p)}'s clinic, so there is no membership to offer there.")]
         if self.is_member(p) or p.get("membership_offered"):
             state = "is already a member" if self.is_member(p) else f"was already offered membership on {p['membership_offered'][:10]}"
             return [self._console(d, dsay("membership_already", name=self.pname(p), state=state))]
@@ -757,7 +765,7 @@ class Line:
 
     # ---- payments ---------------------------------------------------------------------------------------------------------
     def _payment(self, p, d, kind, doctor_fee, hid, now, title, media_ref=None) -> dict | None:
-        if not (self.cfg.payments and self.stripe and d.get("stripe_account") and doctor_fee > 0):
+        if not (self.charges(d, p) and doctor_fee > 0):
             return None
         pid = new_id("PAY")
         f = {"doctor_fee": doctor_fee, "service_fee": self.cfg.service_fee_hkd, "total": doctor_fee + self.cfg.service_fee_hkd}
@@ -1039,7 +1047,7 @@ class Line:
             days, rem = self._schedule(d, p, plan, now)
             outs.append(self.menu(p, d))
             r = f", and {rem} reminder(s)" if rem else ""
-            offer = self.membership_fees(d) and self.cfg.payments and not self.is_member(p) and not p.get("membership_offered")
+            offer = self.membership_fees(d) and self.charges(d, p) and not self.is_member(p) and not p.get("membership_offered")
             outs.append(self._console(d, dsay("sent", name=self.pname(p), days=days, reminders=r), ctx={"patient_id": p["id"]},
                                       **({"type": "buttons", "buttons": [{"id": f"mb:offer:{p['id']}", "title": dsay("btn_offer")}]} if offer else {})))
         else:

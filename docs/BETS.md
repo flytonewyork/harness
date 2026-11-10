@@ -23,6 +23,7 @@ being prompted.
 | 6 | EC Healthcare agrees a written next step, with data access, by 26 Nov | 20% | | Phase 0 look-back (#5) · already running | | |
 | 8 | At least 2 doctors besides Thomas use the line in a normal week by 1 Feb, without being chased (set 10 Nov) | 30% | | The live line (spec 005) · Jose from launch, then others | | |
 | 9 | At least 10% of patients the doctor offers a monthly membership to subscribe within 14 days of the offer (set 10 Nov) | 30% | | The live line · offered one patient at a time; best tested in a self-pay setting (Adrian's clinic) | | |
+| 10 | EC Healthcare agrees in writing, by 26 Nov, that Thomas may offer his care line to patients he sees in his own sessions at an EC practice (set 10 Nov) | 20% | | Ask Julie on 11 Nov, then a one-page scope (`docs/EC_MEETING_PREP.md`) · 1 hour | | |
 
 Side bet on 4: at least 40% reply to a check-in, 65%. A reply to a prompt proves much less than coming back
 unprompted.
@@ -56,6 +57,11 @@ is the thing those bundles don't sell. A membership tests whether people will pa
 
 If they pass (bet 2 or bet 9, with 3 or 4): the doctor-owned line is the company; raise on it. If they don't: the 1 Feb review weighs joining Heidi
 against a clinic-facing business, which the 10 Nov direction rules out for now.
+
+**Bet 10 (20%).** It asks EC for no data and no access to its systems, and Julie has already raised the Taikoo
+practice with Thomas. Against it: a listed clinic group will want its compliance team to look at any tool that
+messages its patients, and that rarely finishes in two weeks; and whether Thomas takes sessions at EC isn't settled.
+If it fails by 26 Nov: launch at the clinics that have said yes, and keep EC as a later site.
 
 ## Each bet
 

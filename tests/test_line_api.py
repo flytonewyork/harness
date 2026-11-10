@@ -119,6 +119,10 @@ def test_admin_adds_a_doctor(client):
     r = client.post("/api/admin/doctor", headers={"Authorization": "Bearer adm"},
                     json={"id": "D2", "code": "JS01", "name_en": "Dr Jose S", "wa": "85290000002"})
     assert r.status_code == 200 and r.json()["qr"].endswith("/j/JS01")
+    h = {"Authorization": "Bearer adm"}
+    assert client.post("/api/admin/doctor", headers=h, json={"id": "D3", "code": "js1", "name_en": "X", "wa": "85290000003"}).status_code == 400
+    assert client.post("/api/admin/doctor", headers=h, json={"id": "D3", "code": "JS01", "name_en": "X", "wa": "85290000003"}).status_code == 409
+    assert client.post("/api/admin/doctor", headers=h, json={"id": "D3", "code": "XX01", "name_en": "X", "wa": "+852 9000 0002"}).status_code == 409
 
 
 def test_live_mode_refuses_without_sign_off():
