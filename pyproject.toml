@@ -9,6 +9,7 @@ dependencies = ["pydantic>=2.7", "fastapi>=0.115", "uvicorn>=0.30"]
 dev = ["pytest", "httpx", "segno"]
 careline = ["httpx", "segno"]
 careline-claude = ["httpx", "segno", "anthropic"]
+line = ["httpx", "segno", "google-genai>=1.0", "google-cloud-firestore>=2.16", "google-cloud-storage>=2.16"]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -19,6 +20,7 @@ include = ["backend*"]
 
 [tool.setuptools.package-data]
 "backend.careline" = ["clinic_settings.json", "static/*.html"]
+"backend.line" = ["static/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
