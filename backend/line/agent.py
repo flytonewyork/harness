@@ -656,7 +656,7 @@ class Line:
         pay = self.store.get("payment", pay_id) if pay_id and pay_id != "free" else None
         self.store.event(now, "pickup_set", patient=p["id"], payment=pay_id)
         return [self._out(p, d, say("pickup_set", lang, med=med, clinic=cname, address=addr, when=when), "MD-01"),
-                self._console(d, dsay("pickup", name=self.pname(p), med=med, clinic=c["name_en"], when=fmt_when(a, now, "en"),
+                self._console(d, dsay("pickup", name=self.pname(p), med=med, clinic=c["name_en"], when=fmt_when(a, now, "en") + "–" + end,
                                       fee=pay["total"] if pay else 0), ctx={"patient_id": p["id"]})]
 
     # ---- result reviews (paid) ---------------------------------------------------------------------------------------------
@@ -1001,7 +1001,7 @@ class Line:
         if plan.get("dropped"):
             lines += ["—", dsay("dropped", items="; ".join((x.get("en") or x.get("quote") or "")[:80] for x in plan["dropped"]))]
         if plan["job"] == "plan":
-            rem = "".join(f"; reminder on day {r['due_in_days']}: {r['en'][:80]}" for r in plan.get("reminders", []))
+            rem = "".join(f"; reminder on day {r['due_in_days']}: {r['en'][:80].rstrip(' .。')}" for r in plan.get("reminders", []))
             lines += ["—", dsay("will_send", days=plan.get("checkin_days") or 3, reminders=rem)]
             if plan.get("edited"):
                 lines.append(dsay("edited_note"))
