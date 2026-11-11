@@ -6,3 +6,4 @@ frontend/dist/
 .env
 frontend/dist-static/
 dist/
+*.egg-info/
