@@ -50,4 +50,4 @@ Don't ask for data, exports, access or a shadow. Don't name a fee at the meeting
 - Within 24 hours: send the one-page scope for the discovery (`docs/EC_DISCOVERY_SCOPE.md`: fill in the
   clinic, IT contact, date and fee). Julie's yes to it is the next step in writing.
 - File the signal in `#signals`, with the stage it suggests.
-- Score bets 6 and 7 in `docs/BETS.md` when their dates pass.
+- Score bets 6 and 7 in `archive/docs/BETS.md` when their dates pass.

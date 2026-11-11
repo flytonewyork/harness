@@ -1,6 +1,6 @@
 # Every PR: the product's tests, the doctor's screen builds, and the change is scored in LoopBench before it merges.
 # Scoring checks out flytonewyork/loopbench beside this repo. That needs one secret, REPOS_TOKEN: a fine-grained
-# GitHub token with read-only "Contents" on harness and loopbench (docs/OPERATING_SYSTEM.md, "Install").
+# GitHub token with read-only "Contents" on harness and loopbench (archive/docs/OPERATING_SYSTEM.md, "Install").
 # Without it the score job warns and skips; tests and the build still run.
 name: ci
 on:
@@ -41,7 +41,7 @@ jobs:
     steps:
       - name: Token check
         if: env.REPOS_TOKEN == ''
-        run: echo "::warning::REPOS_TOKEN is not set, so this change was not scored in LoopBench. See docs/OPERATING_SYSTEM.md (Install)."
+        run: echo "::warning::REPOS_TOKEN is not set, so this change was not scored in LoopBench. See archive/docs/OPERATING_SYSTEM.md (Install)."
       - uses: actions/checkout@v4
         if: env.REPOS_TOKEN != ''
         with:
