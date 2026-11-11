@@ -7,7 +7,8 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 11 Nov
 ## In progress (three at most)
 
 1. **EC discovery scope.** One-page scope for one EC clinic, no patient data (`docs/EC_DISCOVERY_SCOPE.md`).
-   Fill the **[after Wed]** fields from the 11 Nov meeting with Julie (`docs/EC_MEETING_PREP.md`) and send by Thu 12 Nov.
+   Fill the **[after Wed]** fields from the 11 Nov meeting with Julie (`docs/EC_MEETING_PREP.md`, cheat sheet
+   `docs/EC_JULIE_CHEATSHEET.md`) and send by Thu 12 Nov.
 2. **The EC demo.** `demo/ec-care-line/index.html`, workload-first walkthrough (`?walk=1`), merged 11 Nov (#30);
    offline copy on the Mac mini at `~/Desktop/EC-demo-Julie/`.
 3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. The Mac mini service `com.tmrw.careline`
