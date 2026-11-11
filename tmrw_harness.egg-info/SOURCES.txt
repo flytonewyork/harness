@@ -31,6 +31,7 @@ tests/test_engine.py
 tests/test_extract.py
 tests/test_landing.py
 tests/test_lookback.py
+tests/test_queue.py
 tests/test_verify.py
 tmrw_harness.egg-info/PKG-INFO
 tmrw_harness.egg-info/SOURCES.txt

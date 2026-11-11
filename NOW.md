@@ -49,7 +49,11 @@ the default, but nothing reaches a partner or a patient on a default.
 2. **EC Healthcare: exploratory, Julie on Wed 11 Nov at 4pm** (#23). Bets 6 and 7. Thomas isn't formally engaged,
    so the ask needs no patient data: a follow-up with a clinic lead and IT, then a two-to-three-week discovery at one
    clinic. The demo is the care line and the clinic backend on EC's EMR (`demo/ec-care-line/`); the prep is
-   `docs/EC_MEETING_PREP.md`. The look-back becomes the safety analysis once EC is ready; its report waits on the
+   `docs/EC_MEETING_PREP.md`. The walkthrough is ready (11 Nov): "Walk through" in the header or `?walk=1` shows
+   one stop at a time, workload first (your back office, one queue, front door, rules, EC's EMR, the first step);
+   arrow keys step, Esc returns to the full page. Checked at 1440x900 on the Mac mini: no console errors, the full
+   page unchanged. Ms Kwok's queue row appears once her day-3 reply is played, and jumps to the front door. Offline
+   copy: `~/Desktop/EC-demo-Julie/index.html` on the Mac mini. The look-back becomes the safety analysis once EC is ready; its report waits on the
    branch `ec-phase0-report`, and the data request (`docs/EC_DATA_REQUEST.md`) waits with it.
 
 3. **Josie demo, 8 Nov: the clinic backend** (spec 002, `demo/clinic-backend/`). Bets 1 to 5. Josie, a GP, said on 7 Nov she
