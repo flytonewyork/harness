@@ -1,4 +1,4 @@
-"""The product's platform checks run on every item the engine opens (spec docs/specs/001).
+"""The product's platform checks run on every item the engine opens (spec archive/docs/specs/001).
 
 Synthetic, opaque records only. These prove the in-product twin of the test bed's gate: the seven checks are
 computed for every opened item, a good item passes them all, and a made-up quote or an unseen citation is a hard

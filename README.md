@@ -16,11 +16,12 @@ backend/          Python 3.12+, FastAPI, Pydantic
   adapters/       data in: LoopBench runs, EC-style export
   api/            items, evidence, actions (agent: open or raise only; doctor closes)
 frontend/         React + TypeScript (Vite): the doctor's follow-up list
-docs/             operating system, decisions, specs, EC data request
+docs/             EC discovery scope, meeting prep, data request
+archive/          old docs, specs and skills (read only when asked)
 NOW.md            the one queue for this repo and LoopBench
 ```
 
-**How work gets done:** [`docs/OPERATING_SYSTEM.md`](docs/OPERATING_SYSTEM.md). Every session starts from
+**How work gets done:** [`CLAUDE.md`](CLAUDE.md). Every session starts from
 [`NOW.md`](NOW.md) and ends in a pull request that LoopBench has scored.
 
 ## Rules that hold everywhere
