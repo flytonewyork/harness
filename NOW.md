@@ -1,6 +1,6 @@
 # NOW
 
-Read this at the start of every session and update it at the end, in the same PR. Last updated 9 Nov 2026.
+Read this at the start of every session and update it at the end, in the same PR. Last updated 11 Nov 2026.
 
 **The system is frozen until 26 Nov.** The operating system, skills and templates change only at a Friday review.
 Every session builds toward the milestone instead.
