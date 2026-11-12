@@ -17,6 +17,7 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 11 Nov
 ## Waiting on you
 
 - **The EC discovery's fee.** Default: a fixed fee you set in the scope; nobody names one at the meeting. By Thu 12 Nov.
+- **Medication reader run.** Word lists miss new emergency wording (blind 3/12). Default: a `claude -p` run on the Mac mini. By Fri 20 Nov.
 - **Stale PRs.** harness #13, #16, #18 and loopbench #5 are superseded (#26 stays: #28 is stacked on it). Default: close them. By Fri 13 Nov.
 
 ## Next, after EC answers
