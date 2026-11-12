@@ -295,46 +295,42 @@ def test_misspelt_medicine_still_found():
     assert not safety.mentions(safety.GLUCOSE_LOWERING, "amlodipine")
 
 
-# ---- pluggable model screen: it can only add flags ------------------------------------------------------------------
+# ---- the shared model reader as a screen: it can only add flags --------------------------------------------------
+def _fake(answers):
+    from backend.extract.reader import FakeReader, doc_key
+    from backend.precare.screens import TASK
+    return FakeReader({doc_key(TASK, t): a for t, a in answers.items()}, name="fake")
+
+
 def test_union_screen_never_removes_a_rules_flag():
-    from backend.precare.screens import ReplayScreen, RulesScreen, UnionScreen, key
-    quiet = ReplayScreen({key("m", "chest pain"): {"kind": "none"}}, "m")             # a model that says "fine"
-    u = UnionScreen(RulesScreen(), quiet)
+    from backend.precare.screens import with_reader
+    u = with_reader(_fake({"chest pain": {"kind": "none", "evidence_quote": None}}))     # a model that says "fine"
     assert u.classify("chest pain")["kind"] == "red_flag"
 
 
-def test_union_screen_adds_what_rules_miss_and_keeps_only_verbatim_evidence():
-    from backend.precare.screens import ReplayScreen, RulesScreen, UnionScreen, key
+def test_reader_adds_what_rules_miss_and_keeps_only_verbatim_evidence():
+    from backend.precare.screens import ReaderScreen, RulesScreen, UnionScreen
     msg = "my grandson's birthday was lovely but I feel strange and sweaty"
-    model = ReplayScreen({key("m", msg): {"kind": "red_flag", "evidence": "feel strange and sweaty"},
-                          key("m", "x"): {"kind": "red_flag", "evidence": "not in the message"}}, "m")
-    u = UnionScreen(RulesScreen(), model)
+    rs = ReaderScreen(_fake({msg: {"kind": "red_flag", "evidence_quote": "feel strange and sweaty"},
+                             "x": {"kind": "red_flag", "evidence_quote": "not in the message"}}))
+    u = UnionScreen(RulesScreen(), rs)
     v = u.classify(msg)
-    assert v["kind"] == "red_flag" and v["evidence"] == "feel strange and sweaty" and v["by"].startswith("replay:m")
-    assert u.classify("x")["evidence"] == ""                                           # invented evidence dropped
-    assert u.classify("not cached")["kind"] is None and model.missed                    # counted, never a live call
+    assert v["kind"] == "red_flag" and v["evidence"] == "feel strange and sweaty" and v["by"].startswith("reader:fake")
+    assert u.classify("x")["kind"] is None and rs.dropped == 1                         # invented evidence: flag dropped, counted
+    assert u.classify("not answered")["kind"] is None and rs.fell_back == 1            # replay miss: rules only, counted
 
 
-def test_agent_with_model_screen_quotes_the_models_evidence_verbatim():
-    from backend.precare.screens import ReplayScreen, RulesScreen, UnionScreen, key
+def test_agent_with_reader_quotes_the_models_evidence_verbatim():
+    from backend.precare.screens import with_reader
     msg = "my grandson's birthday was lovely but I feel strange and sweaty"
     p = FakePort()
-    ag = PrecareAgent(p, screen=UnionScreen(RulesScreen(), ReplayScreen({key("m", msg): {"kind": "red_flag", "evidence": "strange and sweaty"}}, "m")))
+    ag = PrecareAgent(p, screen=with_reader(_fake({msg: {"kind": "red_flag", "evidence_quote": "strange and sweaty"}})))
     ag.start("A1")
     for r in HAPPY[:3] + [msg]:
         p.say(ag, r)
     [rf] = p.fam("previsit_red_flag")
     assert any(c["quote"] == "strange and sweaty" for s in rf["reasoning"] for c in s.get("cites", []))
     quotes_verbatim(p)
-
-
-def test_replay_cache_refuses_another_prompt_version(tmp_path):
-    import json
-    from backend.precare.screens import ReplayScreen
-    f = tmp_path / "c.json"
-    f.write_text(json.dumps({"prompt_version": "old", "model": "m", "outputs": {}}))
-    with pytest.raises(ValueError):
-        ReplayScreen.load(f)
 
 
 @pytest.mark.parametrize("text", ["my heart is racing and I feel like I'm going to pass out", "headache came on like a thunderbolt",

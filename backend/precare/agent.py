@@ -122,7 +122,7 @@ class PrecareAgent:
     def __init__(self, port, screen=None):
         from .screens import RulesScreen
         self.port = port
-        self.screen = screen or RulesScreen()      # a model screen is added with UnionScreen(RulesScreen(), model)
+        self.screen = screen or RulesScreen()      # rules + shared reader: screens.with_reader(reader)
         self.state: dict[str, dict] = {}
         self.blocked: list[dict] = []          # outbound messages the guard stopped (should stay empty)
         self.log: list[tuple] = []             # (time, appt, action, detail)

@@ -36,9 +36,10 @@ and close misspellings). STOP ends all messages except an emergency reply.
 - **No free text to patients:** `send(appt, template_ids, lang, slot)`. Messages are composed only from the versioned
   catalogue (`texts.py`), slot values only from the booking (doctor, time, clinic, phone). Nothing the patient wrote is
   ever echoed back. Every message is checked before sending (`safety.check_outbound`).
-- **Screens** (`screens.py`): the rules screen is the floor and always on. A model screen can be added with
-  `UnionScreen(RulesScreen(), model)`: it can only add a flag, never remove one, and its evidence is kept only if it
-  is a verbatim excerpt. Outputs are cached by prompt version + model + message hash; a scoring run never calls a
+- **Screens** (`screens.py`): the rules screen is the floor and always on. The shared model reader
+  (`backend/extract/reader.py`, task `precare_red_flag`) can be added with `with_reader(reader)`: union only, so it
+  can add a flag but never remove one, and a flag whose quote isn't word for word in the message is dropped and
+  counted. Answers replay from a batch keyed by task version + model + message hash; a scoring run never calls a
   live model. `claude -p` runs on the Mac mini only.
 
 ## How it is evaluated
@@ -96,7 +97,7 @@ messaging, the authority model, verbatim quoting, the brief, question routing, p
 Deterministic, unit-tested (61 precare tests in this repo) and mutation-tested in LoopBench.
 
 **Prototype, not for real patients yet:**
-- **Emergency detection.** 8% recall on unseen wording. The model screen is built but has not been run. It must be
+- **Emergency detection.** 8% recall on unseen wording. The shared model reader is wired in (task `precare_red_flag`) but has not been run. It must be
   run (Mac mini) and scored on a held-out set a clinician writes and never shows the builder, before any patient
   uses the line.
 - No WhatsApp adapter for precare yet: it would ride on the care line (#26/#28), which is off until Thomas restarts it.
@@ -107,11 +108,12 @@ Deterministic, unit-tested (61 precare tests in this repo) and mutation-tested i
 
 ## Next
 
-1. On the Mac mini: build the model-screen cache and score with it.
+1. On the Mac mini, with Thomas's go-ahead: one batch run of the shared reader over every simulated message, then
+   score with it replayed (rules + reader, union only).
    ```
-   cd ~/loopbench && PYTHONPATH=src python -c "import json; from loopbench.journeys import precare; json.dump(precare.export_texts([1]), open('/tmp/precare_texts.json', 'w'), ensure_ascii=False)"
-   cd ~/harness && python -c "import json; from backend.precare.screens import build_cache; build_cache(json.load(open('/tmp/precare_texts.json')), '<approved model>', '/tmp/precare_screen.json')"
-   cd ~/loopbench && PRECARE_SCREEN=replay:/tmp/precare_screen.json PYTHONPATH=src python scripts/journey_eval.py --journey precare --seeds 1 2 3
+   cd ~/loopbench && PYTHONPATH=src python -c "from loopbench.journeys import precare; precare.export_docs('/tmp/precare_docs.jsonl')"
+   cd ~/harness && python -m backend.extract.reader_runner --task precare --docs /tmp/precare_docs.jsonl --out /tmp/precare_raw.jsonl
+   cd ~/loopbench && PRECARE_READER=replay:/tmp/precare_raw.jsonl PYTHONPATH=src python scripts/journey_eval.py --journey precare --seeds 1 2 3
    ```
 2. Thomas writes 20 to 30 held-out messages (emergencies and quiet ones, English and Cantonese), kept out of the repos,
    run once against the frozen rules + model screen.
