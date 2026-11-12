@@ -118,3 +118,12 @@ def test_a_missed_document_falls_back_and_says_so():
     doc = combine(claim, T, None, "replay:sonnet")
     assert doc["fell_back"] == KEYWORD and "fell back" in doc["read_by"]
 
+
+
+def test_impossible_dates_never_crash_the_engine():
+    from datetime import datetime
+    from backend.journeys.insurance import find_deadline, parse_date
+    for s in ("31/02/2027", "30 Feb 2027", "2027年13月1日"):
+        assert parse_date(s) is None
+    for text in ("Please return the form by 31/02/2027.", "請於2027年13月1日前交回"):
+        find_deadline(text, datetime(2027, 1, 5))           # no exception; the deadline is simply not read

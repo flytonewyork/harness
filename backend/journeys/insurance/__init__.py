@@ -41,11 +41,6 @@ KIND_LABEL = {"claim_form": "claim form", "pre_auth": "pre-authorisation request
               "claim_declined": "declined claim", "info_request": "request for further information"}
 
 
-def _dmy(s: str) -> datetime:
-    d, m, y = s.split("/")
-    return datetime(int(y), int(m), int(d))
-
-
 def working_days_after(t: datetime, n: int) -> datetime:
     d = t
     while n > 0:
@@ -80,6 +75,15 @@ CONSENT_GIVEN = r"(?i)enclose|attached|herewith|附上|已附"
 
 
 def parse_date(s: str) -> datetime | None:
+    """A date as printed on a form, or None. A date that does not exist (31/02, month 13: a typo or OCR noise) is
+    None, never an exception: one bad form must not stop the engine for the whole clinic."""
+    try:
+        return _parse_date(s)
+    except ValueError:
+        return None
+
+
+def _parse_date(s: str) -> datetime | None:
     s = s.strip().rstrip(".,")
     m = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", s)
     if m:
