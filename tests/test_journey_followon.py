@@ -133,3 +133,11 @@ def test_red_flag_on_a_later_line_is_the_quote():
     (u, steps), = seen
     finding = next(s for s in steps if s["step"] == "finding")
     assert u == 4 and "透唔到氣" in finding["cites"][0]["quote"] and finding["cites"][0]["quote"] in text
+
+
+def test_impossible_dates_never_crash_the_engine():
+    import re
+    from backend.journeys.followon import _dmy
+    assert _dmy(re.search(r"(\d{2})/(\d{2})/(\d{4})", "Discharged: 31/02/2027")) is None
+    assert _dmy(re.search(r"(\d{2})/(\d{2})/(\d{4})", "Appointment 05/13/2027")) is None
+    assert _dmy(re.search(r"(\d{2})/(\d{2})/(\d{4})", "13/04/2027"), 12).hour == 12

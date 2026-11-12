@@ -114,6 +114,15 @@ ADMITTED = re.compile(r"\badmitted to\b|入咗醫院|入院|住院", re.I)
 NEG = re.compile(r"(?:冇|沒有|沒|唔|無|no |not |without |never )\S{0,2}$", re.I)
 
 
+def _dmy(m: re.Match, hour: int = 0) -> datetime | None:
+    """dd/mm/yyyy from a match (groups 1-3), or None for a date that does not exist (a typo or OCR noise): one bad
+    document must not stop the engine for the whole clinic."""
+    try:
+        return datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)), hour)
+    except ValueError:
+        return None
+
+
 def _hit(text: str, pats) -> re.Match | None:
     for p in pats:
         for m in re.finditer(p, text, re.I):
@@ -347,7 +356,7 @@ class FollowonJourney:
         dis = t
         m = re.search(r"Discharged:\s*(\d{2})/(\d{2})/(\d{4})", text)
         if m:
-            dis = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)), 12)
+            dis = _dmy(m, 12) or t
         w = Why()
         w.add("source", f"Hospital Authority {kind} arrived via {self.chan_label(r['channel'])} on {when(t)}.",
               cite(r["id"], line_with(text, r"^HOSPITAL AUTHORITY")))
@@ -434,9 +443,9 @@ class FollowonJourney:
     def fo_appointment(self, api, pid: str, r: dict, t: datetime):
         m = re.search(r"Appointment (\d{2})/(\d{2})/(\d{4})", r["text"])
         tri = re.search(r"triaged ([a-z -]+?)[.,]", r["text"])
-        if not m:
+        appt = _dmy(m) if m else None
+        if appt is None:
             return
-        appt = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)))
         for ref in self.fo_refs.get(pid, ()):
             if not ref["urgent"] or ref["t"] > t:
                 continue
