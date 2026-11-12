@@ -24,7 +24,7 @@ def test_journey_contract(name):
     mod = load(name)
     assert isinstance(mod.FAMILIES, dict) and mod.FAMILIES
     assert inspect.isclass(mod.JOURNEY)
-    src = inspect.getsource(mod)
+    src = inspect.getsource(mod) + inspect.getsource(inspect.getmodule(mod.JOURNEY))
     calls = set(re.findall(r"\bapi\.(\w+)", src))
     assert calls <= ALLOWED_API, f"{name} uses port methods outside the contract: {calls - ALLOWED_API}"
     assert not FORBIDDEN.search(src), f"{name} calls a forbidden action"
@@ -32,6 +32,10 @@ def test_journey_contract(name):
         fn = mod.JOURNEY.__dict__.get(meth)
         if fn is not None:
             assert f"super().{meth}(" in inspect.getsource(fn), f"{name}.{meth} must call super().{meth} first"
+    # shared names on one engine: self.bid resolves to whichever journey comes first in the suite, so ask for your
+    # own bid by class; self.reader is the shared model reader (backend/extract/reader.py), never a journey's own
+    assert not re.search(r"\bself\.bid\(", src), f"{name}: call {mod.JOURNEY.__name__}.bid(self, ...), not self.bid(...)"
+    assert not re.search(r"\bself\.reader\s*=(?!=)", src), f"{name}: self.reader is reserved for the shared reader"
 
 
 def test_suite_composes_every_journey():
