@@ -82,10 +82,14 @@ def sentence(text: str, m: re.Match) -> str:
 
 GP_NEGATION = re.compile(r"no need for (?:the )?family doctor|no action (?:is )?(?:required|needed) from (?:the )?family doctor|"
                          r"family doctor follow[- ]?up (?:is )?not (?:required|needed)", re.I)
-REVIEW = re.compile(r"(?:follow up with (?:the )?family doctor|family doctor review|see (?:the )?family doctor|review by (?:the )?family doctor)"
-                    r"\s+(?:in|within)\s+(\d+|one|two|three|four|six|a)\s+(day|week|month)s?", re.I)
-GP_ASK = re.compile(r"family doctor (?:please|to|kindly)\s+[^.;\n]+|please follow up with (?:the )?family doctor[^.;\n]*", re.I)
-PENDING = re.compile(r"\bpending\b|awaited|to follow\b", re.I)
+GP_WHO = re.compile(r"family (?:doctor|physician)|\bGP\b|your (?:own )?doctor|referring doctor|private doctor", re.I)   # not GOPC: that is HA's own clinic
+ASK_VERB = re.compile(r"\b(?:please|kindly|arrange|follow(?:ed)? up|review|repeat|check|see|monitor|titrate|adjust|recheck|chase)\b", re.I)
+DO_VERB = re.compile(r"\b(?:repeat|check|recheck|review|monitor|titrate|adjust|remove|stitches off|wound)\b", re.I)
+REVIEW_WORD = re.compile(r"follow(?:ed)? up|review|\bsee\b", re.I)
+CONDITIONAL = re.compile(r"\bif (?:symptoms?|needed|required|necessary|worse|worsen|recur|persist|not better|no improvement|not improving|unwell)|"
+                         r"\bprn\b|as needed|should (?:symptoms|it) recur", re.I)
+HOSPITAL_KEPT = re.compile(r"\bSOPC\b|\bGOPC\b|appointment given|as booked|pacemaker clinic|clinic in \d+", re.I)
+PENDING = re.compile(r"\bpending\b|awaited|to follow\b|to be followed up|not yet available|outstanding", re.I)
 INR = re.compile(r"check INR in (\d+|one|two|three|four|six|a)\s+(day|week)s?", re.I)
 MED_CHANGE = re.compile(r"\((?:NEW|new|dose increased|dose reduced)\)|\bSTOPPED\b|\bstopped\b|\bincreased to\b|\breduced to\b|\bStarted\b|\bstarted on\b", re.I)
 ANTICOAG = re.compile(r"warfarin|apixaban|rivaroxaban|dabigatran|edoxaban|enoxaparin", re.I)
@@ -104,7 +108,7 @@ NOT_BETTER = [r"冇好到", r"未好", r"差咗", r"都係咁", r"唔見好", r"
               r"not better", r"worse", r"about the same"]
 FINE = [r"好返", r"好多", r"冇問題", r"冇事", r"much better", r"feeling fine", r"all good"]
 APPT = r"專科|覆診|appointment|SOPC|clinic"
-MISSED = [r"唔記得", r"錯過", r"冇去到", r"冇去", r"missed", r"forgot"]
+MISSED = [r"唔記得", r"錯過", r"冇去到", r"冇去", r"取消", r"冇收到新", r"missed", r"forgot", r"cancel", r"haven'?t heard"]
 TOO_LONG = [r"太耐", r"太遲", r"後年", r"明年", r"too long", r"so late", r"year after next"]
 ADMITTED = re.compile(r"\badmitted to\b|入咗醫院|入院|住院", re.I)
 NEG = re.compile(r"(?:冇|沒有|沒|唔|無|no |not |without |never )\S{0,2}$", re.I)
@@ -137,21 +141,35 @@ def classify_reply(text: str) -> tuple[str, re.Match | None]:
 def read_discharge(text: str) -> dict:
     """The family doctor's asks in an HA discharge or A&E summary, each as a verbatim quote."""
     out = {"asks": [], "review_days": None, "pending": None, "inr_days": None, "med_changes": [], "negated": None,
-           "anticoag": False}
+           "anticoag": False, "soonest_days": None}
     fu = line_with(text, r"^(Follow-up|Disposal):") or ""
     pend = line_with(text, r"^Pending at discharge:")
     meds = line_with(text, r"^Medications on discharge:") or ""
     if (m := GP_NEGATION.search(fu)):
         out["negated"] = clause(fu, m)
-    if (m := REVIEW.search(fu)):
+    # every sentence of the follow-up line: an ask names the family doctor (or follows one that does) and asks for
+    # something; a conditional ("if symptoms recur") or a hospital-kept appointment is not an ask
+    body = fu.split(":", 1)[1] if ":" in fu else fu
+    gp_line = bool(GP_WHO.search(body))
+    for m in re.finditer(r"[^.;]+", body):
+        sen = " ".join(m.group(0).split())
+        if not sen or CONDITIONAL.search(sen) or GP_NEGATION.search(sen):
+            continue
+        if HOSPITAL_KEPT.search(sen) and not GP_WHO.search(sen):
+            continue
+        if (GP_WHO.search(sen) and ASK_VERB.search(sen)) or (gp_line and DO_VERB.search(sen) and INTERVAL.search(sen)):
+            out["asks"].append(sen)
+    days = [_days(m.group(1), m.group(2)) for a in out["asks"] for m in INTERVAL.finditer(a)]
+    rv = next((a for a in out["asks"] if REVIEW_WORD.search(a) and INTERVAL.search(a)), None)
+    if rv:
+        m = INTERVAL.search(rv)
         out["review_days"] = _days(m.group(1), m.group(2))
-        out["asks"].append(sentence(fu, m))
-    for m in GP_ASK.finditer(fu):
-        s = sentence(fu, m)
-        if s not in out["asks"]:
-            out["asks"].append(s)
-    if (m := re.search(r"repeat [A-Za-z+ ()]+? in \d+ (?:day|week|month)s?", fu, re.I)) and not any(m.group(0) in a for a in out["asks"]):
-        out["asks"].append(m.group(0))
+    out["soonest_days"] = min(days) if days else None
+    # the floor: never quieter than the core rule, except where the hospital keeps the follow-up or makes it conditional
+    if not out["asks"] and not out["negated"] and not CONDITIONAL.search(body) and \
+            re.search(r"family doctor", text, re.I) and re.search(r"follow up", text, re.I):
+        out["asks"].append(" ".join(body.split()))
+        out["fell_back"] = "core discharge rule"
     if (m := INR.search(fu)):
         out["inr_days"] = _days(m.group(1), m.group(2))
     if pend and PENDING.search(pend):
@@ -343,6 +361,8 @@ class FollowonJourney:
             pq = d["pending"].split(";")[0].strip()
             fcites.append(cite(r["id"], pq))
             parts.append(f"A result was still pending at discharge: “{pq}”")
+        if d.get("fell_back"):
+            parts.append("This reader found no specific ask, so it fell back to the core discharge rule (the summary mentions the family doctor and follow-up)")
         if d["negated"]:
             parts.append(f"The summary also says “{d['negated']}”, but it lists asks for the family doctor, so it is raised")
         w.add("finding", ". ".join(parts) + ".", *fcites)
@@ -365,7 +385,7 @@ class FollowonJourney:
         w.add("assessment", f"Working problem: follow-on after {dxt}. Plan: " + "; ".join(plan) + ".", cite(r["id"], dx))
         n, q = self.chart_search(api, pid, ["consult_note"], dis)
         w.add("loop_status", f"{'No' if n == 0 else n} consultation{'s' if n != 1 else ''} in the chart since the discharge on {day(dis)}.", search=q)
-        soon = min(x for x in (d["review_days"], d["inr_days"], 7 if d["pending"] else None, 14) if x)
+        soon = min(x for x in (d["review_days"], d["soonest_days"], d["inr_days"], 7 if d["pending"] else None, 14) if x)
         urgency = 2 if (soon <= 10 or d["pending"] or d["anticoag"] or d["inr_days"]) else 1
         due_days = max(1, min((dis + timedelta(days=soon) - api.now).days, 7 if urgency == 2 else 14))
         fam = (MED_FAMILY if d["med_changes"] else "followup_recommended") if (d["asks"] or d["inr_days"]) else "test_never_resulted"

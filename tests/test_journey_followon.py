@@ -75,3 +75,14 @@ def test_in_the_suite_and_claims():
     assert isinstance(eng2, FollowonJourney)
     assert eng.claims(None, {"kind": "discharge_summary", "channel": "ehealth"})
     assert eng.claims(None, {"kind": "specialist_letter", "channel": "fax"})
+
+
+def test_background_distractors_stay_quiet():
+    """Phrasings in the simulated clinic's own discharge summaries that are not asks for this clinic's doctor."""
+    for fu in ("Disposal: discharged. See family doctor if not better.", "Follow-up: Follow up at GOPC as booked.",
+               "Follow-up: Nil. Discharged to self-care; see family doctor if symptoms recur."):
+        d = read_discharge(DC.replace("Follow-up: Please follow up with family doctor in 1 week.", fu)
+                           .replace("\nPending at discharge: Blood culture x2 (taken on admission) - result pending; family doctor please check the result.", ""))
+        assert not d["asks"] and not d["pending"], fu
+    d = read_discharge(DC.replace("Please follow up with family doctor in 1 week.", "GOPC/family doctor follow up in 10 days for BP and RFT."))
+    assert d["review_days"] == 10
