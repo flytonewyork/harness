@@ -250,7 +250,7 @@ class FollowonJourney:
         elif k == "specialist_letter":
             self.fo_letter(api, r, t)
         elif k == "message" and r["channel"] == "careline" and r["patient_id"] and r["data"].get("direction") != "out":
-            if self.won(api, r, FollowonJourney) if hasattr(self, "won") else self.bid(api, r) > 0:
+            if self.won(api, r, FollowonJourney) if hasattr(self, "won") else FollowonJourney.bid(self, api, r) > 0:
                 self.fo_reply(api, r, t)
         elif k == "phone_memo" and r["patient_id"] and ADMITTED.search(r["text"]):
             self.fo_watch[r["patient_id"]] = t + timedelta(days=WATCH_DAYS)
