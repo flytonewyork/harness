@@ -418,8 +418,10 @@ class InsuranceJourney:
 
     def ins_watch(self, api):
         """Two working days before the insurer's deadline, raise anything still open to urgent."""
-        if api.now.hour != 8 or not self.ins_open:
+        today = api.now.date()                            # once a day, on the first tick whatever the tick spacing
+        if not self.ins_open or getattr(self, "ins_watched", None) == today:
             return
+        self.ins_watched = today
         status = {it["id"]: it for it in api.items("open")}
         for iid, x in list(self.ins_open.items()):
             it = status.get(iid)
