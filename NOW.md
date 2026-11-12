@@ -1,6 +1,6 @@
 # NOW
 
-The one queue for harness and loopbench. Keep it under 2 KB. Last updated 11 Nov 2026.
+The one queue for harness and loopbench. Keep it under 2 KB. Last updated 12 Nov 2026.
 
 **Focus until the 26 Nov go/no-go:** a written next step from EC Healthcare. Everything else is in `archive/` or Parked.
 
@@ -10,7 +10,7 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 11 Nov
    Fill the **[after Wed]** fields from the 11 Nov meeting with Julie (`docs/EC_MEETING_PREP.md`) and send by Thu 12 Nov.
 2. **The EC demo.** `demo/ec-care-line/index.html`, workload-first walkthrough (`?walk=1`), merged 11 Nov (#30);
    offline copy on the Mac mini at `~/Desktop/EC-demo-Julie/`. Behind it, **the journey suite** (Thomas, 12 Nov): one engine
-   with a plug-in per patient journey, each with LoopBench scenarios and a gate (`docs/JOURNEYS.md`, `scripts/journey_eval.py`).
+   with a plug-in per patient journey, each with LoopBench scenarios and a gate (`docs/JOURNEYS.md`; run `scripts/check.sh`).
 3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. The Mac mini service `com.tmrw.careline`
    was stopped 11 Nov and stays off until Thomas restarts it; it replied to numbers outside the tester list on 10 Nov.
 

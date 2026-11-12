@@ -12,13 +12,19 @@ Small project: the product (`harness`) and its test bed (`../loopbench`). Keep c
   Mac mini without him.
 
 ## Commands
-- Tests: `python -m pytest -q`. Engine changes also: `cd ../loopbench && PYTHONPATH=src python scripts/scoreboard.py --seeds 1`
-  (CI runs seeds 1–3 on every PR; hard fails and made-up quotes must be 0).
+- Tests: `python -m pytest -q`. Before a PR: `scripts/check.sh` runs what CI gates, for both repos (harness and loopbench
+  tests, scoreboard, journey gate; seed 1, or `scripts/check.sh 1 2 3` as CI). Hard fails and made-up quotes must be 0.
 - `claude -p` model runs and rebuilds from `~/loopbench-data` happen on the Mac mini only.
+
+## Layout
+- `backend/engine/` core (port, rules v1.0/v1.1, agentic), `backend/journeys/<name>/` plug-in journeys, `backend/extract/`
+  models and the shared reader, `backend/lookback/` and `backend/api/`. A new journey follows `docs/JOURNEYS.md` (both repos).
+- Blind sets (`blind: true`) are reported, not gated; never edit a blind file to pass: new phrasings go in a new file.
 
 ## Invariants
 - **Asymmetric authority:** the engine port (`backend/engine/ports.py`) and agent API only open_item, raise_urgency,
   alarm, attest_all_clear. Never add close, dismiss, downgrade or reassure. Only doctors close items.
+  Journeys never message patients; they may suggest a fixed template for the doctor to send.
 - Every item carries a reasoning trace with verbatim quotes. Never weaken LoopBench checks; fix the engine.
 - Rules v1.0 is frozen; behaviour changes go behind a new version (`RulesHarness(version="1.1")`).
 - The product never imports LoopBench. A replay miss filled by the rules floor carries the floor's name (`fell_back`).
