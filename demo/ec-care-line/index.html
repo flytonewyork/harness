@@ -244,6 +244,28 @@ body.present .walkbar { display: flex; position: fixed; left: 0; right: 0; botto
 .walkbar .nav:disabled { opacity: .35; cursor: default; }
 @media (max-width: 700px) { .walkbar .steps button:not([aria-current="step"]) { display: none; } }
 @media print { .walkbar, .pbtn { display: none !important; } }
+/* Ms Kwok's journey (?walk=kwok): the front door one beat at a time, then the doctor's item */
+body.present #front[data-beat] ol.steps > li { opacity: .3; transition: opacity .2s; }
+body.present #front[data-beat="1"] ol.steps > li:nth-child(1),
+body.present #front[data-beat="2"] ol.steps > li:nth-child(2),
+body.present #front[data-beat="3"] ol.steps > li:nth-child(3),
+body.present #front[data-beat="4"] ol.steps > li:nth-child(4) { opacity: 1; }
+body.present #front[data-beat="1"] .msgs [data-at],
+body.present #front[data-beat="2"] .msgs [data-at="3"], body.present #front[data-beat="2"] .msgs [data-at="4"],
+body.present #front[data-beat="3"] .msgs [data-at="4"] { display: none; }
+body.present #front[data-beat]:not([data-beat="4"]) .replies,
+body.present #front[data-beat]:not([data-beat="4"]) .kwok-reply { display: none; }
+body.present #front[data-beat]:not([data-beat="2"]) .qrtarget { display: none; }
+.qrtarget { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 16px 18px; display: grid; gap: 6px; max-width: 520px; }
+.qrtarget .t { font-family: var(--display); font-weight: 600; font-size: 19px; line-height: 1.25; }
+.kitem { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: 24px; align-items: start; }
+@media (max-width: 900px) { .kitem { grid-template-columns: 1fr; } }
+.authority { display: grid; gap: 8px; font-size: 14px; }
+.authority .row { display: flex; gap: 8px; align-items: baseline; }
+.authority .yes::before { content: "\2713"; color: var(--accent); font-weight: 700; }
+.authority .no::before { content: "\2715"; color: var(--crit); font-weight: 700; }
+.kclosed { color: var(--muted); }
+
 </style>
 </head>
 <body>
@@ -443,27 +465,76 @@ body.present .walkbar { display: flex; position: fixed; left: 0; right: 0; botto
             <span class="pill done">Sample card · not a working code</span>
           </div>
         </div>
+        <div class="qrtarget" id="qr-target">
+          <span class="small muted">What the QR code opens (shown as a picture here, nothing loads from the web)</span>
+          <span class="t">診所就在 WhatsApp。由你的醫生把關。<br><span class="small muted">Your clinic, on WhatsApp. Overseen by your doctor.</span></span>
+          <span class="small">WhatsApp opens with her visit code already typed. No app to download. Cantonese or English, during clinic hours. In an emergency, call 999.</span>
+          <span class="pill done">The tmrw patient page · sample</span>
+        </div>
       </div>
       <div class="phone"><div class="screen">
         <div class="chat-head"><span class="avatar">郭</span><div><div class="who">KWOK Siu Fung 郭小鳳 · 34</div><div class="sub">Harbourview care line</div></div></div>
         <div class="msgs" id="msgs-kwok">
-          <span class="sys">Thu 10 Jun</span>
-          <div class="b in">加入陳醫生 care line（就診編號 HFC-0610-23）<span class="en">Join Dr Chan's care line (visit HFC-0610-23). Typed for her by the QR code.</span><span class="meta">11:42</span></div>
-          <div class="b out" data-actor="agent">郭小姐你好，我係 Harbourview 診所嘅 care team。請覆你嘅出生日期（日/月/年），確認係你本人。<span class="en">Hello Ms Kwok, this is the Harbourview clinic care team. Please reply with your date of birth (day/month/year) so we know it's you.</span><span class="meta">Care team · 11:42</span></div>
-          <div class="b in">14/03/1992<span class="meta">11:42</span></div>
-          <div class="b out" data-actor="agent">多謝。你同意我哋用 WhatsApp 同你跟進，同埋將你 send 嚟嘅資料存入你嘅病歷嗎？同意請覆「同意」。<span class="en">Thank you. Do you agree to us following up with you on WhatsApp and keeping what you send in your record? Reply 同意 to agree.</span><span class="meta">Care team · 11:43</span></div>
-          <div class="b in">同意<span class="meta">11:43</span></div>
-          <div class="b doc"><strong>你今日嘅計劃 · 10 Jun</strong><br>急性支氣管炎，唔需要抗生素。<br>多飲水、多休息，咳藥水照指示食。<br>星期日我哋會問候你。<br>如果發燒超過三日、氣促，或者一個星期都未好，返嚟睇醫生。<span class="en">Your plan today: acute bronchitis, no antibiotics needed. Fluids, rest, cough syrup as directed. We'll check in on Sunday. Come back if you have a fever for more than 3 days, get short of breath, or aren't better in a week.</span><span class="meta">✓ Signed by Dr Chan · 11:43</span></div>
-          <div class="b out" data-actor="agent">收據（PDF）· 病假紙（PDF）<span class="en">Copies of your receipt and sick-leave certificate from today.</span><span class="meta">Care team · 11:44</span></div>
-          <div class="b out" data-actor="agent">以後你可以喺呢度：<br>1. 問關於你個計劃嘅問題<br>2. Send 報告、信或者相俾醫生<br>3. 配返長期藥（醫生批先）<br>4. 預約或者改期<br>5. 攞收據或者病假紙副本<br>緊急情況請即刻打999。<span class="en">From now on you can: 1. ask about your plan; 2. send a report, letter or photo to your doctor; 3. get repeat medicines once your doctor approves; 4. book or change an appointment; 5. get copies of receipts or sick-leave certificates. In an emergency, call 999 straight away.</span><span class="meta">Care team · 11:44</span></div>
-          <span class="sys">Sun 13 Jun</span>
-          <div class="b out" data-actor="agent">郭小姐早晨，睇完醫生三日，咳好啲未？有冇發燒或者氣促？<span class="en">Morning Ms Kwok. It's three days since your visit. Is the cough better? Any fever or shortness of breath?</span><span class="meta">Care team · from Dr Chan's plan · 10:00</span></div>
+          <span data-at="2" class="sys">Thu 10 Jun</span>
+          <div data-at="2" class="b in">加入陳醫生 care line（就診編號 HFC-0610-23）<span class="en">Join Dr Chan's care line (visit HFC-0610-23). Typed for her by the QR code.</span><span class="meta">11:42</span></div>
+          <div data-at="2" class="b out" data-actor="agent">郭小姐你好，我係 Harbourview 診所嘅 care team。請覆你嘅出生日期（日/月/年），確認係你本人。<span class="en">Hello Ms Kwok, this is the Harbourview clinic care team. Please reply with your date of birth (day/month/year) so we know it's you.</span><span class="meta">Care team · 11:42</span></div>
+          <div data-at="2" class="b in">14/03/1992<span class="meta">11:42</span></div>
+          <div data-at="2" class="b out" data-actor="agent">多謝。你同意我哋用 WhatsApp 同你跟進，同埋將你 send 嚟嘅資料存入你嘅病歷嗎？同意請覆「同意」。<span class="en">Thank you. Do you agree to us following up with you on WhatsApp and keeping what you send in your record? Reply 同意 to agree.</span><span class="meta">Care team · 11:43</span></div>
+          <div data-at="2" class="b in">同意<span class="meta">11:43</span></div>
+          <div data-at="3" class="b doc"><strong>你今日嘅計劃 · 10 Jun</strong><br>急性支氣管炎，唔需要抗生素。<br>多飲水、多休息，咳藥水照指示食。<br>星期日我哋會問候你。<br>如果發燒超過三日、氣促，或者一個星期都未好，返嚟睇醫生。<span class="en">Your plan today: acute bronchitis, no antibiotics needed. Fluids, rest, cough syrup as directed. We'll check in on Sunday. Come back if you have a fever for more than 3 days, get short of breath, or aren't better in a week.</span><span class="meta">✓ Signed by Dr Chan · 11:43</span></div>
+          <div data-at="3" class="b out" data-actor="agent">收據（PDF）· 病假紙（PDF）<span class="en">Copies of your receipt and sick-leave certificate from today.</span><span class="meta">Care team · 11:44</span></div>
+          <div data-at="3" class="b out" data-actor="agent">以後你可以喺呢度：<br>1. 問關於你個計劃嘅問題<br>2. Send 報告、信或者相俾醫生<br>3. 配返長期藥（醫生批先）<br>4. 預約或者改期<br>5. 攞收據或者病假紙副本<br>緊急情況請即刻打999。<span class="en">From now on you can: 1. ask about your plan; 2. send a report, letter or photo to your doctor; 3. get repeat medicines once your doctor approves; 4. book or change an appointment; 5. get copies of receipts or sick-leave certificates. In an emergency, call 999 straight away.</span><span class="meta">Care team · 11:44</span></div>
+          <span data-at="4" class="sys">Sun 13 Jun</span>
+          <div data-at="4" class="b out" data-actor="agent">郭小姐早晨，睇完醫生三日，咳好啲未？有冇發燒或者氣促？<span class="en">Morning Ms Kwok. It's three days since your visit. Is the cough better? Any fever or shortness of breath?</span><span class="meta">Care team · from Dr Chan's plan · 10:00</span></div>
         </div>
         <div class="replies" role="group" aria-label="Play her reply">
           <button class="btn" type="button" data-kwok="better">She replies: better</button>
           <button class="btn crit" type="button" data-kwok="worse">She replies: worse</button>
         </div>
       </div></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="kwok-item">
+  <div class="wrap stack" style="gap:22px">
+    <div class="stack" style="gap:8px">
+      <p class="eyebrow">The doctor's view · Sun 13 Jun, 10:06</p>
+      <h2>The agent opened it and raised it. Only Dr Chan can close it.</h2>
+      <p class="muted" style="max-width:720px">Ms Kwok's day-3 reply said she was worse. A fixed red-flag rule answered her in four seconds and sent her to A&amp;E. This is the item waiting at the top of Dr Chan's queue, with every claim quoted word for word from what she wrote and what Dr Chan signed.</p>
+    </div>
+    <div class="kitem">
+      <div class="box crit" id="kitem-box">
+        <div class="box-head"><strong>KWOK Siu Fung · 郭小鳳 · 34</strong><span class="pill crit" id="kitem-pill">Urgency raised · Dr Chan alerted</span></div>
+        <div class="trace">
+          <div class="step"><span class="k">source</span><span>Her WhatsApp reply to the day-3 check-in from Dr Chan's plan, Sun 13 Jun 10:05.<q class="q-engine" data-quote>仲差咗，行樓梯有啲氣促，琴晚發燒 38.5。</q></span></div>
+          <div class="step"><span class="k">identity</span><span>Same chat she joined with visit code HFC-0610-23, date of birth confirmed at the desk on 10 Jun.</span></div>
+          <div class="step"><span class="k">finding</span><span>Short of breath on exertion, and a fever of 38.5 overnight.<q class="q-engine" data-quote>行樓梯有啲氣促</q><q class="q-engine" data-quote>琴晚發燒 38.5</q></span></div>
+          <div class="step"><span class="k">context</span><span>Acute bronchitis on 10 Jun, no antibiotics. Her signed plan says to come back if this happens.<q class="q-engine" data-quote>如果發燒超過三日、氣促，或者一個星期都未好，返嚟睇醫生。</q></span></div>
+          <div class="step"><span class="k">assessment</span><span>Red-flag rule: shortness of breath with a new fever after a chest infection. Urgency raised from routine to same-day. The agent makes no diagnosis.</span></div>
+          <div class="step"><span class="k">loop status</span><span>Open. The fixed reply told her to go to A&amp;E today and to call 999 if it gets hard to breathe. No reply from her since.</span></div>
+          <div class="step"><span class="k">routing</span><span>Dr Chan, her doctor for this visit. Alerted at 10:06. Paged if unseen in an hour.</span></div>
+          <div class="step"><span class="k">request</span><span>Check she's on her way or seen, then close it. Only a doctor can close this item.</span></div>
+        </div>
+        <div class="actions" id="kitem-actions">
+          <button class="btn ghost" type="button" data-kact="call">Call her</button>
+          <button class="btn ghost" type="button" data-kact="reply">Reply in your own words</button>
+          <button class="btn" type="button" data-kact="close" disabled title="Call or reply first">Close item (doctors only)</button>
+        </div>
+        <p class="small muted" id="kitem-log">Item opened 10:06 by the agent · urgency raised 10:06 by the agent · Dr Chan alerted 10:06 by the agent</p>
+      </div>
+      <div class="box">
+        <strong>What the agent did, and what it can't do</strong>
+        <div class="authority">
+          <span class="row yes">Opened the item</span>
+          <span class="row yes">Raised its urgency</span>
+          <span class="row yes">Alerted Dr Chan</span>
+          <span class="row no">Close, dismiss or downgrade it</span>
+          <span class="row no">Reassure her or tell her she's fine</span>
+          <span class="row no">Diagnose or prescribe</span>
+        </div>
+        <p class="small muted">If she had said she was better, the item would wait on Dr Chan's list to close, and nothing would close by itself.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -822,6 +893,26 @@ body.present .walkbar { display: flex; position: fixed; left: 0; right: 0; botto
     queue.insertBefore(q, before || null);
   });
 
+  // the doctor's item for Ms Kwok: only the doctor closes it
+  (function () {
+    var acts = document.getElementById('kitem-actions'); if (!acts) return;
+    var log = document.getElementById('kitem-log'), pill = document.getElementById('kitem-pill');
+    var closeBtn = acts.querySelector('[data-kact="close"]');
+    var notes = { call: 'Dr Chan called her 10:12: on her way to A&E with her husband.', reply: 'Dr Chan replied 10:12, in their own words, and signed it.' };
+    acts.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-kact]'); if (!b || b.disabled) return;
+      var k = b.dataset.kact;
+      if (notes[k]) { log.textContent += ' · ' + notes[k]; closeBtn.disabled = false; closeBtn.removeAttribute('title'); pill.className = 'pill warn'; pill.textContent = 'Doctor has seen it'; return; }
+      if (k === 'close') {
+        log.textContent += ' · Closed 10:14 by Dr Chan';
+        pill.className = 'pill done'; pill.textContent = 'Closed by Dr Chan';
+        document.getElementById('kitem-box').classList.add('kclosed');
+        acts.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+        var row = queue.querySelector('[data-key="kwok"]'); if (row) row.classList.add('closed');
+      }
+    });
+  })();
+
   // a sample QR pattern for the card (decorative; not a working code)
   (function () {
     var c = document.getElementById('qr'), g = c.getContext('2d'), n = 25, s = 112 / n, seed = 7;
@@ -914,16 +1005,31 @@ body.present .walkbar { display: flex; position: fixed; left: 0; right: 0; botto
 })();
 </script>
 <script>
-/* Walkthrough for the meeting, workload first: the back-office numbers, then the four stops in EC_MEETING_PREP.md, then the ask. The full page is untouched. */
+/* Walkthroughs. ?walk=1: the Julie meeting, workload first (EC_MEETING_PREP.md). ?walk=kwok: Ms Kwok's journey, one beat per screen, then the doctor's item. The full page is untouched. */
 (function () {
-  var STOPS = [
-    { id: 'numbers', label: '1 · Your back office' },
-    { id: 'queue-stop', label: '2 · One queue' },
-    { id: 'front', label: '3 · Front door' },
-    { id: 'rules', label: '4 · The rules' },
-    { id: 'emr', label: '5 · On EC\'s EMR' },
-    { id: 'ask', label: 'The first step' }
-  ];
+  var WALKS = {
+    meeting: [
+      { id: 'numbers', label: '1 · Your back office' },
+      { id: 'queue-stop', label: '2 · One queue' },
+      { id: 'front', label: '3 · Front door' },
+      { id: 'rules', label: '4 · The rules' },
+      { id: 'emr', label: '5 · On EC\'s EMR' },
+      { id: 'ask', label: 'The first step' }
+    ],
+    /* Ms Kwok's journey, one beat per screen (?walk=kwok): the spec for the demo with the CEO and the AI team */
+    kwok: [
+      { id: 'front', beat: 1, label: '1 · In the room' },
+      { id: 'front', beat: 2, label: '2 · At the desk' },
+      { id: 'front', beat: 3, label: '3 · Before the lift' },
+      { id: 'front', beat: 4, label: '4 · Day 3' },
+      { id: 'kwok-item', label: '5 · The doctor' },
+      { id: 'numbers', label: 'Your back office' },
+      { id: 'ask', label: 'The first step' }
+    ]
+  };
+  var walk = /[?&]walk=kwok\b/.test(location.search) ? 'kwok' : 'meeting';
+  var STOPS = WALKS[walk];
+  var IDS = STOPS.map(function (s) { return s.id; }).filter(function (id, i, a) { return a.indexOf(id) === i; });
   var at = 0, body = document.body, steps = document.getElementById('walk-steps');
   var toggle = document.getElementById('present-toggle');
   STOPS.forEach(function (s, i) {
@@ -935,19 +1041,20 @@ body.present .walkbar { display: flex; position: fixed; left: 0; right: 0; botto
   function go(i) {
     if (typeof i === 'string') i = STOPS.findIndex(function (s) { return s.id === i; });
     at = Math.max(0, Math.min(STOPS.length - 1, i));
-    STOPS.forEach(function (s, j) {
-      document.getElementById(s.id).classList.toggle('on', j === at);
-      steps.children[j].setAttribute('aria-current', j === at ? 'step' : 'false');
-    });
+    IDS.forEach(function (id) { document.getElementById(id).classList.toggle('on', id === STOPS[at].id); });
+    STOPS.forEach(function (s, j) { steps.children[j].setAttribute('aria-current', j === at ? 'step' : 'false'); });
+    var front = document.getElementById('front');
+    if (STOPS[at].beat) front.dataset.beat = STOPS[at].beat; else delete front.dataset.beat;
     document.getElementById('walk-prev').disabled = at === 0;
     document.getElementById('walk-next').disabled = at === STOPS.length - 1;
     window.scrollTo(0, 0);
-    if (history.replaceState) history.replaceState(null, '', '?walk=' + (at + 1));
+    if (history.replaceState) history.replaceState(null, '', walk === 'kwok' ? '?walk=kwok&stop=' + (at + 1) : '?walk=' + (at + 1));
   }
   function start(i) { body.classList.add('present'); toggle.textContent = 'Full page'; toggle.classList.add('ghost'); go(i || 0); }
   function stop() {
     body.classList.remove('present'); toggle.textContent = 'Walk through'; toggle.classList.remove('ghost');
-    STOPS.forEach(function (s) { document.getElementById(s.id).classList.remove('on'); });
+    IDS.forEach(function (id) { document.getElementById(id).classList.remove('on'); });
+    delete document.getElementById('front').dataset.beat;
     if (history.replaceState) history.replaceState(null, '', location.pathname);
   }
   window.presentGo = go;
@@ -960,8 +1067,9 @@ body.present .walkbar { display: flex; position: fixed; left: 0; right: 0; botto
     else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(at - 1); }
     else if (e.key === 'Escape') stop();
   });
-  var m = /[?&]walk(?:=(\d+))?/.exec(location.search);
-  if (m) start(m[1] ? parseInt(m[1], 10) - 1 : 0);
+  var m = /[?&]walk(?:=(\d+))?/.exec(location.search), n = /[?&]stop=(\d+)/.exec(location.search);
+  if (walk === 'kwok') start(n ? parseInt(n[1], 10) - 1 : 0);
+  else if (m) start(m[1] ? parseInt(m[1], 10) - 1 : 0);
 })();
 </script>
 </body>
