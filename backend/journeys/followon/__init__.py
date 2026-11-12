@@ -506,7 +506,8 @@ class FollowonJourney:
             key = ("ref", "tri", refs[-1]["rid"]) if (kind == "appt_too_long" and refs) else ("ref", "cl", r["id"])
             if key in self.raised:                         # the eHealth booking already raised it: raise, do not duplicate
                 iid = self.raised[key]
-                if any(x["id"] == iid for x in api.items(status="open")):
+                cur = next((x for x in api.items(status="open") if x["id"] == iid), None)
+                if cur is not None and cur["urgency"] < max(u, 3):        # raise only: escalation may already have paged it
                     api.raise_urgency(iid, max(u, 3), reason=f"The patient also wrote on the care line: “{q}”")
                 return
             n, qs = self.chart_search(api, pid, ["consult_note", "action_note"], t - timedelta(days=30))

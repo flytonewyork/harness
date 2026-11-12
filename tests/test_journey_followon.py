@@ -86,3 +86,27 @@ def test_background_distractors_stay_quiet():
         assert not d["asks"] and not d["pending"], fu
     d = read_discharge(DC.replace("Please follow up with family doctor in 1 week.", "GOPC/family doctor follow up in 10 days for BP and RFT."))
     assert d["review_days"] == 10
+
+
+def test_care_line_never_lowers_an_escalated_referral_item():
+    """The open triage item may already be at 4 (escalation pages unactioned urgent items); a care-line message
+    about the same referral must not 'raise' it to 3, which the platform rejects as lowering."""
+    from datetime import datetime
+    calls = []
+
+    class API:
+        now = datetime(2027, 5, 1, 10)
+
+        def items(self, status=None):
+            return [{"id": "I1", "urgency": 4, "patient_id": "P1"}]
+
+        def raise_urgency(self, iid, u, reason=""):
+            calls.append(u)
+
+    eng = suite("followon")
+    eng.fo_refs = {"P1": [{"t": datetime(2027, 4, 1), "rid": "R1", "urgent": True, "owner": "D1", "text": "Reason: x"}]}
+    eng.fo_docs, eng.fo_watch, eng.raised = {}, {}, {("ref", "tri", "R1"): "I1"}
+    eng.pname = lambda pid: "X"
+    msg = {"id": "M1", "patient_id": "P1", "text": "個專科預約太耐喇", "kind": "message", "channel": "careline", "data": {}}
+    eng.fo_reply(API(), msg, datetime(2027, 5, 1, 9))
+    assert all(u >= 4 for u in calls)
