@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta
 
-from ...engine.rules import Why, cite, line_with, when
+from ...engine.rules import URGENCY_LABEL, WINDOW, Why, cite, line_with, when
 
 NAME = "followup"
 SUMMARY = "Day-3 care-line check-in after an acute visit: every reply reaches the doctor, worse is urgent, red flags page."
@@ -61,6 +61,7 @@ class FollowupJourney:
         super().reset(api)
         self.fu_out: dict = {}        # pid -> {"t", "rid", "text"} latest check-in sent by the care line
         self.fu_replied: set = set()  # check-in record ids that got a reply
+        self.fu_silent: set = set()   # item ids opened because a check-in got no reply
 
     def bid(self, api, r: dict) -> float:
         """Every inbound care-line message, as the fallback (1); a reply within 72 h of our own check-in (2).
@@ -146,8 +147,28 @@ class FollowupJourney:
             reason += f" (“{hit}”)"
         w.add("request", f"Suggested fixed reply for the doctor to send: {REPLY[u]}")
         ev = [r["id"]] + ([chk["rid"]] if chk else [])
-        self.raise_item(api, ("fu", chk["rid"] if chk else r["id"]), pid, "patient_reported", reason, ev, u,
-                        note["author"] if note else None, why=w)
+        key = ("fu", chk["rid"]) if chk else ("fu", r["id"])
+        prior = self.raised.get(key)
+        if prior is not None:
+            # This check-in already has an item (an earlier reply, or the 48-hour silence item). A later message is
+            # never dropped: if it is more urgent than the open item, or the open item says there was no reply, it
+            # gets its own item with its own verified quotes, linked to the open one; if the doctor has already
+            # closed the earlier item, it gets a new one. Only a message no more urgent than an open reply item is
+            # left to that item (the doctor reads the whole chat when acting on it).
+            open_now = {it["id"]: it for it in api.items(status="open")}
+            cur = open_now.get(prior)
+            if cur is not None and cur["urgency"] >= u and prior not in self.fu_silent:
+                return
+            key = ("fu", r["id"])
+            if cur is not None:
+                owner, route_txt = self.route(api, note["author"] if note else None, pid, u)
+                due = api.now + timedelta(days=WINDOW[u])
+                w.add("routing", route_txt + f" Linked to the open item {prior} on the same check-in.")
+                w.add("request", f"Opened for {self.nm(owner)} at urgency {u} ({URGENCY_LABEL[u]}); due {when(due)}.")
+                self.raised[key] = api.open_item(pid, owner, "patient_reported", reason, ev, u, due, reasoning=w.steps,
+                                                 escalates=prior)
+                return
+        self.raise_item(api, key, pid, "patient_reported", reason, ev, u, note["author"] if note else None, why=w)
 
     def fu_silence(self, api, pid, chk):
         note = self.fu_plan(api, pid, chk["t"])
@@ -163,6 +184,8 @@ class FollowupJourney:
         ev = [chk["rid"]] + ([note["id"]] if note else [])
         self.raise_item(api, ("fu", chk["rid"]), pid, "patient_reported", "No reply to the day-3 care-line check-in", ev, 1,
                         note["author"] if note else None, why=w)
+        if ("fu", chk["rid"]) in self.raised:
+            self.fu_silent.add(self.raised[("fu", chk["rid"])])
 
 
 JOURNEY = FollowupJourney
