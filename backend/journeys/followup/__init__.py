@@ -9,17 +9,22 @@ the request step suggests the fixed reply the doctor can send.
 Reading is deterministic and bilingual (Cantonese, English and code-mixed). Negated symptoms ("冇再發燒", "no more
 fever") are removed before matching, and "not better" (唔係好返) reads as worse. A reply that does not say the patient
 is better is treated as not improving (urgent), so an unrecognised phrasing errs towards the doctor seeing it sooner.
-Every quote is the reply's own words.
+When the host sets the shared model reader (`self.reader`), the reply is also screened by `extract.triage`: union
+only, so the model can raise a reply to worse or red flag (with the patient's verbatim words) and never lower it;
+the trace names who read it. Every quote is the reply's own words.
 """
 from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta
 
-from ...engine.rules import Why, cite, line_with, when
+from ...engine.rules import URGENCY_LABEL, WINDOW, Why, cite, line_with, when
+from ...extract.reader import verify
+from ...extract.triage import TASK, screen
 
 NAME = "followup"
 SUMMARY = "Day-3 care-line check-in after an acute visit: every reply reaches the doctor, worse is urgent, red flags page."
+KINDS = ("message",)                      # what the shared reader is asked to read (journey_docs.py)
 FAMILIES = {"patient_reported": "A patient's reply (or silence) on the care line that the doctor must review and close."}
 
 RED = [r"透唔到氣", r"唞唔到氣", r"抖唔到氣", r"呼吸困難", r"(心口|胸口).{0,4}(痛|翳|壓)", r"咳.{0,3}血", r"暈(低|倒|咗)",
@@ -35,6 +40,7 @@ WORSE = [r"唔係好返", r"冇好返", r"未好返", r"差咗", r"嚴重咗", r
 BETTER = [r"好返", r"好咗", r"好(好)?多", r"冇咁", r"少咗", r"減少", r"\bOK\b|\bok\b", r"冇事", r"唔使擔心", r"多謝|唔該",
           r"better", r"\bgood\b", r"\bfine\b", r"improv", r"thank", r"👍|🙏|😊"]
 NEGATED = re.compile(r"(冇再|唔再|已經冇|冇|no longer (have )?(a )?|no more |without (a )?|\bno )(發(高)?燒|fever|氣促|breathless(ness)?|rash)", re.I)
+KEYWORD = "followup-keyword-v1"
 REPLY = {4: "收到。請即刻打 999 或去急症室；醫生已經收到通知。 / Please call 999 or go to A&E now; the doctor has been alerted.",
          3: "收到，醫生今日會覆你。如果透唔到氣或者心口痛，請即刻去急症室。 / The doctor will reply today. If you are breathless or have chest pain, go to A&E now.",
          1: "收到，多謝你話我哋知。醫生會睇你嘅回覆。 / Thank you. The doctor will read your reply."}
@@ -61,6 +67,8 @@ class FollowupJourney:
         super().reset(api)
         self.fu_out: dict = {}        # pid -> {"t", "rid", "text"} latest check-in sent by the care line
         self.fu_replied: set = set()  # check-in record ids that got a reply
+        self.fu_stats: dict = {}      # model fields dropped for a non-verbatim quote, replay misses
+        self.fu_silent: set = set()   # item ids opened because a check-in got no reply
 
     def bid(self, api, r: dict) -> float:
         """Every inbound care-line message, as the fallback (1); a reply within 72 h of our own check-in (2).
@@ -110,8 +118,22 @@ class FollowupJourney:
         q = line_with(note["text"], r"(?i)check-in|care line|P:") or line_with(note["text"], r"\S")
         w.add("context", f"The visit plan ({datetime.fromisoformat(note['available_at']):%d %b}) asked for this check-in.", cite(note["id"], q))
 
+    def fu_read(self, text: str, reply: bool) -> tuple[str, str | None, str]:
+        """(label, the words, who read it). Keyword reading, widened by the shared model reader when the host set one."""
+        label, hit = classify(text, reply=reply)
+        reader = getattr(self, "reader", None)
+        if reader is None:
+            return label, hit, KEYWORD
+        ans, dropped = verify(TASK, text, reader.read(TASK, text))
+        self.fu_stats["model_fields_dropped"] = self.fu_stats.get("model_fields_dropped", 0) + len(dropped)
+        if ans is None:
+            self.fu_stats["fell_back"] = self.fu_stats.get("fell_back", 0) + 1
+            return label, hit, f"{KEYWORD} (model {reader.name} had no answer: fell back)"
+        label, hit, raised = screen(label, hit, ans)
+        return label, hit, f"model {reader.name}" if raised else f"{KEYWORD} + model {reader.name}"
+
     def fu_reply(self, api, r, pid, t, chk):
-        label, hit = classify(r["text"], reply=chk is not None)
+        label, hit, read_by = self.fu_read(r["text"], reply=chk is not None)
         u = {"red_flag": 4, "worse": 3, "unclear": 3, "better": 1}[label]
         note = self.fu_plan(api, pid, chk["t"] if chk else t)
         quote = line_with(r["text"], r"\S")
@@ -125,7 +147,7 @@ class FollowupJourney:
         if label == "unclear":
             w.add("finding", "The reply does not say the patient is better; read as not improving until a doctor decides.", cite(r["id"], quote))
         elif hit:
-            w.add("finding", f"The reply reports {'a red-flag symptom' if u == 4 else 'getting worse'}: “{hit}”.", cite(r["id"], hit))
+            w.add("finding", f"The reply reports {'a red-flag symptom' if u == 4 else 'getting worse'}: “{hit}”" + (f" (read by {read_by})." if read_by != KEYWORD else "."), cite(r["id"], hit))
         else:
             w.add("finding", ("The reply describes improvement and names no warning symptom; it still needs the doctor to read it." if chk
                               else "A message from the patient that names no warning symptom; the doctor reads and closes it."), cite(r["id"], quote))
@@ -146,8 +168,28 @@ class FollowupJourney:
             reason += f" (“{hit}”)"
         w.add("request", f"Suggested fixed reply for the doctor to send: {REPLY[u]}")
         ev = [r["id"]] + ([chk["rid"]] if chk else [])
-        self.raise_item(api, ("fu", chk["rid"] if chk else r["id"]), pid, "patient_reported", reason, ev, u,
-                        note["author"] if note else None, why=w)
+        key = ("fu", chk["rid"]) if chk else ("fu", r["id"])
+        prior = self.raised.get(key)
+        if prior is not None:
+            # This check-in already has an item (an earlier reply, or the 48-hour silence item). A later message is
+            # never dropped: if it is more urgent than the open item, or the open item says there was no reply, it
+            # gets its own item with its own verified quotes, linked to the open one; if the doctor has already
+            # closed the earlier item, it gets a new one. Only a message no more urgent than an open reply item is
+            # left to that item (the doctor reads the whole chat when acting on it).
+            open_now = {it["id"]: it for it in api.items(status="open")}
+            cur = open_now.get(prior)
+            if cur is not None and cur["urgency"] >= u and prior not in self.fu_silent:
+                return
+            key = ("fu", r["id"])
+            if cur is not None:
+                owner, route_txt = self.route(api, note["author"] if note else None, pid, u)
+                due = api.now + timedelta(days=WINDOW[u])
+                w.add("routing", route_txt + f" Linked to the open item {prior} on the same check-in.")
+                w.add("request", f"Opened for {self.nm(owner)} at urgency {u} ({URGENCY_LABEL[u]}); due {when(due)}.")
+                self.raised[key] = api.open_item(pid, owner, "patient_reported", reason, ev, u, due, reasoning=w.steps,
+                                                 escalates=prior)
+                return
+        self.raise_item(api, key, pid, "patient_reported", reason, ev, u, note["author"] if note else None, why=w)
 
     def fu_silence(self, api, pid, chk):
         note = self.fu_plan(api, pid, chk["t"])
@@ -163,6 +205,8 @@ class FollowupJourney:
         ev = [chk["rid"]] + ([note["id"]] if note else [])
         self.raise_item(api, ("fu", chk["rid"]), pid, "patient_reported", "No reply to the day-3 care-line check-in", ev, 1,
                         note["author"] if note else None, why=w)
+        if ("fu", chk["rid"]) in self.raised:
+            self.fu_silent.add(self.raised[("fu", chk["rid"])])
 
 
 JOURNEY = FollowupJourney

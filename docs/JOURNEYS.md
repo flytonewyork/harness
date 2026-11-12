@@ -12,6 +12,12 @@ follow-up, precare). They share one safety model and one eval.
   (discharge summaries, patient messages); the core's simpler rule then skips it, and the record still reaches every journey.
 - `backend.journeys.suite(*names)` builds one engine: `Suite(Push, *journeys, AgenticHarness)`. `Push` lets the care
   line deliver patient messages as they arrive, between the three scheduled runs.
+- **One engine, shared names.** Every journey is a mixin on the same object. Each care-line message has one owner: a
+  journey's `bid(api, r)` says how strongly it owns it (followup is the fallback at 1), and `self.won(api, r, MyJourney)`
+  says whether it won. Ask for your own bid as `MyJourney.bid(self, api, r)`: `self.bid` resolves to whichever journey
+  is first in the suite. Prefix private state and helpers with the journey's tag (`fo_`, `mx_`). `self.reader` is the
+  shared model reader (`backend/extract/reader.py`, None by default); a journey's own keyword reader gets its own name.
+  `tests/test_journeys.py` checks both.
 - **Port unchanged:** reads, plus open_item / raise_urgency / alarm / attest_all_clear. No close, dismiss, downgrade or
   reassure, and no messaging from the engine: a journey may suggest a fixed template in the request step for the doctor.
   `tests/test_journeys.py` checks every journey's source against this list.
