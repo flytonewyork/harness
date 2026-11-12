@@ -29,6 +29,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 
 from ...engine.rules import URGENCY_LABEL, Why, cite, day, line_with, when
+from ...extract.reader import Task, verify
 
 FAMILY = "insurance_paperwork"
 FAMILIES = {FAMILY: "insurer or corporate-plan paperwork the doctor must complete, check or resubmit by a deadline"}
@@ -153,7 +154,7 @@ def read_identity(text: str) -> dict:
             "hkid": m_hk.group(1) if m_hk else None}
 
 
-def read_insurer_doc(text: str, received: datetime) -> dict | None:
+def read_insurer_doc(text: str, received: datetime, force: bool = False) -> dict | None:
     """What the insurer asks the doctor to do, and by when, in its own words. None if it asks nothing."""
     lines = [ln for ln in text.splitlines() if ln.strip() and not ln.startswith("-- SIMULATED")]
     title = " ".join(lines[1].split()) if len(lines) > 1 else ""
@@ -162,7 +163,7 @@ def read_insurer_doc(text: str, received: datetime) -> dict | None:
     insurer = re.sub(r"\bHk\b", "HK", latin.title()) if latin.isupper() else latin
     body = "\n".join(ln for ln in lines if not re.search(NOT_ASK, ln))
     asks = line_with(body, ASK) or line_with(body, r"(?i)to be completed by|由主診醫生填寫")
-    if not asks:
+    if not asks and not force:
         return None                      # e.g. "Decision: approved ... No further information is required."
     kind = classify(title, text)
     dated = re.search(r"Date:\s*" + DATE, text)
@@ -188,6 +189,86 @@ def read_insurer_doc(text: str, received: datetime) -> dict | None:
             "lapse_q": line_with(text, r"(?i)will lapse|will not be considered|失效|恕不受理"),
             "auth_q": auth, "auth_missing": auth_missing, "hdr": read_identity(text),
             "doctor": " ".join(m_doc.group(1).split()) if m_doc else None}
+
+
+KINDS_ENUM = ["claim_form", "pre_auth", "insurer_query", "claim_declined", "info_request", "none"]
+TASK = Task(
+    name="insurance", version="ins-reader-1",
+    instructions=(
+        "The document is something an insurer or a corporate medical plan sent a clinic, or a patient brought in. Decide:\n"
+        "- asks_doctor: does it ask the clinic's doctor to do anything (complete or sign a form, write a report, supply notes or "
+        "information, answer a question, resubmit)? A letter that only informs (paid, settled, approved, withdrawn, received, "
+        "under review) asks nothing. asks_quote: the sentence that asks.\n"
+        "- kind: claim_form (a form or statement for the doctor to complete), pre_auth (pre-authorisation, pre-approval, "
+        "guarantee of payment), insurer_query (medical report, records or notes), claim_declined (declined, rejected, not "
+        "admissible, unable to admit, to be resubmitted), info_request (any other question), none.\n"
+        "- deadline: the date the insurer wants it by, as YYYY-MM-DD. If it gives a period (within N days or working days), count "
+        "it from the date on the letter; working days skip Saturdays and Sundays. deadline_quote: the words that state it.\n"
+        "- consent: for a request to release medical information, is the patient's signed consent or authorisation enclosed, "
+        "missing or to follow, or not mentioned; not_applicable otherwise. consent_quote: the words, if any.\n"
+        "- patient_name (FAMILY Given, as printed), patient_dob (YYYY-MM-DD) and identity_quote (the line that prints them)."),
+    schema={"type": "object", "additionalProperties": False,
+            "required": ["asks_doctor", "asks_quote", "kind", "deadline", "deadline_quote", "consent", "consent_quote",
+                         "patient_name", "patient_dob", "identity_quote"],
+            "properties": {"asks_doctor": {"type": "boolean"}, "asks_quote": {"type": ["string", "null"]},
+                           "kind": {"type": "string", "enum": KINDS_ENUM},
+                           "deadline": {"type": ["string", "null"]}, "deadline_quote": {"type": ["string", "null"]},
+                           "consent": {"type": "string", "enum": ["enclosed", "missing", "not_mentioned", "not_applicable"]},
+                           "consent_quote": {"type": ["string", "null"]},
+                           "patient_name": {"type": ["string", "null"]}, "patient_dob": {"type": ["string", "null"]},
+                           "identity_quote": {"type": ["string", "null"]}}},
+    quoted={"asks_doctor": "asks_quote", "deadline": "deadline_quote", "patient_name": "identity_quote"})
+KEYWORD = "insurance-keyword-v2"
+
+
+def _iso(s) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(s)[:10]) if s else None
+    except ValueError:
+        return None
+
+
+def combine(text: str, received: datetime, ans: dict | None, model: str | None) -> dict | None:
+    """Keyword reading, widened by a verified model answer. Union only: the model can add an item, an earlier
+    deadline, a missing consent or a more specific kind; it can never remove or soften what the keyword reader found."""
+    kw = read_insurer_doc(text, received)
+    if ans is None:
+        if kw is not None:
+            kw["read_by"] = KEYWORD + (f" (model {model} had no answer: fell back)" if model else "")
+            kw["fell_back"] = KEYWORD if model else None
+        return kw
+    asks_m = bool(ans.get("asks_doctor")) and ans.get("asks_quote")
+    if kw is None and not asks_m:
+        return None
+    doc = kw or read_insurer_doc(text, received, force=True)
+    doc["read_by"] = (KEYWORD + " + " if kw else "") + f"model {model}"
+    doc["fell_back"] = None
+    if asks_m and not doc["asks"]:
+        doc["asks"] = ans["asks_quote"]
+    if ans.get("kind") in KINDS_ENUM[:5] and (kw is None or doc["kind"] in ("info_request", "claim_form")) \
+            and not (kw and doc["kind"] == "claim_form" and ans["kind"] == "info_request"):
+        doc["kind"] = ans["kind"]
+    d = _iso(ans.get("deadline"))
+    if d is not None and ans.get("deadline_quote"):
+        d = d.replace(hour=17, minute=0)
+        if doc["due"] is None or d < doc["due"]:
+            doc["due"], doc["due_q"] = d, ans["deadline_quote"]
+    if ans.get("consent") == "missing" or (doc["kind"] == "insurer_query" and ans.get("consent") == "not_mentioned"):
+        doc["auth_missing"] = True
+        if ans.get("consent_quote") and norm_in(ans["consent_quote"], text):
+            doc["auth_q"] = ans["consent_quote"]
+    hdr = doc["hdr"]
+    if ans.get("identity_quote"):
+        if not hdr.get("name") and ans.get("patient_name"):
+            hdr["name"] = " ".join(str(ans["patient_name"]).replace(",", " ").split())
+        if not hdr.get("dob") and _iso(ans.get("patient_dob")):
+            hdr["dob"] = _iso(ans["patient_dob"]).date().isoformat()
+        doc["id_q"] = ans["identity_quote"]
+    return doc
+
+
+def norm_in(q: str, text: str) -> bool:
+    return " ".join(q.split()) in " ".join(text.split())
 
 
 class InsuranceJourney:
@@ -221,7 +302,10 @@ class InsuranceJourney:
     def ins_consider(self, api, r: dict, seen: datetime) -> bool:
         """True once the record is dealt with (item opened or nothing to do); False to look again next run."""
         t = datetime.fromisoformat(r["available_at"])
-        doc = read_insurer_doc(r["text"], t)
+        reader = getattr(self, "reader", None)                  # the shared model reader, off unless the host sets it
+        ans, dropped = verify(TASK, r["text"], reader.read(TASK, r["text"])) if reader is not None else (None, [])
+        self.ins_stats["model_fields_dropped"] += len(dropped)
+        doc = combine(r["text"], t, ans, reader.name if reader is not None else None)
         if doc is None:
             self.ins_stats["no_action_needed"] += 1
             return True
@@ -269,9 +353,10 @@ class InsuranceJourney:
         if item_due < api.now + timedelta(hours=4):
             item_due = api.now + timedelta(hours=4)
         w = Why()
-        w.add("source", f"{label.capitalize()} from {insurer}, received by {self.chan_label(r['channel'])} on {when(t)}.",
+        w.add("source", f"{label.capitalize()} from {insurer}, received by {self.chan_label(r['channel'])} on {when(t)}. "
+              f"Read by {doc.get('read_by', KEYWORD)}.",
               cite(r["id"], doc["title_q"]))
-        w.add("identity", how, *self.id_cites(r["id"], r["text"]))
+        w.add("identity", how, *self.id_cites(r["id"], r["text"]), *([cite(r["id"], doc["id_q"])] if doc.get("id_q") else []))
         finding = [cite(r["id"], doc["asks"])]
         if doc["due_q"] and doc["due_q"] != doc["asks"]:
             finding.append(cite(r["id"], doc["due_q"]))

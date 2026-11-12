@@ -65,3 +65,56 @@ def test_journey_exports_and_composes():
     assert set(mod.FAMILIES) == {"insurance_paperwork"} and mod.NAME == "insurance" and mod.SUMMARY
     eng = suite("insurance")
     assert eng.name == "journey:insurance" and isinstance(eng, mod.JOURNEY)
+
+
+# ---------------------------------------------------------------- with the shared model reader (union only)
+from backend.extract.reader import verify
+from backend.journeys.insurance import KEYWORD, TASK, combine
+
+LETTER = """LION ROCK GENERAL INSURANCE CO LTD
+CLAIM ENQUIRY
+
+Date: 09/08/2027   Our ref: REF-1
+Name: CHENG, Ka Lok   DOB 02/02/1990   HKID A123XXX(X)
+Could you confirm the diagnosis and the number of days of sick leave certified?
+Your response by 20.08.2027 would be appreciated.
+-- SIMULATED (LoopBench synthetic patient). Not issued by the insurer. --"""
+GOOD = {"asks_doctor": True, "asks_quote": "Could you confirm the diagnosis and the number of days of sick leave certified?",
+        "kind": "info_request", "deadline": "2027-08-20", "deadline_quote": "Your response by 20.08.2027 would be appreciated.",
+        "consent": "not_applicable", "consent_quote": None, "patient_name": "CHENG Ka Lok", "patient_dob": "1990-02-02",
+        "identity_quote": "Name: CHENG, Ka Lok   DOB 02/02/1990"}
+T = datetime(2027, 8, 9, 16, 25)
+
+
+def test_the_keyword_reader_misses_this_letter_and_a_verified_model_answer_catches_it():
+    assert combine(LETTER, T, None, None) is None                        # blind v2 c2: a question, a dotted date
+    ans, dropped = verify(TASK, LETTER, GOOD)
+    doc = combine(LETTER, T, ans, "fake")
+    assert not dropped and doc["asks"] == GOOD["asks_quote"] and doc["due"] == datetime(2027, 8, 20, 17, 0)
+    assert doc["due_q"] in LETTER and doc["read_by"] == "model fake"
+
+
+def test_a_made_up_quote_is_dropped_before_the_journey_sees_it():
+    lie = GOOD | {"asks_quote": "Please complete the enclosed form urgently.", "deadline_quote": "Return by 10/08/2027."}
+    ans, dropped = verify(TASK, LETTER, lie)
+    assert set(dropped) == {"asks_doctor", "deadline"} and ans["asks_quote"] is None and ans["deadline"] is None
+    assert combine(LETTER, T, ans, "liar") is None                      # nothing left to act on: no item, no invented claim
+
+
+def test_the_model_can_widen_but_never_narrow_the_keyword_reading():
+    claim = LETTER.replace("Could you confirm", "Please provide").replace("CLAIM ENQUIRY", "CLAIM FORM").replace("20.08.2027", "20/08/2027")
+    kw = combine(claim, T, None, None)
+    assert kw is not None and kw["read_by"] == KEYWORD and kw["due"] == datetime(2027, 8, 20, 17, 0)
+    silent = {k: None for k in GOOD} | {"asks_doctor": False, "kind": "none", "consent": "not_applicable"}
+    doc = combine(claim, T, verify(TASK, claim, silent)[0], "fake")
+    assert doc is not None and doc["asks"] == kw["asks"] and doc["due"] == kw["due"]   # "nothing to do" cannot remove it
+    late = GOOD | {"asks_quote": "Please provide the diagnosis and the number of days of sick leave certified?",
+                   "deadline": "2027-12-31", "deadline_quote": "Your response by 20/08/2027 would be appreciated."}
+    assert combine(claim, T, verify(TASK, claim, late)[0], "fake")["due"] == kw["due"]   # a later date cannot push it back
+
+
+def test_a_missed_document_falls_back_and_says_so():
+    claim = LETTER.replace("Could you confirm", "Please provide")
+    doc = combine(claim, T, None, "replay:sonnet")
+    assert doc["fell_back"] == KEYWORD and "fell back" in doc["read_by"]
+
