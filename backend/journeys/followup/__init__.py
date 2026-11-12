@@ -6,8 +6,10 @@ fine and closes it), a worse one is urgent, a red-flag symptom is critical and p
 days after the check-in is routine too: the follow-up did not happen. The engine never answers the patient;
 the request step suggests the fixed reply the doctor can send.
 
-Reading is deterministic and bilingual (Cantonese and English). Negated symptoms ("冇再發燒", "no more fever") are
-removed before matching, and "not better" (唔係好返) reads as worse. Every quote is the reply's own words.
+Reading is deterministic and bilingual (Cantonese, English and code-mixed). Negated symptoms ("冇再發燒", "no more
+fever") are removed before matching, and "not better" (唔係好返) reads as worse. A reply that does not say the patient
+is better is treated as not improving (urgent), so an unrecognised phrasing errs towards the doctor seeing it sooner.
+Every quote is the reply's own words.
 """
 from __future__ import annotations
 
@@ -21,26 +23,37 @@ SUMMARY = "Day-3 care-line check-in after an acute visit: every reply reaches th
 FAMILIES = {"patient_reported": "A patient's reply (or silence) on the care line that the doctor must review and close."}
 
 RED = [r"透唔到氣", r"唞唔到氣", r"抖唔到氣", r"呼吸困難", r"(心口|胸口).{0,4}(痛|翳|壓)", r"咳.{0,3}血", r"暈(低|倒|咗)",
+       r"嘴唇.{0,4}(紫|藍|黑)", r"(嘴|面|喉嚨|脷).{0,3}腫", r"認唔到人", r"(講嘢|說話).{0,3}亂", r"神志不清", r"叫唔醒",
        r"chest (pain|tight)", r"can'?t breathe", r"(short of breath|breathless) (at rest|lying)", r"cough(ing|ed)? (up )?blood",
-       r"faint", r"confus"]
+       r"blue lips|lips.{0,10}blue", r"swollen (lips|face|tongue)|(lips|face|tongue).{0,10}swell", r"faint", r"confus",
+       r"won'?t wake|unresponsive"]
 WORSE = [r"唔係好返", r"冇好返", r"未好返", r"差咗", r"嚴重咗", r"發(高)?燒", r"\b(3[89]|4[01])(\.\d)?\s*(度|°|C\b)",
-         r"黃(色)?痰|痰.{0,4}黃", r"瞓唔到", r"未退|唔退", r"breathless", r"short of breath", r"worse", r"fever",
-         r"not (any )?better", r"仲(係)?(咳|發|痛|好攰)"]
-NEGATED = re.compile(r"(冇再|唔再|已經冇|冇|no longer (have )?(a )?|no more |without (a )?)(發(高)?燒|fever|氣促|breathless(ness)?)", re.I)
+         r"\b(3[89]|4[01])\.\d\b", r"黃(色)?痰|痰.{0,4}黃", r"瞓唔到", r"未退|唔退", r"喘|氣促|氣咳", r"嘔", r"肚屙|屙水",
+         r"紅疹|出疹|痕", r"都係咁|冇乜分別|冇分別|一樣咁", r"仲(係)?(咳|發|痛|好攰|好辛苦)",
+         r"breathless", r"short of breath", r"wheez", r"worse", r"fever", r"vomit", r"rash|itch", r"\bbad\b",
+         r"not (any )?better", r"no (change|better)", r"same as before", r"not improv"]
+BETTER = [r"好返", r"好咗", r"好(好)?多", r"冇咁", r"少咗", r"減少", r"\bOK\b|\bok\b", r"冇事", r"唔使擔心", r"多謝|唔該",
+          r"better", r"\bgood\b", r"\bfine\b", r"improv", r"thank", r"👍|🙏|😊"]
+NEGATED = re.compile(r"(冇再|唔再|已經冇|冇|no longer (have )?(a )?|no more |without (a )?|\bno )(發(高)?燒|fever|氣促|breathless(ness)?|rash)", re.I)
 REPLY = {4: "收到。請即刻打 999 或去急症室；醫生已經收到通知。 / Please call 999 or go to A&E now; the doctor has been alerted.",
          3: "收到，醫生今日會覆你。如果透唔到氣或者心口痛，請即刻去急症室。 / The doctor will reply today. If you are breathless or have chest pain, go to A&E now.",
          1: "收到，多謝你話我哋知。醫生會睇你嘅回覆。 / Thank you. The doctor will read your reply."}
 
 
-def classify(text: str) -> tuple[str, str | None]:
-    """('red_flag' | 'worse' | 'better', the matched words)."""
+def classify(text: str, reply: bool = True) -> tuple[str, str | None]:
+    """('red_flag' | 'worse' | 'better' | 'unclear', the matched words).
+
+    Safe by default: a reply to the check-in counts as better only when it says so (or simply thanks), and names no
+    warning symptom. Anything else, including "no change", is 'unclear' and treated like worse."""
     t = NEGATED.sub(" ", text or "")
     for label, pats in (("red_flag", RED), ("worse", WORSE)):
         for p in pats:
             m = re.search(p, t, re.I)
             if m:
                 return label, m.group(0)
-    return "better", None
+    if any(re.search(p, t, re.I) for p in BETTER):
+        return "better", None
+    return ("unclear" if reply else "better"), None
 
 
 class FollowupJourney:
@@ -98,8 +111,8 @@ class FollowupJourney:
         w.add("context", f"The visit plan ({datetime.fromisoformat(note['available_at']):%d %b}) asked for this check-in.", cite(note["id"], q))
 
     def fu_reply(self, api, r, pid, t, chk):
-        label, hit = classify(r["text"])
-        u = {"red_flag": 4, "worse": 3, "better": 1}[label]
+        label, hit = classify(r["text"], reply=chk is not None)
+        u = {"red_flag": 4, "worse": 3, "unclear": 3, "better": 1}[label]
         note = self.fu_plan(api, pid, chk["t"] if chk else t)
         quote = line_with(r["text"], r"\S")
         w = Why()
@@ -109,7 +122,9 @@ class FollowupJourney:
                   cite(chk["rid"]))
         else:
             w.add("identity", f"Sent from the number the care line holds for {self.pname(pid)}.")
-        if hit:
+        if label == "unclear":
+            w.add("finding", "The reply does not say the patient is better; read as not improving until a doctor decides.", cite(r["id"], quote))
+        elif hit:
             w.add("finding", f"The reply reports {'a red-flag symptom' if u == 4 else 'getting worse'}: “{hit}”.", cite(r["id"], hit))
         else:
             w.add("finding", ("The reply describes improvement and names no warning symptom; it still needs the doctor to read it." if chk
@@ -122,6 +137,8 @@ class FollowupJourney:
         w.add("loop_status", f"{n} consultation{'s' if n != 1 else ''} since the reply.", search=srch)
         reason = {4: "Care-line reply: red-flag symptom", 3: "Care-line reply: worse since the visit",
                   1: "Care-line reply: better; doctor to confirm and close"}[u]
+        if label == "unclear":
+            reason = "Care-line reply: not reported better"
         if chk is None:
             reason = {4: "Care-line message: red-flag symptom", 3: "Care-line message: reports getting worse",
                       1: "Care-line message for the doctor to read"}[u]
