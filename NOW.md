@@ -18,6 +18,7 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 11 Nov
 
 - **The EC discovery's fee.** Default: a fixed fee you set in the scope; nobody names one at the meeting. By Thu 12 Nov.
 - **Stale PRs.** harness #13, #16, #18 and loopbench #5 are superseded (#26 stays: #28 is stacked on it). Default: close them. By Fri 13 Nov.
+- **Model reader run on the Mac mini.** Ready, not run: `docs/MODEL_ROUTING.md` (3 commands, under $7 at API prices). Needs your go-ahead.
 
 ## Next, after EC answers
 
