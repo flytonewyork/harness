@@ -13,6 +13,10 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 11 Nov
 3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. The Mac mini service `com.tmrw.careline`
    was stopped 11 Nov and stays off until Thomas restarts it; it replied to numbers outside the tester list on 10 Nov.
 
+4. **The journey suite** (Thomas, 12 Nov): one engine with a plug-in per patient journey, each with LoopBench scenarios and
+   a gate (`docs/JOURNEYS.md`, `scripts/journey_eval.py`). Day-3 care-line follow-up is the reference journey; post-checkup,
+   insurance, follow-on, medication and precare are built in their own threads on this contract.
+
 ## Waiting on you
 
 - **The EC discovery's fee.** Default: a fixed fee you set in the scope; nobody names one at the meeting. By Thu 12 Nov.

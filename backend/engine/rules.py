@@ -549,12 +549,19 @@ class RulesHarness:
                 self.raise_item(api, ("img", r["id"]), pid2, "followup_recommended", "Imaging report recommends follow-up", [r["id"]], 2, r["author"], 30,
                                 why=self.imaging_why(api, r, pid2, how, t, screen=False))
         elif k in ("discharge_summary", "aed_summary") and pid:
-            self.on_discharge(api, pid, r, t)
+            if not self.claims(api, r):
+                self.on_discharge(api, pid, r, t)
         elif k in ("specialist_letter",) and pid:
             self.closure_ev[pid].append((t, "letter"))
-        elif k == "message" and pid and re.search(r"報告|report|高|high", text + str(r["data"]), re.I):
+        elif k == "message" and pid and not self.claims(api, r) and re.search(r"報告|report|高|high", text + str(r["data"]), re.I):
             self.raise_item(api, ("msg", r["id"]), pid, "abnormal_result", "Patient sent an outside report with abnormal results",
                             [r["id"]], 2, why=self.message_why(api, r, pid, t))
+
+    def claims(self, api, r: dict) -> bool:
+        """A journey (backend/journeys/) that reads this record more fully than the core rule returns True here, so
+        the core's simpler rule for it (discharge summaries, patient messages) does not open a second item. The
+        record still reaches every journey's on_cms. With no journeys (rules v1.0, v1.1) this is always False."""
+        return False
 
     def on_portal(self, api, src, r):
         t = datetime.fromisoformat(r["available_at"])

@@ -63,6 +63,15 @@ jobs:
         if: env.REPOS_TOKEN != ''
         working-directory: loopbench
         run: PYTHONPATH=src python scripts/scoreboard.py --seeds 1 2 3 --summary "$GITHUB_STEP_SUMMARY" --json scoreboard.json
+      - name: Journey eval (gate - every journey scenario passes, zero hard fails, zero made-up quotes)
+        if: env.REPOS_TOKEN != ''
+        working-directory: loopbench
+        run: |
+          if [ -f scripts/journey_eval.py ]; then
+            PYTHONPATH=src python scripts/journey_eval.py --journey all --seeds 1 2 3 --summary "$GITHUB_STEP_SUMMARY"
+          else
+            echo "This loopbench checkout has no journey eval yet; skipped."
+          fi
       - uses: actions/upload-artifact@v4
         if: always() && env.REPOS_TOKEN != ''
         with:
