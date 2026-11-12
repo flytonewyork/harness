@@ -55,7 +55,7 @@ PURPOSE: dict[str, tuple[str, ...]] = {
     "血壓": ("acei", "arb", "ccb", "beta_blocker", "diuretic"),
     "diabetes": ("metformin", "sulfonylurea", "sglt2", "dpp4", "insulin"), "sugar": ("metformin", "sulfonylurea", "sglt2", "dpp4", "insulin"),
     "糖尿": ("metformin", "sulfonylurea", "sglt2", "dpp4", "insulin"), "血糖": ("metformin", "sulfonylurea", "sglt2", "dpp4", "insulin"),
-    "cholesterol": ("statin",), "膽固醇": ("statin",), "blood thinner": ("anticoagulant", "antiplatelet"),
+    "cholesterol": ("statin",), "heart": ("beta_blocker", "antiplatelet", "ccb"), "心臟": ("beta_blocker", "antiplatelet", "ccb"), "膽固醇": ("statin",), "blood thinner": ("anticoagulant", "antiplatelet"),
     "薄血": ("anticoagulant", "antiplatelet"), "thyroid": ("thyroid",), "甲狀腺": ("thyroid",), "gout": ("xanthine_oxidase",),
     "痛風": ("xanthine_oxidase",), "sleeping": ("benzodiazepine", "z_drug"), "sleep": ("benzodiazepine", "z_drug"),
     "安眠藥": ("benzodiazepine", "z_drug"), "瞓覺": ("benzodiazepine", "z_drug"), "stomach": ("ppi",), "胃藥": ("ppi",),

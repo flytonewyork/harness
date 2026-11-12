@@ -40,7 +40,7 @@ CHANGE = re.compile(r"\b(increas(e|ed)|decreas(e|ed)|reduc(e|ed)|titrat(e|ed)|up
 FROM_TO = re.compile(r"(?:switch(?:ed)?|chang(?:e|ed))\s+(?:from\s+)?(?P<a>[A-Za-z][\w-]+).{0,30}?\bto\s+(?P<b>[A-Za-z][\w-]+)", re.I)
 DISPENSED = re.compile(r"Dispensed:\s*(?P<drug>.+?)\s+x(?P<days>\d+) days", re.I)
 ALL_MEDS = re.compile(r"\b(all|usual|regular|everything|same as (before|usual|last time))\b|平時(啲|嘅)?藥|全部|所有(嘅)?藥|長期藥|成套", re.I)
-RAN_OUT = re.compile(r"\b(ran out|run out|have none|(none|no more|nothing) left|finished)\b|食晒|冇晒藥|冇藥(喇|啦)?|已經冇", re.I)
+RAN_OUT = re.compile(r"\b(ran out|run out|have none|(none|no more|nothing) left|finished|(used|took) (up )?(my )?(last|final))\b|食晒|冇晒藥|冇藥(喇|啦)?|已經冇", re.I)
 OUTSIDE_REPORT = re.compile(r"報告|report", re.I)
 RECENT_DAYS = 60
 NET_DAYS = 14
@@ -68,13 +68,13 @@ class MedicationJourney:
     """Mixin: class Suite(MedicationJourney, AgenticHarness). Every hook calls super() first."""
 
     FAMILIES = FAMILIES
-    reader = None                       # set to a ModelReader to let a model add to the floor
+    med_reader = None                    # set to a ModelReader to let a model add to the floor
 
     # ------------------------------------------------------------------------------------- state
     def reset(self, api):
         super().reset(api)
-        if self.reader is None:
-            self.reader = RulesReader()
+        if self.med_reader is None:
+            self.med_reader = RulesReader()
         self.mx_changes = defaultdict(list)     # pid -> [{t, rid, action, drug, quote, author}]
         self.mx_stops = defaultdict(dict)       # pid -> generic -> change
         self.mx_meds = defaultdict(dict)        # pid -> generic -> {name, t, rid, quote, days, author}
@@ -100,7 +100,7 @@ class MedicationJourney:
             return 1.5 if self._recent(pid, t) else 0
         if not self._wants(r):
             return 0
-        fs = self.reader.read(text, self._classes(pid))
+        fs = self.med_reader.read(text, self._classes(pid))
         if any(f["kind"] == "repeat" for f in fs) or fx.mentions(text) or fx.purposes(text) or MED_WORD.search(text):
             return 3
         if fs and any(self.mx_items[i]["family"] == "repeat_prescription" for i in self.mx_by_pid.get(pid, ())
@@ -156,7 +156,7 @@ class MedicationJourney:
     def _read(self, pid, t, text) -> list[dict]:
         """The reader's findings, plus the safety net: within 14 days of a high-risk change, a message the reader
         cannot classify (and that is not just thanks or an acknowledgement) still goes to the doctor at urgency 2."""
-        fs = self.reader.read(text, self._classes(pid))
+        fs = self.med_reader.read(text, self._classes(pid))
         if not fs and not ACK.fullmatch(text.strip()) and any(
                 c["action"] != "stop" and fx.drug_class(c["drug"]) in fx.HIGH_RISK and t - c["t"] <= timedelta(days=NET_DAYS)
                 for c in self._recent(pid, t)):
@@ -167,7 +167,7 @@ class MedicationJourney:
         elif not fs and not ACK.fullmatch(text.strip()) and self._recent(pid, t):
             q = next((ln for ln in _lines(text)), text.strip())[:240]
             fs = [{"kind": "reply", "label": "a reply after a medicine change with nothing the agent could flag",
-                   "urgency": 1, "quote": q, "note": "", "classes": [], "via": self.reader.name}]
+                   "urgency": 1, "quote": q, "note": "", "classes": [], "via": self.med_reader.name}]
         return fs
 
     def _wants(self, r) -> bool:
@@ -229,6 +229,9 @@ class MedicationJourney:
         t = _t(r)
         quote = _n(m.group(0))
         stop = self.mx_stops.get(pid, {}).get(g)
+        if g not in self.mx_meds[pid] and not any(c["drug"] == g and c["action"] != "stop" for c in self.mx_changes[pid]):
+            self.mx_changes[pid].append({"t": t, "rid": r["id"], "action": "start", "drug": g, "quote": quote,
+                                         "author": r.get("author"), "kind": "dispensing"})    # first supply here = a start
         self.mx_meds[pid][g] = {"name": name, "t": t, "rid": r["id"], "quote": quote, "days": days, "author": r.get("author")}
         if stop and stop["t"] < t and not r["data"].get("new_start"):
             self._reconcile(api, pid, r, name, quote, stop)

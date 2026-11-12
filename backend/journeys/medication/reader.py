@@ -41,24 +41,24 @@ TERMS: list[Term] = [
     # ---- emergencies: urgency 4 whatever the medicine
     Term("swelling of lips, tongue, face or throat", "red_flag", 4,
          r"(lips?|tongue|throat|face|eyes?)\s+((is|are|got|getting|went|gone|going|has|have|been) ){0,2}(very |really |a bit |all )?(swollen|swelling|puffy|bigger|fat|thick|swell(ing)? up|blown up|ballooned)|(hard|difficult|difficulty|trouble|can'?t|cannot) (to )?swallow|吞(嘢|野)(好|有啲)?(難|困難|唔落)|喉(嚨)?.{0,4}(收窄|好緊|腫)|swollen (lips?|tongue|face|throat)|swelling (of|in) (my )?(lips?|tongue|face|throat)"
-         r"|(嘴唇|脷|舌頭|喉嚨|塊面|(?<!塊)面|(?<!腳)眼)(好|有啲|有D|開始)?腫"),
+         r"|(嘴唇|脷|舌頭|喉嚨|塊面|(?<!塊)面|(?<!腳)眼|(?<!胃)口)(好似|好|有啲|有D|開始)?腫"),
     Term("trouble breathing", "red_flag", 4,
          r"(can'?t|cannot|hard to|difficult(y)? to|struggling to|trouble) breath|(can'?t|cannot|couldn'?t) catch (my |his |her )?breath|short(ness)? of breath|breathless|wheez"
          r"|唞唔到氣|抖唔到氣|呼吸困難|氣促|喘"),
     Term("chest pain", "red_flag", 4, r"chest (pain|tight|hurt)|pain in (my |his |her |the )?chest|chest (is |feels |has been )?(hurting|painful|heavy|tight|crushing)|心口(好)?(痛|翳|悶)|胸口(好)?(痛|翳|悶)"),
     Term("fainted or collapsed", "red_flag", 4, r"faint(ed)?|passed out|collapsed?|black(ed)? out|暈(低|咗|倒)|昏迷"),
     Term("vomiting blood or black stools", "red_flag", 4,
-         r"vomit(ing|ed)? blood|(threw|throw(ing)?|brought|bringing) up blood|(cough(ed|ing)?|spit(ting)?|spat) (up )?(some |a bit of |a little |bits of )?blood|咳(出|咗)?(啲)?血|like tar|tar-?like|blood in (my )?vomit|black (stool|poo|poop)s?|(stool|poo|poop)s? (is|are|was|were|has been|have been|looks?|looking) (very |really |all )?black|tarry|嘔血|黑色(嘅)?大便|大便(好)?黑|屙黑"),
+         r"vomit(ing|ed)? blood|(threw|throw(ing)?|brought|bringing) up blood|(cough(ed|ing)?|spit(ting)?|spat) (up )?(some |a bit of |a little |bits of )?blood|咳(出|咗)?(啲)?血|like tar|tar-?like|coffee[- ]grounds?|咖啡渣|blood in (my )?vomit|black (stool|poo|poop)s?|(stool|poo|poop)s? (is|are|was|were|has been|have been|looks?|looking) (very |really |all )?black|tarry|嘔血|黑色(嘅)?大便|大便(好)?黑|屙黑"),
     Term("blistering or peeling skin, mouth sores", "red_flag", 4,
          r"blister|peeling|起(晒|哂)?(水)?泡|skin (is )?coming off|mouth (ulcer|sore)s? .*rash|rash .*mouth (ulcer|sore)|起水泡|甩(晒|哂)?皮|口(爛|腔潰瘍).{0,8}(疹|紅)"),
     Term("very drowsy or confused", "red_flag", 4,
-         r"(can'?t|cannot) wake|very (drowsy|sleepy|confused)|not making sense|叫唔醒|神志不清|胡言亂語|slurr|face (is )?droop|can'?t (move|lift) (my|his|her) (arm|leg)|口齒不清|講嘢(唔清楚|含糊)|半邊(身|面)"),
+         r"(can'?t|cannot) wake|very (drowsy|sleepy|confused)|not making sense|叫唔醒|神志不清|胡言亂語|slurr|\blisp|face (is )?droop|can'?t (move|lift) (my|his|her) (arm|leg)|口齒不清|講嘢(唔清楚|含糊)|半邊(身|面)"),
     Term("seizure", "red_flag", 4, r"seizure|\bfit(ting)?\b(?! ?(test|check|well|better))|發羊吊|抽搐"),
     Term("took far too many", "red_flag", 4, r"took ([5-9]|\d\d|five|six|seven|eight|nine|ten|several|lots|loads) (of them|of my|tablets|pills|doses)|(whole|entire|all the|all of the) (box|pack|bottle|strip|tablets|pills)|成(盒|排|樽)(藥)?(都)?食(晒|咗)"),
     Term("thoughts of self-harm", "crisis", 4,
-         r"kill myself|(easier|better( off)?) (if|when) i (was|were|wasn'?t|weren'?t|am not)( not)? (here|around|alive)|better off without me|(don'?t|do not|no longer|can'?t) see (the|any) point|what'?s the point( anymore| of (living|anything))|take (them|all of them|all my (pills|tablets|meds)) (all )?at once|no point (in )?(living|going on)|wish i (was|were) dead|not (want to )?wake up|end (my|it all)|suicid|want to die|don'?t want to (live|be here)|hurt myself|self[- ]harm|唔想(再)?生存|想死|自殺|一次過(食|吞)|(撐|頂)唔落去|唔想再(撐|頂)|活(落去)?冇意思|傷害自己|唔想活"),
+         r"kill myself|(easier|better( off)?) (if|when) i (was|were|wasn'?t|weren'?t|am not)( not)? (here|around|alive)|better off without me|ways to (die|not be (around|here)|end (it|my life))|(don'?t|do not|no longer|can'?t) see (the|any) point|what'?s the point( anymore| of (living|anything))|take (them|all of them|all my (pills|tablets|meds)) (all )?at once|no point (in )?(living|going on)|wish i (was|were) dead|not (want to )?wake up|end (my|it all)|suicid|want to die|don'?t want to (live|be here)|hurt myself|self[- ]harm|唔想(再)?生存|想死|自殺|一次過(食|吞)|(撐|頂)唔落去|唔想再(撐|頂)|活(落去)?冇意思|傷害自己|唔想活"),
     # ---- urgent: same day
-    Term("rash", "side_effect", 2, r"\brash|hives|(itchy|red) (skin|spots|bumps|patches|blotches)|spots all over|出(紅)?疹|紅疹|風疹|痕癢|好痕|身痕|紅點|紅斑",
+    Term("rash", "side_effect", 2, r"\brash|hives|(itchy|red) (skin|spots|bumps|patches|blotches)|spots all over|出(紅)?疹|紅疹|風疹|痕癢|好痕|身痕|紅點|紅斑|一嚿嚿|一粒粒|\b(lumps|welts)\b",
          bump={"xanthine_oxidase": 3, "antibiotic": 3, "sulfonylurea": 2}),
     Term("bleeding or bruising", "side_effect", 2,
          r"bleed|bruis|blood in (the )?(toilet|stool|poo|urine|pee|wee|bowl)|bleeding from (my )?(bottom|back passage)|屙血|便血|nose ?bleed|blood in (my )?(urine|pee|stool)|gums? bleed|流血|瘀|血尿|流鼻血|牙肉出血",
@@ -67,9 +67,9 @@ TERMS: list[Term] = [
          r"\bhypo\b|shak(y|ing)|trembl|cold sweat|sweating|sugar (was |is |of )?(2|3)\.\d|\b(bg|glucose|sugar|blood sugar|血糖)\s*(was |is |of |reading |得)?(1|2|3)\.\d|\b(1|2|3)\.\d ?mmol|手震|出冷汗|冒汗|血糖低|好肚餓.{0,6}(震|汗)",
          bump={c: 3 for c in HYPO}),
     Term("muscle pain or weakness", "side_effect", 1,
-         r"muscle (pain|ache|cramp|weak)|muscles? (are |is )?(killing|aching|sore|painful|hurt|weak)|(legs?|arms?|thighs?) (ache|aching|pain|weak)|(legs?|arms?|thighs?) (feel|feels|are|is)( so| very| really)? (weak|heavy|achy|sore)|肌肉(痛|酸|無力)|(腳|手|大髀)(好)?(酸|痛|冇力)",
+         r"muscle (pain|ache|cramp|weak)|muscles? (are |is )?(killing|aching|sore|painful|hurt|weak)|(legs?|arms?|thighs?) (ache|aching|pain|weak)|(legs?|arms?|thighs?) (feel|feels|are|is)( so| very| really)? (weak|heavy|achy|sore|like jelly)|(struggl|hard|can'?t|couldn'?t).{0,12}get (up|out of (a|the|my) (chair|bed))|起身都(好)?難|肌肉(痛|酸|無力)|(腳|手|大髀)(好)?(酸|痛|冇力)",
          bump={"statin": 2}),
-    Term("dark urine", "side_effect", 2, r"(dark|brown|cola)[- ]colou?red (urine|pee)|(urine|pee|wee) (is |was |looks |looking )?(very |really )?(dark|brown|cola|tea)|小便(好)?(深色|啡色|茶色)|尿(好)?(深色|啡色|茶色)",
+    Term("dark urine", "side_effect", 2, r"(dark|brown|cola)[- ]colou?red (urine|pee)|(urine|pee|wee) (is |was |looks |looking )?(like )?(very |really )?(dark|brown|cola|coke|tea)|小便(好)?(深色|啡色|茶色)|尿(好)?(深色|啡色|茶色)",
          bump={"statin": 3}),
     Term("yellow skin or eyes", "side_effect", 3, r"yellow (skin|eyes)|(skin|eyes) (looks?|is|are|turned|turning|gone|went|seems?) (a bit |slightly |quite )?yellow|jaundice|(皮膚|眼)(好)?黃|黃疸"),
     Term("dizzy or light-headed", "side_effect", 1, r"dizz|light[- ]?headed|giddy|woozy|wobbly|頭(好|有啲|有D)?暈|頭重腳輕|天旋地轉",
@@ -91,7 +91,7 @@ TERMS: list[Term] = [
     # ---- confusion, adherence, dose questions, repeats
     Term("unsure what to take", "confusion", 2,
          r"(which|what) (one|tablet|pill|medicine)s? (should|do|to)|which (one )?(do|should) i (use|take)|not sure (which|what|how|if)|confus|mixed up|muddled|(looks?|looking|seems?) different|different[- ]looking|both the (old|new)|(old|new) (one|tablet|pill)s? (as well|too|and)"
-         r"|(old|new|previous) [a-z]+ (as well as|and|together with|too)\b|as well as the (old|new)|still taking the (old|previous)|唔知(要)?食(邊|幾)|兩(隻|樣)(藥)?都(有)?食|仲(有)?食(緊)?(舊|之前)|(新|舊)(嗰|個)?(隻|粒|款).{0,6}(新|舊)(嗰|個)?(隻|粒|款)|唔知.{0,10}(一齊食|食邊|點食)|新舊(藥)?(一齊|都)",),
+         r"|(old|new|previous) [a-z]+ (as well as|and|together with|too)\b|as well as the (old|new)|still taking the (old|previous)|唔知(要)?食(邊|幾)|兩(隻|樣)(藥)?都(有)?食|仲(有)?食(緊)?(舊|之前)|(新|舊)(嗰|個)?(隻|粒|款).{0,6}(新|舊)(嗰|個)?(隻|粒|款)|唔知.{0,10}(一齊食|食邊|點食)|兩(盒|樣|隻|款|種).{0,10}(都|一齊).{0,4}食|新舊(藥)?(一齊|都)",),
     Term("took the wrong dose", "confusion", 3,
          r"took (two|2|double|an extra|extra|too many|twice)|double(d)? (dose|up)|took .{0,20} twice|食(多|錯)(咗|左)|食(咗|左)兩(次|粒)|重覆食"),
     Term("stopped or skipping on their own", "adherence", 2,
@@ -100,8 +100,8 @@ TERMS: list[Term] = [
          r"(can|could|should|may) i (take|have|increase|reduce|cut|halve|double|skip|stop|change|try)|(take|have) (two|2|half|more|less|an extra)|increase the dose|reduce the dose"
          r"|可(唔可以|以)(食|加|減|停|轉|飛)|(想|要)?(加|減)(多|少)?(一)?(粒|半粒|劑量)|使唔使(停|加|減|食)|食(多|少)(啲|D|粒|半粒)(得唔得|好唔好|得嗎)?|(加|減)(藥|劑量)"),
     Term("asks for a repeat", "repeat", 1,
-         r"\b(repeat|refill|renew|top ?up|(another|new|a) (script|prescription)|more (of )?(my )?(medicine|meds|tablets|pills))\b|(run|ran|running) out|\b(none|no more|nothing) left\b|\b(\d+|a few|few|only( \d+)?|couple of) (tablets?|pills?|days?|doses?) left\b|\b(running|getting|am|i'?m) (a bit |quite )?low\b|\blow on\b|\bout of (my )?[a-z]+ (by|on|soon|next|tomorrow)\b|\bbe out of\b|finish(ed)? (my|the|all)|need (some )?more"
-         r"|\b(can|could|may) i (get|have) (my|some|a|another|more)\b|\b(another|second) (course|box|bottle|pack)\b|\b(get|have) (my )?[a-z]+ again\b|\bnew supply\b|prescription (has )?(expired|ran out|run out)|redo (it|my prescription|the prescription|my script)|about to (finish|run out)|(再|多)開.{0,6}藥|開.{0,6}(個月|星期)(嘅|啲)?藥|覆配|配(返|多)(次|啲)?|(開|配|攞|拎)(返)?(上次|平時)?(嘅|啲)?(嘅|啲)?藥|(拎|攞|配|開)(多|返)(一)?(次|啲|D)|藥(食|用)(晒|完)|食(晒|得七七八八)|冇(晒)?藥|就快(冇|食晒)"),
+         r"\b(repeat|refill|renew|top ?up|(another|new|a) (script|prescription)|more (of )?(my )?(medicine|meds|tablets|pills))\b|(run|ran|running) out|\b(none|no more|nothing) left\b|(used|took|finished|on) (up )?(my )?(last|final) (pen|tablet|pill|dose|vial|box|strip)|\b(\d+|a few|few|only( \d+)?|couple of) (tablets?|pills?|days?|doses?) left\b|\b(running|getting|am|i'?m) (a bit |quite )?low\b|\blow on\b|\bout of (my )?[a-z]+ (by|on|soon|next|tomorrow)\b|\bbe out of\b|finish(ed)? (my|the|all)|need (some )?more"
+         r"|\b(can|could|may) i (get|have) (my|some|a|another|more)\b|\b(another|second) (course|box|bottle|pack)\b|\b(get|have) (my )?[a-z]+ again\b|\bnew supply\b|another (month|week|box|pack)|do me (another|more|a few)|唔夠(食|藥)|俾多(盒|啲|排|次)|prescription (has )?(expired|ran out|run out)|redo (it|my prescription|the prescription|my script)|about to (finish|run out)|(再|多)開.{0,6}藥|開.{0,6}(個月|星期)(嘅|啲)?藥|覆配|配(返|多)(次|啲)?|(開|配|攞|拎)(返)?(上次|平時)?(嘅|啲)?(嘅|啲)?藥|(拎|攞|配|開)(多|返)(一)?(次|啲|D)|藥(食|用)(晒|完)|食(晒|得七七八八)|冇(晒)?藥|就快(冇|食晒)"),
 ]
 
 NEGATORS_EN = re.compile(r"\b(no|not|never|without|none|nor|don'?t|doesn'?t|didn'?t|isn'?t|aren'?t|wasn'?t|haven'?t|hasn'?t|no more|any)\b\W*(\w+\W+){0,2}$", re.I)
