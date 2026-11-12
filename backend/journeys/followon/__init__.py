@@ -462,6 +462,12 @@ class FollowonJourney:
         pid, text = r["patient_id"], r["text"]
         kind, m = classify_reply(text)
         q = " ".join(text.split("\n")[0].split())[:300]       # the patient's whole message (first language), verbatim
+        if m is not None and m.group(0) not in q:              # what was read sits on a later line: quote that line
+            a = text.rfind("\n", 0, m.start()) + 1
+            b = text.find("\n", m.end())
+            ln = text[a:b if b >= 0 else len(text)]
+            k = m.start() - a
+            q = " ".join(ln[max(0, k - 150):k + 150].split())
         if ADMITTED.search(text):
             self.fo_watch[pid] = t + timedelta(days=WATCH_DAYS)
         w = Why()

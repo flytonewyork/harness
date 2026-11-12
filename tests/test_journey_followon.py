@@ -110,3 +110,26 @@ def test_care_line_never_lowers_an_escalated_referral_item():
     msg = {"id": "M1", "patient_id": "P1", "text": "個專科預約太耐喇", "kind": "message", "channel": "careline", "data": {}}
     eng.fo_reply(API(), msg, datetime(2027, 5, 1, 9))
     assert all(u >= 4 for u in calls)
+
+
+def test_red_flag_on_a_later_line_is_the_quote():
+    from datetime import datetime
+    seen = []
+
+    class API:
+        now = datetime(2027, 5, 1, 10)
+
+        def items(self, status=None):
+            return []
+
+    eng = suite("followon")
+    eng.fo_refs, eng.fo_docs, eng.fo_watch = {}, {}, {}
+    eng.pname = lambda pid: "X"
+    eng.fo_raise = lambda api, key, pid, fam, reason, ev, u, due, w, r, **k: seen.append((u, w.steps))
+    eng.chart_search = lambda api, pid, kinds, since: (0, {"kinds": kinds, "since": since.isoformat(), "found": 0})
+    text = "多謝醫生覆我\n今朝開始心口好痛，透唔到氣"
+    eng.fo_reply(API(), {"id": "M1", "patient_id": "P1", "text": text, "kind": "message", "channel": "careline", "data": {}},
+                 datetime(2027, 5, 1, 9))
+    (u, steps), = seen
+    finding = next(s for s in steps if s["step"] == "finding")
+    assert u == 4 and "透唔到氣" in finding["cites"][0]["quote"] and finding["cites"][0]["quote"] in text
