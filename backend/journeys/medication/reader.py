@@ -41,14 +41,14 @@ TERMS: list[Term] = [
     # ---- emergencies: urgency 4 whatever the medicine
     Term("swelling of lips, tongue, face or throat", "red_flag", 4,
          r"(lips?|tongue|throat|face|eyes?)\s+(is |are |got |getting |went |gone )?(very )?(swollen|swelling|puffy)|swollen (lips?|tongue|face|throat)|swelling (of|in) (my )?(lips?|tongue|face|throat)"
-         r"|(嘴唇|脷|舌頭|喉嚨|塊面|面|眼)(好|有啲|有D|開始)?腫"),
+         r"|(嘴唇|脷|舌頭|喉嚨|塊面|(?<!塊)面|(?<!腳)眼)(好|有啲|有D|開始)?腫"),
     Term("trouble breathing", "red_flag", 4,
          r"(can'?t|cannot|hard to|difficult(y)? to|struggling to|trouble) breath|short(ness)? of breath|breathless|wheez"
          r"|唞唔到氣|抖唔到氣|呼吸困難|氣促|喘"),
     Term("chest pain", "red_flag", 4, r"chest (pain|tight)|心口(好)?(痛|翳|悶)|胸口(好)?(痛|翳|悶)"),
     Term("fainted or collapsed", "red_flag", 4, r"faint(ed)?|passed out|collapsed?|black(ed)? out|暈(低|咗|倒)|昏迷"),
     Term("vomiting blood or black stools", "red_flag", 4,
-         r"vomit(ing|ed)? blood|blood in (my )?vomit|black (stool|poo|poop)s?|tarry|嘔血|黑色(嘅)?大便|大便(好)?黑|屙黑"),
+         r"vomit(ing|ed)? blood|blood in (my )?vomit|black (stool|poo|poop)s?|(stool|poo|poop)s? (is|are|was|were|has been|have been|looks?|looking) (very |really |all )?black|tarry|嘔血|黑色(嘅)?大便|大便(好)?黑|屙黑"),
     Term("blistering or peeling skin, mouth sores", "red_flag", 4,
          r"blister|peeling|skin (is )?coming off|mouth (ulcer|sore)s? .*rash|rash .*mouth (ulcer|sore)|起水泡|甩皮|口(爛|腔潰瘍).{0,8}(疹|紅)"),
     Term("very drowsy or confused", "red_flag", 4,
@@ -80,7 +80,7 @@ TERMS: list[Term] = [
     Term("vomiting and stomach pain", "side_effect", 2, r"vomit|throwing up|嘔吐|嘔(咗|左)|(作)?嘔",
          bump={"sglt2": 3, "metformin": 2}),
     Term("stomach upset or diarrhoea", "side_effect", 1, r"diarrh|loose (stool|motion)|upset stomach|nause|肚屙|肚瀉|屙(水|肚)|作悶|胃(好)?唔舒服|肚痛"),
-    Term("ankle or leg swelling", "side_effect", 1, r"(ankles?|feet|legs?) (are |is )?(swollen|swelling|puffy)|swollen (ankles?|feet|legs?)|(腳|腳眼|腳踭)(好)?腫"),
+    Term("ankle or leg swelling", "side_effect", 1, r"(ankles?|feet|legs?) (are |is )?(swollen|swelling|puffy)|swollen (ankles?|feet|legs?)|(腳|腳眼|腳踭)(好|有啲|有D)?腫"),
     Term("dry cough", "side_effect", 1, r"(dry|tickly|persistent|annoying) cough|cough(ing)? (since|non ?stop|all (day|night))|乾咳|咳(個)?(不停|唔停)"),
     Term("low mood or anxiety", "side_effect", 2, r"low mood|depress|anxious|agitat|panick|情緒(好)?低落|好焦慮|好驚|好唔開心"),
     Term("pregnant", "side_effect", 3, r"pregnan|有(咗|左)(BB|bb|bb仔|身孕)|懷孕"),
@@ -89,17 +89,17 @@ TERMS: list[Term] = [
     # ---- confusion, adherence, dose questions, repeats
     Term("unsure what to take", "confusion", 2,
          r"(which|what) (one|tablet|pill|medicine)s? (should|do|to)|not sure (which|what|how|if)|confus|both the (old|new)|(old|new) (one|tablet|pill)s? (as well|too|and)"
-         r"|still taking the (old|previous)|唔知(要)?食(邊|幾)|兩(隻|樣)(藥)?都(有)?食|仲(有)?食(緊)?(舊|之前)|新舊(藥)?(一齊|都)",),
+         r"|(old|new|previous) [a-z]+ (as well as|and|together with|too)\b|as well as the (old|new)|still taking the (old|previous)|唔知(要)?食(邊|幾)|兩(隻|樣)(藥)?都(有)?食|仲(有)?食(緊)?(舊|之前)|新舊(藥)?(一齊|都)",),
     Term("took the wrong dose", "confusion", 3,
          r"took (two|2|double|an extra|extra|too many|twice)|double(d)? (dose|up)|took .{0,20} twice|食(多|錯)(咗|左)|食(咗|左)兩(次|粒)|重覆食"),
     Term("stopped or skipping on their own", "adherence", 2,
-         r"(stopped|quit|not|haven'?t been|didn'?t|don'?t) (taking|take|took)|(skip|skipped|skipping|missed)( a| my| some)? (dose|tablet|pill)s?|停(咗|左)(食)?|冇(再)?食|唔(敢)?食(咗|左)?"),
+         r"(stopped|quit|not|haven'?t been|didn'?t|don'?t) (taking|take|took)|\b(stopped|quit) (the|my|it|them|that)\b|(skip|skipped|skipping|missed)( a| my| some)? (dose|tablet|pill)s?|停(咗|左)(食)?|冇(再)?食|唔(敢)?食(咗|左)?"),
     Term("asks to change a dose", "dose_question", 2,
          r"(can|could|should|may) i (take|have|increase|reduce|cut|halve|double|skip|stop|change|try)|(take|have) (two|2|half|more|less|an extra)|increase the dose|reduce the dose"
          r"|可(唔可以|以)(食|加|減|停|轉|飛)|使唔使(停|加|減|食)|食(多|少)(啲|D|粒|半粒)(得唔得|好唔好|得嗎)?|(加|減)(藥|劑量)"),
     Term("asks for a repeat", "repeat", 1,
-         r"\b(repeat|refill|top ?up|more (of )?(my )?(medicine|meds|tablets|pills))\b|(run|ran|running) out|finish(ed)? (my|the|all)|need (some )?more"
-         r"|覆配|配(返|多)?(啲)?藥|攞(返)?(啲)?藥|拎(返)?藥|開(返)?(啲)?藥|食(晒|完|得七七八八)|冇(晒)?藥|就快(冇|食晒)"),
+         r"\b(repeat|refill|top ?up|more (of )?(my )?(medicine|meds|tablets|pills))\b|(run|ran|running) out|\b(none|no more|nothing) left\b|finish(ed)? (my|the|all)|need (some )?more"
+         r"|\b(can|could|may) i (get|have) (my|some|a|another|more)\b|\b(another|second) (course|box|bottle|pack)\b|\b(get|have) (my )?[a-z]+ again\b|覆配|配(返|多)(次|啲)?|配(啲)?藥|攞(返)?(啲)?藥|拎(返)?藥|開(返)?(啲)?藥|藥(食|用)(晒|完)|食(晒|得七七八八)|冇(晒)?藥|就快(冇|食晒)"),
 ]
 
 NEGATORS_EN = re.compile(r"\b(no|not|never|without|none|nor|don'?t|doesn'?t|didn'?t|isn'?t|aren'?t|wasn'?t|haven'?t|hasn'?t|no more|any)\b\W*(\w+\W+){0,2}$", re.I)
@@ -107,7 +107,7 @@ NEGATORS_ZH = re.compile(r"(冇|無|沒有|唔係|未有|未見|冇再|唔再|�
 THIRD_PARTY = re.compile(r"\b(my|our) (husband|wife|mum|mom|mother|dad|father|son|daughter|friend|neighbou?r|colleague|brother|sister|kid|child|baby)\b|\bhe\b|\bshe\b"
                          r"|老公|老婆|太太|先生|阿媽|媽媽|阿爸|爸爸|個仔|個女|朋友|同事|鄰居|佢", re.I)
 HISTORY = re.compile(r"\b(last year|years ago|months ago|used to|in the past|as a child|before (i|the) (started|new))\b|以前|舊年|幾年前|細個|之前(試過|有過)", re.I)
-CLAUSE = re.compile(r"[.!?;。！？；\n]+|,\s*(?:but|though)\b|但係|不過|，(?=但|不過)")
+CLAUSE = re.compile(r"(?<!\d)\.(?!\d)|[!?;。！？；\n]+|,\s*(?:but|though)\b|但係|不過|，(?=但|不過)")
 QUESTION = re.compile(r"\?|？|嗎|呢$|點算|點樣|好唔好|得唔得|使唔使|可唔可以|係咪", re.M)
 RESOLVED_ONLY = re.compile(r"\b(all good|fine|ok(ay)?|better|no problems?|no issues)\b|冇問題|好返|好(咗|左)(好)?多|OK|ok", re.I)
 

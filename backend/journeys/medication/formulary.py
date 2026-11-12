@@ -24,7 +24,7 @@ CLASSES: dict[str, tuple[str, ...]] = {
     "beta_blocker": ("bisoprolol", "metoprolol", "atenolol", "propranolol", "carvedilol"),
     "diuretic": ("hydrochlorothiazide", "indapamide", "furosemide", "spironolactone"),
     "statin": ("atorvastatin", "simvastatin", "rosuvastatin", "pravastatin"),
-    "thyroid": ("levothyroxine", "thyroxine"),
+    "thyroid": ("levothyroxine",),
     "xanthine_oxidase": ("allopurinol", "febuxostat"),
     "antibiotic": ("amoxicillin", "amoxicillin-clavulanate", "doxycycline", "clarithromycin", "cefuroxime",
                    "nitrofurantoin", "levofloxacin"),
@@ -46,7 +46,7 @@ ALIASES: dict[str, str] = {
     "ativan": "lorazepam", "xanax": "alprazolam", "stilnox": "zolpidem", "imovane": "zopiclone",
     "nexium": "esomeprazole", "losec": "omeprazole", "brufen": "ibuprofen", "voltaren": "diclofenac",
     "arcoxia": "etoricoxib", "panadol": "paracetamol",
-    "華法林": "warfarin", "薄血丸": "warfarin", "二甲雙胍": "metformin", "阿司匹林": "aspirin", "亞士匹靈": "aspirin",
+    "thyroxine": "levothyroxine", "華法林": "warfarin", "薄血丸": "warfarin", "二甲雙胍": "metformin", "阿司匹林": "aspirin", "亞士匹靈": "aspirin",
     "甲狀腺素": "levothyroxine", "胰島素": "insulin",
 }
 # words a patient uses for a medicine's purpose -> classes it may mean
@@ -59,7 +59,7 @@ PURPOSE: dict[str, tuple[str, ...]] = {
     "薄血": ("anticoagulant", "antiplatelet"), "thyroid": ("thyroid",), "甲狀腺": ("thyroid",), "gout": ("xanthine_oxidase",),
     "痛風": ("xanthine_oxidase",), "sleeping": ("benzodiazepine", "z_drug"), "sleep": ("benzodiazepine", "z_drug"),
     "安眠藥": ("benzodiazepine", "z_drug"), "瞓覺": ("benzodiazepine", "z_drug"), "stomach": ("ppi",), "胃藥": ("ppi",),
-    "antidepressant": ("ssri",), "抗抑鬱": ("ssri",), "pain": ("nsaid", "opioid"), "止痛": ("nsaid", "opioid"),
+    "antidepressant": ("ssri",), "抗抑鬱": ("ssri",), "pain": ("nsaid", "opioid"), "antibiotic": ("antibiotic",), "antibiotics": ("antibiotic",), "抗生素": ("antibiotic",), "止痛": ("nsaid", "opioid"),
 }
 
 # a change to one of these gets an earlier check-in and a chase if the patient does not answer

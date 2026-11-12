@@ -34,15 +34,16 @@ PATIENT_KINDS = ("message",)
 PATIENT_CHANNELS = ("careline", "whatsapp", "phone")
 STAFF_KINDS = ("consult_note", "action_note")
 CHANGE_KINDS = ("consult_note", "discharge_summary", "specialist_letter", "aed_summary")
-START = re.compile(r"\b(start(ed|ing)?|commenc(e|ed)|initiat(e|ed)|add(ed)?|began|new(ly started)?|trial of)\b", re.I)
+START = re.compile(r"\b(re-?start(ed|ing)?|start(ed|ing)?|commenc(e|ed)|initiat(e|ed)|add(ed)?|began|new(ly started)?|trial of)\b", re.I)
 STOP = re.compile(r"\b(stop(ped)?|discontinu(e|ed)|cease(d)?|withh(e|o)ld|withheld|withdraw(n)?|off)\b", re.I)
 CHANGE = re.compile(r"\b(increas(e|ed)|decreas(e|ed)|reduc(e|ed)|titrat(e|ed)|uptitrat(e|ed)|halv(e|ed)|switch(ed)?|chang(e|ed))\b", re.I)
 FROM_TO = re.compile(r"(?:switch(?:ed)?|chang(?:e|ed))\s+(?:from\s+)?(?P<a>[A-Za-z][\w-]+).{0,30}?\bto\s+(?P<b>[A-Za-z][\w-]+)", re.I)
 DISPENSED = re.compile(r"Dispensed:\s*(?P<drug>.+?)\s+x(?P<days>\d+) days", re.I)
 ALL_MEDS = re.compile(r"\b(all|usual|regular|everything|same as (before|usual|last time))\b|平時(啲|嘅)?藥|全部|所有(嘅)?藥|長期藥|成套", re.I)
-RAN_OUT = re.compile(r"\b(ran out|run out|have none|no more left|finished)\b|食晒|冇晒藥|冇藥(喇|啦)?|已經冇", re.I)
+RAN_OUT = re.compile(r"\b(ran out|run out|have none|(none|no more|nothing) left|finished)\b|食晒|冇晒藥|冇藥(喇|啦)?|已經冇", re.I)
 OUTSIDE_REPORT = re.compile(r"報告|report", re.I)
 RECENT_DAYS = 60
+MED_WORD = re.compile(r"\b(medicines?|meds|medication|tablets?|pills?|capsules?|prescription|script|dose)\b|(?<!退燒)藥(?!房)", re.I)
 ACTION_WORD = {"start": "starting", "stop": "stopping", "change": "a change to"}
 
 
@@ -75,7 +76,7 @@ class MedicationJourney:
         self.mx_changes = defaultdict(list)     # pid -> [{t, rid, action, drug, quote, author}]
         self.mx_stops = defaultdict(dict)       # pid -> generic -> change
         self.mx_meds = defaultdict(dict)        # pid -> generic -> {name, t, rid, quote, days, author}
-        self.mx_inbox: list[dict] = []          # patient messages to read at the end of this tick
+        self.mx_inbox: list[dict] = []          # routine messages, read at the scheduled run
         self.mx_items: dict[str, dict] = {}     # item id -> what this journey opened
         self.mx_by_pid = defaultdict(list)      # pid -> [item id]
         self.mx_stats = defaultdict(int)
@@ -83,9 +84,27 @@ class MedicationJourney:
     # ---------------------------------------------------------------------------------- reading
     def claims(self, api, r) -> bool:
         """Patient messages about medicines are this journey's: core's generic message rule skips them."""
-        mine = self._is_patient_msg(r) and bool(r.get("patient_id")) and self._wants(r)
         parent = getattr(super(), "claims", None)
-        return mine or bool(parent and parent(api, r))
+        return self.bid(api, r) > 0 or bool(parent and parent(api, r))
+
+    def bid(self, api, r) -> float:
+        """How strongly this journey owns a patient message (the suite gives it to the highest bid): 3 for a repeat
+        request or a message about a medicine, 1.5 for symptoms within 60 days of a medicine change (so a reply to
+        another journey's own check-in stays with that journey), else 0."""
+        if not self._is_patient_msg(r) or not r.get("patient_id") or not self._wants(r):
+            return 0
+        pid, t, text = r["patient_id"], _t(r), r["text"]
+        fs = self.reader.read(text, self._classes(pid))
+        if any(f["kind"] == "repeat" for f in fs) or fx.mentions(text) or fx.purposes(text) or MED_WORD.search(text):
+            return 3
+        if fs and any(self.mx_items[i]["family"] == "repeat_prescription" for i in self.mx_by_pid.get(pid, ())
+                      if any(it["id"] == i for it in api.items(status="open"))):
+            return 3                                 # a follow-up on their open repeat request ("any update?")
+        return 1.5 if self._recent(pid, t) else 0
+
+    def _mine(self, api, r) -> bool:
+        won = getattr(self, "won", None)               # the suite's one-owner-per-message routing, when composed
+        return self.bid(api, r) > 0 and (won is None or won(api, r, MedicationJourney))
 
     def on_cms(self, api, r: dict):
         super().on_cms(api, r)
@@ -96,18 +115,25 @@ class MedicationJourney:
             self._dispensed(api, pid, r)
         if k in CHANGE_KINDS:
             self._read_changes(pid, r)
-        if self._is_patient_msg(r) and self._wants(r):
-            self.mx_inbox.append(r)
+        if self._is_patient_msg(r) and r["data"].get("direction") != "out" and self._mine(api, r):
+            fs = self.reader.read(r["text"], self._classes(pid))
+            if max((f["urgency"] for f in fs), default=0) >= 3 or any(f["kind"] == "repeat" for f in fs):
+                self._safe(self._message, api, r)    # urgent or a repeat: read as it lands (the care line pushes it live)
+            else:
+                self.mx_inbox.append(r)              # the rest at the scheduled run, after the doctor's own replies
 
     def tick(self, api):
         super().tick(api)
         inbox, self.mx_inbox = self.mx_inbox, []
         for r in inbox:
-            try:
-                self._message(api, r)
-            except KeyError:                    # a patient or doctor the port no longer knows: never crash the engine
-                self.mx_stats["skipped_unknown"] += 1
+            self._safe(self._message, api, r)
         self._watch_supply(api)
+
+    def _safe(self, fn, *a):
+        try:
+            fn(*a)
+        except KeyError:                             # a patient or doctor the port no longer knows: never crash
+            self.mx_stats["skipped_unknown"] += 1
 
     def chan_label(self, ch: str) -> str:
         if ch == "careline":
@@ -187,9 +213,18 @@ class MedicationJourney:
         from backend.engine.rules import Why        # the engine's trace builder (imported late: no cycle)
         return Why()
 
-    def _open(self, api, key, pid, family, reason, evidence, urgency, hint, why, meta):
+    def _open(self, api, key, pid, family, reason, evidence, urgency, hint, why, meta, escalates=None):
         before = set(self.raised.values()) if hasattr(self, "raised") else set()
-        self.raise_item(api, key, pid, family, reason[:200], evidence, urgency, hint, None, why=why)
+        if escalates is None:
+            self.raise_item(api, key, pid, family, reason[:200], evidence, urgency, hint, None, why=why)
+        elif key not in self.raised:                 # the engine's raise_item has no escalates: same steps, linked
+            from backend.engine.rules import URGENCY_LABEL, WINDOW, when
+            owner, route_txt = self.route(api, hint, pid, urgency)
+            due = api.now + timedelta(days=WINDOW[urgency])
+            why.add("routing", route_txt)
+            why.add("request", f"Opened for {self.nm(owner)} at urgency {urgency} ({URGENCY_LABEL[urgency]}); due {when(due)}.")
+            self.raised[key] = api.open_item(pid, owner, family, reason[:200], list(evidence), urgency, due,
+                                             reasoning=why.steps, escalates=escalates)
         iid = self.raised.get(key)
         if iid and iid not in before:
             self.mx_items[iid] = {"pid": pid, "family": family, "urgency": urgency, **meta}
@@ -219,8 +254,8 @@ class MedicationJourney:
             return
         rep = [f for f in fs if f["kind"] == "repeat"]
         other = [f for f in fs if f["kind"] != "repeat"]
-        if rep and not any(f["urgency"] >= 2 or f["kind"] not in ("question",) for f in other):
-            other = []                           # "can I have more of my BP pills?" is a repeat, not a dose question
+        if rep:                                  # "can I have more of my BP pills?" is a repeat, not a dose question
+            other = [f for f in other if f["kind"] not in ("question", "dose_question")]
         if other:
             self._concern(api, r, pid, t, text, other)
         if rep:
@@ -235,7 +270,10 @@ class MedicationJourney:
         hint = rel[-1]["author"] if rel else next((self.mx_meds[pid][g]["author"] for g in named if g in self.mx_meds.get(pid, {})), None)
         top = fs[0]
         existing = self._open_mine(api, pid, "med_change")
-        if existing:
+        escalates = None
+        if existing and urgency >= 4 > existing["urgency"]:
+            escalates = existing["id"]               # now an emergency: a linked copy with its own verified quotes
+        elif existing:
             if urgency > existing["urgency"]:
                 api.raise_urgency(existing["id"], urgency, f"New message from the patient: {top['label']}: “{top['quote'][:120]}”")
                 self.mx_items[existing["id"]]["urgency"] = urgency
@@ -272,8 +310,10 @@ class MedicationJourney:
         tid = tpl.pick(kinds, urgency)
         w.add("request", "Suggested reply once you have decided (fixed template, sent by you): "
                          f"“{tpl.render(tid, 'en', doctor=self.nm(hint) if hint in self.staff else 'your doctor', when='today' if urgency >= 3 else 'within 2 days')}”")
+        if escalates:
+            w.add("loop_status", "Escalates the open item for this patient: the earlier message was less urgent.")
         self._open(api, ("mx", r["id"]), pid, "med_change", reason, ev, urgency, hint, w,
-                   {"kind": "concern", "labels": [f["label"] for f in fs], "template": tid})
+                   {"kind": "concern", "labels": [f["label"] for f in fs], "template": tid}, escalates=escalates)
 
     def _requested(self, pid, text) -> tuple[list[str], str]:
         meds = self.mx_meds.get(pid, {})
@@ -303,6 +343,11 @@ class MedicationJourney:
                 self.mx_stats["raised_by_new_message"] += 1
             else:
                 self.mx_stats["duplicate_message"] += 1
+            return
+        done = {it["id"] for it in api.items() if it["patient_id"] == pid and it["status"] != "open"}
+        if any(i in done and self.mx_items[i]["family"] == "repeat_prescription" and set(self.mx_items[i].get("meds", [])) & set(want)
+               and t - self.mx_items[i]["asked_at"] <= timedelta(days=7) for i in self.mx_by_pid.get(pid, ())):
+            self.mx_stats["after_decision"] += 1      # the doctor has decided this request; the clinic answers the chase
             return
         w = self._why()
         w.add("source", f"Repeat request from the patient on {t:%a %d %b %H:%M} ({self.chan_label(r['channel'])}).",

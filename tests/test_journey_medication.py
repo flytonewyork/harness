@@ -237,16 +237,18 @@ def test_side_effect_after_a_start_opens_med_change_with_quotes_and_context():
     quotes_are_verbatim(c)
 
 
-def test_emergency_is_urgency_4_and_a_worse_message_raises_not_duplicates():
+def test_a_new_emergency_opens_a_linked_copy_with_its_own_quotes():
     c = FakeClinic()
     t = start_amlodipine(c)
     c.add("p1", "consult_note", "cms", t + timedelta(days=1), "P: Amlodipine switched to lisinopril 10mg daily.", "dr_wong")
     c.add("p1", "message", "careline", T0 + timedelta(hours=2), "有少少乾咳")
     c.add("p1", "message", "careline", T0 + timedelta(days=1, hours=2), "今朝嘴唇好腫，有啲唞唔到氣")
-    run(c, 2)
-    [it] = mine(c)
-    assert it["urgency"] == 4 and c.raised and c.raised[0][1] == 4
-    quotes_are_verbatim(c)
+    c.add("p1", "message", "careline", T0 + timedelta(days=2, hours=2), "仲係好腫，有啲頭暈")
+    run(c, 3)
+    first, copy = mine(c)
+    assert first["urgency"] == 1 and copy["urgency"] == 4 and copy["escalates"] == first["id"]
+    assert any("嘴唇好腫" in (q.get("quote") or "") for s in copy["reasoning"] for q in s["cites"])
+    quotes_are_verbatim(c)                                     # and the third message neither duplicates nor lowers
 
 
 def test_quiet_when_the_patient_is_fine_or_already_handled():
