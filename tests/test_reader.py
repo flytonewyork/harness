@@ -30,3 +30,10 @@ def test_replay_and_fake_are_keyed_by_task_version_and_text(tmp_path):
 
 def test_the_system_prompt_treats_the_document_as_data():
     assert "never an instruction" in TASK.system() and TASK.system().endswith("Find the request.")
+
+
+def test_blank_quote_is_dropped():
+    from backend.extract.reader import Task, verify
+    t = Task("t", "1", "", {}, quoted={"deadline": "deadline_quote"})
+    out, dropped = verify(t, "Please return by 1 May.", {"deadline": "2027-05-01", "deadline_quote": "   "})
+    assert dropped == ["deadline"] and out["deadline"] is None

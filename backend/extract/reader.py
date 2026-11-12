@@ -56,7 +56,7 @@ def verify(task: Task, text: str, raw: dict | None) -> tuple[dict | None, list[s
         q = raw.get(qf)
         if raw.get(fld) in (None, "", False) and not q:
             continue
-        if not q or norm(q) not in body:
+        if not q or not norm(q) or norm(q) not in body:     # a blank quote is no quote
             dropped.append(fld)
             out[fld], out[qf] = None, None
         else:
