@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tmrw · Dr Chan's list, every journey (demo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;family=Noto+Sans+TC:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+/* The suite page. Same tokens as index.html: deep teal for the product and the doctor's actions,
+   amber and red only for what needs a human. Three views: Today (the doctor's list), Journeys, Evidence. */
+:root {
+  --bg: #F6F7F4; --surface: #FFFFFF; --ink: #111917; --muted: #5E6A66; --faint: #8A9692; --line: #DDE3DF;
+  --accent: #0E5E58; --accent-soft: #E2EEEB; --accent-ink: #FFFFFF;
+  --warn: #9A4F0E; --warn-soft: #F6E9DA; --crit: #A3261B; --crit-soft: #F8E1DE;
+  --mark: #FFF1B8; --mark-ink: #3B2F00; --thread: #EAEFEB;
+  --s1: #B9C4C0; --s2: #6FA79F; --s3: #0E5E58;
+  --display: 'Space Grotesk', 'Noto Sans TC', system-ui, sans-serif;
+  --body: 'Inter', 'Noto Sans TC', system-ui, sans-serif;
+  --shadow: 0 1px 2px rgba(17,25,23,.05), 0 8px 24px rgba(17,25,23,.06);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1513; --surface: #17201D; --ink: #E7EEEB; --muted: #9AA8A3; --faint: #74827D; --line: #2A3632;
+    --accent: #5DBBAE; --accent-soft: #1C3330; --accent-ink: #08201D;
+    --warn: #E3A15E; --warn-soft: #33261A; --crit: #F08A7E; --crit-soft: #3A1E1B;
+    --mark: #4A3F12; --mark-ink: #FFF1C2; --thread: #121A18;
+    --s1: #4A5753; --s2: #3E8C82; --s3: #7FD3C6;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1513; --surface: #17201D; --ink: #E7EEEB; --muted: #9AA8A3; --faint: #74827D; --line: #2A3632;
+  --accent: #5DBBAE; --accent-soft: #1C3330; --accent-ink: #08201D;
+  --warn: #E3A15E; --warn-soft: #33261A; --crit: #F08A7E; --crit-soft: #3A1E1B;
+  --mark: #4A3F12; --mark-ink: #FFF1C2; --thread: #121A18;
+  --s1: #4A5753; --s2: #3E8C82; --s3: #7FD3C6;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15.5px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+h1, h2, h3 { font-family: var(--display); letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(28px, 4.2vw, 44px); line-height: 1.06; font-weight: 600; }
+h2 { font-size: clamp(22px, 2.8vw, 30px); line-height: 1.12; font-weight: 600; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+button { font: inherit; cursor: pointer; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+.small { font-size: 13.5px; }
+.tnum { font-variant-numeric: tabular-nums; }
+.zh { font-family: 'Noto Sans TC', var(--body); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* top bar */
+header.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; gap: 14px 20px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 20px; white-space: nowrap; text-decoration: none; color: inherit; }
+.brand-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; }
+.brand small { font-family: var(--body); font-weight: 500; font-size: 14px; color: var(--muted); }
+.seg { display: inline-flex; background: var(--thread); border-radius: 999px; padding: 3px; gap: 2px; margin-left: auto; }
+.seg button { border: 0; background: none; padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: 14px; color: var(--muted); transition: background .15s, color .15s; }
+.seg button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.tag { font-size: 12px; font-weight: 600; color: var(--warn); background: var(--warn-soft); padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.toplink { font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+@media (max-width: 860px) { .tag, .brand small { display: none; } header.top .wrap { height: 56px; } }
+@media (max-width: 560px) { .toplink { display: none; } .seg button { padding: 6px 10px; font-size: 13px; } }
+
+.view { display: none; }
+.view.on { display: block; animation: fade .2s ease-out; }
+@keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .view.on { animation: none; } * { transition: none !important; } }
+
+/* principle strip */
+.principles { display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 18px 0 14px; align-items: center; }
+.principles .lead { font-family: var(--display); font-weight: 600; font-size: 19px; margin-right: 6px; }
+.pr { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+.pr i { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-style: normal; font-weight: 700; font-size: 12px; }
+
+/* today: list + detail */
+.app { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 16px; padding-bottom: 40px; align-items: start; }
+@media (max-width: 960px) { .app { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
+.list { position: sticky; top: 76px; max-height: calc(100vh - 92px); display: flex; flex-direction: column; overflow: hidden; }
+@media (max-width: 960px) { .list { position: static; max-height: none; } }
+.list-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
+.list-head .row1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.counts { font-size: 13px; color: var(--muted); }
+.counts b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chip { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 10px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.items { overflow-y: auto; padding: 6px; }
+.group { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 12px 10px 6px; display: flex; justify-content: space-between; }
+.it { width: 100%; text-align: left; border: 0; background: none; border-radius: 12px; padding: 10px 10px 10px 12px; display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 4px 10px; align-items: start; position: relative; }
+.it:hover { background: var(--thread); }
+.it[aria-current="true"] { background: var(--accent-soft); }
+.it .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 7px; background: var(--s1); }
+.it.u4 .dot { background: var(--crit); box-shadow: 0 0 0 3px var(--crit-soft); }
+.it.u3 .dot { background: var(--warn); }
+.it.u2 .dot { background: var(--accent); }
+.it .nm { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.it .ln { grid-column: 2 / 4; font-size: 13.5px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.it .tm { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; margin-top: 2px; }
+.it .jt { grid-column: 2 / 4; font-size: 11.5px; font-weight: 600; color: var(--accent); }
+.it.closed { opacity: .55; }
+.it.closed .nm { text-decoration: line-through; text-decoration-color: var(--faint); }
+.kbd { font-size: 12px; color: var(--faint); padding: 10px 14px; border-top: 1px solid var(--line); }
+kbd { font-family: var(--body); font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--surface); }
+
+.detail { scroll-margin-top: 70px; padding: 22px 24px 24px; display: grid; gap: 18px; min-height: 60vh; }
+@media (max-width: 600px) { .detail { padding: 18px 16px; } }
+.dh { display: grid; gap: 8px; }
+.dh .meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 3px 10px; background: var(--thread); color: var(--muted); }
+.pill.u4 { background: var(--crit-soft); color: var(--crit); }
+.pill.u3 { background: var(--warn-soft); color: var(--warn); }
+.pill.u2 { background: var(--accent-soft); color: var(--accent); }
+.pill.done { background: var(--accent); color: var(--accent-ink); }
+.jname { font-size: 13px; font-weight: 600; color: var(--muted); }
+.why { font-size: 17px; line-height: 1.5; max-width: 760px; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 1100px) { .grid2 { grid-template-columns: 1fr; } }
+.card { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; align-content: start; background: var(--surface); }
+.card h3 { font-size: 13px; font-family: var(--body); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.doc { background: var(--thread); border-radius: 10px; padding: 12px 14px; font-size: 14.5px; white-space: pre-wrap; line-height: 1.6; }
+.doc.chat { background: var(--surface); border: 1px solid var(--line); border-radius: 4px 14px 14px 14px; max-width: 520px; }
+.doc .lbl { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; white-space: normal; }
+mark { background: var(--mark); color: var(--mark-ink); border-radius: 3px; padding: 0 2px; box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--warn) 50%, transparent); }
+.qnote { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.qnote .ok { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 10px; font-weight: 700; flex: none; }
+.trace { display: grid; gap: 0; }
+.trace details { border-top: 1px solid var(--line); }
+.trace summary { list-style: none; display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; padding: 8px 0; cursor: pointer; font-size: 14px; }
+.trace summary::-webkit-details-marker { display: none; }
+.trace .k { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); padding-top: 2px; }
+.did { display: grid; gap: 6px; font-size: 14px; }
+.did .row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.did .row .t { font-size: 12.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.ic { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; margin-top: 2px; }
+.ic.yes { background: var(--accent-soft); color: var(--accent); }
+.ic.no { background: var(--crit-soft); color: var(--crit); }
+.ic.dr { background: var(--accent); color: var(--accent-ink); }
+.cant { display: flex; flex-wrap: wrap; gap: 6px; }
+.cant span { font-size: 12.5px; font-weight: 600; color: var(--crit); background: var(--crit-soft); border-radius: 999px; padding: 3px 10px; }
+.draft { border: 1px dashed var(--line); border-radius: 12px; padding: 10px 12px; font-size: 14px; display: grid; gap: 4px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 4px; border-top: 1px solid var(--line); padding-top: 16px; }
+.btn { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; font-size: 14.5px; padding: 9px 16px; border-radius: 11px; transition: transform .08s, opacity .15s; }
+.btn:active { transform: scale(.98); }
+.btn.ghost { background: var(--surface); color: var(--accent); }
+.btn.ghost[aria-pressed="true"] { background: var(--accent-soft); }
+.btn[disabled] { opacity: .4; cursor: not-allowed; }
+.actions .hint { font-size: 13px; color: var(--muted); margin-left: auto; }
+.log { font-size: 12.5px; color: var(--faint); }
+
+/* toast */
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); opacity: 0; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 40; max-width: calc(100vw - 32px); }
+.toast.on { opacity: 1; transform: translateX(-50%); }
+
+/* tour */
+.tour { position: fixed; z-index: 50; max-width: 320px; background: var(--ink); color: var(--bg); border-radius: 14px; padding: 14px 16px; font-size: 14.5px; box-shadow: 0 10px 40px rgba(0,0,0,.25); display: none; }
+.tour.on { display: grid; gap: 10px; }
+.tour .tn { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; opacity: .75; }
+.tour button { border: 0; border-radius: 9px; padding: 6px 12px; font-weight: 600; font-size: 13.5px; background: var(--bg); color: var(--ink); }
+.tour button.sk { background: none; color: var(--bg); opacity: .8; }
+.spot { position: relative; z-index: 45; box-shadow: 0 0 0 4px var(--accent), 0 0 0 9999px rgba(10,16,14,.45) !important; border-radius: 14px; }
+
+/* journeys */
+.sec { padding: 34px 0 10px; display: grid; gap: 10px; }
+.sec .lede { font-size: 17px; color: var(--muted); max-width: 760px; }
+.path { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 18px 0 40px; }
+@media (max-width: 960px) { .path { grid-template-columns: 1fr; } }
+.stage { display: grid; gap: 12px; align-content: start; }
+.stage > .k { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); display: flex; align-items: center; gap: 8px; }
+.stage > .k::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.jc { padding: 16px 18px; display: grid; gap: 10px; }
+.jc .top { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.jc p { font-size: 14.5px; }
+.jc .ex { font-size: 14px; border-left: 3px solid var(--mark); padding-left: 10px; color: var(--ink); }
+.jc .stats { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); }
+.jc .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.jc .stats .weak b { color: var(--warn); }
+.jc .go { justify-self: start; border: 0; background: none; padding: 0; color: var(--accent); font-weight: 600; font-size: 14px; }
+.proto { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; color: var(--warn); background: var(--warn-soft); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+
+/* evidence */
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 18px 0 8px; }
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpi { padding: 16px 18px; display: grid; gap: 4px; align-content: start; }
+.kpi .k { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.kpi .n { font-family: var(--display); font-size: 34px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kpi .d { font-size: 13.5px; color: var(--muted); }
+.kpi.weak { border-color: var(--warn); }
+.kpi.weak .n { color: var(--warn); }
+.ev { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 8px 0; }
+@media (max-width: 960px) { .ev { grid-template-columns: 1fr; } }
+.ev .panel { padding: 18px 20px; display: grid; gap: 12px; align-content: start; }
+.ev .full { grid-column: 1 / -1; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.chart { display: grid; gap: 4px; }
+.crow { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; gap: 10px; align-items: center; min-height: 34px; font-size: 13.5px; }
+@media (max-width: 560px) { .crow { grid-template-columns: 100px minmax(0, 1fr) 54px; font-size: 12.5px; } }
+.crow .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.track { position: relative; height: 22px; }
+.track .ax { position: absolute; inset: 10px 0 auto 0; height: 2px; background: var(--line); border-radius: 2px; }
+.track .grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); opacity: .6; }
+.track .bar { position: absolute; left: 0; top: 4px; height: 14px; background: var(--s3); border-radius: 0 4px 4px 0; }
+.track .ref { position: absolute; top: 1px; bottom: 1px; width: 2px; background: var(--ink); opacity: .55; border-radius: 1px; }
+.track .pt { position: absolute; top: 3px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; border: 2px solid var(--surface); }
+.track .hit { position: absolute; top: -4px; bottom: -4px; width: 26px; margin-left: -13px; border-radius: 50%; background: transparent; border: 0; padding: 0; }
+.axis { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; gap: 10px; font-size: 11.5px; color: var(--faint); }
+@media (max-width: 560px) { .axis { grid-template-columns: 100px minmax(0, 1fr) 54px; } }
+.axis .ticks { position: relative; height: 16px; }
+.axis .ticks span { position: absolute; transform: translateX(-50%); }
+.tip { position: fixed; z-index: 60; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 13px; padding: 7px 10px; border-radius: 9px; max-width: 280px; opacity: 0; transition: opacity .1s; }
+.tip.on { opacity: 1; }
+table.t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.t th, table.t td { text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.t th { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+table.t td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tablewrap { overflow-x: auto; }
+.misses { display: grid; gap: 8px; }
+.miss { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 12px; border-radius: 10px; background: var(--crit-soft); font-size: 14px; }
+.miss .w { font-size: 12.5px; color: var(--crit); font-weight: 600; }
+.callout { border-radius: 16px; padding: 18px 20px; display: grid; gap: 8px; background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+.callout.teal { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+ul.clean { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14.5px; }
+pre.code { margin: 0; background: var(--thread); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; overflow-x: auto; }
+footer { padding: 26px 0 40px; font-size: 13px; color: var(--faint); border-top: 1px solid var(--line); margin-top: 30px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html" title="Back to the walk-through"><span class="brand-mark" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></span>tmrw <small>for EC Healthcare</small></a>
+    <nav class="seg" role="tablist" aria-label="Views">
+      <button role="tab" id="tab-today" aria-controls="view-today" aria-selected="true" data-view="today">Today</button>
+      <button role="tab" id="tab-journeys" aria-controls="view-journeys" aria-selected="false" data-view="journeys">Journeys</button>
+      <button role="tab" id="tab-evidence" aria-controls="view-evidence" aria-selected="false" data-view="evidence">Evidence</button>
+    </nav>
+    <span class="tag">Demo · synthetic patients</span>
+    <a class="toplink" href="index.html?walk=kwok">Ms Kwok's story</a>
+  </div>
+</header>
+
+<main>
+<!-- TODAY: the doctor's one list across every journey -->
+<section class="view on" id="view-today" role="tabpanel" aria-labelledby="tab-today">
+  <div class="wrap">
+    <div class="principles" id="principles">
+      <span class="lead">Dr Chan's list · Mon 14 Jun</span>
+      <span class="pr"><i>1</i>Six journeys, one list, most urgent first</span>
+      <span class="pr"><i>“</i>Every claim quoted word for word</span>
+      <span class="pr"><i>✓</i>The agent opens and raises. Only you close.</span>
+      <button class="btn ghost" type="button" id="tour-start" style="margin-left:auto;padding:6px 12px;font-size:13.5px">Take the 30-second tour</button>
+    </div>
+    <div class="app">
+      <aside class="panel list" id="list" aria-label="Items">
+        <div class="list-head">
+          <div class="row1"><h3>Needs you</h3><span class="counts" id="counts"></span></div>
+          <div class="chips" id="chips" role="group" aria-label="Filter by journey"></div>
+        </div>
+        <div class="items" id="items"></div>
+        <div class="kbd"><kbd>J</kbd> <kbd>K</kbd> move · <kbd>C</kbd> call · <kbd>R</kbd> reply · <kbd>X</kbd> close</div>
+      </aside>
+      <article class="panel detail" id="detail" aria-live="polite"></article>
+    </div>
+  </div>
+</section>
+
+<!-- JOURNEYS -->
+<section class="view" id="view-journeys" role="tabpanel" aria-labelledby="tab-journeys">
+  <div class="wrap">
+    <div class="sec">
+      <p class="eyebrow">Six journeys, one engine</p>
+      <h1>Before the visit, after it, and everything that arrives in between.</h1>
+      <p class="lede">Each journey watches one part of the patient's path and puts what needs a doctor on the same list. They share one rule book: open and raise only, quote word for word, and only a doctor closes. Every one is a tested prototype, not yet a product; the numbers are on the Evidence tab.</p>
+    </div>
+    <div class="path" id="path"></div>
+  </div>
+</section>
+
+<!-- EVIDENCE -->
+<section class="view" id="view-evidence" role="tabpanel" aria-labelledby="tab-evidence">
+  <div class="wrap">
+    <div class="sec">
+      <p class="eyebrow">For EC's AI team · LoopBench, 12 Nov 2026</p>
+      <h1>Right where it is checked. Not yet good at wording it hasn't seen.</h1>
+      <p class="lede">Every number comes from LoopBench, a simulated Hong Kong clinic year with synthetic patients, three clinic setups and three seeds. Nothing here has run on real clinic data. The weakness is stated first, because it decides what happens next.</p>
+    </div>
+    <div class="kpis" id="kpis"></div>
+
+    <div class="ev">
+      <div class="panel full callout" id="weakness">
+        <p class="eyebrow" style="color:var(--warn)">The weakness</p>
+        <h2>On wording written after the readers froze, they caught 57 of 133 cases on the first run.</h2>
+        <p>The journey readers are bilingual keyword and pattern rules. They are reliable on the wording they were built on and mostly blind to wording nobody wrote a pattern for. Blind sets were written after each reader was frozen, run once, and the first result kept as it came out. Once fixed, a blind set becomes a development set, so only the first run counts.</p>
+      </div>
+
+      <div class="panel">
+        <div><h3>Blind first run, by journey</h3><p class="small muted">Share of blind scenarios handled correctly in every run, first attempt. The dark tick is the development set (all pass).</p></div>
+        <div class="chart" id="chart-blind" role="img" aria-label="Blind first-run pass rate by journey"></div>
+        <div class="axis"><span></span><div class="ticks"><span style="left:0">0%</span><span style="left:50%">50%</span><span style="left:100%">100%</span></div><span></span></div>
+      </div>
+
+      <div class="panel">
+        <div><h3>What a miss looks like</h3><p class="small muted">Verbatim from the blind-set hard fails: emergencies the precare keyword screen did not recognise.</p></div>
+        <div class="misses" id="misses"></div>
+        <p class="small"><b>Precare red flags are the most serious gap.</b> Across three blind sets the keyword screen caught 2 of 24 emergencies written in new words, so the patient did not get the fixed 999 reply. In the other five journeys a miss means a missing item while the clinic's own process carries on; no run anywhere closed, downgraded or reassured.</p>
+      </div>
+
+      <div class="panel full">
+        <div><h3>Loops closed on time, with and without the journeys</h3><p class="small muted">Share of journey runs where the simulated doctor acted before the loop was due (3 clinic setups × seeds 1–3). Hover a dot for the count. Where only two dots show, no harness and the rules engine score the same. Insurance includes its 30 blind scenarios, which is why it sits lower.</p></div>
+        <div class="legend" id="legend-base"></div>
+        <div class="chart" id="chart-base" role="img" aria-label="Closed on time: no harness, rules engine, journey suite"></div>
+        <div class="axis"><span></span><div class="ticks"><span style="left:0">0%</span><span style="left:25%">25%</span><span style="left:50%">50%</span><span style="left:75%">75%</span><span style="left:100%">100%</span></div><span></span></div>
+        <details><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Show as a table</summary><div class="tablewrap"><table class="t" id="table-base"></table></div></details>
+      </div>
+
+      <div class="panel">
+        <div><h3>What holds by construction</h3><p class="small muted">Checked on every item in every run. Any one is a hard fail and fails the gate.</p></div>
+        <ul class="clean">
+          <li>A quote that is not word for word in the record it cites</li>
+          <li>Citing a record the engine could not have seen</li>
+          <li>An item on the wrong patient (namesakes, misfiled faxes)</li>
+          <li>An item with no evidence</li>
+          <li>Any attempt to lower urgency</li>
+          <li>Saying "all clear" while a feed is down</li>
+        </ul>
+        <p class="small muted">The engine's interface has four writes: open an item, raise urgency, raise an alarm, attest it is not blind. There is no close, dismiss, downgrade or reassure to call. A deliberately broken copy of the engine is run in CI to prove each check fires; the same seed gives the same world, so any change in a number is the change itself.</p>
+      </div>
+
+      <div class="panel">
+        <div><h3>Core follow-up loops, a full simulated year</h3><p class="small muted">Harm-weighted missed loops per 1,000 patient-years (lower is better), seeds 1–3.</p></div>
+        <div class="tablewrap"><table class="t" id="table-core"></table></div>
+        <p class="small muted">Seven loop families (abnormal results, tests never resulted, follow-up recommended, positive screens, referrals, drug monitoring, planned reviews) plus 27 authored traps. 0 hard fails in every cell.</p>
+      </div>
+
+      <div class="panel callout teal full">
+        <p class="eyebrow">What fixes it, and how we'll know</p>
+        <ul class="clean">
+          <li><b>One shared model reader</b> under every journey. It can only add findings or raise urgency, never remove or lower; any field without a verbatim quote is dropped; outputs are cached by prompt version, model and document hash so runs replay exactly. Built, <b>not yet measured</b>.</li>
+          <li><b>Score it the same way:</b> the same blind sets, plus a held-out set written by a clinician who has not seen the engine. Until then every pass rate here is an upper bound.</li>
+          <li><b>Shadow mode at one EC clinic</b> before any patient-facing use: the engine reads, nobody acts on it, and its list is compared with what the doctors did.</li>
+          <li><b>Not yet done for production:</b> clinical safety case and hazard log, privacy impact assessment (PDPO), security review and penetration test, monitoring and on-call, usability testing with EC doctors, an adapter for EC's EMR.</li>
+        </ul>
+      </div>
+
+      <div class="panel full">
+        <details><summary style="cursor:pointer;font-weight:600">Reproduce these numbers</summary>
+<pre class="code">cd loopbench
+PYTHONPATH=src pytest -q &amp;&amp; (cd ../harness &amp;&amp; python -m pytest -q)
+PYTHONPATH=src python scripts/scoreboard.py --seeds 1 2 3                     # core suite gate
+PYTHONPATH=src python scripts/journey_eval.py --journey all --seeds 1 2 3     # journey gate
+PYTHONPATH=src python scripts/eval_report.py                                  # writes reports/EVAL_REPORT.md</pre>
+        <p class="small muted" style="margin-top:8px">Full report: <code>reports/EVAL_REPORT.md</code> in LoopBench (suite branch), generated 12 Nov 2026 from committed results.</p>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">tmrw · A demo prepared for EC Healthcare, not an EC service. Every patient, clinic, insurer and message on this page is synthetic. Items are shown as the engine's journeys open them on LoopBench scenarios; the reasoning text is written for this page, and every quote is checked word for word against the record beside it.</div></footer>
+
+<div class="toast" id="toast" role="status"></div>
+<div class="tip" id="tip" role="tooltip"></div>
+<div class="tour" id="tour" role="dialog" aria-label="Tour"><div class="tn"><span id="tour-n"></span><button class="sk" type="button" id="tour-skip">Skip</button></div><div id="tour-t"></div><div><button type="button" id="tour-next">Next</button></div></div>
+
+<script type="application/json" id="suite-data">
+{
+  "synthetic": true,
+  "doctor": "Dr Chan",
+  "clinic": "Harbourview Family Clinic",
+  "journeys": {
+    "precare":      {"name": "Before the visit", "stage": "before", "watches": "Booked appointments. An automated line confirms who the patient is, asks consent, collects why they're coming, their medicines and allergies in their own words, and sends the clinic's fixed preparation instructions.", "reaches": "A brief for every visit; a question only a doctor can answer; a possible emergency gets the fixed 999 reply and pages you.", "dev": [40, 40], "blind": [30, 60], "ontime": [828, 900], "rules": [0, 900], "none": [0, 900]},
+    "followup":     {"name": "Day-3 check-in", "stage": "after", "watches": "The check-in the signed plan asked for, on the care line. Cantonese and English, with negation handled.", "reaches": "Every reply: better is routine and waits for you to close, worse is same-day, a red flag pages you. Silence after 48 hours is routine.", "dev": [10, 10], "blind": [3, 10], "ontime": [170, 174], "rules": [0, 174], "none": [0, 174]},
+    "post_checkup": {"name": "Health-check results", "stage": "after", "watches": "Every health check from its consultation note, with that day's labs and imaging tied to it.", "reaches": "When every report is back and nobody has gone through them with the patient after two open days. New findings in a well patient are raised.", "dev": [18, 18], "blind": [7, 10], "ontime": [225, 246], "rules": [115, 246], "none": [27, 246]},
+    "medication":   {"name": "Medicine changes and repeats", "stage": "after", "watches": "Messages after a medicine is started, stopped or changed; repeat requests; dispensing against the chart.", "reaches": "Side effects ranked by the medicine's class, confusion and self-stopping; repeats with their flags. The agent never approves a repeat.", "dev": [33, 33], "blind": [2, 12], "ontime": [393, 393], "rules": [27, 393], "none": [27, 393]},
+    "followon":     {"name": "Hospital and specialist", "stage": "elsewhere", "watches": "Discharge and A&E summaries, specialist letters and HA SOPC bookings, whether from eHealth, fax or paper.", "reaches": "One item per document, with the hospital's asks quoted: reviews, repeat tests, medicine changes, an urgent referral booked too late.", "dev": [17, 17], "blind": [6, 11], "ontime": [240, 240], "rules": [54, 240], "none": [45, 240]},
+    "insurance":    {"name": "Insurer paperwork", "stage": "elsewhere", "watches": "Claim forms, pre-authorisations, report requests and claim decisions landing in the clinic system.", "reaches": "The form to the doctor who is working, with the insurer's deadline quoted, raised two working days before it lapses.", "dev": [19, 19], "blind": [9, 30], "ontime": [324, 441], "rules": [72, 441], "none": [72, 441]}
+  },
+  "items": [
+    {"id": "tse", "journey": "precare", "urgency": 4, "time": "08:12", "status": "Paged 08:12",
+     "patient": {"en": "TSE Kwok Wah", "zh": "謝國華", "age": 58},
+     "line": "Booked Thursday for a BP review. Chest tightness on exertion in the intake.",
+     "why": "Mr Tse is booked on Thursday for a blood pressure review. In the pre-visit intake he described chest tightness walking uphill that started last week. The line sent him the fixed 999 reply, stopped the questions, and paged you.",
+     "source": {"kind": "chat", "label": "His reply to \"What would you like to see the doctor about?\" · Mon 08:11", "text": "chest tightness when I walk uphill, started last week"},
+     "quotes": ["chest tightness when I walk uphill", "started last week"],
+     "context": {"label": "Booking", "text": "Thu 17 Jun 10:30 · Dr Chan · Chronic review (hypertension) · no tests booked"},
+     "trace": [["source", "Pre-visit intake on the care line, his own words, Mon 08:11."], ["identity", "Name and date of birth matched the booking before any question was asked."], ["finding", "Exertional chest tightness, new in the last week."], ["context", "Known hypertension, booked for a routine review in three days."], ["assessment", "Emergency screen: chest symptom on exertion. Urgency 4. The agent makes no diagnosis."], ["loop status", "Open. Fixed 999 / A&E reply sent at 08:11; intake questions stopped."], ["routing", "Dr Chan, the booked doctor. Paged 08:12."], ["request", "Call him today and decide whether Thursday is soon enough."]],
+     "did": [["Sent the fixed 999 / A&E reply (approved template, not free text)", "08:11"], ["Opened the item at urgency 4", "08:12"], ["Paged Dr Chan", "08:12"]],
+     "sent": {"zh": "你講嘅情況可能需要即時處理。如果而家心口痛或者唞唔到氣，請即刻打999或者去急症室。醫生會盡快聯絡你。", "en": "What you describe may need urgent care. If you have chest pain or trouble breathing now, call 999 or go to A&E. Your doctor will contact you soon."},
+     "actions": ["call", "book"]},
+
+    {"id": "lau", "journey": "medication", "urgency": 4, "time": "07:40", "status": "Paged 07:40",
+     "patient": {"en": "LAU Chi Keung", "zh": "劉志強", "age": 71},
+     "line": "Black stools and dizziness six days after starting warfarin.",
+     "why": "Mr Lau started warfarin six days ago. This morning he wrote that his stools are black and he feels dizzy when he stands. On a new anticoagulant that can be a bleed, so the item opened at the top and you were paged.",
+     "source": {"kind": "chat", "label": "WhatsApp to the care line · Mon 07:38", "text": "since yesterday my poo is black and I feel dizzy when I stand up"},
+     "quotes": ["my poo is black", "I feel dizzy when I stand up"],
+     "context": {"label": "Consultation note, Tue 8 Jun · Dr Chan", "text": "A: AF, CHA2DS2-VASc 3. P: Start warfarin 3mg daily. INR in 5 days."},
+     "context_quotes": ["Start warfarin 3mg daily"],
+     "trace": [["source", "His message on the care line, Mon 07:38."], ["identity", "The chat he joined with his visit code on 8 Jun."], ["finding", "Black stools since yesterday; dizzy on standing."], ["context", "Warfarin started 8 Jun for atrial fibrillation. INR due, not yet resulted."], ["assessment", "Medicine-class rule: possible bleed on a new anticoagulant. Urgency 4."], ["loop status", "Open. The INR from Sunday has not come back."], ["routing", "Dr Chan, who started the medicine. Paged 07:40."], ["request", "Call him now. The agent has not told him to stop or continue anything."]],
+     "did": [["Opened the item at urgency 4", "07:40"], ["Paged Dr Chan", "07:40"]],
+     "draft": {"zh": "劉生，我係陳醫生。請你即刻打999或者去急症室。我會打電話畀你。", "en": "Mr Lau, this is Dr Chan. Please call 999 or go to A&E now. I'll call you."},
+     "actions": ["call", "reply"]},
+
+    {"id": "kwok", "journey": "followup", "urgency": 3, "time": "Sun 10:06", "status": "Alerted Sun 10:06",
+     "patient": {"en": "KWOK Siu Fung", "zh": "郭小鳳", "age": 34},
+     "line": "Day-3 reply: worse, short of breath on stairs, fever 38.5.",
+     "why": "Ms Kwok's day-3 reply said she was worse: short of breath on the stairs and a fever of 38.5 overnight. A fixed rule sent her to A&E in four seconds. The item has been waiting since Sunday for you to check she was seen.",
+     "source": {"kind": "chat", "label": "Her reply to the day-3 check-in · Sun 13 Jun 10:05", "text": "仲差咗，行樓梯有啲氣促，琴晚發燒 38.5。"},
+     "quotes": ["行樓梯有啲氣促", "琴晚發燒 38.5"],
+     "context": {"label": "Signed plan, Thu 10 Jun · Dr Chan", "text": "如果發燒超過三日、氣促，或者一個星期都未好，返嚟睇醫生。"},
+     "context_quotes": ["氣促"],
+     "trace": [["source", "Her WhatsApp reply to the check-in her plan asked for, Sun 10:05."], ["identity", "Same chat she joined with visit code HFC-0610-23; date of birth confirmed at the desk."], ["finding", "Short of breath on exertion and a new fever of 38.5."], ["context", "Acute bronchitis on 10 Jun, no antibiotics. Her plan says to come back if this happens."], ["assessment", "Red-flag rule: breathlessness with new fever after a chest infection. Raised to same-day."], ["loop status", "Open. Fixed reply sent her to A&E and to call 999 if breathing gets hard. No reply since."], ["routing", "Dr Chan, her doctor for the visit. Alerted Sun 10:06."], ["request", "Check she was seen, then close it."]],
+     "did": [["Sent the fixed red-flag reply", "Sun 10:05"], ["Opened the item", "Sun 10:06"], ["Raised urgency to same-day", "Sun 10:06"], ["Alerted Dr Chan", "Sun 10:06"]],
+     "actions": ["call", "reply"]},
+
+    {"id": "mak", "journey": "medication", "urgency": 3, "time": "09:02", "status": "Raised 09:02",
+     "patient": {"en": "MAK Wing Hong", "zh": "麥永康", "age": 52},
+     "line": "New rash and mouth sores ten days into allopurinol.",
+     "why": "Mr Mak started allopurinol ten days ago. He now has a widespread itchy rash and a sore mouth. A rash alone is common, but this is the window for a severe reaction to allopurinol, so the item is same-day.",
+     "source": {"kind": "chat", "label": "WhatsApp to the care line · Mon 09:01", "text": "身上出咗好多紅疹，好痕，今日個口都有啲爛"},
+     "quotes": ["身上出咗好多紅疹", "個口都有啲爛"],
+     "context": {"label": "Consultation note, Fri 4 Jun · Dr Chan", "text": "S: 3rd gout flare this yr. Urate 0.56. A: recurrent gout. P: Start allopurinol 100mg daily, colchicine cover. Urate in 4/52."},
+     "context_quotes": ["Start allopurinol 100mg daily"],
+     "trace": [["source", "His message on the care line, Mon 09:01."], ["identity", "The chat he joined after the 4 Jun visit."], ["finding", "Widespread itchy rash; mouth sores today."], ["context", "Allopurinol started 4 Jun, ten days ago."], ["assessment", "Medicine-class rule: new rash in the first weeks of allopurinol. Urgency 3."], ["loop status", "Open."], ["routing", "Dr Chan, who started the medicine."], ["request", "Decide today. The agent has not told him to stop the medicine."]],
+     "did": [["Opened the item", "09:02"], ["Raised urgency to same-day", "09:02"]],
+     "draft": {"zh": "麥生，我係陳醫生。請你今日返嚟診所俾我睇睇。如果口、眼或者皮膚起水泡，請即刻去急症室。", "en": "Mr Mak, this is Dr Chan. Please come to the clinic today so I can see you. If you get blisters on your mouth, eyes or skin, go to A&E now."},
+     "actions": ["call", "reply", "book"]},
+
+    {"id": "wong", "journey": "followon", "urgency": 2, "time": "06:30", "status": "Opened 06:30",
+     "patient": {"en": "WONG Siu Fong", "zh": "黃小芳", "age": 78},
+     "line": "Discharged with new heart failure. Asks for a 1-week review and repeat RFT.",
+     "why": "Mrs Wong was discharged on Saturday with a new diagnosis of heart failure and two new medicines. The hospital asks you to see her in a week and repeat her kidney tests because a diuretic was started. It arrived through eHealth, which nobody at the clinic checks daily.",
+     "source": {"kind": "doc", "label": "Discharge summary · eHealth · pulled Mon 06:30", "text": "Diagnosis: Congestive heart failure, new diagnosis (LVEF 35%)\nPlease follow up with family doctor in 1 week: check weight and BP, and repeat RFT (renal function and potassium) in 1 week as furosemide was started.\nMedicines on discharge: Furosemide 40mg daily (NEW); Bisoprolol 1.25mg daily (NEW); Atorvastatin 20mg nocte."},
+     "quotes": ["follow up with family doctor in 1 week", "repeat RFT (renal function and potassium) in 1 week as furosemide was started", "Furosemide 40mg daily (NEW)"],
+     "trace": [["source", "Discharge summary from eHealth, pulled Mon 06:30."], ["identity", "Name, HKID and date of birth on the summary match her chart."], ["finding", "Review in 1 week; repeat RFT in 1 week; two new medicines."], ["context", "Her son called on 2 Jun to say she'd been admitted, which put her on a daily eHealth pull."], ["assessment", "Hospital asks the family doctor to act. Urgency 2: due within a week."], ["loop status", "Open. No review or blood test booked yet."], ["routing", "Dr Chan, her usual doctor."], ["request", "Book the review and the RFT before Sat 19 Jun."]],
+     "did": [["Watched eHealth daily after the admission call", "2 Jun"], ["Opened the item", "06:30"]],
+     "actions": ["call", "book"]},
+
+    {"id": "ho", "journey": "insurance", "urgency": 2, "time": "08:00", "status": "Raised 08:00",
+     "patient": {"en": "HO Chun Kit", "zh": "何俊傑", "age": 48},
+     "line": "Claim form due back Wednesday. Raised two working days before it lapses.",
+     "why": "Mr Ho's insurer needs his claim form back by Wednesday or the claim is refused. It has been in the tray since Friday. The item was raised this morning, two working days before the deadline.",
+     "source": {"kind": "doc", "label": "Claim form · Pacific Shield Assurance (fictional) · filed Fri 11 Jun", "text": "PACIFIC SHIELD ASSURANCE\nAttending Physician's Statement\nName: HO, Chun Kit   DOB 30/01/1979\nAttending doctor: Dr CHAN\nPlease return the completed form to us by 16/06/2027."},
+     "quotes": ["Please return the completed form to us by 16/06/2027."],
+     "trace": [["source", "Insurer form, scanned into his chart Fri 11 Jun."], ["identity", "Name and date of birth on the form match his chart."], ["finding", "Attending physician's statement, not yet completed."], ["context", "Visit on 9 Jun for back pain."], ["assessment", "Insurer paperwork with a hard deadline. Routine at first; raised two working days before it lapses."], ["loop status", "Open. Not completed or returned."], ["routing", "Dr Chan, the attending doctor, who is working today."], ["request", "Complete and return the form by Wed 16 Jun."]],
+     "did": [["Opened the item", "Fri 11 Jun"], ["Raised urgency", "08:00"]],
+     "actions": ["form"]},
+
+    {"id": "yip", "journey": "post_checkup", "urgency": 2, "time": "Fri 17:00", "status": "Opened Fri",
+     "patient": {"en": "YIP Hoi Yan", "zh": "葉凱欣", "age": 46},
+     "line": "Health check: HbA1c 7.6 in a well patient. Nobody has called her.",
+     "why": "Ms Yip came for a health check two weeks ago. Every report is back. Her HbA1c and fasting glucose are in the diabetes range and she has no earlier result here, so this is a new finding. Nobody has gone through the results with her.",
+     "source": {"kind": "doc", "label": "Lab report · Harbourview Lab (fictional) · Wed 9 Jun", "text": "HEALTH CHECK PANEL\nHbA1c 7.6 % (4.0-6.0) H\nGlucose (fasting) 8.4 mmol/L (3.9-5.6) H\nLDL cholesterol 2.9 mmol/L (<3.4)\nALT 22 U/L (<35)"},
+     "quotes": ["HbA1c 7.6 %", "Glucose (fasting) 8.4 mmol/L"],
+     "trace": [["source", "Lab report filed Wed 9 Jun, tied to the health check on 1 Jun."], ["identity", "Report header matches her chart."], ["finding", "HbA1c 7.6 %, fasting glucose 8.4: both above range."], ["context", "No earlier HbA1c in her chart. Chest X-ray from the same check is normal."], ["assessment", "New finding in a well patient: raised to at least 'soon'."], ["loop status", "Open. No call or results visit after two open days."], ["routing", "Dr Chan, who did the health check."], ["request", "Go through the whole report with her. A fixed message you can send is ready below."]],
+     "did": [["Waited for every report", "9 Jun"], ["Opened the item after two open days", "Fri 17:00"], ["Raised urgency (new finding)", "Fri 17:00"]],
+     "draft": {"zh": "葉小姐，我係陳醫生。你身體檢查嘅報告已經出咗，我想同你一齊睇吓。請你預約返嚟見我。", "en": "Ms Yip, this is Dr Chan. Your health-check results are back and I'd like to go through them with you. Please book a time to see me."},
+     "actions": ["reply", "book"]},
+
+    {"id": "leung", "journey": "precare", "urgency": 2, "time": "Sat 15:20", "status": "Due before Wed 09:00",
+     "patient": {"en": "LEUNG Wai Kit", "zh": "梁偉傑", "age": 66},
+     "line": "Fasting bloods Wednesday, on metformin. Needs your word on the morning dose.",
+     "why": "Mr Leung is booked for a diabetes review with fasting bloods on Wednesday. He takes metformin. Whether to change a glucose-lowering medicine before a fasting test is a doctor's call, so the line didn't answer it and put it here, due before the visit.",
+     "source": {"kind": "chat", "label": "His reply to \"What medicines do you take?\" · Sat 15:19", "text": "Metformin 500mg twice a day and amlodipine 5mg"},
+     "quotes": ["Metformin 500mg twice a day"],
+     "context": {"label": "Booking", "text": "Wed 16 Jun 09:30 · Dr Chan · Chronic review (diabetes) · fasting glucose, lipids"},
+     "context_quotes": ["fasting glucose"],
+     "trace": [["source", "Pre-visit intake, his own words, Sat 15:19."], ["identity", "Name and date of birth matched the booking."], ["finding", "On metformin; fasting test booked."], ["context", "Penicillin allergy (rash), quoted in his brief."], ["assessment", "Glucose-lowering medicine with a fasting test: a question only a doctor answers."], ["loop status", "Open. The fixed preparation sent says not to change medicines without the doctor."], ["routing", "Dr Chan, the booked doctor."], ["request", "Tell him what to do with Wednesday's morning dose."]],
+     "did": [["Sent the clinic's fixed fasting instructions", "Sat 15:20"], ["Opened a question for the doctor", "Sat 15:20"]],
+     "actions": ["reply"]},
+
+    {"id": "chow", "journey": "medication", "urgency": 2, "time": "10:15", "status": "Opened 10:15",
+     "patient": {"en": "CHOW Yuk Lan", "zh": "周玉蘭", "age": 67},
+     "line": "Repeat amlodipine requested. Last BP review 14 months ago.",
+     "why": "Mrs Chow asked for her blood pressure tablets again; she runs out on Friday. Her last review was 14 months ago, so the request carries a flag. The agent never approves a repeat; it's yours to decide.",
+     "source": {"kind": "chat", "label": "WhatsApp to the care line · Mon 10:14", "text": "醫生，我嘅血壓藥amlodipine就嚟食晒，星期五冇得食，可唔可以再拎？"},
+     "quotes": ["血壓藥amlodipine就嚟食晒"],
+     "context": {"label": "Chart", "text": "Amlodipine 5mg daily · last BP review 14 Apr 2026 · last dispensed 20 Mar 2027 (90 days)"},
+     "context_quotes": ["last BP review 14 Apr 2026"],
+     "trace": [["source", "Her message on the care line, Mon 10:14."], ["identity", "Her registered number and chart."], ["finding", "Repeat request for amlodipine; supply ends Friday."], ["context", "Last BP review 14 months ago."], ["assessment", "Repeat with a flag: no review in a year. Routine; raised if still undecided when supply ends."], ["loop status", "Open."], ["routing", "Dr Chan, her usual doctor."], ["request", "Approve, approve with a review, or ask her in."]],
+     "did": [["Matched 'amlodipine' to her chart", "10:15"], ["Opened the repeat with its flag", "10:15"]],
+     "actions": ["reply", "book"]},
+
+    {"id": "ng", "journey": "followup", "urgency": 1, "time": "Sun 18:40", "status": "Waiting for you",
+     "patient": {"en": "NG Ka Yee", "zh": "吳嘉儀", "age": 29},
+     "line": "Day-3 reply: much better, no more cough. Waiting for you to close.",
+     "why": "Ms Ng says she's much better. Good news still goes to a doctor: nothing closes by itself, and the agent never tells a patient she's fine.",
+     "source": {"kind": "chat", "label": "Her reply to the day-3 check-in · Sun 18:39", "text": "好返好多，唔咳喇，多謝醫生"},
+     "quotes": ["好返好多，唔咳喇"],
+     "trace": [["source", "Her WhatsApp reply to the day-3 check-in, Sun 18:39."], ["identity", "Same chat she joined at the desk."], ["finding", "Better; cough gone."], ["context", "Viral URTI on 10 Jun; plan asked for a day-3 check."], ["assessment", "Better: routine."], ["loop status", "Open until a doctor closes it."], ["routing", "Dr Chan."], ["request", "Glance and close."]],
+     "did": [["Opened the item", "Sun 18:40"]],
+     "actions": ["reply"]}
+  ],
+  "eval": {
+    "generated": "12 Nov 2026",
+    "dev_reliable": [137, 137],
+    "blind_first_run": [57, 133],
+    "gated_hard_fails": 0,
+    "made_up_quotes": 0,
+    "runs": 2394,
+    "blind_hard_fails": 162,
+    "precare_blind_emergencies": [2, 24],
+    "misses": [
+      {"text": "pain in my calf and now I'm suddenly short of air", "what": "Possible clot to the lung · precare"},
+      {"text": "there's a lot of blood when I cough", "what": "Coughing blood · precare"},
+      {"text": "my wife says I'm not making sense and my words are coming out wrong", "what": "Possible stroke · precare"},
+      {"text": "今朝突然睇唔到嘢，一邊眼黑咗", "what": "Sudden loss of vision · precare"}
+    ],
+    "core": [
+      ["Solo GP, ClinicSolution X", 192.4, 16.7, 15.8, 14.2],
+      ["Solo GP, Apricot VITA", 192.4, 24.5, 23.6, 22.0],
+      ["Group practice, Apricot VITA", 224.5, 27.5, 27.3, 24.7]
+    ]
+  }
+}
+</script>
+<script>
+(function () {
+  'use strict';
+  var D = JSON.parse(document.getElementById('suite-data').textContent);
+  var J = D.journeys, ORDER = ['precare', 'followup', 'post_checkup', 'medication', 'followon', 'insurance'];
+  var U = {4: ['u4', 'Page now'], 3: ['u3', 'Today'], 2: ['u2', 'This week'], 1: ['u1', 'Routine']};
+  var ACT = {call: 'Call', reply: 'Reply', book: 'Book a visit', form: 'Complete the form'};
+  var DONE = {call: 'Called', reply: 'Replied', book: 'Booked', form: 'Form completed'};
+  var state = {filter: 'all', cur: null, acted: {}, closed: {}, log: {}};
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+  function pct(a) { return Math.round(100 * a[0] / a[1]); }
+  function toast(msg) { var t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(function () { t.classList.remove('on'); }, 2200); }
+
+  // Wrap each quote where it occurs in the text. Quotes are verbatim by construction (tested); a missing one is shown, not hidden.
+  function highlight(text, quotes) {
+    var spans = [];
+    (quotes || []).forEach(function (q) { var i = text.indexOf(q); if (i >= 0) spans.push([i, i + q.length]); });
+    spans.sort(function (a, b) { return a[0] - b[0]; });
+    var out = '', at = 0;
+    spans.forEach(function (s) { if (s[0] < at) return; out += esc(text.slice(at, s[0])) + '<mark>' + esc(text.slice(s[0], s[1])) + '</mark>'; at = s[1]; });
+    return out + esc(text.slice(at));
+  }
+
+  /* ---------- Today ---------- */
+  var items = D.items.slice().sort(function (a, b) { return b.urgency - a.urgency; });
+  function visible() { return items.filter(function (it) { return state.filter === 'all' || it.journey === state.filter; }); }
+
+  function renderChips() {
+    var html = '<button class="chip" aria-pressed="' + (state.filter === 'all') + '" data-f="all">All</button>';
+    ORDER.forEach(function (k) {
+      var n = items.filter(function (it) { return it.journey === k; }).length;
+      html += '<button class="chip" aria-pressed="' + (state.filter === k) + '" data-f="' + k + '">' + esc(J[k].name) + ' · ' + n + '</button>';
+    });
+    $('#chips').innerHTML = html;
+  }
+  function renderList() {
+    // open items grouped by urgency, closed items last
+    var vis = visible(), html = '';
+    var open = vis.filter(function (it) { return !state.closed[it.id]; }), shut = vis.filter(function (it) { return state.closed[it.id]; });
+    [4, 3, 2, 1].forEach(function (u) {
+      var g = open.filter(function (it) { return it.urgency === u; });
+      if (!g.length) return;
+      html += '<div class="group"><span>' + U[u][1] + '</span><span>' + g.length + '</span></div>';
+      g.forEach(function (it) { html += row(it); });
+    });
+    if (shut.length) { html += '<div class="group"><span>Closed by you</span><span>' + shut.length + '</span></div>'; shut.forEach(function (it) { html += row(it); }); }
+    if (!vis.length) html = '<p class="muted small" style="padding:16px">Nothing here.</p>';
+    $('#items').innerHTML = html;
+    var openAll = items.filter(function (it) { return !state.closed[it.id]; });
+    var pages = openAll.filter(function (it) { return it.urgency === 4; }).length;
+    $('#counts').innerHTML = '<b>' + openAll.length + '</b> open · <b>' + pages + '</b> paged';
+  }
+  function row(it) {
+    var p = it.patient;
+    return '<button class="it ' + U[it.urgency][0] + (state.closed[it.id] ? ' closed' : '') + '" data-id="' + it.id + '" aria-current="' + (state.cur === it.id) + '">' +
+      '<span class="dot" aria-hidden="true"></span><span class="nm">' + esc(p.en) + ' <span class="zh muted" style="font-weight:500">' + esc(p.zh) + '</span></span><span class="tm">' + esc(it.time) + '</span>' +
+      '<span class="ln">' + esc(it.line) + '</span><span class="jt">' + esc(J[it.journey].name) + '</span></button>';
+  }
+
+  function renderDetail() {
+    var it = items.filter(function (x) { return x.id === state.cur; })[0];
+    if (!it) { $('#detail').innerHTML = '<p class="muted">Pick an item.</p>'; return; }
+    var p = it.patient, closed = state.closed[it.id], acted = state.acted[it.id] || {};
+    var pill = closed ? '<span class="pill done">Closed by ' + esc(D.doctor) + ' · ' + esc(closed) + '</span>' : '<span class="pill ' + U[it.urgency][0] + '">' + (it.urgency === 4 ? 'Urgency 4 · ' : '') + esc(it.status) + '</span>';
+    var src = it.source, h = '';
+    h += '<div class="dh"><div class="meta">' + pill + '<span class="jname">' + esc(J[it.journey].name) + '</span></div>' +
+      '<h2>' + esc(p.en) + ' · <span class="zh">' + esc(p.zh) + '</span>, ' + p.age + '</h2><p class="why">' + esc(it.why) + '</p></div>';
+    h += '<div class="grid2"><div style="display:grid;gap:16px;align-content:start">';
+    h += '<div class="card" id="evidence-card"><h3>The evidence</h3><div class="doc' + (src.kind === 'chat' ? ' chat' : '') + '"><span class="lbl">' + esc(src.label) + '</span>' + highlight(src.text, it.quotes) + '</div>';
+    if (it.context) h += '<div class="doc"><span class="lbl">' + esc(it.context.label) + '</span>' + highlight(it.context.text, it.context_quotes) + '</div>';
+    var nq = (it.quotes || []).length + (it.context_quotes || []).length;
+    h += '<p class="qnote"><span class="ok" aria-hidden="true">✓</span>' + nq + ' highlighted quote' + (nq === 1 ? '' : 's') + ', each checked word for word against the record before it reached you.</p></div>';
+    if (it.sent) h += '<div class="card"><h3>Fixed reply already sent</h3><div class="draft"><span class="zh">' + esc(it.sent.zh) + '</span><span class="muted">' + esc(it.sent.en) + '</span></div><p class="small muted">An approved template, sent the moment the screen fired. The line writes no free text and gives no advice.</p></div>';
+    if (it.draft) h += '<div class="card"><h3>Suggested reply · you send it</h3><div class="draft"><span class="zh">' + esc(it.draft.zh) + '</span><span class="muted">' + esc(it.draft.en) + '</span></div><p class="small muted">Nothing goes to the patient unless you send it, in your name.</p></div>';
+    h += '<div class="card"><h3>How it got here</h3><div class="trace">';
+    it.trace.forEach(function (s, i) { h += '<details' + '' + '><summary><span class="k">' + esc(s[0]) + '</span><span>' + esc(s[1]) + '</span></summary></details>'; });
+    h += '</div></div></div>';
+    h += '<div style="display:grid;gap:16px;align-content:start"><div class="card" id="authority-card"><h3>What the agent did</h3><div class="did">';
+    it.did.forEach(function (d) { h += '<div class="row"><span class="ic yes" aria-hidden="true">✓</span><span>' + esc(d[0]) + '</span><span class="t">' + esc(d[1]) + '</span></div>'; });
+    (state.log[it.id] || []).forEach(function (d) { h += '<div class="row"><span class="ic dr" aria-hidden="true">✓</span><span>' + esc(d[0]) + '</span><span class="t">' + esc(d[1]) + '</span></div>'; });
+    h += '</div><h3 style="margin-top:6px">What it cannot do</h3><div class="cant"><span>Close it</span><span>Dismiss it</span><span>Lower its urgency</span><span>Tell the patient they’re fine</span><span>Diagnose or prescribe</span></div></div>';
+    h += '<div class="card" id="action-card"><h3>Your move</h3><div class="actions" style="border:0;padding:0">';
+    it.actions.forEach(function (a) { h += '<button class="btn ghost" type="button" data-act="' + a + '" aria-pressed="' + !!acted[a] + '"' + (closed ? ' disabled' : '') + '>' + (acted[a] ? '✓ ' + DONE[a] : ACT[a]) + '</button>'; });
+    var anyActed = Object.keys(acted).length > 0;
+    h += '<button class="btn" type="button" data-act="close" ' + (closed || !anyActed ? 'disabled' : '') + ' title="' + (anyActed ? 'Close the item' : 'Act on it first') + '">' + (closed ? 'Closed' : 'Close item') + '</button></div>';
+    h += '<p class="small muted">' + (closed ? 'Closed by ' + esc(D.doctor) + ' at ' + esc(closed) + '. The record keeps who closed it and why.' : anyActed ? 'Ready to close when you are.' : 'Only a doctor closes an item, after acting on it.') + '</p></div></div></div>';
+    $('#detail').innerHTML = h;
+  }
+
+  function now() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function act(a) {
+    var it = items.filter(function (x) { return x.id === state.cur; })[0];
+    if (!it || state.closed[it.id]) return;
+    if (a === 'close') {
+      if (!state.acted[it.id] || !Object.keys(state.acted[it.id]).length) { toast('Act on it first. Only a doctor closes, after acting.'); return; }
+      state.closed[it.id] = now();
+      (state.log[it.id] = state.log[it.id] || []).push(['Closed by ' + D.doctor, state.closed[it.id]]);
+      toast('Closed. ' + it.patient.en + ' is off your list.');
+      var next = visible().filter(function (x) { return !state.closed[x.id]; })[0];
+      renderList(); if (next) select(next.id); else renderDetail();
+      return;
+    }
+    if (it.actions.indexOf(a) < 0) return;
+    (state.acted[it.id] = state.acted[it.id] || {})[a] = true;
+    (state.log[it.id] = state.log[it.id] || []).push([DONE[a] + ' by ' + D.doctor, now()]);
+    toast(DONE[a] + '. You can close it now.');
+    renderDetail();
+  }
+  function select(id, tapped) { state.cur = id; renderList(); renderDetail(); var b = $('.it[data-id="' + id + '"]'); if (b && b.scrollIntoView) b.scrollIntoView({block: 'nearest'}); if (tapped && window.innerWidth <= 960) $('#detail').scrollIntoView({block: 'start', behavior: 'smooth'}); }
+  function move(d) { var v = visible(), i = v.map(function (x) { return x.id; }).indexOf(state.cur); var n = v[Math.max(0, Math.min(v.length - 1, i + d))]; if (n) select(n.id); }
+
+  $('#chips').addEventListener('click', function (e) { var b = e.target.closest('[data-f]'); if (!b) return; state.filter = b.dataset.f; renderChips(); var v = visible(); if (v.length && !v.some(function (x) { return x.id === state.cur; })) state.cur = v[0].id; renderList(); renderDetail(); });
+  $('#items').addEventListener('click', function (e) { var b = e.target.closest('[data-id]'); if (b) select(b.dataset.id, true); });
+  $('#detail').addEventListener('click', function (e) { var b = e.target.closest('[data-act]'); if (b && !b.disabled) act(b.dataset.act); });
+  document.addEventListener('keydown', function (e) {
+    if (e.target.closest('input,textarea') || e.metaKey || e.ctrlKey || e.altKey || !$('#view-today').classList.contains('on')) return;
+    var k = e.key.toLowerCase();
+    if (k === 'j' || e.key === 'ArrowDown' && e.target === document.body) { move(1); e.preventDefault(); }
+    else if (k === 'k' || e.key === 'ArrowUp' && e.target === document.body) { move(-1); e.preventDefault(); }
+    else if (k === 'c') act('call'); else if (k === 'r') act('reply'); else if (k === 'x') act('close');
+  });
+
+  /* ---------- Journeys ---------- */
+  function renderJourneys() {
+    var stages = [['before', 'Before the visit'], ['after', 'After the visit'], ['elsewhere', 'From elsewhere']], h = '';
+    stages.forEach(function (s) {
+      h += '<div class="stage"><div class="k">' + s[1] + '</div>';
+      ORDER.filter(function (k) { return J[k].stage === s[0]; }).forEach(function (k) {
+        var j = J[k], ex = items.filter(function (it) { return it.journey === k; })[0];
+        h += '<div class="panel jc"><div class="top"><h3>' + esc(j.name) + '</h3><span class="proto">Prototype</span></div>' +
+          '<p><b>Watches</b> <span class="muted">' + esc(j.watches) + '</span></p><p><b>Reaches you</b> <span class="muted">' + esc(j.reaches) + '</span></p>';
+        if (ex) h += '<p class="ex"><span class="zh">“' + esc(ex.quotes[0]) + '”</span> <span class="muted small">· ' + esc(ex.patient.en) + '</span></p>';
+        h += '<div class="stats"><span>Dev scenarios <b>' + j.dev[0] + '/' + j.dev[1] + '</b></span><span class="weak">Blind first run <b>' + j.blind[0] + '/' + j.blind[1] + '</b></span><span>On time <b>' + pct(j.ontime) + '%</b> vs <b>' + pct(j.rules) + '%</b> without</span></div>';
+        if (ex) h += '<button class="go" type="button" data-goto="' + ex.id + '">See it on today’s list →</button>';
+        h += '</div>';
+      });
+      h += '</div>';
+    });
+    $('#path').innerHTML = h;
+  }
+  $('#path').addEventListener('click', function (e) { var b = e.target.closest('[data-goto]'); if (!b) return; state.filter = 'all'; renderChips(); show('today'); select(b.dataset.goto); });
+
+  /* ---------- Evidence ---------- */
+  var tip = $('#tip');
+  function tipOn(e, txt) { tip.textContent = txt; tip.classList.add('on'); var x = Math.min(e.clientX + 12, window.innerWidth - 300); tip.style.left = x + 'px'; tip.style.top = (e.clientY + 14) + 'px'; }
+  function tipOff() { tip.classList.remove('on'); }
+  function renderEvidence() {
+    var E = D.eval;
+    $('#kpis').innerHTML =
+      kpi('Dev scenarios reliable', E.dev_reliable[0] + '/' + E.dev_reliable[1], 'Correct in every run, 3 setups × 3 seeds. Written alongside the engine: an upper bound.') +
+      kpi('Hard fails, gated', String(E.gated_hard_fails), 'No wrong patient, no unseen record, no lowered urgency on any gated scenario.') +
+      kpi('Made-up quotes', String(E.made_up_quotes), 'Across all ' + E.runs.toLocaleString('en') + ' journey runs, blind sets included.') +
+      kpi('Blind first run', pct(E.blind_first_run) + '%', E.blind_first_run[0] + ' of ' + E.blind_first_run[1] + ' unseen phrasings. ' + E.blind_hard_fails + ' hard fails, reported, not hidden.', true);
+    function kpi(k, n, d, weak) { return '<div class="panel kpi' + (weak ? ' weak' : '') + '"><span class="k">' + k + '</span><span class="n">' + n + '</span><span class="d">' + d + '</span></div>'; }
+
+    var hb = '';
+    ORDER.slice().sort(function (a, b) { return pct(J[a].blind) - pct(J[b].blind); }).forEach(function (k) {
+      var j = J[k], v = pct(j.blind);
+      hb += '<div class="crow"><span>' + esc(j.name) + '</span><div class="track" data-tip="' + esc(j.name + ': ' + j.blind[0] + ' of ' + j.blind[1] + ' blind scenarios on first run (' + v + '%). Dev set: ' + j.dev[0] + '/' + j.dev[1] + '.') + '">' +
+        '<span class="grid" style="left:50%"></span><span class="bar" style="width:' + v + '%"></span><span class="ref" style="left:calc(100% - 2px)" title="Dev set 100%"></span></div><span class="v">' + j.blind[0] + '/' + j.blind[1] + '</span></div>';
+    });
+    hb += '<div class="crow" style="border-top:1px solid var(--line);margin-top:4px;padding-top:6px"><b>All journeys</b><div class="track" data-tip="All: 57 of 133 (43%)"><span class="grid" style="left:50%"></span><span class="bar" style="width:' + pct(E.blind_first_run) + '%;background:var(--warn)"></span><span class="ref" style="left:calc(100% - 2px)"></span></div><span class="v"><b>' + pct(E.blind_first_run) + '%</b></span></div>';
+    $('#chart-blind').innerHTML = hb;
+
+    $('#misses').innerHTML = E.misses.map(function (m) { return '<div class="miss"><span class="zh">“' + esc(m.text) + '”</span><span class="w">' + esc(m.what) + '</span></div>'; }).join('');
+
+    var S = [['none', 'No harness', 'var(--s1)'], ['rules', 'Rules engine before journeys', 'var(--s2)'], ['ontime', 'With the journeys', 'var(--s3)']];
+    $('#legend-base').innerHTML = S.map(function (s) { return '<span><i style="background:' + s[2] + '"></i>' + s[1] + '</span>'; }).join('');
+    var cb = '', tb = '<thead><tr><th>Journey</th><th class="n">No harness</th><th class="n">Rules engine</th><th class="n">With journeys</th></tr></thead><tbody>';
+    ORDER.forEach(function (k) {
+      var j = J[k];
+      cb += '<div class="crow"><span>' + esc(j.name) + '</span><div class="track"><span class="ax"></span>';
+      S.forEach(function (s) { var v = pct(j[s[0]]); cb += '<span class="pt" style="left:' + v + '%;background:' + s[2] + '"></span><button class="hit" style="left:' + v + '%" aria-label="' + esc(j.name + ', ' + s[1] + ': ' + v + '%') + '" data-tip="' + esc(j.name + ' · ' + s[1] + ': ' + j[s[0]][0] + ' of ' + j[s[0]][1] + ' runs (' + v + '%)') + '"></button>'; });
+      cb += '</div><span class="v">' + pct(j.ontime) + '%</span></div>';
+      tb += '<tr><td>' + esc(j.name) + '</td>' + S.map(function (s) { return '<td class="n">' + j[s[0]][0] + '/' + j[s[0]][1] + ' (' + pct(j[s[0]]) + '%)</td>'; }).join('') + '</tr>';
+    });
+    $('#chart-base').innerHTML = cb; $('#table-base').innerHTML = tb + '</tbody>';
+
+    var tc = '<thead><tr><th>Clinic setup</th><th class="n">No harness</th><th class="n">Rules v1.0</th><th class="n">v1.1</th><th class="n">v1.1 + extractor</th></tr></thead><tbody>';
+    E.core.forEach(function (r) { tc += '<tr><td>' + esc(r[0]) + '</td>' + r.slice(1).map(function (v, i) { return '<td class="n">' + (i === 3 ? '<b>' + v.toFixed(1) + '</b>' : v.toFixed(1)) + '</td>'; }).join('') + '</tr>'; });
+    $('#table-core').innerHTML = tc + '</tbody>';
+  }
+  document.addEventListener('mousemove', function (e) { var t = e.target.closest && e.target.closest('[data-tip]'); if (t) tipOn(e, t.dataset.tip); else tipOff(); });
+  document.addEventListener('focusin', function (e) { var t = e.target.closest && e.target.closest('[data-tip]'); if (t) { var r = t.getBoundingClientRect(); tipOn({clientX: r.left, clientY: r.bottom}, t.dataset.tip); } });
+  document.addEventListener('focusout', tipOff);
+
+  /* ---------- Views ---------- */
+  function show(v) {
+    document.querySelectorAll('.seg [data-view]').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.view === v)); });
+    document.querySelectorAll('.view').forEach(function (s) { s.classList.toggle('on', s.id === 'view-' + v); });
+    if (history.replaceState) history.replaceState(null, '', '#' + v);
+    window.scrollTo(0, 0);
+  }
+  $('.seg').addEventListener('click', function (e) { var b = e.target.closest('[data-view]'); if (b) show(b.dataset.view); });
+
+  /* ---------- Tour ---------- */
+  var STEPS = [
+    ['#list', 'Everything from all six journeys lands on one list, most urgent first. Two items paged Dr Chan this morning.'],
+    ['#evidence-card', 'Every claim is a highlighted quote from the patient’s own words or the record. The page checks each one is word for word.'],
+    ['#authority-card', 'The agent can open, raise and alert. It has no button to close, dismiss, downgrade or reassure.'],
+    ['#action-card', 'Only the doctor closes, and only after acting. Try it: call, then close.']
+  ], ti = -1;
+  function tour(i) {
+    document.querySelectorAll('.spot').forEach(function (n) { n.classList.remove('spot'); });
+    var t = $('#tour');
+    if (i >= STEPS.length || i < 0) { t.classList.remove('on'); ti = -1; return; }
+    ti = i; var el = $(STEPS[i][0]); if (!el) return tour(i + 1);
+    el.classList.add('spot'); el.scrollIntoView({block: 'center', behavior: 'smooth'});
+    $('#tour-n').textContent = (i + 1) + ' of ' + STEPS.length; $('#tour-t').textContent = STEPS[i][1];
+    $('#tour-next').textContent = i === STEPS.length - 1 ? 'Done' : 'Next';
+    t.classList.add('on');
+    setTimeout(function () { var r = el.getBoundingClientRect(), w = 320; var x = r.right + 16 + w < window.innerWidth ? r.right + 16 : Math.max(16, Math.min(window.innerWidth - w - 16, r.left)); var y = r.right + 16 + w < window.innerWidth ? Math.max(76, r.top) : Math.min(window.innerHeight - 160, r.bottom + 12); t.style.left = x + 'px'; t.style.top = Math.max(76, y) + 'px'; }, 350);
+  }
+  $('#tour-start').addEventListener('click', function () { show('today'); select(items[0].id); tour(0); });
+  $('#tour-next').addEventListener('click', function () { tour(ti + 1); });
+  $('#tour-skip').addEventListener('click', function () { tour(-1); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && ti >= 0) tour(-1); });
+
+  /* ---------- Start ---------- */
+  renderChips(); state.cur = items[0].id; renderList(); renderDetail(); renderJourneys(); renderEvidence();
+  var h = (location.hash || '').slice(1), q = new URLSearchParams(location.search);
+  if (h === 'journeys' || h === 'evidence') show(h);
+  if (q.get('item')) select(q.get('item'));
+  if (q.get('tour') === '1') setTimeout(function () { tour(0); }, 300);
+})();
+</script>
+</body>
+</html>

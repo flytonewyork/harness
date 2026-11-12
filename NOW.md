@@ -10,6 +10,7 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 12 Nov
    Fill the **[after Wed]** fields from the 11 Nov meeting with Julie (`docs/EC_MEETING_PREP.md`) and send by Thu 12 Nov.
 2. **The EC demo.** `demo/ec-care-line/index.html`. For next week's meeting with EC's CEO, Julie and the head of AI:
    Ms Kwok's WhatsApp follow-up, one beat per screen, then the doctor's item (`?walk=kwok`). `?walk=1` is unchanged.
+   `suite.html`: Dr Chan's one list across all six journeys, plus the evidence view for the head of AI (blind gap shown).
    Then: refresh the offline copy on the Mac mini and a timed dry run.
 3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. The Mac mini service `com.tmrw.careline`
    was stopped 11 Nov and stays off until Thomas restarts it; it replied to numbers outside the tester list on 10 Nov.
