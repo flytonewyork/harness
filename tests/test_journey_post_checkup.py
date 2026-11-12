@@ -138,8 +138,8 @@ def test_normal_health_check_nobody_told_opens_one_results_item():
     assert any(TEMPLATE in s["text"] for s in it["reasoning"])
     assert any(s.get("search") for s in it["reasoning"])            # a chart search the platform re-runs
     assert_verbatim(api, it)
-    # it waited for the clinic: not before 3 open days after the report
-    assert datetime.fromisoformat(it["opened_at"]) >= datetime(2027, 3, 13)
+    # it waited for the clinic: report on Wed 10 Mar, then 2 open days (Thu, Fri) before opening on Fri
+    assert datetime.fromisoformat(it["opened_at"]) >= datetime(2027, 3, 12, 9, 0)
 
 
 def test_results_already_gone_through_stays_quiet():
