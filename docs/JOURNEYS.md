@@ -22,7 +22,10 @@ follow-up, precare). They share one safety model and one eval.
   compliance)`) and scenario types (`@scenario_type("type")`).
 - Scenarios in `scenarios/journeys/<name>/*.yaml` (out of `scenarios/dev`, so the main scoreboard does not move). Each:
   `id`, `type`, `what` (one line, printed in the eval report), `traps`, optional `expect` (`min_urgency`, `max_urgency`,
-  `must_quote`, `reason_contains`, `family`, `raised_before_due`, `max_items`, `quiet`).
+  `must_quote`, `reason_contains`, `family`, `raised_before_due`, `max_items`, `quiet`). `requires: [capability]` (any key of
+  `system.capabilities`, e.g. `ehealth_in_cms`) marks the scenario n/a on setups without it. A file with `blind: true`
+  holds scenarios written after the reader was frozen: its first run is kept (`results/journeys/*_firstrun.json`) and
+  reported as is; fixes go in, but new blind phrasings go in a new file.
 - Channel `careline`: the product's own WhatsApp line, always visible to the engine (assumes the care line is installed).
 - `scripts/journey_eval.py --journey <name>|all --seeds 1 2 3`: 3 clinic setups x seeds, no harness vs rules v1.1 vs the
   journey engine; gate = every scenario passes in every run, zero hard fails, zero made-up quotes. CI runs it on every PR.

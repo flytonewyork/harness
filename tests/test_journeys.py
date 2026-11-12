@@ -28,7 +28,7 @@ def test_journey_contract(name):
     calls = set(re.findall(r"\bapi\.(\w+)", src))
     assert calls <= ALLOWED_API, f"{name} uses port methods outside the contract: {calls - ALLOWED_API}"
     assert not FORBIDDEN.search(src), f"{name} calls a forbidden action"
-    for meth in ("reset", "on_cms", "on_portal", "tick"):          # cooperative: always defer to the core first
+    for meth in ("reset", "on_cms", "on_portal", "tick", "on_ehealth"):          # cooperative: always defer to the core first
         fn = mod.JOURNEY.__dict__.get(meth)
         if fn is not None:
             assert f"super().{meth}(" in inspect.getsource(fn), f"{name}.{meth} must call super().{meth} first"
