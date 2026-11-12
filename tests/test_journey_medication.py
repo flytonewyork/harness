@@ -222,6 +222,23 @@ def test_templates_never_reassure_dose_or_instruct():
 
 # ------------------------------------------------------------------------------------------ the agent
 
+@pytest.mark.parametrize("text", ["His wife here. He's sweaty and not making sense, sugar machine says LO",
+                                  "我係佢老婆，佢今朝冒冷汗，講嘢亂晒", "I'm her daughter, her lips are swollen"])
+def test_a_carer_writing_about_the_patient_is_not_someone_else(text):
+    fs = RulesReader().read(text, {"insulin"})
+    assert fs and fs[0]["urgency"] == 4 and fs[0]["note"] == ""
+
+
+def test_a_new_rash_soon_after_a_new_medicine_is_same_day():
+    c = FakeClinic()
+    start_amlodipine(c)
+    c.add("p1", "message", "careline", T0 + timedelta(hours=30), "I have a rash all over")
+    run(c, 3)
+    [it] = mine(c)
+    assert it["urgency"] == 3
+    quotes_are_verbatim(c)
+
+
 def test_side_effect_after_a_start_opens_med_change_with_quotes_and_context():
     c = FakeClinic()
     start_amlodipine(c)

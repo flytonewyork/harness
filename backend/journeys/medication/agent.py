@@ -43,6 +43,7 @@ ALL_MEDS = re.compile(r"\b(all|usual|regular|everything|same as (before|usual|la
 RAN_OUT = re.compile(r"\b(ran out|run out|have none|(none|no more|nothing) left|finished|(used|took) (up )?(my )?(last|final))\b|食晒|冇晒藥|冇藥(喇|啦)?|已經冇", re.I)
 OUTSIDE_REPORT = re.compile(r"報告|report", re.I)
 RECENT_DAYS = 60
+AFTER_MED = re.compile(r"(食|吃|服)(咗|完|了).{0,8}藥.{0,6}(之後|後|就)|(after|since) (taking|starting|i started|the new) .{0,20}(medicine|tablets?|pills?|antibiotics?)", re.I)
 NET_DAYS = 14
 ACK = re.compile(r"(?i)[\W_]*((ok(ay)?|noted|thanks?( you)?|thank you|ty|got it|sure|fine|bye|see you[\w ]*|received|👍|🙏|多謝(晒)?(醫生)?|唔該(晒)?(醫生)?|收到|好(的|呀|嘅)|明白|拜拜|新年快樂|happy [\w ]+)[\W_]*)+(doctor|dr|醫生)?[\W_]*")
 MED_WORD = re.compile(r"\b(medicines?|meds|medication|tablets?|pills?|capsules?|prescription|script|dose)\b|(?<!退燒)藥(?!房)", re.I)
@@ -87,7 +88,7 @@ class MedicationJourney:
     def claims(self, api, r) -> bool:
         """Patient messages about medicines are this journey's: core's generic message rule skips them."""
         parent = getattr(super(), "claims", None)
-        return self.bid(api, r) > 0 or bool(parent and parent(api, r))
+        return MedicationJourney.bid(self, api, r) > 0 or bool(parent and parent(api, r))
 
     def bid(self, api, r) -> float:
         """How strongly this journey owns a patient message (the suite gives it to the highest bid): 3 for a repeat
@@ -110,7 +111,7 @@ class MedicationJourney:
 
     def _mine(self, api, r) -> bool:
         won = getattr(self, "won", None)               # the suite's one-owner-per-message routing, when composed
-        return self.bid(api, r) > 0 and (won is None or won(api, r, MedicationJourney))
+        return MedicationJourney.bid(self, api, r) > 0 and (won is None or won(api, r, MedicationJourney))
 
     # An acknowledgement ("收到，多謝") within 60 days of a change is this journey's too (bid 1.5) and needs nothing.
 
@@ -168,6 +169,10 @@ class MedicationJourney:
             q = next((ln for ln in _lines(text)), text.strip())[:240]
             fs = [{"kind": "reply", "label": "a reply after a medicine change with nothing the agent could flag",
                    "urgency": 1, "quote": q, "note": "", "classes": [], "via": self.med_reader.name}]
+        new_drug = any(c["action"] != "stop" and t - c["t"] <= timedelta(days=NET_DAYS) for c in self._recent(pid, t))
+        for f in fs:                             # a new rash on a new medicine may be a drug reaction: seen the same day
+            if f["label"] == "rash" and f["urgency"] < 3 and (new_drug or AFTER_MED.search(text)):
+                f["urgency"], f["note"] = 3, (f.get("note") or "") + " New rash soon after a new medicine: possible drug reaction."
         return fs
 
     def _wants(self, r) -> bool:

@@ -52,7 +52,7 @@ TERMS: list[Term] = [
     Term("blistering or peeling skin, mouth sores", "red_flag", 4,
          r"blister|peeling|起(晒|哂)?(水)?泡|skin (is )?coming off|mouth (ulcer|sore)s? .*rash|rash .*mouth (ulcer|sore)|起水泡|甩(晒|哂)?皮|口(爛|腔潰瘍).{0,8}(疹|紅)"),
     Term("very drowsy or confused", "red_flag", 4,
-         r"(can'?t|cannot) wake|very (drowsy|sleepy|confused)|not making sense|叫唔醒|神志不清|胡言亂語|slurr|\blisp|face (is )?droop|can'?t (move|lift) (my|his|her) (arm|leg)|口齒不清|講嘢(唔清楚|含糊)|半邊(身|面)"),
+         r"(can'?t|cannot) wake|very (drowsy|sleepy|confused)|not making sense|叫唔醒|神志不清|胡言亂語|slurr|\blisp|face (is )?droop|can'?t (move|lift) (my|his|her) (arm|leg)|口齒不清|講嘢(唔清楚|含糊|亂(晒|哂)?|唔知講乜)|認唔到人|唔認得人|半邊(身|面)"),
     Term("seizure", "red_flag", 4, r"seizure|\bfit(ting)?\b(?! ?(test|check|well|better))|發羊吊|抽搐"),
     Term("took far too many", "red_flag", 4, r"took ([5-9]|\d\d|five|six|seven|eight|nine|ten|several|lots|loads) (of them|of my|tablets|pills|doses)|(whole|entire|all the|all of the) (box|pack|bottle|strip|tablets|pills)|成(盒|排|樽)(藥)?(都)?食(晒|咗)"),
     Term("thoughts of self-harm", "crisis", 4,
@@ -64,7 +64,7 @@ TERMS: list[Term] = [
          r"bleed|bruis|blood in (the )?(toilet|stool|poo|urine|pee|wee|bowl)|bleeding from (my )?(bottom|back passage)|屙血|便血|nose ?bleed|blood in (my )?(urine|pee|stool)|gums? bleed|流血|瘀|血尿|流鼻血|牙肉出血",
          bump={c: 3 for c in BLEED}),
     Term("low sugar symptoms", "side_effect", 2,
-         r"\bhypo\b|shak(y|ing)|trembl|cold sweat|sweating|sugar (was |is |of )?(2|3)\.\d|\b(bg|glucose|sugar|blood sugar|血糖)\s*(was |is |of |reading |得)?(1|2|3)\.\d|\b(1|2|3)\.\d ?mmol|手震|出冷汗|冒汗|血糖低|好肚餓.{0,6}(震|汗)",
+         r"\bhypo\b|shak(y|ing)|trembl|cold sweat|sweating|sugar (was |is |of )?(2|3)\.\d|\b(bg|glucose|sugar|blood sugar|血糖)\s*(was |is |of |reading |得)?(1|2|3)\.\d|\b(1|2|3)\.\d ?mmol|手震|出冷汗|冒(冷)?汗|血糖低|好肚餓.{0,6}(震|汗)",
          bump={c: 3 for c in HYPO}),
     Term("muscle pain or weakness", "side_effect", 1,
          r"muscle (pain|ache|cramp|weak)|muscles? (are |is )?(killing|aching|sore|painful|hurt|weak)|(legs?|arms?|thighs?) (ache|aching|pain|weak)|(legs?|arms?|thighs?) (feel|feels|are|is)( so| very| really)? (weak|heavy|achy|sore|like jelly)|(struggl|hard|can'?t|couldn'?t).{0,12}get (up|out of (a|the|my) (chair|bed))|起身都(好)?難|肌肉(痛|酸|無力)|(腳|手|大髀)(好)?(酸|痛|冇力)",
@@ -108,6 +108,11 @@ NEGATORS_EN = re.compile(r"\b(no|not|never|without|none|nor|don'?t|doesn'?t|didn
 NEGATORS_ZH = re.compile(r"(冇|無|沒有|唔係|未有|未見|冇再|唔再|唔會|冇乜)[^，,。.!！?？]{0,3}$")
 THIRD_PARTY = re.compile(r"\b(my|our) (husband|wife|mum|mom|mother|dad|father|son|daughter|friend|neighbou?r|colleague|brother|sister|kid|child|baby)\b|\bhe\b|\bshe\b"
                          r"|老公|老婆|太太|先生|阿媽|媽媽|阿爸|爸爸|個仔|個女|朋友|同事|鄰居|佢", re.I)
+# a carer writing about the patient ("His wife here", "我係佢個女"): he / she / 佢 is the patient, not someone else
+CARER = re.compile(r"\b(his|her) (wife|husband|son|daughter|mum|mom|mother|dad|father|carer|helper|maid|brother|sister)\b.{0,12}\b(here|speaking|writing|messaging)\b"
+                   r"|\b(i'?m|i am|this is) (his|her) (wife|husband|son|daughter|mum|mom|mother|dad|father|carer|helper|maid|brother|sister)\b"
+                   r"|\b(on behalf of|writing for) (him|her|my (husband|wife|mum|mom|mother|dad|father|son|daughter))\b"
+                   r"|我係佢(嘅)?(老婆|太太|老公|先生|個仔|個女|仔|女|姐姐|工人|家人)|代(佢|我(老公|老婆|阿媽|阿爸|爸爸|媽媽))(問|講|send|發)", re.I)
 HISTORY = re.compile(r"\b(last year|years ago|months ago|used to|in the past|as a child|before (i|the) (started|new))\b|以前|舊年|幾年前|細個|之前(試過|有過)", re.I)
 CLAUSE = re.compile(r"(?<!\d)\.(?!\d)|[!?;。！？；\n]+|,\s*(?:but|though)\b|但係|不過|，(?=但|不過)")
 QUESTION = re.compile(r"\?|？|嗎|呢$|點算|點樣|好唔好|得唔得|使唔使|可唔可以|係咪", re.M)
@@ -143,8 +148,9 @@ class RulesReader:
         classes = classes or set()
         text = text or ""
         found: dict[str, dict] = {}
+        carer = bool(CARER.search(text))
         for off, cl in clauses(text):
-            other = bool(THIRD_PARTY.search(cl))
+            other = bool(THIRD_PARTY.search(cl)) and not carer
             past = bool(HISTORY.search(cl))
             for t in TERMS:
                 for m in re.finditer(t.pattern, cl, re.I):
