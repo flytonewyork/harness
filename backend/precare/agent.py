@@ -29,7 +29,7 @@ from datetime import date, datetime, timedelta
 from . import safety
 from .texts import LABEL, TEXT_VERSION, compose, values_for
 
-AGENT_VERSION = "precare-agent-v2"   # v1: name + date of birth with filler words failed identity; no prompt-injection routing
+AGENT_VERSION = "precare-agent-v3"   # v1: name + DOB with filler words failed; v2: "冇問題" consent and an added English given name failed
 DATA_STEPS = ("reason", "duration", "meds", "allergies", "anything_else")
 TERMINAL = ("declined", "stopped", "identity_failed", "done", "escalated", "closed")
 FASTING_TESTS = {"fasting_glucose", "lipids", "fasting_lipids", "glucose_tolerance"}
@@ -48,6 +48,8 @@ MONTHS = {m: i + 1 for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "ju
 def is_yes(text: str) -> bool:
     """A yes to the consent question: starts with a yes word ("Yes please", "ok 👍", "sure, go ahead", "同意呀",
     "好呀冇問題") and carries no negation. Anything unclear is not a yes; asked twice, it counts as a no."""
+    if re.fullmatch(r"\s*(冇問題|無問題|没问题|no problem|no worries)\s*[呀啊喎囉la]*\W*", unicodedata.normalize("NFKC", text).lower()):
+        return True
     t = unicodedata.normalize("NFKC", text).lower().replace("冇問題", "").replace("no problem", "")
     t = re.sub(r"[^\w\s\u4e00-\u9fff']", " ", t).strip()
     if re.search(r"\b(no|not|don'?t|never|nope)\b|唔|不|冇|無|別", t):
@@ -97,7 +99,10 @@ def name_matches(text: str, patient: dict) -> bool:
     if sorted(got) == want:
         return True
     joined = "".join(got)                                   # "Taiman Chan", "ChanTaiMan": same name, spaced differently
-    return bool(joined) and any(joined == "".join(p) for p in permutations(want))
+    if joined and any(joined == "".join(p) for p in permutations(want)):
+        return True
+    extra = [w for w in got if w not in want]               # "Peter Chan Tai Man": the booking's name plus one English
+    return len(want) >= 2 and len(extra) == 1 and sorted(w for w in got if w in want) == want   # given name (DOB must match too)
 
 
 def quote(text: str) -> str:
@@ -108,8 +113,10 @@ def quote(text: str) -> str:
 class PrecareAgent:
     version = AGENT_VERSION
 
-    def __init__(self, port):
+    def __init__(self, port, screen=None):
+        from .screens import RulesScreen
         self.port = port
+        self.screen = screen or RulesScreen()      # a model screen is added with UnionScreen(RulesScreen(), model)
         self.state: dict[str, dict] = {}
         self.blocked: list[dict] = []          # outbound messages the guard stopped (should stay empty)
         self.log: list[tuple] = []             # (time, appt, action, detail)
@@ -177,9 +184,9 @@ class PrecareAgent:
             st["lang"] = "zh" if has_cjk(text) else "en"
 
         # 1. safety screen first, at every step
-        kind = safety.screen(text)
-        if kind:
-            return self._escalate(appt_id, st, msg, kind)
+        verdict = self.screen.classify(text)
+        if verdict["kind"]:
+            return self._escalate(appt_id, st, msg, verdict["kind"], verdict)
         # 2. opt-out
         if safety.is_stop(text):
             return self._stop(appt_id, st)
@@ -304,7 +311,7 @@ class PrecareAgent:
         if notify:
             self._send(appt_id, st, "fixed.question_routed")
 
-    def _escalate(self, appt_id, st, msg, kind):
+    def _escalate(self, appt_id, st, msg, kind, verdict=None):
         lang, a = st["lang"], st["appt"]
         self._send(appt_id, st, f"fixed.{kind}")
         already = [f for f in st["flags"] if f["kind"] == kind]
@@ -316,7 +323,9 @@ class PrecareAgent:
             {"step": "identity", "text": "Name and date of birth matched the booking." if verified else
              "Not yet confirmed: the message came from the number on file for this appointment."},
             {"step": "finding", "text": ("Possible crisis or self-harm" if kind == "crisis" else "Possible urgent symptom") +
-             ", matched by the fixed red-flag rules.", "cites": [{"record": msg["id"], "quote": quote(text)}]},
+             f", flagged by {(verdict or {}).get('by', 'the fixed red-flag rules')}.",
+             "cites": [{"record": msg["id"], "quote": quote(text)}] +
+                      ([{"record": msg["id"], "quote": verdict["evidence"]}] if (verdict or {}).get("evidence") else [])},
             {"step": "assessment", "text": "Keyword screen, not a diagnosis. It over-triggers on purpose. The patient was told to call 999 or go to A&E; nothing reassuring was said."},
             {"step": "loop_status", "text": "Open. The pre-visit questions have stopped."},
             {"step": "routing", "text": "The doctor for this appointment, and the clinic alarm."},

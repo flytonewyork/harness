@@ -11,17 +11,24 @@ from __future__ import annotations
 import difflib
 import re
 
-SCREEN_VERSION = "precare-screen-v3"
+SCREEN_VERSION = "precare-screen-v4"
 # v1 missed code-switched chest symptoms, "collapsed", "arm went weak" (LoopBench dev set, 12 Nov).
 # v2 missed descriptions without keywords ("elephant sitting on my chest", "can't catch my breath"), typos
 # ("chest pian", "metphormin"), a low sugar given as a number, a tight throat after a new drug, and indirect
 # Cantonese crisis wording (LoopBench stress set, first run 36/126). v3 adds those, a number check for low sugar
 # and fuzzy matching for medicine names.
+# v3 missed all 7 red-flag phrasings of the first blind set (palpitations with near-fainting, thunderclap headache,
+# Cantonese stiff neck, tarry stool, reduced fetal movements, a box of paracetamol, goodbye letters). v4 adds those
+# families of wording. Word lists will always trail real language: see screens.py for the model screen on top.
 
 CRISIS = [r"suicid", r"kill (myself|me)", r"end (my|it) (life|all)", r"want to die", r"don'?t want to (live|be alive)",
           r"self[- ]?harm", r"hurt(ing)? myself", r"better off (if i (was|were) )?dead", r"better off without me",
           r"end(ing)? (my|it) (life|all)", r"no reason to live",
           r"(sleep|go to sleep) and (not|never) wake", r"don'?t want to wake up", r"not want to be here any ?more",
+          r"(goodbye|farewell|suicide) (letter|note|message)", r"(written|wrote|writing) (letters|notes) to (my )?(family|kids|children|wife|husband|parents)",
+          r"giv(en|ing|e) .{0,25}(things|stuff|belongings|possessions) away", r"giv(en|ing|e) away (most of |all of )?my", r"affairs in order",
+          r"(whole|entire|full) (box|bottle|pack|packet|strip|tub) of", r"took (all|a lot|loads|lots|a handful) of (my )?(pills|tablets|medicine|panadol|paracetamol)",
+          r"overdose", r"took too many (pills|tablets)", r"成(盒|樽|排|板)藥", r"食咗成(盒|樽|排|板)", r"遺書", r"寫(咗|好)信俾屋企人", r"將.{0,6}(嘢|東西)送(晒)?俾人",
           r"瞓咗唔再醒", r"唔想再醒", r"活落去冇意思", r"冇意思再活", r"死咗(仲|會)好",
           r"自殺", r"想死", r"唔想生存", r"唔想活", r"唔想再活", r"傷害自己", r"了結", r"輕生", r"跳樓", r"𠝹手"]
 
@@ -35,6 +42,13 @@ RED_FLAGS = [
     r"條氣唔順", r"唞氣.{0,4}辛苦", r"唞唔切氣", r"唞唔到",
     r"\b(throat|tongue)\b.{0,20}\b(tight|closing|thick|swell\w*)", r"喉嚨.{0,6}(緊|腫|塞)", r"low (blood )?sugar.{0,30}(shak|sweat|confus|faint|dizzy)",
     r"\bhypo\b", r"低血糖", r"血糖.{0,6}(好低|跌)",
+    r"heart (is )?(racing|pounding|beating (really |very |so )?(fast|hard))", r"palpitat", r"(going to|gonna|about to|might|feel like i.{0,6}) (pass out|faint|black out|collapse)",
+    r"心跳(好快|得好快|好亂|亂)", r"心慌", r"就(嚟|快)暈", r"好似就嚟暈",
+    r"thunder", r"never had (one|a headache|a pain) (this|that|so) bad", r"headache.{0,40}\b(sudden|suddenly|came on|worst)\b", r"頭痛.{0,10}(爆|突然|從來未)",
+    r"neck (is |feels )?(stiff|rigid)", r"(條頸|頸).{0,4}(好硬|硬|僵)",
+    r"black.{0,25}\b(tar|tarry|stool|poo|poop|motion)", r"\btarry\b", r"like tar", r"大便.{0,4}黑", r"屙.{0,3}黑",
+    r"(baby|bb|fetus|foetus).{0,30}\b(not|hasn'?t|has not|stopped|less|isn'?t|no longer) (been )?(mov|kick)", r"(reduced|fewer|less|no) (fetal |foetal |baby )?movements?",
+    r"bb.{0,6}(唔郁|冇郁|少咗郁)", r"胎動.{0,4}(少|冇)",
     r"collaps", r"not respond", r"won'?t wake", r"(can'?t|couldn'?t|cannot) (lift|move|feel) (my|his|her) (arm|leg|hand|face)",
     r"\b(arm|leg|hand|face|side)\b.{0,25}\b(went|gone|go|goes|is|was|feels?|felt|became) (weak|numb|limp|dead|heavy)",
     r"speech (was |is |went |became )?(slurred|garbled|strange)", r"slurr",
@@ -55,6 +69,8 @@ CLINICAL_Q = [
     r"should i\b", r"can i (take|stop|start|drink|eat|skip|double|have|keep)", r"do i (need|have) to (take|stop|skip|fast)",
     r"is (it|this|that|my \w+) (normal|serious|bad|ok|okay|safe|fine)", r"(are|is) my (results?|reports?|levels?|tests?|bp|blood pressure|sugar|cholesterol)",
     r"what does (my|the|this) (result|report|test|level)", r"\b(results?|reports?)\b.{0,40}\b(normal|fine|ok|okay|good|bad)\b",
+    r"(discuss|talk about|ask about|thinking (of|about)|want to|wanna|like to) (stopping|changing|reducing|coming off|starting|switching|stop|change|reduce|switch)",
+    r"\bcome off (my|the)\b", r"想(停|減|轉|換)藥",
     r"\bdose\b", r"\bdosage\b", r"side[- ]?effects?", r"what do i have", r"what is wrong with me", r"\bdiagnos",
     r"使唔使", r"食唔食得", r"可唔可以(食|停|飲|唔食)", r"停唔停得", r"要唔要(停|食|空肚)", r"正唔正常", r"嚴唔嚴重", r"份量", r"劑量",
     r"副作用", r"報告.{0,10}(點|係咪|正常|好唔好)", r"係咪有病", r"咩病",

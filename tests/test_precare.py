@@ -293,3 +293,56 @@ def test_consent_and_stop_phrasings():
 def test_misspelt_medicine_still_found():
     assert safety.mentions(safety.GLUCOSE_LOWERING, "metphormin 2 times a day")
     assert not safety.mentions(safety.GLUCOSE_LOWERING, "amlodipine")
+
+
+# ---- pluggable model screen: it can only add flags ------------------------------------------------------------------
+def test_union_screen_never_removes_a_rules_flag():
+    from backend.precare.screens import ReplayScreen, RulesScreen, UnionScreen, key
+    quiet = ReplayScreen({key("m", "chest pain"): {"kind": "none"}}, "m")             # a model that says "fine"
+    u = UnionScreen(RulesScreen(), quiet)
+    assert u.classify("chest pain")["kind"] == "red_flag"
+
+
+def test_union_screen_adds_what_rules_miss_and_keeps_only_verbatim_evidence():
+    from backend.precare.screens import ReplayScreen, RulesScreen, UnionScreen, key
+    msg = "my grandson's birthday was lovely but I feel strange and sweaty"
+    model = ReplayScreen({key("m", msg): {"kind": "red_flag", "evidence": "feel strange and sweaty"},
+                          key("m", "x"): {"kind": "red_flag", "evidence": "not in the message"}}, "m")
+    u = UnionScreen(RulesScreen(), model)
+    v = u.classify(msg)
+    assert v["kind"] == "red_flag" and v["evidence"] == "feel strange and sweaty" and v["by"].startswith("replay:m")
+    assert u.classify("x")["evidence"] == ""                                           # invented evidence dropped
+    assert u.classify("not cached")["kind"] is None and model.missed                    # counted, never a live call
+
+
+def test_agent_with_model_screen_quotes_the_models_evidence_verbatim():
+    from backend.precare.screens import ReplayScreen, RulesScreen, UnionScreen, key
+    msg = "my grandson's birthday was lovely but I feel strange and sweaty"
+    p = FakePort()
+    ag = PrecareAgent(p, screen=UnionScreen(RulesScreen(), ReplayScreen({key("m", msg): {"kind": "red_flag", "evidence": "strange and sweaty"}}, "m")))
+    ag.start("A1")
+    for r in HAPPY[:3] + [msg]:
+        p.say(ag, r)
+    [rf] = p.fam("previsit_red_flag")
+    assert any(c["quote"] == "strange and sweaty" for s in rf["reasoning"] for c in s.get("cites", []))
+    quotes_verbatim(p)
+
+
+def test_replay_cache_refuses_another_prompt_version(tmp_path):
+    import json
+    from backend.precare.screens import ReplayScreen
+    f = tmp_path / "c.json"
+    f.write_text(json.dumps({"prompt_version": "old", "model": "m", "outputs": {}}))
+    with pytest.raises(ValueError):
+        ReplayScreen.load(f)
+
+
+@pytest.mark.parametrize("text", ["my heart is racing and I feel like I'm going to pass out", "headache came on like a thunderbolt",
+                                  "條頸好硬", "pooing black stuff like tar", "the baby hasn't moved since yesterday"])
+def test_screen_v4_red_flags(text):
+    assert safety.screen(text) == "red_flag"
+
+
+@pytest.mark.parametrize("text", ["I took a whole box of panadol last night", "I've written letters to my family and given my things away"])
+def test_screen_v4_crisis(text):
+    assert safety.screen(text) == "crisis"
