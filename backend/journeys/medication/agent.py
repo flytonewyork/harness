@@ -43,6 +43,8 @@ ALL_MEDS = re.compile(r"\b(all|usual|regular|everything|same as (before|usual|la
 RAN_OUT = re.compile(r"\b(ran out|run out|have none|(none|no more|nothing) left|finished)\b|食晒|冇晒藥|冇藥(喇|啦)?|已經冇", re.I)
 OUTSIDE_REPORT = re.compile(r"報告|report", re.I)
 RECENT_DAYS = 60
+NET_DAYS = 14
+ACK = re.compile(r"(?i)[\W_]*((ok(ay)?|noted|thanks?( you)?|thank you|ty|got it|sure|fine|bye|see you[\w ]*|received|👍|🙏|多謝(晒)?(醫生)?|唔該(晒)?(醫生)?|收到|好(的|呀|嘅)|明白|拜拜|新年快樂|happy [\w ]+)[\W_]*)+(doctor|dr|醫生)?[\W_]*")
 MED_WORD = re.compile(r"\b(medicines?|meds|medication|tablets?|pills?|capsules?|prescription|script|dose)\b|(?<!退燒)藥(?!房)", re.I)
 ACTION_WORD = {"start": "starting", "stop": "stopping", "change": "a change to"}
 
@@ -91,9 +93,13 @@ class MedicationJourney:
         """How strongly this journey owns a patient message (the suite gives it to the highest bid): 3 for a repeat
         request or a message about a medicine, 1.5 for symptoms within 60 days of a medicine change (so a reply to
         another journey's own check-in stays with that journey), else 0."""
-        if not self._is_patient_msg(r) or not r.get("patient_id") or not self._wants(r):
+        if not self._is_patient_msg(r) or not r.get("patient_id"):
             return 0
         pid, t, text = r["patient_id"], _t(r), r["text"]
+        if ACK.fullmatch(text.strip()):
+            return 1.5 if self._recent(pid, t) else 0
+        if not self._wants(r):
+            return 0
         fs = self.reader.read(text, self._classes(pid))
         if any(f["kind"] == "repeat" for f in fs) or fx.mentions(text) or fx.purposes(text) or MED_WORD.search(text):
             return 3
@@ -106,6 +112,8 @@ class MedicationJourney:
         won = getattr(self, "won", None)               # the suite's one-owner-per-message routing, when composed
         return self.bid(api, r) > 0 and (won is None or won(api, r, MedicationJourney))
 
+    # An acknowledgement ("收到，多謝") within 60 days of a change is this journey's too (bid 1.5) and needs nothing.
+
     def on_cms(self, api, r: dict):
         super().on_cms(api, r)
         pid, k = r.get("patient_id"), r["kind"]
@@ -116,7 +124,7 @@ class MedicationJourney:
         if k in CHANGE_KINDS:
             self._read_changes(pid, r)
         if self._is_patient_msg(r) and r["data"].get("direction") != "out" and self._mine(api, r):
-            fs = self.reader.read(r["text"], self._classes(pid))
+            fs = self._read(pid, _t(r), r["text"])
             if max((f["urgency"] for f in fs), default=0) >= 3 or any(f["kind"] == "repeat" for f in fs):
                 self._safe(self._message, api, r)    # urgent or a repeat: read as it lands (the care line pushes it live)
             else:
@@ -145,11 +153,28 @@ class MedicationJourney:
             return True
         return r["kind"] == "phone_memo" and r.get("author") is None and bool(re.search(r"\b(patient|pt)\b.{0,20}(called|rang|phoned|says)", r["text"], re.I))
 
+    def _read(self, pid, t, text) -> list[dict]:
+        """The reader's findings, plus the safety net: within 14 days of a high-risk change, a message the reader
+        cannot classify (and that is not just thanks or an acknowledgement) still goes to the doctor at urgency 2."""
+        fs = self.reader.read(text, self._classes(pid))
+        if not fs and not ACK.fullmatch(text.strip()) and any(
+                c["action"] != "stop" and fx.drug_class(c["drug"]) in fx.HIGH_RISK and t - c["t"] <= timedelta(days=NET_DAYS)
+                for c in self._recent(pid, t)):
+            q = next((ln for ln in _lines(text)), text.strip())[:240]
+            fs = [{"kind": "unclassified", "label": "a message the agent could not classify, soon after a high-risk change",
+                   "urgency": 2, "quote": q, "note": "", "classes": [], "via": "safety net"}]
+            self.mx_stats["safety_net"] += 1
+        elif not fs and not ACK.fullmatch(text.strip()) and self._recent(pid, t):
+            q = next((ln for ln in _lines(text)), text.strip())[:240]
+            fs = [{"kind": "reply", "label": "a reply after a medicine change with nothing the agent could flag",
+                   "urgency": 1, "quote": q, "note": "", "classes": [], "via": self.reader.name}]
+        return fs
+
     def _wants(self, r) -> bool:
         text = r["text"]
         if OUTSIDE_REPORT.search(text) and not fx.mentions(text):
             return False                         # an outside report: core's rule owns it
-        fs = self.reader.read(text, self._classes(r.get("patient_id")))
+        fs = self._read(r.get("patient_id"), _t(r), text)
         if any(f["kind"] != "question" for f in fs):
             return True
         return bool(fs) and bool(fx.mentions(text) or fx.purposes(text) or self._recent(r.get("patient_id"), _t(r)))
@@ -246,7 +271,7 @@ class MedicationJourney:
 
     def _message(self, api, r):
         pid, t, text = r["patient_id"], _t(r), r["text"]
-        fs = self.reader.read(text, self._classes(pid))
+        fs = self._read(pid, t, text)
         if not fs:
             return
         if self._handled_since(api, pid, t):
@@ -282,7 +307,8 @@ class MedicationJourney:
                 self.mx_stats["duplicate_message"] += 1
             return
         drug = rel[-1]["drug"] if rel else (named[0] if named else None)
-        what = {"crisis": "Patient may be at risk of self-harm", "confusion": "Patient unsure what to take",
+        what = {"crisis": "Patient may be at risk of self-harm", "unclassified": "Message after a high-risk change: please read",
+                "reply": "Reply after a medicine change: nothing flagged; doctor to read and close", "confusion": "Patient unsure what to take",
                 "adherence": "Patient stopped or skipping a medicine", "dose_question": "Patient asks to change a dose",
                 "question": "Question about a medicine"}
         head = what.get(top["kind"], f"Possible reaction: {top['label']}")

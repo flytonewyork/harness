@@ -1,0 +1,62 @@
+# Medication reader probe: patient messages written AFTER the reader and its dev scenarios, to measure how the
+# floor generalises to wording it was not built on. Synthetic only. Each: text, classes the patient takes,
+# expect: quiet, or kinds (any of) + urgency range. The first, untuned score is kept in `first_pass` below and in
+# the eval report; later fixes are measured against the same cases, so the gap between the two is visible.
+first_pass: {date: "2026-11-12", cases: 50, correct: 37, emergencies_caught: "10 of 12", quiet_kept: "10 of 10"}
+cases:
+  # emergencies
+  - {text: "My throat feels tight and my lips are puffy", classes: [acei], kinds: [red_flag], min: 4}
+  - {text: "塊面腫晒，眼都腫埋", kinds: [red_flag], min: 4}
+  - {text: "I can't breathe properly since taking the antibiotic", classes: [antibiotic], kinds: [red_flag], min: 4}
+  - {text: "唞氣好辛苦，心口好翳", kinds: [red_flag], min: 4}
+  - {text: "I threw up blood this morning", classes: [anticoagulant], kinds: [red_flag], min: 4}
+  - {text: "大便黑色，好似柏油咁", classes: [anticoagulant], kinds: [red_flag], min: 4}
+  - {text: "My skin is blistering and peeling around my mouth", classes: [xanthine_oxidase], kinds: [red_flag], min: 4}
+  - {text: "Mum here - dad is very drowsy and we can't wake him properly after his new sugar tablet", classes: [sulfonylurea], kinds: [red_flag], min: 3}
+  - {text: "I passed out in the shower", classes: [ccb], kinds: [red_flag], min: 4}
+  - {text: "I took the whole box of sleeping pills", classes: [z_drug], kinds: [red_flag, crisis], min: 4}
+  - {text: "I keep thinking it'd be easier if I wasn't here", classes: [ssri], kinds: [crisis], min: 4}
+  - {text: "想死，唔想再撐落去", classes: [ssri], kinds: [crisis], min: 4}
+  - {text: "chest pain when walking since new pill", classes: [beta_blocker], kinds: [red_flag], min: 4}
+  # urgent
+  - {text: "Got itchy red spots all over since starting allopurinol", classes: [xanthine_oxidase], kinds: [side_effect], min: 3}
+  - {text: "我食咗新藥之後，身痕出晒紅點", classes: [antibiotic], kinds: [side_effect], min: 3}
+  - {text: "My urine is cola coloured and my muscles are killing me", classes: [statin], kinds: [side_effect], min: 3}
+  - {text: "Sugar was 2.8 this morning, felt shaky", classes: [sulfonylurea], kinds: [side_effect], min: 3}
+  - {text: "gums bleeding a lot when brushing", classes: [anticoagulant], kinds: [side_effect], min: 3}
+  - {text: "My eyes look yellow", kinds: [side_effect], min: 3}
+  - {text: "牙肉流血流咗好耐", classes: [anticoagulant], kinds: [side_effect], min: 3}
+  - {text: "I'm 6 weeks pregnant, is my BP pill ok?", classes: [acei], kinds: [side_effect], min: 3}
+  - {text: "I accidentally took my morning pills twice", kinds: [confusion], min: 3}
+  - {text: "頭好暈，今朝跌咗一跤", classes: [arb], kinds: [side_effect], min: 3}
+  # soon
+  - {text: "feel dizzy when I stand up", classes: [arb], kinds: [side_effect], min: 2, max: 3}
+  - {text: "I've been feeling a bit off since the new tablet", kinds: [side_effect], min: 2, max: 3}
+  - {text: "I stopped taking it, makes me pee too much", classes: [diuretic], kinds: [adherence], min: 2, max: 3}
+  - {text: "Should I take it in the morning or at night?", kinds: [question, dose_question], min: 1, max: 2}
+  - {text: "Can I cut the tablet in half?", kinds: [dose_question], min: 2, max: 3}
+  - {text: "唔知新嗰隻同舊嗰隻要唔要一齊食", kinds: [confusion], min: 2, max: 3}
+  - {text: "I forgot to take it for 3 days, should I double up?", kinds: [dose_question, confusion, adherence], min: 2, max: 3}
+  - {text: "heart racing at night", kinds: [side_effect], min: 2, max: 3}
+  # routine
+  - {text: "a little nauseous after the metformin", classes: [metformin], kinds: [side_effect], min: 1, max: 2}
+  - {text: "有啲乾咳，好煩", classes: [acei], kinds: [side_effect], min: 1, max: 2}
+  - {text: "My feet swell by evening", classes: [ccb], kinds: [side_effect], min: 1, max: 2}
+  # repeats
+  - {text: "Can you refill my BP meds", kinds: [repeat]}
+  - {text: "我啲降血壓藥就嚟食晒", kinds: [repeat]}
+  - {text: "Need more insulin pens", classes: [insulin], kinds: [repeat]}
+  - {text: "請幫我開返上次啲藥", kinds: [repeat]}
+  - {text: "running low on my thyroid tablets", kinds: [repeat]}
+  - {text: "I'll be out of warfarin by Friday", classes: [anticoagulant], kinds: [repeat]}
+  # quiet
+  - {text: "All good, no side effects so far", quiet: true}
+  - {text: "No dizziness, BP 128/80 today", quiet: true}
+  - {text: "冇咩副作用，多謝", quiet: true}
+  - {text: "Thanks Dr Wong, see you next month", quiet: true}
+  - {text: "my wife had a bad rash on that antibiotic once, I'm fine though", quiet: true}
+  - {text: "I used to get dizzy on the old one but this one is great", quiet: true}
+  - {text: "OK noted 👍", quiet: true}
+  - {text: "唔該晒醫生", quiet: true}
+  - {text: "Not short of breath at all, just tired from work", quiet: true}
+  - {text: "no more swelling, it went down", quiet: true}

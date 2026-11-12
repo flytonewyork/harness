@@ -251,14 +251,17 @@ def test_a_new_emergency_opens_a_linked_copy_with_its_own_quotes():
     quotes_are_verbatim(c)                                     # and the third message neither duplicates nor lowers
 
 
-def test_quiet_when_the_patient_is_fine_or_already_handled():
+def test_fine_is_routine_thanks_and_handled_are_quiet():
     c = FakeClinic()
     start_amlodipine(c)
     c.add("p1", "message", "careline", T0 + timedelta(hours=1), "冇頭暈，冇腳腫，血壓好返好多，多謝醫生")
     c.add("p2", "message", "careline", T0 + timedelta(hours=1), "I have a rash since the new tablet")
     c.add("p2", "consult_note", "cms", T0 + timedelta(hours=3), "Phoned pt re rash: mild, photo reviewed, plan discussed.", "dr_wong")
+    c.add("p3", "consult_note", "cms", T0 - timedelta(days=3), "P: Start omeprazole 20mg daily.", "dr_wong")
+    c.add("p3", "message", "careline", T0 + timedelta(hours=1), "收到，多謝醫生 🙏")
     run(c, 1)
-    assert mine(c) == []
+    [it] = mine(c)                    # only a doctor decides she is fine: a routine item; thanks and handled: nothing
+    assert it["patient_id"] == "p1" and it["urgency"] == 1 and "nothing flagged" in it["reason"]
 
 
 def test_repeat_request_flags_early_stopped_controlled_and_monitoring():
@@ -324,3 +327,39 @@ def test_formulary_basics():
     assert fx.drug_class("Lisinopril 10 MG Oral Tablet") == "acei"
     assert fx.generic("薄血丸") == "warfarin" and fx.monitoring_for("apixaban") == fx.DOAC_RENAL
     assert "statin" in fx.purposes("my cholesterol pills")
+
+
+def test_safety_net_after_a_high_risk_change():
+    c = FakeClinic()
+    t = T0 - timedelta(days=5)
+    c.add("p2", "consult_note", "cms", t, "A: AF. P: Start warfarin 3mg daily. INR in 5 days.", "dr_wong")
+    c.add("p2", "message", "careline", T0 + timedelta(hours=1), "Something isn't right with me since Tuesday")
+    c.add("p2", "message", "careline", T0 + timedelta(hours=2), "OK thanks doctor 🙏")
+    c.add("p1", "consult_note", "cms", t, "P: Start amlodipine 5mg daily.", "dr_wong")
+    c.add("p1", "message", "careline", T0 + timedelta(hours=1), "Something isn't right with me since Tuesday")
+    run(c, 1)
+    by = {i["patient_id"]: i for i in mine(c)}      # warfarin is high risk (2); amlodipine is not (1); thanks: nothing
+    assert len(mine(c)) == 2 and by["p2"]["urgency"] == 2 and "please read" in by["p2"]["reason"]
+    assert by["p1"]["urgency"] == 1
+    quotes_are_verbatim(c)
+
+
+@pytest.mark.parametrize("probe,allowed_misses", [("medication_probe.yaml", 0), ("medication_probe_2.yaml", 0),
+                                                  ("medication_probe_3.yaml", 1)])
+def test_probe_regression(probe, allowed_misses):
+    """The probes were scored untuned first (first_pass in each file); this only guards against regressions.
+    probe 3's one allowed miss is by design: someone else's emergency ('my colleague fainted') goes to the doctor."""
+    from backend.journeys.medication.probe import score
+    out = score(path=Path("evals") / probe)
+    assert out["emergencies_caught"] == out["emergencies"]
+    assert out["cases"] - out["correct"] <= allowed_misses, out["misses"]
+
+
+def test_replay_reader_never_calls_a_model_and_counts_misses(tmp_path):
+    from backend.journeys.medication.models import ReplayReader, _Cache, _key
+    cache = tmp_path / "c.json"
+    _Cache(cache).put(_key("m", "嘴唇腫", []), [{"kind": "red_flag", "label": "lip swelling", "urgency": 4, "quote": "嘴唇腫"}])
+    rr = ReplayReader("m", cache)
+    reader = ModelReader(rr)
+    assert reader.read("嘴唇腫")[0]["urgency"] == 4
+    assert reader.read("I have a rash")[0]["via"] == "rules" and rr.misses == 1      # a miss: the floor's name
