@@ -54,3 +54,21 @@ def test_suite_composes_every_journey():
 ])
 def test_followup_reads_replies(text, label):
     assert classify(text)[0] == label
+
+
+def test_one_owner_per_message():
+    from backend.engine.rules import RulesHarness
+    from backend.journeys import Push
+    from backend.journeys.followup import FollowupJourney
+
+    class Meds:
+        def bid(self, api, r):
+            return 3 if "amlodipine" in r["text"] else 0
+
+    eng = type("S", (Push, Meds, FollowupJourney, RulesHarness), {})(version="1.1")
+    eng._route, eng.fu_out = {}, {}
+    msg = {"id": "m1", "kind": "message", "channel": "careline", "patient_id": "P1", "data": {"direction": "in"},
+           "available_at": "2027-03-01T10:00", "text": "please repeat my amlodipine"}
+    assert eng.won(None, msg, Meds) and not eng.won(None, msg, FollowupJourney)
+    other = dict(msg, id="m2", text="still coughing")
+    assert eng.won(None, other, FollowupJourney)

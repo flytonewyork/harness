@@ -47,9 +47,37 @@ def all_families() -> tuple[str, ...]:
 
 
 class Push:
-    """Always first in a suite: the care line delivers patient messages as they arrive, so the host may call
-    push(api) between the engine's scheduled runs. It reads only what has newly landed in the clinic system and
-    hands each record to on_cms (core and every journey); sweeps, escalation and silence checks stay on tick."""
+    """Always first in a suite.
+
+    Push: the care line delivers patient messages as they arrive, so the host may call push(api) between the
+    engine's scheduled runs. It reads only what has newly landed in the clinic system and hands each record to
+    on_cms (core and every journey); sweeps, escalation and silence checks stay on tick.
+
+    Routing: a record several journeys could act on (a patient message: a check-in reply, a repeat request, a side
+    effect) gets exactly one owner, so the doctor gets one item, not two. Each journey class may define
+    `bid(self, api, r) -> float` (0 = not mine) directly on its class (not cooperative); `won(api, r, cls)` is True
+    for the highest bidder, the earlier journey in the suite on a tie. The followup journey bids on every inbound
+    care-line message as the fallback, so no patient message goes unread."""
+
+    def reset(self, api):
+        super().reset(api)
+        self._route: dict = {}
+
+    def owner_journey(self, api, r: dict):
+        rid = r["id"]
+        if rid not in self._route:
+            best, who = 0.0, None
+            for cls in type(self).__mro__:
+                fn = cls.__dict__.get("bid")
+                if fn is not None:
+                    b = float(fn(self, api, r) or 0)
+                    if b > best:
+                        best, who = b, cls
+            self._route[rid] = who
+        return self._route[rid]
+
+    def won(self, api, r: dict, cls) -> bool:
+        return self.owner_journey(api, r) is cls
 
     def push(self, api):
         recs, self.cur["cms"] = api.cms_since(self.cur["cms"])

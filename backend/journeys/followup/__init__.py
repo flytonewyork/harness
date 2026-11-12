@@ -49,6 +49,15 @@ class FollowupJourney:
         self.fu_out: dict = {}        # pid -> {"t", "rid", "text"} latest check-in sent by the care line
         self.fu_replied: set = set()  # check-in record ids that got a reply
 
+    def bid(self, api, r: dict) -> float:
+        """Every inbound care-line message, as the fallback (1); a reply within 72 h of our own check-in (2).
+        A journey that recognises the message (a repeat request naming a medicine) bids higher and owns it."""
+        if r["kind"] != "message" or r["channel"] != "careline" or r["data"].get("direction") == "out" or not r["patient_id"]:
+            return 0
+        chk = self.fu_out.get(r["patient_id"])
+        t = datetime.fromisoformat(r["available_at"])
+        return 2 if chk and timedelta(0) <= t - chk["t"] <= timedelta(hours=72) else 1
+
     def claims(self, api, r: dict) -> bool:
         return (r["kind"] == "message" and r["channel"] == "careline") or super().claims(api, r)
 
@@ -61,9 +70,12 @@ class FollowupJourney:
             self.fu_out[pid] = {"t": t, "rid": r["id"], "text": r["text"]}
             return
         chk = self.fu_out.get(pid)
-        if chk:
-            self.fu_replied.add(chk["rid"])
-        self.fu_reply(api, r, pid, t, chk)
+        if chk and timedelta(0) <= t - chk["t"] <= timedelta(hours=72):
+            self.fu_replied.add(chk["rid"])        # answered, whoever owns the answer
+        else:
+            chk = None
+        if not hasattr(self, "won") or self.won(api, r, FollowupJourney):
+            self.fu_reply(api, r, pid, t, chk)
 
     def tick(self, api):
         super().tick(api)
@@ -100,7 +112,8 @@ class FollowupJourney:
         if hit:
             w.add("finding", f"The reply reports {'a red-flag symptom' if u == 4 else 'getting worse'}: “{hit}”.", cite(r["id"], hit))
         else:
-            w.add("finding", "The reply describes improvement and names no warning symptom; it still needs the doctor to read it.", cite(r["id"], quote))
+            w.add("finding", ("The reply describes improvement and names no warning symptom; it still needs the doctor to read it." if chk
+                              else "A message from the patient that names no warning symptom; the doctor reads and closes it."), cite(r["id"], quote))
         self.fu_context(w, note)
         w.add("assessment", {4: "Red-flag symptom after an acute visit: needs a same-day clinical decision (A&E or call now).",
                              3: "Not improving as planned after an acute visit: needs a doctor's call back today or tomorrow.",
@@ -109,6 +122,9 @@ class FollowupJourney:
         w.add("loop_status", f"{n} consultation{'s' if n != 1 else ''} since the reply.", search=srch)
         reason = {4: "Care-line reply: red-flag symptom", 3: "Care-line reply: worse since the visit",
                   1: "Care-line reply: better; doctor to confirm and close"}[u]
+        if chk is None:
+            reason = {4: "Care-line message: red-flag symptom", 3: "Care-line message: reports getting worse",
+                      1: "Care-line message for the doctor to read"}[u]
         if hit:
             reason += f" (“{hit}”)"
         w.add("request", f"Suggested fixed reply for the doctor to send: {REPLY[u]}")
