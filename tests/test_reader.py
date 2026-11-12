@@ -109,3 +109,10 @@ def test_runner_estimates_runs_resumes_and_stops_on_login(tmp_path, capsys):
     login = _fake_claude(tmp_path, {"is_error": True, "result": "Not logged in. Please run /login"})
     assert reader_runner.main(["--task", "triage", "--docs", str(docs), "--out", str(out2), "--model", "haiku", "--claude", login]) == 1
     assert not out2.exists() or not out2.read_text().strip()                             # nothing recorded as answered
+
+
+def test_blank_quote_is_dropped():
+    from backend.extract.reader import Task, verify
+    t = Task("t", "1", "", {}, quoted={"deadline": "deadline_quote"})
+    out, dropped = verify(t, "Please return by 1 May.", {"deadline": "2027-05-01", "deadline_quote": "   "})
+    assert dropped == ["deadline"] and out["deadline"] is None
