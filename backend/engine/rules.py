@@ -557,6 +557,9 @@ class RulesHarness:
             self.raise_item(api, ("msg", r["id"]), pid, "abnormal_result", "Patient sent an outside report with abnormal results",
                             [r["id"]], 2, why=self.message_why(api, r, pid, t))
 
+    def on_ehealth(self, api, pid: str, r: dict):
+        """Every new eHealth record the sweep reads, for journeys (cooperative: call super()). Core does nothing here."""
+
     def claims(self, api, r: dict) -> bool:
         """A journey (backend/journeys/) that reads this record more fully than the core rule returns True here, so
         the core's simpler rule for it (discharge summaries, patient messages) does not open a second item. The
@@ -789,10 +792,11 @@ class RulesHarness:
                     continue
                 self.ehealth_seen.add(r["id"])
                 t = datetime.fromisoformat(r["available_at"])
+                self.on_ehealth(api, pid, r)
                 if r["kind"] == "appointment":
                     self.closure_ev[pid].append((t, "appointment"))
                 elif r["kind"] in ("discharge_summary", "aed_summary") and t > api.now - timedelta(days=21):
-                    if not any(c > t for c in self.consults.get(pid, ())):
+                    if not any(c > t for c in self.consults.get(pid, ())) and not self.claims(api, r):
                         self.on_discharge(api, pid, r, t)
 
     def check_pending(self, api):
