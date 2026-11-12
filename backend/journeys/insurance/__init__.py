@@ -37,7 +37,7 @@ DONE_WORDS = ["claim form", "Claim form", "pre-authorisation", "Pre-authorisatio
               "Part B", "insurer", "Insurer"]
 
 KIND_LABEL = {"claim_form": "claim form", "pre_auth": "pre-authorisation request", "insurer_query": "request for a medical report",
-              "claim_declined": "declined claim"}
+              "claim_declined": "declined claim", "info_request": "request for further information"}
 
 
 def _dmy(s: str) -> datetime:
@@ -63,58 +63,130 @@ def working_days_between(a: datetime, b: datetime) -> int:
     return n
 
 
+MONTHS = {m: i + 1 for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"])}
+NUM_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+             "eleven": 11, "twelve": 12, "fourteen": 14, "fifteen": 15, "twenty": 20, "twenty-one": 21, "thirty": 30,
+             "forty-five": 45, "sixty": 60, "ninety": 90}
+ZH_DIGITS = {"一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+DATE = r"(\d{1,2}/\d{1,2}/\d{4}|\d{1,2} [A-Za-z]{3,9},? \d{4}|[A-Za-z]{3,9} \d{1,2},? \d{4}|\d{4}年\d{1,2}月\d{1,2}日)"
+NUM = r"(\d+|[A-Za-z-]+(?: \(\d+\))?|[一二兩三四五六七八九十]+)"
+ASK = (r"(?i)please (return|provide|complete|send|furnish|forward|fax|reply|submit|let us have)|kindly (complete|return|provide|send)"
+       r"|we would be grateful if you could|we request|may (be )?resubmit|is (still )?outstanding|請於|請提供|請填|請將|煩請")
+NOT_ASK = r"(?i)should any further information be required|no further information is required|for your (information|records) only"
+CONSENT = r"(?i)consent|authori[sz]ation|授權|同意書"
+CONSENT_MISSING = r"(?i)not enclosed|not attached|to follow|forwarded separately|will be (sent|forwarded|provided)|missing|未(有)?附|稍後"
+CONSENT_GIVEN = r"(?i)enclose|attached|herewith|附上|已附"
+
+
+def parse_date(s: str) -> datetime | None:
+    s = s.strip().rstrip(".,")
+    m = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", s)
+    if m:
+        return datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+    m = re.fullmatch(r"(\d{4})年(\d{1,2})月(\d{1,2})日", s)
+    if m:
+        return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    m = re.fullmatch(r"(\d{1,2}) ([A-Za-z]{3,9}),? (\d{4})", s) or re.fullmatch(r"([A-Za-z]{3,9}) (\d{1,2}),? (\d{4})", s)
+    if m:
+        a, b_, y = m.groups()
+        d, mon = (a, b_) if a.isdigit() else (b_, a)
+        mo = MONTHS.get(mon[:3].lower())
+        return datetime(int(y), mo, int(d)) if mo else None
+    return None
+
+
+def parse_num(s: str) -> int | None:
+    s = s.strip()
+    m = re.search(r"\((\d+)\)", s)                      # "fourteen (14)"
+    if m:
+        return int(m.group(1))
+    if s.isdigit():
+        return int(s)
+    if s.lower() in NUM_WORDS:
+        return NUM_WORDS[s.lower()]
+    if s and all(c in "一二兩三四五六七八九十" for c in s):   # 七, 十, 十四, 二十一
+        if "十" not in s:
+            return ZH_DIGITS.get(s)
+        tens, _, ones = s.partition("十")
+        return (ZH_DIGITS.get(tens, 1) if tens else 1) * 10 + (ZH_DIGITS.get(ones, 0) if ones else 0)
+    return None
+
+
+def find_deadline(text: str, t0: datetime) -> tuple[datetime | None, str | None]:
+    """The insurer's deadline and the line that states it: a date ('by', 'no later than', 'before', 'on or before')
+    or a period ('within N [working] days', in figures, words or Chinese numerals)."""
+    m = re.search(r"(?i)\b(?:by|no later than|before|on or before|not later than)\s+" + DATE, text) or re.search(DATE + r"\s*(?:或)?之?前", text)
+    if m:
+        d = parse_date(m.group(1))
+        if d:
+            return d, line_with(text, re.escape(m.group(0)))
+    for pat, working in ((r"(?i)within " + NUM + r" working days", True), (NUM + r"\s*個?(?:工作天|工作日)內", True),
+                         (r"(?i)within " + NUM + r" (?:calendar )?days", False), (NUM + r"\s*(?:日|天)內", False)):
+        m = re.search(pat, text)
+        if m:
+            n = parse_num(m.group(1))
+            if n:
+                return (working_days_after(t0, n) if working else t0 + timedelta(days=n)), line_with(text, re.escape(m.group(0)))
+    return None, None
+
+
+def classify(title: str, text: str) -> str:
+    up, low = title.upper(), text.lower()
+    if re.search(r"PRE-?AUTHORI[SZ]ATION|PRE-?APPROVAL|預先批核|預批", up + title):
+        return "pre_auth"
+    if re.search(r"(?i)declined|unable to admit|not (be )?payable|rejected|拒絕|不獲批", text):
+        return "claim_declined"
+    if re.search(r"MEDICAL REPORT|醫療報告", up + title) or re.search(r"medical records|consultation notes|copies of", low):
+        return "insurer_query"
+    if re.search(r"CLAIM FORM|PHYSICIAN|STATEMENT|CERTIFICATE|索償|醫生證明", up + title):
+        return "claim_form"
+    return "info_request"
+
+
+def read_identity(text: str) -> dict:
+    m_name = (re.search(r"(?:Name|Patient|Insured|Claimant|Life assured|Re)\s*:\s*([A-Z][A-Z'-]+),\s*([A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*)*)", text)
+              or re.search(r"(?:Name|Patient|Insured|Claimant|Life assured)\s*:\s*([A-Z][A-Z'-]+) ([A-Z][a-z][A-Za-z'-]*(?: [A-Z][a-z][A-Za-z'-]*)*)", text))
+    m_dob = re.search(r"(?i)(?:DOB|D\.O\.B\.?|Date of birth)\s*:?\s*(\d{1,2}/\d{1,2}/\d{4})", text)
+    m_hk = re.search(r"\b([A-Z]\d{3})XXX\(X\)", text)
+    dob = parse_date(m_dob.group(1)) if m_dob else None
+    return {"name": f"{m_name.group(1)} {m_name.group(2)}" if m_name else None, "dob": dob.date().isoformat() if dob else None,
+            "hkid": m_hk.group(1) if m_hk else None}
+
+
 def read_insurer_doc(text: str, received: datetime) -> dict | None:
     """What the insurer asks the doctor to do, and by when, in its own words. None if it asks nothing."""
-    lines = [ln for ln in text.splitlines() if ln.strip()]
+    lines = [ln for ln in text.splitlines() if ln.strip() and not ln.startswith("-- SIMULATED")]
     title = " ".join(lines[1].split()) if len(lines) > 1 else ""
     head = " ".join(lines[0].split()) if lines else "the insurer"
     latin = re.sub(r"^[^A-Za-z]*", "", head) or head          # a bilingual letterhead: keep the English name
     insurer = re.sub(r"\bHk\b", "HK", latin.title()) if latin.isupper() else latin
-    up = title.upper()
-    if "PRE-AUTHORISATION" in up or "預先批核" in title:
-        kind = "pre_auth"
-    elif "MEDICAL REPORT" in up:
-        kind = "insurer_query"
-    elif "CLAIM FORM" in up or "PHYSICIAN" in up or re.search("索償|醫生證明", title):
-        kind = "claim_form"
-    elif re.search(r"Decision:\s*declined", text, re.I):
-        kind = "claim_declined"
-    else:
-        kind = None
-    asks = (line_with(text, r"(?i)please (return|provide|complete)|may be resubmitted|請於.*(交回|提供)")
-            or line_with(text, r"(?i)to be completed by|由主診醫生填寫"))
-    if kind is None or not asks:
+    body = "\n".join(ln for ln in lines if not re.search(NOT_ASK, ln))
+    asks = line_with(body, ASK) or line_with(body, r"(?i)to be completed by|由主診醫生填寫")
+    if not asks:
         return None                      # e.g. "Decision: approved ... No further information is required."
-    dated = re.search(r"Date:\s*(\d{2}/\d{2}/\d{4})", text)
-    t0 = _dmy(dated.group(1)) if dated else received
-    m_by = re.search(r"\bby (\d{2}/\d{2}/\d{4})", text)
-    m_wd = re.search(r"within (\d+) working days|(\d+)\s*個工作天內", text)
-    m_d = re.search(r"within (\d+) days|(\d+)\s*日內", text)
-    if m_by:
-        due, dq = _dmy(m_by.group(1)), line_with(text, re.escape(m_by.group(0)))
-    elif m_wd:
-        due, dq = working_days_after(t0, int(m_wd.group(1) or m_wd.group(2))), line_with(text, re.escape(m_wd.group(0)))
-    elif m_d:
-        due, dq = t0 + timedelta(days=int(m_d.group(1) or m_d.group(2))), line_with(text, re.escape(m_d.group(0)))
-    else:
-        due, dq = None, None
+    kind = classify(title, text)
+    dated = re.search(r"Date:\s*" + DATE, text)
+    t0 = (parse_date(dated.group(1)) if dated else None) or received
+    due, dq = find_deadline(text, t0)
     if due is not None:
         due = due.replace(hour=17, minute=0)
-    m_name = re.search(r"Name:\s*([A-Z][A-Z'-]+),\s*([A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*)*)", text)
-    m_dob = re.search(r"DOB\s*(\d{2}/\d{2}/\d{4})", text)
-    m_hk = re.search(r"\b([A-Z]\d{3})XXX\(X\)", text)
     m_doc = re.search(r"Attending doctor:\s*(.+)", text)
-    m_ref = re.search(r"Our ref:\s*([A-Z]+-\d+)", text)
-    auth = line_with(text, r"(?i)^Authori[sz]ation signed")
-    return {"kind": kind, "insurer": insurer, "dated": min(t0, received), "ref": m_ref.group(1) if m_ref else None, "title": title, "title_q": line_with(text, re.escape(lines[1].strip()[:60])) if len(lines) > 1 else None,
+    m_ref = re.search(r"(?:Our ref|Claim no\.?|Ref)\s*:?\s*([A-Z]+-?\d+)", text)
+    auth = line_with(text, CONSENT)
+    if auth and re.search(CONSENT_MISSING, auth):
+        auth_missing = True
+    elif auth and re.search(CONSENT_GIVEN, auth):
+        auth_missing = False
+    else:
+        auth_missing = kind == "insurer_query"      # a records request that never mentions consent: treat as not given
+    return {"kind": kind, "insurer": insurer, "dated": min(t0, received), "ref": m_ref.group(1) if m_ref else None,
+            "title": title, "title_q": line_with(text, re.escape(lines[1].strip()[:60])) if len(lines) > 1 else None,
             "asks": asks, "due": due, "due_q": dq,
             "sections": [q for q in (line_with(text, r"^Section B1"), line_with(text, r"^Section B\b|^Section B:")) if q],
-            "reason_q": line_with(text, r"^Reason:"), "procedure_q": line_with(text, r"^Procedure requested"),
-            "lapse_q": line_with(text, r"(?i)will lapse|will not be considered"),
-            "auth_q": auth, "auth_missing": bool(auth and re.search(r"not enclosed|missing|to follow", auth, re.I)),
-            "hdr": {"name": f"{m_name.group(1)} {m_name.group(2)}" if m_name else None,
-                    "dob": _dmy(m_dob.group(1)).date().isoformat() if m_dob else None,
-                    "hkid": m_hk.group(1) if m_hk else None},
+            "reason_q": line_with(text, r"(?i)^Reason:|unable to admit|declined because"),
+            "procedure_q": line_with(text, r"^Procedure requested|申請手術"),
+            "lapse_q": line_with(text, r"(?i)will lapse|will not be considered|失效|恕不受理"),
+            "auth_q": auth, "auth_missing": auth_missing, "hdr": read_identity(text),
             "doctor": " ".join(m_doc.group(1).split()) if m_doc else None}
 
 
@@ -209,7 +281,8 @@ class InsuranceJourney:
         due_txt = f"by {day(due)}" if due else "with no return date on the document (taken as 14 days)"
         asked = {"claim_form": "to complete and sign the doctor's part of its claim form",
                  "pre_auth": "to complete the medical section of its pre-authorisation request",
-                 "insurer_query": "for a medical report", "claim_declined": "to complete the missing section so the claim can be resubmitted"}[kind]
+                 "insurer_query": "for a medical report", "claim_declined": "to complete the missing section so the claim can be resubmitted",
+                 "info_request": "for further information on a claim"}[kind]
         w.add("finding", f"The insurer asks the doctor {asked}, {due_txt}.", *finding)
         evidence = [r["id"]]
         ctx = []
@@ -217,6 +290,8 @@ class InsuranceJourney:
             q = line_with(ref["text"], r"^REFERRAL LETTER")
             ctx.append(f"It is for the {'URGENT ' if ref['urgent'] else ''}referral written on {day(ref['t'])}.")
             w.add("context", " ".join(ctx), cite(ref["rid"], q), cite(ref["rid"], line_with(ref["text"], r"^Reason:")))
+        if doc["auth_missing"] and not doc["auth_q"]:
+            w.add("context", "The request does not mention the patient's signed authorisation: nothing can be released until it is on file.")
         if doc["auth_q"]:
             w.add("context", "The patient's signed authorisation is NOT with the request: nothing can be released until it is on file."
                   if doc["auth_missing"] else "The insurer says the patient's signed authorisation is enclosed.", cite(r["id"], doc["auth_q"]))
@@ -237,7 +312,8 @@ class InsuranceJourney:
         what = {"claim_form": "Complete and sign the doctor's part of the form",
                 "pre_auth": "Complete the medical section of the pre-authorisation",
                 "insurer_query": "Check the authorisation, then decide what to release" if doc["auth_missing"] else "Write the medical report",
-                "claim_declined": "Complete the missing section and resubmit"}[kind]
+                "claim_declined": "Complete the missing section and resubmit",
+                "info_request": "Reply to the insurer with what it asks for"}[kind]
         w.add("request", f"{what}, then close this item. Opened for {self.nm(owner)} at urgency {urgency} ({URGENCY_LABEL[urgency]}); "
               f"due {when(item_due)}. Only a doctor can close it.")
         reason = {"claim_form": f"Insurer claim form to complete for {insurer} {due_txt}",
@@ -245,7 +321,8 @@ class InsuranceJourney:
                               + ("; the urgent referral must not wait for it" if ref and ref["urgent"] else ""),
                   "insurer_query": f"{insurer} asks for a medical report {due_txt}"
                                    + ("; no signed authorisation from the patient is enclosed" if doc["auth_missing"] else ""),
-                  "claim_declined": f"Claim declined by {insurer} (doctor's section incomplete): resubmit {due_txt}"}[kind]
+                  "claim_declined": f"Claim declined by {insurer} (doctor's section incomplete): resubmit {due_txt}",
+                  "info_request": f"{insurer} asks for further information on a claim {due_txt}"}[kind]
         iid = api.open_item(pid, owner, FAMILY, reason, evidence, urgency, item_due, reasoning=w.steps)
         self.ins_open[iid] = {"due": due, "pid": pid, "label": label}
         self.ins_stats["items"] += 1
