@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-TEXT_VERSION = "precare-texts-v1"
+TEXT_VERSION = "precare-texts-v2"   # v2: safety-netting line in every preparation message
 
 LABEL = {"en": "Care team (automated)", "zh": "護理團隊（自動回覆）"}
 
@@ -55,6 +55,8 @@ PREP = {   # key -> text; which keys a visit gets is decided in agent.prep_keys(
                       "zh": "如果有其他醫生或者醫院嘅報告、信或者掃描，請帶埋嚟。"},
     "procedure": {"en": "For your procedure, please wear loose clothing and arrange for someone to take you home if you are told you will be sedated.",
                   "zh": "做手術當日請著寬鬆衫，如果醫生講會用鎮靜劑，請安排人陪你返屋企。"},
+    "safety_net": {"en": "If you feel much worse before your visit, don't wait for it: call 999 or go to the nearest A&E.",
+                   "zh": "如果睇症前覺得差咗好多，唔好等：請打999或者去最近嘅急症室。"},
     "arrive_early": {"en": "Please arrive 10 minutes early with your ID card.", "zh": "請提早10分鐘到，記得帶身份證。"},
 }
 

@@ -346,3 +346,27 @@ def test_screen_v4_red_flags(text):
 @pytest.mark.parametrize("text", ["I took a whole box of panadol last night", "I've written letters to my family and given my things away"])
 def test_screen_v4_crisis(text):
     assert safety.screen(text) == "crisis"
+
+
+@pytest.mark.parametrize("text", ["I vomited something that looked like coffee grounds", "my face feels droopy on one side",
+                                  "左手痹到上膊頭，仲不停出汗", "my 2 year old is floppy and not drinking", "shivering uncontrollably, fever 39.8",
+                                  "my inhaler isn't helping", "my lips are puffing up"])
+def test_screen_v5_red_flags(text):
+    assert safety.screen(text) == "red_flag"
+
+
+@pytest.mark.parametrize("text", ["I feel like a burden to my family", "I cut myself again last night", "佢哋冇咗我會好啲"])
+def test_screen_v5_crisis(text):
+    assert safety.screen(text) == "crisis"
+
+
+def test_prep_always_ends_with_safety_netting():
+    p = FakePort()
+    run(p, *HAPPY)
+    prep = next(m["text"] for m in p.out() if "How to prepare" in m["text"])
+    assert PREP["safety_net"]["en"] in prep
+
+
+def test_brand_names_reach_the_doctor():
+    assert safety.mentions(safety.GLUCOSE_LOWERING, "Lantus 20 units at night")
+    assert safety.mentions(safety.ANTITHROMBOTIC, "每日食一粒保栓通")

@@ -29,7 +29,8 @@ from datetime import date, datetime, timedelta
 from . import safety
 from .texts import LABEL, TEXT_VERSION, compose, values_for
 
-AGENT_VERSION = "precare-agent-v3"   # v1: name + DOB with filler words failed; v2: "冇問題" consent and an added English given name failed
+AGENT_VERSION = "precare-agent-v4"   # v1: name + DOB with filler words failed; v2: "冇問題" consent, an added English
+#                                       given name; v3: "23rd Sept 1964", safety-netting in the prep message
 DATA_STEPS = ("reason", "duration", "meds", "allergies", "anything_else")
 TERMINAL = ("declined", "stopped", "identity_failed", "done", "escalated", "closed")
 FASTING_TESTS = {"fasting_glucose", "lipids", "fasting_lipids", "glucose_tolerance"}
@@ -74,13 +75,18 @@ def parse_dob(text: str) -> date | None:
                 return date(y, mo, d)
             except ValueError:
                 return None
-    m = re.search(r"\b(\d{1,2})\s+([A-Za-z]{3})[a-z]*\.?\s+(\d{4})\b", t)
+    m = re.search(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-z]{3})[a-z]*\.?,?\s+(\d{4})\b", t, re.I)
     if m and m.group(2).lower() in MONTHS:
-        try:
-            return date(int(m.group(3)), MONTHS[m.group(2).lower()], int(m.group(1)))
-        except ValueError:
+        d, mo, y = int(m.group(1)), MONTHS[m.group(2).lower()], int(m.group(3))
+    else:
+        m = re.search(r"\b([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b", t, re.I)       # "Sept 23, 1964"
+        if not (m and m.group(1).lower() in MONTHS):
             return None
-    return None
+        d, mo, y = int(m.group(2)), MONTHS[m.group(1).lower()], int(m.group(3))
+    try:
+        return date(y, mo, d)
+    except ValueError:
+        return None
 
 
 def _tokens(name: str) -> list[str]:
@@ -278,7 +284,7 @@ class PrecareAgent:
             keys.append("bring_reports")
         if appt.get("procedure"):
             keys.append("procedure")
-        keys.append("arrive_early")
+        keys += ["arrive_early", "safety_net"]
         return keys
 
     def _prep(self, appt_id, st):

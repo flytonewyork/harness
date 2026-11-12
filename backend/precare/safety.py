@@ -11,7 +11,7 @@ from __future__ import annotations
 import difflib
 import re
 
-SCREEN_VERSION = "precare-screen-v4"
+SCREEN_VERSION = "precare-screen-v5"
 # v1 missed code-switched chest symptoms, "collapsed", "arm went weak" (LoopBench dev set, 12 Nov).
 # v2 missed descriptions without keywords ("elephant sitting on my chest", "can't catch my breath"), typos
 # ("chest pian", "metphormin"), a low sugar given as a number, a tight throat after a new drug, and indirect
@@ -19,7 +19,11 @@ SCREEN_VERSION = "precare-screen-v4"
 # and fuzzy matching for medicine names.
 # v3 missed all 7 red-flag phrasings of the first blind set (palpitations with near-fainting, thunderclap headache,
 # Cantonese stiff neck, tarry stool, reduced fetal movements, a box of paracetamol, goodbye letters). v4 adds those
-# families of wording. Word lists will always trail real language: see screens.py for the model screen on top.
+# families of wording.
+# v4 then missed all 9 red-flag phrasings of blind set 2 (coffee-ground vomit, droopy face, left arm numb with
+# sweating, a floppy toddler, rigors with confusion, an inhaler not helping, "a burden to my family", "cut myself",
+# puffy lips). v5 adds them. Two blind sets say the same thing: word lists catch the phrasings they were written
+# for and almost nothing new. The model screen (screens.py) has to be on before real patients use the line.
 
 CRISIS = [r"suicid", r"kill (myself|me)", r"end (my|it) (life|all)", r"want to die", r"don'?t want to (live|be alive)",
           r"self[- ]?harm", r"hurt(ing)? myself", r"better off (if i (was|were) )?dead", r"better off without me",
@@ -29,6 +33,8 @@ CRISIS = [r"suicid", r"kill (myself|me)", r"end (my|it) (life|all)", r"want to d
           r"giv(en|ing|e) .{0,25}(things|stuff|belongings|possessions) away", r"giv(en|ing|e) away (most of |all of )?my", r"affairs in order",
           r"(whole|entire|full) (box|bottle|pack|packet|strip|tub) of", r"took (all|a lot|loads|lots|a handful) of (my )?(pills|tablets|medicine|panadol|paracetamol)",
           r"overdose", r"took too many (pills|tablets)", r"成(盒|樽|排|板)藥", r"食咗成(盒|樽|排|板)", r"遺書", r"寫(咗|好)信俾屋企人", r"將.{0,6}(嘢|東西)送(晒)?俾人",
+          r"\bburden\b", r"better (off )?without me", r"負擔", r"冇咗我.{0,4}(會)?好(啲|過)", r"cut(ting)? myself", r"burn(ed|ing)? myself",
+          r"𠝹(手|自己|親自己)", r"割(手|脈|自己)", r"鎅(手|自己)",
           r"瞓咗唔再醒", r"唔想再醒", r"活落去冇意思", r"冇意思再活", r"死咗(仲|會)好",
           r"自殺", r"想死", r"唔想生存", r"唔想活", r"唔想再活", r"傷害自己", r"了結", r"輕生", r"跳樓", r"𠝹手"]
 
@@ -49,6 +55,15 @@ RED_FLAGS = [
     r"black.{0,25}\b(tar|tarry|stool|poo|poop|motion)", r"\btarry\b", r"like tar", r"大便.{0,4}黑", r"屙.{0,3}黑",
     r"(baby|bb|fetus|foetus).{0,30}\b(not|hasn'?t|has not|stopped|less|isn'?t|no longer) (been )?(mov|kick)", r"(reduced|fewer|less|no) (fetal |foetal |baby )?movements?",
     r"bb.{0,6}(唔郁|冇郁|少咗郁)", r"胎動.{0,4}(少|冇)",
+    r"vomit\w*.{0,30}(coffee|black|blood|bloody)", r"coffee.?grounds?", r"嘔.{0,6}(咖啡|黑色|血)",
+    r"\bface\b.{0,20}(droop|lopsided|crooked|fallen)", r"dribbl", r"\b(left|right)\b (arm|hand|side).{0,20}\b(numb|tingl|weak|heavy)",
+    r"(左|右)(手|邊).{0,4}(痹|麻|冇力)", r"手痹.{0,6}(膊頭|心口)", r"(心口|胸口|手).{0,20}出汗",
+    r"(baby|toddler|infant|child|kid|son|daughter|\b\d+ ?(year|yr|month|mth)s?[- ]old).{0,50}(floppy|limp|not drinking|not feeding|very sleepy|hard to wake|won'?t wake|blue|grey)",
+    r"(bb|小朋友|個仔|個女).{0,15}(冇反應|好眼瞓|唔肯飲|軟晒|叫極唔醒)",
+    r"shiver\w* (uncontrollabl|non.?stop|violently)", r"\brigou?rs?\b", r"\b(feel|feeling|felt|seems?|very|really|so|getting|became|is|was) confused\b", r"\bconfusion\b", r"(fever|temp\w*|發燒|燒到).{0,10}\b(39\.[5-9]|4[0-2])", r"(震到停唔到|發冷震)",
+    r"inhaler.{0,25}(not|isn'?t|doesn'?t|no longer|stopped) (help|work)", r"(only|can only) (say|speak|talk in) (a few|few|single) words", r"can'?t (finish|complete) (a |my )?sentences?",
+    r"噴劑.{0,6}(冇用|唔work)", r"講唔到成句",
+    r"\blips?\b.{0,20}(puff|swell|swollen|big|fat)", r"嘴唇.{0,4}(腫|脹)",
     r"collaps", r"not respond", r"won'?t wake", r"(can'?t|couldn'?t|cannot) (lift|move|feel) (my|his|her) (arm|leg|hand|face)",
     r"\b(arm|leg|hand|face|side)\b.{0,25}\b(went|gone|go|goes|is|was|feels?|felt|became) (weak|numb|limp|dead|heavy)",
     r"speech (was |is |went |became )?(slurred|garbled|strange)", r"slurr",
@@ -83,10 +98,14 @@ INSTRUCTION = [r"ignore (your|all|the|any|previous)", r"^\s*(system|assistant|de
                r"no need to come", r"唔理(你|之前)", r"話俾我知.{0,10}(正常|冇事)"]
 
 # medicines the doctor must decide about before a visit: the agent never tells the patient what to do with them
-GLUCOSE_LOWERING = [r"metformin", r"insulin", r"gliclazide", r"glipizide", r"sitagliptin", r"empagliflozin", r"dapagliflozin",
-                    r"diamicron", r"glucophage", r"糖尿藥", r"降血糖", r"胰島素", r"二甲雙胍"]
-ANTITHROMBOTIC = [r"warfarin", r"apixaban", r"rivaroxaban", r"dabigatran", r"edoxaban", r"clopidogrel", r"ticagrelor", r"aspirin",
-                  r"eliquis", r"xarelto", r"plavix", r"blood thinner", r"薄血藥", r"華法林", r"阿士匹靈", r"薯仔藥"]
+GLUCOSE_LOWERING = [r"metformin", r"insulin", r"gliclazide", r"glipizide", r"glimepiride", r"sitagliptin", r"linagliptin", r"vildagliptin",
+                    r"empagliflozin", r"dapagliflozin", r"canagliflozin", r"pioglitazone", r"repaglinide",
+                    r"diamicron", r"glucophage", r"amaryl", r"januvia", r"janumet", r"galvus", r"trajenta", r"jardiance", r"forxiga",
+                    r"lantus", r"levemir", r"toujeo", r"tresiba", r"novorapid", r"humalog", r"apidra", r"mixtard", r"humulin", r"novomix",
+                    r"打針.{0,4}(糖|血糖)", r"糖尿針", r"糖尿藥", r"降血糖", r"胰島素", r"二甲雙胍"]
+ANTITHROMBOTIC = [r"warfarin", r"apixaban", r"rivaroxaban", r"dabigatran", r"edoxaban", r"clopidogrel", r"ticagrelor", r"prasugrel",
+                  r"aspirin", r"eliquis", r"xarelto", r"plavix", r"pradaxa", r"lixiana", r"brilinta", r"coumadin", r"marevan", r"cartia",
+                  r"blood thinner", r"保栓通", r"拜瑞妥", r"艾必克凝", r"倍林達", r"可邁丁", r"阿斯匹靈", r"薄血藥", r"華法林", r"阿士匹靈", r"薯仔藥"]
 
 STOP = [r"^\s*stop\W*$", r"^\s*unsubscribe\W*$", r"^\s*stop (please|it|now|messaging|texting|this)\b", r"\bplease stop (messag|text|send|contact)",
         r"\bstop (messag|text|send|contact)\w* me", r"\bdon'?t (message|text|contact) me", r"^\s*唔好再(send|傳|搵|發)", r"^\s*停止\s*$", r"唔好再send", r"唔好再傳", r"唔好再搵我"]
