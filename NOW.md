@@ -12,6 +12,7 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 11 Nov
    offline copy on the Mac mini at `~/Desktop/EC-demo-Julie/`. Behind it, **the journey suite** (Thomas, 12 Nov): one engine
    with a plug-in per patient journey, each with LoopBench scenarios and a gate (`docs/JOURNEYS.md`, `scripts/journey_eval.py`). Bug pass: branch `-wyqxsy`.
    Precare: #36, loopbench #9, `docs/PRECARE.md`. Insurance: #37.
+   Follow-on (discharge summaries, specialist letters, HA SOPC bookings): `backend/journeys/followon/`, 17 scenarios, gate passes.
 3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. The Mac mini service `com.tmrw.careline`
    was stopped 11 Nov and stays off until Thomas restarts it; it replied to numbers outside the tester list on 10 Nov.
 
