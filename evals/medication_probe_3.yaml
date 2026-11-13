@@ -1,0 +1,41 @@
+# Medication reader probe 3: written after probes 1 and 2 were fixed, scored once untuned (first_pass). More quiet
+# cases this time, to measure false alarms as well as misses. Synthetic only.
+first_pass: {date: "2026-11-12", cases: 36, correct: 18, emergencies_caught: "1 of 5", quiet_kept: "11 of 12"}
+cases:
+  - {text: "My face has blown up like a balloon", classes: [acei], kinds: [red_flag], min: 4}
+  - {text: "Can't catch my breath, lips feel tingly", classes: [antibiotic], kinds: [red_flag], min: 4}
+  - {text: "成個人好似虛脫咗，企唔穩，差啲暈", classes: [sulfonylurea], kinds: [red_flag, side_effect], min: 3}
+  - {text: "There was blood in the toilet bowl after I went, quite a lot", classes: [anticoagulant], kinds: [side_effect, red_flag], min: 3}
+  - {text: "皮膚甩晒皮，眼都好紅", classes: [xanthine_oxidase], kinds: [red_flag], min: 4}
+  - {text: "I want to end my life", classes: [ssri], kinds: [crisis], min: 4}
+  - {text: "Pain in my chest and left arm", kinds: [red_flag], min: 4}
+  - {text: "his speech is slurred and he's confused since this morning", classes: [insulin], kinds: [red_flag], min: 3}
+  - {text: "I took 10 of them by accident", kinds: [red_flag, confusion], min: 3}
+  - {text: "hives all over after the first dose", classes: [antibiotic], kinds: [side_effect], min: 3}
+  - {text: "Legs feel so weak I can barely climb stairs", classes: [statin], kinds: [side_effect], min: 2}
+  - {text: "BG 2.9 before lunch", classes: [insulin], kinds: [side_effect], min: 3}
+  - {text: "my heart keeps skipping beats", kinds: [side_effect], min: 2}
+  - {text: "Getting pins and needles and feel faint when standing", classes: [diuretic], kinds: [side_effect, red_flag], min: 2}
+  - {text: "我嘔咗兩日，咩都食唔落", classes: [metformin], kinds: [side_effect], min: 2}
+  - {text: "Started the new one but still have half a box of the old one, which do I use?", kinds: [confusion], min: 2, max: 3}
+  - {text: "Can I take ibuprofen with my blood thinner?", classes: [anticoagulant], kinds: [question, dose_question], min: 1, max: 3}
+  - {text: "Gave up on the tablets, they made me feel worse", kinds: [adherence], min: 2, max: 3}
+  - {text: "Bit of a headache since starting it", classes: [ccb], kinds: [side_effect], min: 1, max: 2}
+  - {text: "我想加多粒，因為血壓都係160", classes: [arb], kinds: [dose_question], min: 2, max: 3}
+  - {text: "Can I get a new supply of my gout tablets", classes: [xanthine_oxidase], kinds: [repeat]}
+  - {text: "麻煩再開一個月藥俾我", kinds: [repeat]}
+  - {text: "the pharmacy said my prescription expired, can the doctor redo it?", kinds: [repeat]}
+  - {text: "about to finish my metformin", classes: [metformin], kinds: [repeat]}
+  # quiet
+  - {text: "The swelling in my ankles is much better now", quiet: true}
+  - {text: "No chest pain, no breathlessness, walking fine", quiet: true}
+  - {text: "多謝醫生，食咗藥之後瞓得好好多", quiet: true}
+  - {text: "Will come in on Monday as planned", quiet: true}
+  - {text: "my colleague fainted at work today lol, I'm fine", quiet: true}
+  - {text: "Blood pressure readings this week: 132/84, 128/80, 130/82", quiet: true}
+  - {text: "I don't have any rash or swelling", quiet: true}
+  - {text: "已經冇再頭暈，好返好多", quiet: true}
+  - {text: "Thanks, got the tablets from the pharmacy", quiet: true}
+  - {text: "no bleeding, no black stools", quiet: true}
+  - {text: "Happy new year doctor!", quiet: true}
+  - {text: "我阿爸以前都試過食呢隻藥出疹", quiet: true}
