@@ -29,6 +29,16 @@ class CaseLog:
     def __len__(self) -> int:
         return len(self._facts)
 
+    def reset(self) -> None:
+        """Empty the log for a new simulator run.
+
+        A clinical fact is never deleted inside a run. `reset` is the harness
+        starting a fresh clinic, the same way the engine clears its own lists.
+        """
+        self._records.clear()
+        self._facts.clear()
+        self._seq = 0
+
     def add_record(self, record_id: str, text: str, *, patient_id: str, at: datetime,
                    provenance: str, kind: str = "") -> SourceRecord:
         if not record_id or not patient_id:
