@@ -148,6 +148,26 @@ mark.focus { background: linear-gradient(transparent 6%, #ffcf33 6% 94%, transpa
 .offon small { display: block; color: var(--ink-3); font-weight: 400; }
 .fine { color: var(--ink-3); font-size: 0.82rem; max-width: 80ch; }
 
+/* the longitudinal case, beside the queue item's own trace */
+.case { margin-top: 1.25rem; }
+.case h3, .case h4 { font-size: 0.95rem; color: var(--ink-2); font-weight: 500; margin: 0.9rem 0 0.3rem; }
+.case-line { border-top: 1px solid #edf0f3; padding: 0.4rem 0; }
+.case-text { margin: 0.1rem 0; }
+.case q { font-style: normal; background: linear-gradient(transparent 18%, var(--mark) 18% 84%, transparent 84%); }
+.case .none { color: var(--ink-3); margin: 0.15rem 0 0.4rem; }
+.site { font-size: 0.75rem; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-3); }
+.site-gp { color: var(--blue); }
+.site-in_group { color: var(--soon); }
+.site-ha_sopc { color: var(--urg); }
+.site-private_hospital { color: var(--crit); }
+.site-ehealth { color: var(--soon); }
+.site-patient { color: var(--ink-2); }
+.case-block.conflict { border-left: 3px solid var(--crit); padding-left: 0.6rem; }
+.case-acts { display: flex; gap: 0.35rem; margin: 0.15rem 0 0.35rem; }
+.case-acts button { border: 1px solid var(--rule); background: var(--sheet); border-radius: 4px; padding: 0.12rem 0.5rem; font-size: 0.82rem; }
+.case-acts button:disabled { opacity: 0.5; }
+.case-error { color: var(--crit); margin: 0.4rem 0; }
+
 .headline { border-top: 1px solid var(--rule); background: var(--sheet); padding: 0.7rem 1.25rem; }
 .headline p { margin: 0; max-width: 110ch; }
 .headline b { font-weight: 700; }

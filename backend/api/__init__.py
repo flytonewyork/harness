@@ -1,5 +1,14 @@
-"""The doctor's follow-up list as a service (FastAPI). Agent endpoints open or raise; doctor endpoints close."""
-from .app import create_app
-from .store import Store
+"""The doctor's follow-up list as a service (FastAPI).
 
-__all__ = ["Store", "create_app"]
+Agent endpoints open or raise. Doctor endpoints close an item, or confirm, reject or close a case fact.
+`create_app` is loaded lazily so a caller can read `Store` without importing the web stack.
+"""
+from .store import AuthorityError, Store
+
+
+def create_app(store: Store):
+    from .app import create_app as build
+    return build(store)
+
+
+__all__ = ["AuthorityError", "Store", "create_app"]

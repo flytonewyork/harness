@@ -6,8 +6,10 @@ fact. The projection at `as_of` is what later waves read:
 
 - case/wire: `log.project(patient_id, as_of)` then `medication_lines()`, `open_referrals()`,
   `medications`, `conflicts`, `not_dispensed_here`, `admissions`, `conditions`, `allergies`.
-- case/ui: `view.to_dict()` on the patient payload. `strip` is the case strip (each line has `text`,
-  `quote`, `record_id`, `provenance`, `at`). The queue item keeps its own trace.
+- case/ui: `view.to_dict()` is the patient payload's `case` (`format` `case-projection/1`), and the same
+  object on a queue item beside that item's own trace. `strip` is what the screen renders (each line has
+  `text`, `quote`, `record_id`, `provenance`, `at`, `fact_id`). A doctor confirms, rejects or closes a fact
+  through the doctor route; the agent has no such route.
 
 Every fact has a `record_id`, a verbatim `quote`, and a `provenance`
 (`gp`, `in_group`, `ha_sopc`, `private_hospital`, `ehealth`, `patient`).
