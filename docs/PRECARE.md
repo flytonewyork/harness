@@ -94,7 +94,7 @@ instead of answered, medicine questions before fasting tests and procedures, dea
 
 **Ready to pilot with synthetic and staff testers:** the conversation flow, identity and consent, the template-only
 messaging, the authority model, verbatim quoting, the brief, question routing, preparation instructions and timing.
-Deterministic, unit-tested (61 precare tests in this repo) and mutation-tested in LoopBench.
+Deterministic, unit-tested (62 precare tests in this repo) and mutation-tested in LoopBench.
 
 **Prototype, not for real patients yet:**
 - **Emergency detection.** 8% recall on unseen wording. The shared model reader is wired in (task `precare_red_flag`) but has not been run. It must be

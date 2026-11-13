@@ -55,7 +55,12 @@ def is_yes(text: str) -> bool:
     t = re.sub(r"[^\w\s\u4e00-\u9fff']", " ", t).strip()
     if re.search(r"\b(no|not|don'?t|never|nope)\b|唔|不|冇|無|別", t):
         return False
-    return bool(re.match(r"^(yes|yeah|yep|y|ok|okay|sure|agree|i agree|fine|go ahead|of course|同意|好|係|可以|得|ok)", t)) or bool(re.search(YES, text, re.I))
+    # Whole tokens only. A bare prefix made "yesterday", "oklahoma", "好痛" and "係咪有病" into consent.
+    if re.match(r"^(?:yes|yeah|yep|y|ok|okay|sure|agree|fine|go ahead|of course|i agree)\b", t):
+        return True
+    if re.match(r"^(?:同意|可以|好呀|好|係|得)(?:$|\s|[呀啊喎囉])", t):
+        return True
+    return bool(re.fullmatch(YES, text, re.I))
 
 
 def has_cjk(text: str) -> bool:
@@ -102,7 +107,7 @@ def name_matches(text: str, patient: dict) -> bool:
         return True
     want = sorted(w for w in re.split(r"[^a-z]+", patient["name_en"].lower().replace("-", "")) if w)
     got = [w for w in _tokens(text.replace("-", "")) if not has_cjk(w)]
-    if sorted(got) == want:
+    if want and sorted(got) == want:
         return True
     joined = "".join(got)                                   # "Taiman Chan", "ChanTaiMan": same name, spaced differently
     if joined and any(joined == "".join(p) for p in permutations(want)):
@@ -200,6 +205,8 @@ class PrecareAgent:
         if step == "escalated":
             return self._send(appt_id, st, "fixed.after_alarm")
         if step in TERMINAL:
+            if step == "stopped" or st.get("stopped_at"):
+                return None                               # opted out: no further message and no new item
             if st["consent"] and safety.clinical_question(text):
                 return self._question(appt_id, st, msg, "question after the intake")
             return self._send(appt_id, st, "fixed.closed")

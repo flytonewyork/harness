@@ -119,11 +119,15 @@ LOW_SUGAR = re.compile(r"(sugar|glucose|血糖|hypo|reading|度數)\D{0,25}?(\d{
 
 
 def low_sugar(text: str) -> bool:
-    """A blood sugar under 4.0 mmol/L given as a number ("sugar dropped to 2.8")."""
+    """A blood sugar under 4.0 mmol/L given as a number ("sugar dropped to 2.8").
+    A count of time ("reading 3 days ago") is not a glucose."""
     for m in LOW_SUGAR.finditer(text):
         v = float(m.group(2))
-        if 0 < v < 4.0:
-            return True
+        if not (0 < v < 4.0):
+            continue
+        if re.match(r"\s*(day|days|week|weeks|month|months|year|years|小時|日|星期)", text[m.end():], re.I):
+            continue
+        return True
     return False
 
 

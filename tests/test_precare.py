@@ -193,6 +193,8 @@ def test_parsers():
     pt = {"name_en": "CHAN Tai-man", "name_zh": "陳大文"}
     assert name_matches("Chan Tai Man", pt) and name_matches("tai man chan", pt) and name_matches("陳大文", pt)
     assert not name_matches("Chan Tai Ming", pt) and not name_matches("Chan", pt)
+    blank = {"name_en": "", "name_zh": "陳大文"}
+    assert name_matches("陳大文", blank) and not name_matches("hello", blank) and not name_matches("你好", blank)
 
 
 def test_authority_the_agent_has_no_close_dismiss_or_downgrade():
@@ -229,6 +231,17 @@ def test_after_stop_only_emergency_replies_go():
     assert len(p.out()) == n
     p.say(ag, "now I can't breathe")
     assert "999" in p.out()[-1]["text"]
+
+
+def test_a_question_after_stop_opens_no_item_but_an_emergency_still_escalates():
+    p = FakePort()
+    ag = run(p, *HAPPY[:3], "STOP")
+    assert ag.state["A1"]["step"] == "stopped"
+    n_items, n_out = len(p.items), len(p.out())
+    p.say(ag, "ok, but should I stop my metformin?")
+    assert len(p.items) == n_items and not p.fam("previsit_question") and len(p.out()) == n_out
+    p.say(ag, "now I can't breathe")
+    assert "999" in p.out()[-1]["text"] and p.fam("previsit_red_flag")
 
 
 # ---- contract: the conversation layer has the same authority as a journey ------------------------------------------
@@ -279,11 +292,21 @@ def test_screen_stays_quiet(text):
     assert safety.screen(text) is None
 
 
+def test_a_count_of_time_is_not_a_low_blood_sugar():
+    assert safety.low_sugar("reading of 2.9") and safety.low_sugar("sugar dropped to 2.8")
+    assert not safety.low_sugar("sugar was 6.2")
+    for text in ("the reading 3 days ago was 6.2", "reading 3 weeks ago was fine", "reading 2 months ago",
+                 "血糖 3 小時前食咗嘢", "度數 2 日前", "reading 3 星期 ago"):
+        assert not safety.low_sugar(text), text
+        assert safety.screen(text) is None, text
+
+
 def test_consent_and_stop_phrasings():
     from backend.precare.agent import is_yes
-    for y in ("Yes please", "ok 👍", "sure, go ahead", "同意呀", "好呀冇問題", "可以 👍"):
+    for y in ("y", "Yes please", "ok 👍", "sure, go ahead", "no problem", "好", "好呀", "好呀冇問題", "同意呀", "可以 👍", "係"):
         assert is_yes(y), y
-    for n in ("no", "not really", "唔同意", "what is this for?", "who will see it"):
+    for n in ("no", "not really", "唔同意", "what is this for?", "who will see it",
+              "yesterday I felt fine", "oklahoma", "yellow fever vaccine", "好痛", "係咪有病"):
         assert not is_yes(n), n
     for s in ("stop.", "Stop please", "please stop messaging me", "唔好再搵我"):
         assert safety.is_stop(s), s
