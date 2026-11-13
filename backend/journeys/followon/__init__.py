@@ -18,9 +18,9 @@ What it adds to the core engine:
   specialist letters            reads the letter's asks (repeat tests, chase a biopsy, monitor a medicine) and
                                 stays quiet when the patient is discharged back with nothing to do
   HA SOPC bookings              an urgent referral booked as routine, or months out, is raised as urgent
-  care-line replies             red flags (breathless, chest pain, fainting, bleeding...) at urgency 3 with the
-                                patient's own words; "no better" at 2; a missed or too-distant specialist
-                                appointment re-opens the referral; "much better" opens nothing
+  care-line replies             red flags (breathless, chest pain, fainting, bleeding...) at urgency 4 (pages), quoted
+                                in the patient's own words; "no better" at 3; a missed or too-distant specialist
+                                appointment re-opens the referral; "much better" still opens at 1 for the doctor to close
   second attempts               core v1.1 re-opens an actioned item when the clinic could not reach the patient,
                                 and escalates items nobody actions (day 7 raise, day 14 page or backup)
 
