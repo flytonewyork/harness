@@ -1,6 +1,6 @@
 # NOW
 
-The one queue for harness and loopbench. Keep it under 2 KB. Last updated 11 Nov 2026.
+The one queue for harness and loopbench. Keep it under 2 KB. Last updated 13 Nov 2026.
 
 **Focus until the 26 Nov go/no-go:** a written next step from EC Healthcare. Everything else is in `archive/` or Parked.
 
@@ -10,18 +10,15 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 11 Nov
    Fill the **[after Wed]** fields from the 11 Nov meeting with Julie (`docs/EC_MEETING_PREP.md`) and send by Thu 12 Nov.
 2. **The EC demo.** `demo/ec-care-line/index.html`, workload-first walkthrough (`?walk=1`), merged 11 Nov (#30);
    offline copy on the Mac mini at `~/Desktop/EC-demo-Julie/`. Behind it, **the journey suite** (Thomas, 12 Nov): one engine
-   with a plug-in per patient journey, each with LoopBench scenarios and a gate (`docs/JOURNEYS.md`, `scripts/journey_eval.py`). Bug pass: branch `-wyqxsy`.
-   Precare: #36, loopbench #9, `docs/PRECARE.md`. Insurance: #37.
-   Follow-on (discharge summaries, specialist letters, HA SOPC bookings): `backend/journeys/followon/`, 17 scenarios, gate passes.
+   with a plug-in per patient journey (`docs/JOURNEYS.md`). Bug pass: branch `-wyqxsy`. Follow-on: `backend/journeys/followon/`. Gate: `scripts/check.sh`.
 3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. The Mac mini service `com.tmrw.careline`
    was stopped 11 Nov and stays off until Thomas restarts it; it replied to numbers outside the tester list on 10 Nov.
 
 ## Waiting on you
 
 - **The EC discovery's fee.** Default: a fixed fee you set in the scope; nobody names one at the meeting. By Thu 12 Nov.
-- **Medication reader run.** Word lists miss new emergency wording (blind 3/12). Default: a `claude -p` run on the Mac mini. By Fri 20 Nov.
 - **Stale PRs.** harness #13, #16, #18 and loopbench #5 are superseded (#26 stays: #28 is stacked on it). Default: close them. By Fri 13 Nov.
-- **Model reader run on the Mac mini.** Ready, not run: `docs/MODEL_ROUTING.md` (3 commands, under $7 at API prices). Default: wait for your go-ahead. By Fri 13 Nov.
+- **Mac mini readers.** `docs/MODEL_ROUTING.md` and medication lists (blind 3/12). Default: wait for go-ahead. By Fri 13 Nov.
 
 ## Next, after EC answers
 

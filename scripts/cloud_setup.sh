@@ -21,6 +21,6 @@ fi
 
 # What the session sees first.
 echo "Cloud session ready. Start from NOW.md; the skills in .claude/skills are the protocol (ship for any build task)."
-[ -d ../loopbench ] && echo "Scoreboard: cd ../loopbench && PYTHONPATH=src python scripts/scoreboard.py --seeds 1"
+[ -d ../loopbench ] && echo "Gate, as CI (tests, scoreboard, journeys): scripts/check.sh"
 for n in "${notes[@]}"; do echo "Setup note: $n. Say so in the PR."; done
 exit 0
