@@ -1,9 +1,10 @@
 """Models that can read patient messages on top of the rules floor (wrap one in reader.ModelReader).
 
-- ClaudeCLIReader: `claude -p` (Mac mini only, per CLAUDE.md), one message at a time, JSON out. Outputs are cached by
-  prompt version + model + message hash, so a scoring run replays without calling a model.
-- ReplayReader: answers only from that cache; an unseen message returns nothing (the floor still reads it) and is
-  counted, so a scoring run never silently calls a live model.
+- ClaudeCLIReader: `claude -p` (Mac mini only, per CLAUDE.md), one message at a time, JSON out. Same safe call as the
+  shared reader: system prompt, no tools, no MCP, empty working directory, and a login error stops the batch.
+  Outputs are cached by prompt fingerprint + model + message hash, so a scoring run replays without calling a model.
+- ReplayReader: answers only from that cache; an unseen message returns nothing (the floor still reads it), sets
+  `last_miss`, and is counted. The floor's findings are not written back into the cache.
 
 Whatever a model returns, ModelReader keeps a finding only if its quote is verbatim in the message, and it can add
 findings or raise their urgency, never remove or lower one. The model never sees other patients' data: one message
@@ -13,8 +14,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
+import tempfile
 from pathlib import Path
+
+from backend.extract.reader import LOGIN, LoginError, pin
 
 PROMPT_VERSION = "med-reader-1"
 SYSTEM = """You read one message a patient sent to their GP clinic in Hong Kong (Cantonese, English or mixed) after a
@@ -26,8 +31,13 @@ Negated symptoms ("no rash"), someone else's symptoms and long-past events are n
 someone else (urgency 3). If nothing needs the doctor, return {"findings": []}."""
 
 
+def _prompt_fp() -> str:
+    """Hash of the system prompt. A prompt edit cannot replay answers written for the old one."""
+    return hashlib.sha256(SYSTEM.encode()).hexdigest()[:12]
+
+
 def _key(model: str, text: str, classes: list[str]) -> str:
-    return hashlib.sha256(json.dumps([PROMPT_VERSION, model, text, sorted(classes)], ensure_ascii=False).encode()).hexdigest()
+    return hashlib.sha256(json.dumps([PROMPT_VERSION, _prompt_fp(), model, text, sorted(classes)], ensure_ascii=False).encode()).hexdigest()
 
 
 class _Cache:
@@ -45,10 +55,15 @@ class _Cache:
 
 
 class ClaudeCLIReader:
-    def __init__(self, model: str = "claude-opus-5-5", cache: str | Path = "results/med_reader_cache.json", timeout: int = 60):
-        self.model, self.timeout = model, timeout
-        self.name = f"claude-cli[{model}]"
+    def __init__(self, model: str = "claude-opus-5-5", cache: str | Path = "results/med_reader_cache.json", timeout: int = 60,
+                 binary: str = "claude"):
+        self.model, self.timeout, self.binary = pin(model), timeout, binary
+        self.name = f"claude-cli[{self.model}]"
         self.cache = _Cache(cache)
+
+    def command(self) -> list[str]:
+        return [self.binary, "-p", "--model", self.model, "--system-prompt", SYSTEM, "--tools", "", "--strict-mcp-config",
+                "--disable-slash-commands", "--no-session-persistence", "--output-format", "json"]
 
     def run(self, text: str, context: dict) -> list[dict]:
         classes = list(context.get("classes", []))
@@ -56,26 +71,48 @@ class ClaudeCLIReader:
         hit = self.cache.get(k)
         if hit is not None:
             return hit
-        prompt = f"{SYSTEM}\n\nThe patient takes: {', '.join(classes) or 'not known'}.\nMessage:\n{text}"
-        out = subprocess.run(["claude", "-p", prompt, "--model", self.model, "--output-format", "json"],
-                             capture_output=True, text=True, timeout=self.timeout, check=True).stdout
-        body = json.loads(out)
-        body = json.loads(body["result"]) if isinstance(body, dict) and "result" in body else body
-        found = list(body.get("findings", [])) if isinstance(body, dict) else []
-        self.cache.put(k, found)
+        user = f"The patient takes: {', '.join(classes) or 'not known'}.\n<document>\n{text}\n</document>"
+        with tempfile.TemporaryDirectory(prefix="med-reader-") as empty:
+            p = subprocess.run(self.command(), input=user, capture_output=True, text=True, timeout=self.timeout, cwd=empty)
+        try:                                       # claude -p reports some failures (login, API errors) only in its envelope
+            env = json.loads(p.stdout) if p.stdout.strip() else {}
+        except ValueError:
+            env = {}
+        err = (p.stderr + " " + (str(env.get("result", "")) if env.get("is_error") else "")).strip()
+        if p.returncode != 0 or env.get("is_error") or not env:
+            if LOGIN.search(err):
+                raise LoginError(f"claude is not logged in (run `claude`, then /login): {err[:200]}")
+            raise RuntimeError(f"claude -p failed ({p.returncode}): {err[:300]}")
+        ans = env.get("structured_output")
+        if ans is None:
+            raw = env.get("result", "")
+            if isinstance(raw, dict):
+                ans = raw
+            elif isinstance(raw, str) and raw.strip():
+                try:
+                    ans = json.loads(raw)
+                except ValueError:
+                    m = re.search(r"\{.*\}", raw, re.S)
+                    ans = json.loads(m.group(0)) if m else None
+        if not isinstance(ans, dict):
+            raise RuntimeError("claude -p returned no JSON findings")
+        found = list(ans.get("findings", []))
+        self.cache.put(k, found)                   # the model's answer only; never the rules floor
         return found
 
 
 class ReplayReader:
     def __init__(self, model: str = "claude-opus-5-5", cache: str | Path = "results/med_reader_cache.json"):
-        self.model = model
-        self.name = f"replay[{model}]"
+        self.model = pin(model)
+        self.name = f"replay[{self.model}]"
         self.cache = _Cache(cache)
         self.misses = 0
+        self.last_miss = False
 
     def run(self, text: str, context: dict) -> list[dict]:
         hit = self.cache.get(_key(self.model, text, list(context.get("classes", []))))
+        self.last_miss = hit is None
         if hit is None:
             self.misses += 1
-            return []
+            return []                              # do not cache the floor's findings as the model's
         return hit

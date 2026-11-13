@@ -190,16 +190,23 @@ class ModelReader:
 
     def read(self, text: str, classes: set[str] | None = None) -> list[dict]:
         floor = {f["label"]: f for f in self.floor.read(text, classes)}
+        missed = False
         try:
             got = list(self.model.run(text, {"classes": sorted(classes or ())}) or [])
+            missed = bool(getattr(self.model, "last_miss", False))
         except Exception:                                    # noqa: BLE001 - a model failure falls back to the floor
             self.stats["errors"] += 1
             got = []
+            missed = True
+        if missed:                                           # a replay miss or a raised model is the floor, named as such
+            for f in floor.values():
+                f["via"] = "rules (fell_back)"
+        body = " ".join((text or "").split())
         kinds = {t.kind for t in TERMS} | {"question"}
         for g in got:
             self.stats["model_findings"] += 1
-            q = str(g.get("quote") or "")
-            if not q or " ".join(q.split()) not in " ".join(text.split()):
+            q = " ".join(str(g.get("quote") or "").split())
+            if len(q.replace(" ", "")) < 2 or q not in body:   # a blank or one-character quote proves nothing
                 self.stats["dropped_unverified"] += 1
                 continue
             try:

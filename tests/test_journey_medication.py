@@ -204,7 +204,30 @@ def test_model_errors_fall_back_to_the_floor():
         def run(self, text, ctx):
             raise TimeoutError
     m = ModelReader(Broken())
-    assert m.read("I have a rash")[0]["label"] == "rash" and m.stats["errors"] == 1
+    found = m.read("I have a rash")
+    assert found[0]["label"] == "rash" and found[0]["via"] == "rules (fell_back)" and m.stats["errors"] == 1
+
+
+def test_model_reader_drops_a_blank_or_one_character_quote():
+    class Pads:
+        name = "pads"
+
+        def run(self, text, ctx):
+            return [{"kind": "side_effect", "label": "spaces", "urgency": 2, "quote": " \n "},
+                    {"kind": "side_effect", "label": "letter", "urgency": 2, "quote": "a"}]
+
+    m = ModelReader(Pads())
+    labels = {f["label"] for f in m.read("I have a rash")}
+    assert "spaces" not in labels and "letter" not in labels and m.stats["dropped_unverified"] == 2
+
+    class Tight:
+        name = "tight"
+
+        def run(self, text, ctx):
+            return [{"kind": "side_effect", "label": "rash words", "urgency": 2, "quote": "  a   rash  "}]
+
+    hit = next(f for f in ModelReader(Tight()).read("I have a rash on my arm") if f["label"] == "rash words")
+    assert hit["quote"] == "a rash"
 
 
 # ---------------------------------------------------------------------------------------- templates
@@ -379,4 +402,60 @@ def test_replay_reader_never_calls_a_model_and_counts_misses(tmp_path):
     rr = ReplayReader("m", cache)
     reader = ModelReader(rr)
     assert reader.read("嘴唇腫")[0]["urgency"] == 4
-    assert reader.read("I have a rash")[0]["via"] == "rules" and rr.misses == 1      # a miss: the floor's name
+    before = cache.read_text(encoding="utf-8")
+    missed = reader.read("I have a rash")
+    assert missed[0]["via"] == "rules (fell_back)" and rr.misses == 1 and rr.last_miss
+    assert cache.read_text(encoding="utf-8") == before                         # a miss is not stored as the model's answer
+
+
+def test_claude_cli_reader_uses_the_shared_safe_invocation(tmp_path, monkeypatch):
+    import hashlib
+    import json
+
+    from backend.extract.reader import LoginError
+    from backend.journeys.medication.models import PROMPT_VERSION, SYSTEM, ClaudeCLIReader, _key
+
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        seen["cwd"] = kwargs.get("cwd")
+        seen["input"] = kwargs.get("input")
+        class P:
+            returncode = 0
+            stdout = json.dumps({"is_error": False, "result": json.dumps({"findings": [
+                {"kind": "side_effect", "label": "rash", "urgency": 2, "quote": "rash"}]})})
+            stderr = ""
+        return P()
+
+    monkeypatch.setattr("backend.journeys.medication.models.subprocess.run", fake_run)
+    reader = ClaudeCLIReader(model="opus", cache=tmp_path / "c.json", timeout=1)
+    assert reader.model == "claude-opus-5-5"
+    found = reader.run("a rash", {"classes": ["statin"]})
+    assert found[0]["quote"] == "rash"
+    cmd = seen["cmd"]
+    assert cmd[:4] == ["claude", "-p", "--model", "claude-opus-5-5"]
+    assert cmd[cmd.index("--system-prompt") + 1] == SYSTEM
+    assert cmd[cmd.index("--tools") + 1] == ""
+    for flag in ("--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence"):
+        assert flag in cmd
+    assert cmd[cmd.index("--output-format") + 1] == "json"
+    assert "a rash" not in cmd
+    assert seen["cwd"] and Path(seen["cwd"]).name.startswith("med-reader-") and not Path(seen["cwd"]).exists()
+    assert "a rash" in seen["input"]
+    fp = hashlib.sha256(SYSTEM.encode()).hexdigest()[:12]
+    expect = hashlib.sha256(json.dumps([PROMPT_VERSION, fp, "claude-opus-5-5", "a rash", ["statin"]], ensure_ascii=False).encode()).hexdigest()
+    assert _key("claude-opus-5-5", "a rash", ["statin"]) == expect
+
+    def login_run(cmd, **kwargs):
+        class P:
+            returncode = 1
+            stdout = json.dumps({"is_error": True, "result": "Please run /login"})
+            stderr = ""
+        return P()
+
+    monkeypatch.setattr("backend.journeys.medication.models.subprocess.run", login_run)
+    logged_out = ClaudeCLIReader(model="sonnet", cache=tmp_path / "login.json", timeout=1)
+    with pytest.raises(LoginError):
+        logged_out.run("another rash", {"classes": []})
+    assert not (tmp_path / "login.json").exists()
