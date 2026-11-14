@@ -89,8 +89,11 @@ def main(argv=None):
         except (LoginError, CursorCallError) as e:
             state["stop"] = str(e)
             return False                                                   # not written: rerun picks it up; do not score it
-        except Exception as e:                                             # recorded, rerun retries it
-            rec |= {"answer": None, "error": str(e)[:300]}
+        except Exception as e:
+            if cursor_model(pin(a.model)):
+                state["stop"] = str(e)[:300]                               # a Cursor failure is not an answer
+                return False
+            rec |= {"answer": None, "error": str(e)[:300]}                 # Claude path: recorded, rerun retries it
         with lock:
             state["usd"] += rec.get("cost_usd") or 0
             if state["usd"] > a.max_usd:
@@ -102,6 +105,8 @@ def main(argv=None):
     with cf.ThreadPoolExecutor(max_workers=a.workers) as ex:
         ok = sum(ex.map(one, todo))
     print(f"{ok}/{len(todo)} answered, reported cost ${state['usd']:.2f}" + (f"; stopped: {state['stop']}" if state["stop"] else ""))
+    if cursor_model(pin(a.model)):
+        return 0 if ok == len(todo) and not state["stop"] else 1
     return 0 if (ok or not todo) and not state["stop"] else 1
 
 

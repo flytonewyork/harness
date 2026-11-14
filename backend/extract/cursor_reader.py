@@ -47,7 +47,7 @@ def default_binary() -> str:
 class CursorAgentReader:
     """One `cursor-agent -p` call per document. `name` is the model id that was asked to answer."""
 
-    def __init__(self, model: str, binary: str | None = None, timeout: int = 420):
+    def __init__(self, model: str, binary: str | None = None, timeout: int = 900):
         if not cursor_model(model):
             raise CursorCallError(f"{model} is not a Cursor eval model this runner will call")
         self.model = model
@@ -70,8 +70,11 @@ class CursorAgentReader:
         if not os.environ.get("CURSOR_API_KEY"):
             raise CursorCallError("CURSOR_API_KEY is unset; refusing to call cursor-agent")
         with tempfile.TemporaryDirectory(prefix="reader-") as empty:
-            p = subprocess.run(self.argv(empty) + [self.user_text(task, text)], cwd=empty, capture_output=True,
-                               text=True, timeout=self.timeout, env=os.environ.copy())
+            try:
+                p = subprocess.run(self.argv(empty) + [self.user_text(task, text)], cwd=empty, capture_output=True,
+                                   text=True, timeout=self.timeout, env=os.environ.copy())
+            except subprocess.TimeoutExpired as e:
+                raise CursorCallError(f"cursor-agent timed out after {self.timeout}s") from e
         err = (p.stderr or "").strip()
         if HOLD.search(err) or HOLD.search(p.stdout or ""):
             raise CursorCallError(err[:300] or (p.stdout or "")[:300])
