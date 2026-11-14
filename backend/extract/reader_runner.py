@@ -18,6 +18,7 @@ import json
 import threading
 from pathlib import Path
 
+from .cursor_reader import CursorAgentReader, CursorCallError, cursor_model
 from .reader import ClaudeCLIReader, LoginError, doc_key, estimate, pin
 
 
@@ -39,13 +40,19 @@ def main(argv=None):
     ap.add_argument("--max-usd", type=float, default=10.0, help="stop starting calls once the reported cost passes this")
     ap.add_argument("--estimate", action="store_true", help="print the estimate for every model and exit; no calls")
     ap.add_argument("--claude", default="claude")
+    ap.add_argument("--cursor-agent", default=None, help="cursor-agent binary, for a gemini- or grok- model id")
     a = ap.parse_args(argv)
     task = load_task(a.task)
     docs = [json.loads(ln) for ln in Path(a.docs).read_text(encoding="utf-8").splitlines() if ln.strip()]
     docs = [d for d in docs if not d.get("task") or d["task"] == task.name]
     if a.estimate:
-        for m in ("opus", "sonnet", "haiku"):
-            print(json.dumps({"task": task.name, "version": task.version, "fingerprint": task.fingerprint()} | estimate(task, [d["text"] for d in docs], m)))
+        models = (a.model,) if cursor_model(pin(a.model)) else ("opus", "sonnet", "haiku")
+        for m in models:
+            row = {"task": task.name, "version": task.version, "fingerprint": task.fingerprint()} | estimate(task, [d["text"] for d in docs], m)
+            if cursor_model(pin(m)):
+                row["usd"] = None
+                row["price"] = "cursor-subscription"
+            print(json.dumps(row))
         return 0
     if not a.out:
         ap.error("--out is required unless --estimate")
@@ -58,7 +65,12 @@ def main(argv=None):
                 models.add(r.get("model"))
                 if r.get("error") is None:
                     done.add(r["key"])
-    reader, lock = ClaudeCLIReader(a.model, a.effort, binary=a.claude), threading.Lock()
+    def open_reader():
+        if cursor_model(pin(a.model)):
+            return CursorAgentReader(pin(a.model), binary=a.cursor_agent)
+        return ClaudeCLIReader(a.model, a.effort, binary=a.claude)
+
+    reader, lock = open_reader(), threading.Lock()
     if models - {reader.name}:
         raise SystemExit(f"{out} already holds answers from {sorted(models - {reader.name})}; one model per file")
     todo = [d for d in docs if doc_key(task, d["text"]) not in done]
@@ -71,12 +83,12 @@ def main(argv=None):
         key = doc_key(task, d["text"])
         rec = {"key": key, "model": reader.name, "task": task.name, "version": task.version,
                "fingerprint": task.fingerprint(), "scenario": d.get("scenario")}
-        r = ClaudeCLIReader(a.model, a.effort, binary=a.claude)          # one per call: `last` is per call
+        r = open_reader()                                                 # one per call: `last` is per call
         try:
             rec |= {"answer": r.read(task, d["text"]), "error": None, "cost_usd": r.last.get("cost_usd")}
-        except LoginError as e:
+        except (LoginError, CursorCallError) as e:
             state["stop"] = str(e)
-            return False                                                   # not written: rerun picks it up
+            return False                                                   # not written: rerun picks it up; do not score it
         except Exception as e:                                             # recorded, rerun retries it
             rec |= {"answer": None, "error": str(e)[:300]}
         with lock:
