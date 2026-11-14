@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "./api";
-import type { Doc, Evaluation, Feed, FeedAlarm, Item, ItemDetail, PatientView, Source, Step } from "./api";
+import { api, STATIC } from "./api";
+import type { CaseAct, CaseLine, CaseProjection, CaseQuote, Doc, Evaluation, Feed, FeedAlarm, Item, ItemDetail, PatientView, Source, Step } from "./api";
 
 // ------------------------------------------------------------------------------------------- words
 const FAMILY: Record<string, string> = {
@@ -26,6 +26,11 @@ const CHANNEL = (c: string) =>
          patient_carried: "brought by the patient", phone: "phone" } as Record<string, string>)[c] ?? c;
 const RESOLUTION: Record<string, string> = { acted: "Done", already_done: "Already done", not_relevant: "Not relevant",
   linked_done: "Handled through its escalation", duplicate: "Duplicate", skimmed: "Skimmed" };
+const SITE: Record<string, string> = {
+  gp: "This clinic", in_group: "Group clinic", ha_sopc: "Hospital Authority",
+  private_hospital: "Private hospital", ehealth: "eHealth", patient: "Patient",
+};
+const CASE_KEYS = ["medications", "conflicts", "not_dispensed_here", "referrals", "admissions"];
 
 // ------------------------------------------------------------------------------------------- time
 const DAY = 86400000;
@@ -145,8 +150,70 @@ function Steps({ steps, onQuote, focus }: { steps: Step[]; onQuote: (record: str
   );
 }
 
-function Review({ item, asOf, onClosed, onPatient, onItem }: { item: ItemDetail; asOf: string; onClosed: () => void;
-                                                       onPatient: (id: string) => void; onItem: (id: string) => void }) {
+function CaseStrip({ projection, asOf, onChanged }: { projection: CaseProjection | undefined; asOf: string; onChanged: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const strip = projection?.format === "case-projection/1" ? projection.strip : [];
+  const filled = strip.some((s) => s.lines.length > 0);
+  const shown = filled ? strip.filter((s) => CASE_KEYS.includes(s.id) || s.lines.length > 0) : [];
+  const act = async (factId: string, action: CaseAct, recordId: string, quote: string) => {
+    if (!projection) return;
+    setBusy(factId + action);
+    setError(null);
+    try {
+      await api.caseAct(projection.patient_id, factId, action, asOf, recordId, quote);
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not record that");
+    } finally {
+      setBusy(null);
+    }
+  };
+  const buttons = (factId: string | undefined, recordId: string, quote: string, section: string) => {
+    if (STATIC || !factId) return null;
+    const closeable = section === "referrals" || section === "admissions";
+    return (
+      <div className="case-acts">
+        <button type="button" disabled={busy !== null} onClick={() => act(factId, "confirm", recordId, quote)}>Confirm</button>
+        <button type="button" disabled={busy !== null} onClick={() => act(factId, "reject", recordId, quote)}>Reject</button>
+        {closeable && <button type="button" disabled={busy !== null} onClick={() => act(factId, "close", recordId, quote)}>Close</button>}
+      </div>
+    );
+  };
+  const sides = (line: CaseLine): CaseQuote[] =>
+    (line.quotes && line.quotes.length > 1) ? line.quotes : [{ fact_id: line.fact_id, quote: line.quote, record_id: line.record_id, provenance: line.provenance, text: line.text }];
+  return (
+    <section className="case" aria-label="Case">
+      <h3>Case</h3>
+      {!filled && <p className="none">No case facts recorded at this moment.</p>}
+      {shown.map((section) => (
+        <div key={section.id} className={section.id === "conflicts" ? "case-block conflict" : "case-block"} data-section={section.id}>
+          <h4>{section.title}</h4>
+          {!section.lines.length && <p className="none">None at this moment.</p>}
+          {section.lines.map((line) => (
+            <div key={line.fact_id + line.record_id} className="case-line">
+              <p className="case-text">{line.text}</p>
+              {sides(line).map((side, i) => (
+                <div key={(side.fact_id ?? line.fact_id) + String(i)}>
+                  <p>
+                    <span className={`site site-${side.provenance}`}>{SITE[side.provenance] ?? side.provenance}</span>{" "}
+                    <q>{side.quote}</q>
+                  </p>
+                  {buttons(side.fact_id ?? (i === 0 ? line.fact_id : undefined), side.record_id, side.quote, section.id)}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
+      {filled && !STATIC && <p className="fine">Confirm, reject or close adds a doctor fact. It does not change this item's reasoning, and it does not close the queue item.</p>}
+      {error && <p className="case-error" role="alert">{error}</p>}
+    </section>
+  );
+}
+
+function Review({ item, asOf, onClosed, onPatient, onItem, onCase }: { item: ItemDetail; asOf: string; onClosed: () => void;
+                                                       onPatient: (id: string) => void; onItem: (id: string) => void; onCase: () => void }) {
   const [docId, setDocId] = useState<string | null>(item.documents[0]?.id ?? null);
   const [doc, setDoc] = useState<Doc | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
@@ -212,6 +279,7 @@ function Review({ item, asOf, onClosed, onPatient, onItem }: { item: ItemDetail;
           )}
         </section>
       </div>
+      <CaseStrip projection={item.case} asOf={asOf} onChanged={onCase} />
       <section className="checks" aria-label="Checks the platform ran">
         <h3>Checks the platform ran on this item</h3>
         <ul>
@@ -241,13 +309,15 @@ function Review({ item, asOf, onClosed, onPatient, onItem }: { item: ItemDetail;
   );
 }
 
-function PatientPanel({ view, onClose, onItem }: { view: PatientView; onClose: () => void; onItem: (id: string) => void }) {
+function PatientPanel({ view, asOf, onClose, onItem, onChanged }: { view: PatientView; asOf: string; onClose: () => void;
+                                                           onItem: (id: string) => void; onChanged: () => void }) {
   const c = view.card;
   return (
     <aside className="drawer" aria-label={`${c.name_en}'s year`}>
       <button className="drawer-close" onClick={onClose}>Close</button>
       <h2>{c.name_en} <span lang="zh-Hant">{c.name_zh}</span></h2>
       <p className="who-meta">{c.sex}, born {c.dob}, HKID {c.hkid}. Registered with {c.registered_doctor}.</p>
+      <CaseStrip projection={view.case} asOf={asOf} onChanged={onChanged} />
       <h3>Items this year</h3>
       <ul className="mini">
         {view.items.map((it) => (
@@ -360,6 +430,10 @@ export default function App() {
     setSel(m.item ?? null);
   };
   const step = (days: number) => setAsOf(iso(new Date(d(asOf).getTime() + days * DAY)));
+  const reloadOpenCase = (pid: string) => {
+    if (patient?.case.patient_id === pid) api.patient(pid, asOf).then(setPatient);
+    if (detail?.patient_id === pid) api.item(detail.id, asOf).then(setDetail);
+  };
 
   if (error) return <main className="fail"><p>The follow-up service is not answering: {error}</p></main>;
   if (!src || !asOf) return <main className="fail"><p>Loading the follow-up list…</p></main>;
@@ -420,7 +494,8 @@ export default function App() {
         </section>
         <section className="pane">
           {detail ? <Review item={detail} asOf={asOf} onClosed={() => setTick((x) => x + 1)} onItem={setSel}
-                            onPatient={(pid) => api.patient(pid, asOf).then(setPatient)} />
+                            onPatient={(pid) => api.patient(pid, asOf).then(setPatient)}
+                            onCase={() => reloadOpenCase(detail.patient_id)} />
             : <p className="empty">Pick an item to see why it is here and the document it came from.</p>}
         </section>
       </main>
@@ -434,7 +509,9 @@ export default function App() {
           <p className="fine">{ev?.note} Harness: {src.harness}.</p>
         </footer>
       )}
-      {patient && <PatientPanel view={patient} onClose={() => setPatient(null)} onItem={(id) => { setSel(id); setPatient(null); }} />}
+      {patient && <PatientPanel view={patient} asOf={asOf} onClose={() => setPatient(null)}
+                                onItem={(id) => { setSel(id); setPatient(null); }}
+                                onChanged={() => reloadOpenCase(patient.case.patient_id)} />}
     </div>
   );
 }

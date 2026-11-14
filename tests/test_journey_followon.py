@@ -104,7 +104,12 @@ def test_care_line_never_lowers_an_escalated_referral_item():
             calls.append(u)
 
     eng = suite("followon")
-    eng.fo_refs = {"P1": [{"t": datetime(2027, 4, 1), "rid": "R1", "urgent": True, "owner": "D1", "text": "Reason: x"}]}
+    from backend.case import CaseLog
+    from backend.case.wire import note_referral
+    eng.case = CaseLog()
+    note_referral(eng.case, {"id": "R1", "text": "REFERRAL LETTER\nHospital Authority SOPC\nReason: chest pain\nURGENT",
+                             "kind": "referral_letter", "author": "D1", "data": {}},
+                  "P1", datetime(2027, 4, 1), ha=True)
     eng.fo_docs, eng.fo_watch, eng.raised = {}, {}, {("ref", "tri", "R1"): "I1"}
     eng.pname = lambda pid: "X"
     msg = {"id": "M1", "patient_id": "P1", "text": "個專科預約太耐喇", "kind": "message", "channel": "careline", "data": {}}
@@ -123,7 +128,7 @@ def test_red_flag_on_a_later_line_is_the_quote():
             return []
 
     eng = suite("followon")
-    eng.fo_refs, eng.fo_docs, eng.fo_watch = {}, {}, {}
+    eng.fo_docs, eng.fo_watch = {}, {}
     eng.pname = lambda pid: "X"
     eng.fo_raise = lambda api, key, pid, fam, reason, ev, u, due, w, r, **k: seen.append((u, w.steps))
     eng.chart_search = lambda api, pid, kinds, since: (0, {"kinds": kinds, "since": since.isoformat(), "found": 0})

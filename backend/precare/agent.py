@@ -124,13 +124,25 @@ def quote(text: str) -> str:
 class PrecareAgent:
     version = AGENT_VERSION
 
-    def __init__(self, port, screen=None):
+    def __init__(self, port, screen=None, case=None):
+        from backend.case import CaseLog
         from .screens import RulesScreen
         self.port = port
         self.screen = screen or RulesScreen()      # rules + shared reader: screens.with_reader(reader)
+        self._own_case = case is None
+        self.case = case if case is not None else CaseLog()
         self.state: dict[str, dict] = {}
         self.blocked: list[dict] = []          # outbound messages the guard stopped (should stay empty)
         self.log: list[tuple] = []             # (time, appt, action, detail)
+
+    def reset(self):
+        """Clear the conversation. A private case starts empty; a shared case is left to its owner."""
+        from backend.case import CaseLog
+        self.state.clear()
+        self.blocked.clear()
+        self.log.clear()
+        if self._own_case:
+            self.case = CaseLog()
 
     # ---- helpers ----------------------------------------------------------------------------------------------
     def _st(self, appt_id: str) -> dict:
@@ -264,13 +276,30 @@ class PrecareAgent:
             self._question(appt_id, st, msg, "asked during the pre-visit questions")
         if step in ("meds", "anything_else", "reason"):
             self._medicine_checks(appt_id, st, msg)
+        if step in ("meds", "allergies", "reason") and st.get("consent"):
+            self._note_answer(st, msg, step)
         nxt = self._next_data_step(st, step)
         if nxt == "prep":
             return self._prep(appt_id, st)
         self._ask(appt_id, st, nxt)
 
+    def _note_answer(self, st, msg, step):
+        from backend.case.wire import note_patient
+        note_patient(self.case, patient_id=st["patient"]["id"], record_id=msg["id"],
+                     text=msg.get("text") or "", at=self.port.now, step=step)
+
+    def _chart_medicines(self, st) -> str:
+        """Active regimens and allergies already on the shared case, other than this patient's own replies."""
+        view = self.case.project(st["patient"]["id"], self.port.now)
+        lines = [m.quote for m in view.medications if m.provenance != "patient"]
+        lines += [a.quote for a in view.allergies if a.provenance != "patient"]
+        return "\n".join(lines)
+
     def _medicine_checks(self, appt_id, st, msg):
         a, text = st["appt"], msg.get("text") or ""
+        chart = self._chart_medicines(st)
+        if chart:
+            text = text + "\n" + chart
         if set(a.get("tests") or ()) & FASTING_TESTS:
             hit = safety.mentions(safety.GLUCOSE_LOWERING, text)
             if hit:
