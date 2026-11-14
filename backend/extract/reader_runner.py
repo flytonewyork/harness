@@ -18,7 +18,7 @@ import json
 import threading
 from pathlib import Path
 
-from .cursor_reader import CursorAgentReader, CursorCallError, cursor_model
+from .cursor_reader import CursorAgentReader, CursorCallError, CursorTimeout, cursor_model
 from .reader import ClaudeCLIReader, LoginError, doc_key, estimate, pin
 
 
@@ -86,6 +86,8 @@ def main(argv=None):
         r = open_reader()                                                 # one per call: `last` is per call
         try:
             rec |= {"answer": r.read(task, d["text"]), "error": None, "cost_usd": r.last.get("cost_usd")}
+        except CursorTimeout:
+            return False                                                   # not written and not scored; the other documents continue
         except (LoginError, CursorCallError) as e:
             state["stop"] = str(e)
             return False                                                   # not written: rerun picks it up; do not score it

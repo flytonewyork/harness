@@ -19,7 +19,11 @@ HOLD = re.compile(r"account is on hold|can'?t use Claude|cannot use Claude", re.
 
 
 class CursorCallError(RuntimeError):
-    """The model call failed. The batch stops and the line is not written."""
+    """The model call failed. The line is not written."""
+
+
+class CursorTimeout(CursorCallError):
+    """The call exceeded its time limit. Leave it unwritten and keep going."""
 
 
 def cursor_model(model: str) -> bool:
@@ -47,7 +51,7 @@ def default_binary() -> str:
 class CursorAgentReader:
     """One `cursor-agent -p` call per document. `name` is the model id that was asked to answer."""
 
-    def __init__(self, model: str, binary: str | None = None, timeout: int = 900):
+    def __init__(self, model: str, binary: str | None = None, timeout: int = 1200):
         if not cursor_model(model):
             raise CursorCallError(f"{model} is not a Cursor eval model this runner will call")
         self.model = model
@@ -74,7 +78,7 @@ class CursorAgentReader:
                 p = subprocess.run(self.argv(empty) + [self.user_text(task, text)], cwd=empty, capture_output=True,
                                    text=True, timeout=self.timeout, env=os.environ.copy())
             except subprocess.TimeoutExpired as e:
-                raise CursorCallError(f"cursor-agent timed out after {self.timeout}s") from e
+                raise CursorTimeout(f"cursor-agent timed out after {self.timeout}s") from e
         err = (p.stderr or "").strip()
         if HOLD.search(err) or HOLD.search(p.stdout or ""):
             raise CursorCallError(err[:300] or (p.stdout or "")[:300])
