@@ -2,12 +2,15 @@
 a recorded year can be replayed for review or a demo.
 
 Authority is asymmetric, as in the engine's port: the agent may open an item or raise its urgency, never lower,
-close, dismiss or reassure. Only a doctor closes an item.
+close, dismiss or reassure. Only a doctor closes an item, or confirms, rejects or closes a case fact.
+The case projection is attached beside an item. It does not replace that item's reasoning trace.
 """
 from __future__ import annotations
 
 from datetime import datetime
 from itertools import count
+
+from ..case import AuthorityError as CaseAuthorityError, CaseError, CaseLog, QuoteError
 
 LABEL = {4: "Critical", 3: "Urgent", 2: "Soon", 1: "Routine"}
 RESOLUTIONS = ("acted", "already_done", "not_relevant")
@@ -22,8 +25,9 @@ def _t(s: str | None) -> datetime | None:
 
 
 class Store:
-    def __init__(self, run: dict):
+    def __init__(self, run: dict, case: CaseLog | None = None):
         self.run = run
+        self.case = case if case is not None else CaseLog()
         self.source = run["source"]
         self.staff = {s["id"]: s for s in run["staff"]}
         self.patients = run["patients"]
@@ -86,9 +90,11 @@ class Store:
         if _t(it["opened_at"]) > as_of:
             raise KeyError(iid)
         v = self.view(it, as_of)
-        v["reasoning"] = it.get("reasoning") or []
+        # A copy: attaching the case must not rewrite the item's own trace.
+        v["reasoning"] = list(it.get("reasoning") or [])
         v["checks"] = it.get("checks") or []
         v["documents"] = [self.doc_meta(d) for d in it["evidence"] if d in self.documents]
+        v["case"] = self.case_view(it["patient_id"], as_of)
         return v
 
     def doc_meta(self, did: str) -> dict:
@@ -112,7 +118,12 @@ class Store:
                       key=lambda d: d["available_at"])
         return {"card": self.patients[pid], "items": self.list_items(as_of, status="all", patient=pid),
                 "documents": [self.doc_meta(d["id"]) for d in docs],
-                "evaluation": (self.evaluation.get("patients") or {}).get(pid)}
+                "evaluation": (self.evaluation.get("patients") or {}).get(pid),
+                "case": self.case_view(pid, as_of)}
+
+    def case_view(self, pid: str, as_of: datetime) -> dict:
+        """`case-projection/1` for this patient at `as_of`. Empty when the log has no facts yet."""
+        return self.case.project(pid, as_of).to_dict()
 
     # ------------------------------------------------------------------------------------- acting
     def agent_open(self, patient_id: str, owner_id: str, family: str, reason: str, evidence: list[str], urgency: int,
@@ -152,3 +163,26 @@ class Store:
         self.audit.append({"at": now.isoformat(timespec="minutes"), "who": doctor, "did": "close", "item": iid,
                            "resolution": resolution, "note": note[:300]})
         return self.view(it, now)
+
+    def doctor_fact(self, pid: str, fact_id: str, action: str, record_id: str, quote: str, doctor: str,
+                    note: str, now: datetime) -> dict:
+        """Append a doctor confirm, reject or close. The subject fact is left as it was."""
+        if action not in ("confirm", "reject", "close"):
+            raise KeyError(action)
+        if pid not in self.patients:
+            raise KeyError(pid)
+        subject = next((f for f in self.case.facts() if f.id == fact_id), None)
+        if subject is None or subject.patient_id != pid:
+            raise KeyError(fact_id)
+        try:
+            getattr(self.case, action)(doctor_id=doctor or "doctor", fact_id=fact_id, record_id=record_id,
+                                       quote=quote, at=now, note=note)
+        except QuoteError as e:
+            raise ValueError(str(e)) from e
+        except CaseAuthorityError as e:
+            raise AuthorityError(str(e)) from e
+        except CaseError as e:
+            raise ValueError(str(e)) from e
+        self.audit.append({"at": now.isoformat(timespec="minutes"), "who": doctor or "doctor", "did": action,
+                           "patient": pid, "fact": fact_id})
+        return self.case_view(pid, now)

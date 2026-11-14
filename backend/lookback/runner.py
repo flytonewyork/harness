@@ -30,6 +30,7 @@ from pathlib import Path
 from ..engine.agentic import TEST_WORDS
 from ..engine.rules import MONITOR, PANEL_TESTS, WINDOW, lab_urgency
 from ..extract import Extractor, RulesModel, content_id
+from .checks import report_text, simulated_counters, verify_flags
 from .schema import TABLES
 
 POLICY = {
@@ -425,7 +426,11 @@ def run(export_dir: str | Path, extractor: Extractor | None = None, index_from: 
         "extractor": extractor.model.name,
         "policy": {k: (v if not isinstance(v, dict) else {str(a): b for a, b in v.items()}) for k, v in POLICY.items()},
     }
-    return {"summary": summary, "flags": dedup}
+    observed = verify_flags(ex, dedup)
+    summary["counters"] = simulated_counters(dedup, missed_visits)
+    summary["platform_checks"] = {"flags": len(dedup), "checks_each": 7,
+                                  "with_a_fail": sum(1 for row in observed if not row["passed"])}
+    return {"summary": summary, "flags": dedup, "platform_checks": observed}
 
 
 def write(result: dict, out_dir: str | Path):
@@ -437,3 +442,5 @@ def write(result: dict, out_dir: str | Path):
         w.writeheader()
         w.writerows(rows)
     (out / "summary.json").write_text(json.dumps(result["summary"], indent=1))
+    (out / "platform_checks.json").write_text(json.dumps(result.get("platform_checks", []), indent=1))
+    (out / "report.md").write_text(report_text(result["summary"]["counters"]))

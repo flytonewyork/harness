@@ -160,3 +160,44 @@ def test_ec_discovery_scope_needs_no_patient_data():
     never = re.search(r"## What it never needs\n(.*?)\n## ", scope, flags=re.S).group(1)
     for word in ("No patient records", "exports", "access"):
         assert word in never, word
+
+
+def raw_section(page, sid):
+    m = re.search(rf'<section[^>]*id="{sid}".*?</section>', page, flags=re.S)
+    assert m, sid
+    return m.group(0)
+
+
+def plain(html):
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html))
+
+
+def test_kwok_walkthrough_has_the_five_beats_then_the_ask():
+    page = PAGES["ec-care-line"]
+    walk = re.search(r"kwok: \[(.*?)\]", page, flags=re.S).group(1)
+    ids = re.findall(r"id: '([\w-]+)'", walk)
+    assert ids == ["front"] * 4 + ["kwok-item", "numbers", "ask"]
+    assert re.findall(r"beat: (\d)", walk) == ["1", "2", "3", "4"]
+    for i in set(ids):
+        assert f'id="{i}"' in page, i
+
+
+def test_kwok_item_quotes_are_verbatim_from_her_chat_and_signed_plan():
+    page = PAGES["ec-care-line"]
+    item = raw_section(page, "kwok-item")
+    quotes = re.findall(r"<q class=\"q-engine\" data-quote>(.*?)</q>", item)
+    assert len(quotes) >= 3
+    rest = plain(page.replace(item, ""))                 # the quotes must come from elsewhere on the page
+    for q in quotes:
+        assert q in rest, q
+
+
+def test_kwok_item_keeps_asymmetric_authority():
+    item = raw_section(PAGES["ec-care-line"], "kwok-item")
+    done = re.findall(r'class="row yes">(.*?)<', item)
+    assert done == ["Opened the item", "Raised its urgency", "Alerted Dr Chan"]   # open_item, raise_urgency, alarm
+    cant = " ".join(re.findall(r'class="row no">(.*?)<', item))
+    for act in ("Close", "dismiss", "downgrade", "Reassure", "prescribe"):
+        assert act in cant, act
+    assert re.search(r'data-kact="close" disabled', item)       # closes only after the doctor has acted
+    assert "doctors only" in item

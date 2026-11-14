@@ -1,7 +1,7 @@
 // The API's store (backend/api/store.py), in the browser, for the static build: the same views over a
 // harness-run/1 file, so the follow-up list can be shared as a page with no server behind it. Closing an item
 // works for the open page only.
-import type { DocMeta, Evaluation, Feed, FeedAlarm, Item, ItemDetail, Doc, PatientView, Source, Step, Check } from "./api";
+import type { CaseProjection, DocMeta, Evaluation, Feed, FeedAlarm, Item, ItemDetail, Doc, PatientView, Source, Step, Check } from "./api";
 
 type RunItem = {
   id: string; patient_id: string; owner_id: string; family: string; reason: string; urgency_at_open: number;
@@ -20,6 +20,27 @@ export type Run = {
 };
 
 const LABEL: Record<number, string> = { 4: "Critical", 3: "Urgent", 2: "Soon", 1: "Routine" };
+const CASE_SECTIONS: [string, string][] = [
+  ["medications", "Medicines"],
+  ["conflicts", "Dose conflicts"],
+  ["not_dispensed_here", "Not dispensed here"],
+  ["referrals", "Referrals"],
+  ["admissions", "Admissions"],
+  ["conditions", "Conditions"],
+  ["allergies", "Allergies"],
+  ["observations", "Observations"],
+];
+
+function emptyCase(patient_id: string, as_of: string): CaseProjection {
+  // The static page has no case log. The live API computes the projection; an empty one is the honest stand-in.
+  const none: Record<string, unknown>[] = [];
+  return {
+    format: "case-projection/1", patient_id, as_of,
+    medications: none, conflicts: none, not_dispensed_here: none, referrals: none,
+    admissions: none, conditions: none, allergies: none, observations: none,
+    strip: CASE_SECTIONS.map(([id, title]) => ({ id, title, lines: [] })),
+  };
+}
 const t = (s: string) => new Date(s + (s.length === 16 ? ":00" : ""));
 
 export class LocalStore {
@@ -82,8 +103,9 @@ export class LocalStore {
   item(id: string, asOf: string): ItemDetail {
     const it = this.items.get(id);
     if (!it || t(it.opened_at) > t(asOf)) throw new Error("404 no such item at that time");
-    return { ...this.view(it, t(asOf)), reasoning: it.reasoning, checks: it.checks,
-             documents: it.evidence.filter((e) => this.run.documents[e]).map((e) => this.meta(e)) };
+    return { ...this.view(it, t(asOf)), reasoning: [...(it.reasoning ?? [])], checks: it.checks,
+             documents: it.evidence.filter((e) => this.run.documents[e]).map((e) => this.meta(e)),
+             case: emptyCase(it.patient_id, asOf) };
   }
 
   feeds(asOf: string): { down: Feed[]; all_clear_allowed: boolean } {
@@ -101,7 +123,7 @@ export class LocalStore {
     const docs = Object.values(this.run.documents).filter((d) => d.patient_id === pid && t(d.available_at) <= at)
       .sort((a, b) => a.available_at.localeCompare(b.available_at));
     return { card: this.run.patients[pid], items: this.list(asOf, undefined, pid, "all"), documents: docs.map((d) => this.meta(d.id)),
-             evaluation: this.run.evaluation?.patients?.[pid] ?? null };
+             evaluation: this.run.evaluation?.patients?.[pid] ?? null, case: emptyCase(pid, asOf) };
   }
 
   close(id: string, asOf: string, resolution: string): Item {

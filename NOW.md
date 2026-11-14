@@ -1,18 +1,17 @@
 # NOW
 
-The one queue for harness and loopbench. Keep it under 2 KB. Last updated 13 Nov 2026.
+The one queue for harness and loopbench. Keep it under 2 KB. Last updated 14 Nov 2026.
 
 **Focus until the 26 Nov go/no-go:** a written next step from EC Healthcare. Everything else is in `archive/` or Parked.
 
 ## In progress (three at most)
 
 1. **EC discovery scope.** One-page scope for one EC clinic, no patient data (`docs/EC_DISCOVERY_SCOPE.md`).
-   Fill the **[after Wed]** fields from the 11 Nov meeting with Julie (`docs/EC_MEETING_PREP.md`) and send by Thu 12 Nov.
-2. **The EC demo.** `demo/ec-care-line/index.html`, workload-first walkthrough (`?walk=1`), merged 11 Nov (#30);
-   offline copy on the Mac mini at `~/Desktop/EC-demo-Julie/`. Behind it, **the journey suite** (Thomas, 12 Nov): one engine
-   with a plug-in per patient journey (`docs/JOURNEYS.md`). Bug pass `-wyqxsy`. Follow-on: `backend/journeys/followon/`. Case wire: `backend/case/`. Gate: `scripts/check.sh`.
-3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. The Mac mini service `com.tmrw.careline`
-   was stopped 11 Nov and stays off until Thomas restarts it; it replied to numbers outside the tester list on 10 Nov.
+   Fill the **[after Wed]** fields from the 11 Nov meeting (`docs/EC_MEETING_PREP.md`, `docs/EC_JULIE_CHEATSHEET.md`).
+2. **The EC demo.** `demo/ec-care-line/index.html?walk=kwok` and `suite.html` (case strip, four counters).
+   Journey suite: `docs/JOURNEYS.md`. Bug pass `-wyqxsy`. Case strip: `backend/case/`. Gate: `scripts/check.sh`.
+3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. Service `com.tmrw.careline`
+   stays off until Thomas restarts it.
 
 ## Waiting on you
 
