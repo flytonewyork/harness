@@ -47,6 +47,42 @@ def test_lookback_flags_what_never_closed(tmp_path):
     assert out["summary"]["unfiled_results_linked_by_request_number"] == 1
 
 
+def test_every_flag_runs_the_seven_checks_and_the_report_marks_counters_simulated(tmp_path):
+    from backend.engine.verify import CHECKS
+    rows = {
+        "lab_results": [res("R1", "P1", "PA-1", "2027-03-02T18:00", "Potassium", 6.8, 3.5, 5.1, "H")],
+        "consultations": [{"encounter_key": "E1", "patient_key": "P5", "datetime": "2027-03-01T10:00",
+                           "visit_type": "chronic follow-up", "plan_text": "BP 150/95. RV 4/52."},
+                          {"encounter_key": "E9", "patient_key": "P9", "datetime": "2027-12-31T10:00",
+                           "visit_type": "walk-in", "plan_text": "URTI."}],
+    }
+    out = run(export(tmp_path, rows))
+    assert out["flags"]
+    assert len(out["platform_checks"]) == len(out["flags"])
+    for row in out["platform_checks"]:
+        assert [c["id"] for c in row["checks"]] == list(CHECKS)
+    loops = sum(f.status == "unclosed" for f in out["flags"])
+    closes = sum(f.status == "late" for f in out["flags"])
+    c = out["summary"]["counters"]
+    assert c["simulated"] is True
+    assert c["loops_left_open"] == {"value": loops, "simulated": True}
+    assert c["doctor_closes"] == {"value": closes, "simulated": True}
+    opened = loops + closes
+    assert c["hours_back"]["simulated"] is True
+    assert c["hours_back"]["minutes_per_item"] == 8
+    assert c["hours_back"]["value"] == round(opened * 8 / 60, 1)
+    assert c["hours_back"]["assumption"].startswith("Assumption, not a measured time study")
+    assert c["recovered_visits"]["simulated"] is True
+    from backend.lookback import write
+    write(out, tmp_path / "rep")
+    report = (tmp_path / "rep" / "report.md").read_text(encoding="utf-8")
+    for label in ("Loops left open", "Doctor closes", "Hours back", "Recovered visits"):
+        line = next(ln for ln in report.splitlines() if ln.startswith(f"- {label}:"))
+        assert line.endswith("Simulated.") or ". Simulated." in line
+    assert "Assumption, not a measured time study" in report
+    assert "[Thomas to set" not in report
+
+
 def test_data_request_lists_every_field():
     """docs/EC_DATA_REQUEST.md is what EC is asked for; it must match the format the look-back reads."""
     from pathlib import Path
