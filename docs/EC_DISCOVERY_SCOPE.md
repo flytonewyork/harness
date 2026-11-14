@@ -37,6 +37,15 @@ or any record is read: what should go first?
 - Visit: [after Wed: date], within two weeks of EC's go-ahead.
 - Findings and the rebuilt demo: within three weeks of the visit, presented to Julie in a 45-minute meeting.
 
+## What the look-back will count
+
+Simulated, from the committed LoopBench year (solo GP, ClinicSolution X, rules v1.0, mean of seeds 1–3). Not an EC clinic. The model first run was not done; this is the keyword baseline only.
+
+- Loops left open: 435.3 (missed with no list: 440, 439, 427). Simulated.
+- Doctor closes: 592.3 (items marked done: 601, 579, 597). Simulated.
+- Hours back: 94.8. Assumption, not a measured time study: 8 minutes per item the list opened (736, 684, 712). Simulated.
+- Recovered visits: 283.7 (287, 290, 274). Simulated.
+
 ## Fee
 **[Thomas to set: fixed fee, HK$]**, invoiced on delivery of the findings. It covers the visit, the IT call, the
 findings, the rebuilt demo and the next-step scope.

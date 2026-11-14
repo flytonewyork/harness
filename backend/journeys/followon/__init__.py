@@ -224,12 +224,38 @@ class FollowonJourney:
 
     def reset(self, api):
         super().reset(api)
+        self._case_fresh = False
         self.fo_watch: dict[str, datetime] = {}            # pid -> watch until (daily eHealth pull)
         self.fo_seen: set[str] = set()                    # eHealth record ids already read by this journey
-        self.fo_refs: dict[str, list[dict]] = {}          # pid -> HA referrals written here
+        self._use_case()
         self.fo_docs: dict[str, list[dict]] = {}          # pid -> discharge summaries / letters read (for replies)
         self.fo_items: dict[str, str] = {}                # record id -> item id opened by this journey
         self.fo_stats = {"documents": 0, "items": 0, "quiet": 0, "watch_pulls": 0}
+
+    def _use_case(self):
+        """Shared log from rules v1.1, or a private log cleared on each reset. Later calls do not clear it."""
+        from backend.case.wire import ensure_case
+        if getattr(self, "_case_ready", False) and getattr(self, "case", None) is not None:
+            return self.case
+        if getattr(self, "case", None) is not None and getattr(self, "_case_fresh", False):
+            return self.case
+        case = ensure_case(self, reset=True)
+        self._case_fresh = True
+        return case
+
+    def _fo_refs(self, pid, as_of=None):
+        case = getattr(self, "case", None)
+        if case is None:
+            return []
+        from backend.case.wire import referral_rows
+        return referral_rows(case, pid, as_of, ha_only=True)
+
+    def _note_discharge(self, r, pid, t, med_lines):
+        from backend.case.wire import note_medicine_lines, note_stay
+        log = getattr(self, "case", None) or self._use_case()
+        if r.get("kind") in ("discharge_summary", "aed_summary"):
+            note_stay(log, r, pid, t)
+        note_medicine_lines(log, r, pid, t, med_lines or [])
 
     # --------------------------------------------------------------------------------- routing
     def bid(self, api, r: dict) -> float:
@@ -242,7 +268,7 @@ class FollowonJourney:
         recent = [x for x in self.fo_docs.get(pid, ()) if timedelta(0) <= t - x["t"] <= timedelta(days=30)]
         if recent:
             return 3
-        if self.fo_refs.get(pid) and re.search(APPT, r["text"], re.I):
+        if self._fo_refs(pid, t) and re.search(APPT, r["text"], re.I):
             return 3
         return 0
 
@@ -264,10 +290,9 @@ class FollowonJourney:
         elif k == "phone_memo" and r["patient_id"] and ADMITTED.search(r["text"]):
             self.fo_watch[r["patient_id"]] = t + timedelta(days=WATCH_DAYS)
         elif k == "referral_letter" and r["patient_id"] and re.search(r"Hospital Authority|SOPC|\bHA\b", r["text"] + str(r["data"])):
-            ref = {"rid": r["id"], "t": t, "text": r["text"], "owner": r["author"],
-                   "urgent": r["data"].get("urgency") == "urgent" or "URGENT" in r["text"]}
-            self.fo_refs.setdefault(r["patient_id"], []).append(ref)
-            if ref["urgent"]:
+            from backend.case.wire import note_referral
+            note_referral(self._use_case(), r, r["patient_id"], t, ha=True)
+            if r["data"].get("urgency") == "urgent" or "URGENT" in r["text"]:
                 self.fo_watch[r["patient_id"]] = t + timedelta(days=WATCH_DAYS)
         elif k == "appointment" and r["patient_id"]:
             self.closure_ev[r["patient_id"]].append((t, "appointment"))
@@ -348,6 +373,7 @@ class FollowonJourney:
         text = r["text"]
         self.fo_docs.setdefault(pid, []).append({"t": t, "rid": r["id"], "kind": r["kind"],
                                                  "quote": line_with(text, r"^(Principal diagnosis|Diagnosis):")})
+        self._note_discharge(r, pid, t, d["med_changes"])
         gp_asks = d["asks"] or d["pending"] or d["inr_days"]
         if not gp_asks:
             self.fo_stats["quiet"] += 1
@@ -411,6 +437,7 @@ class FollowonJourney:
             return
         d = read_letter(r["text"])
         self.fo_docs.setdefault(pid, []).append({"t": t, "rid": r["id"], "kind": r["kind"], "quote": r["text"].split("\n", 1)[0]})
+        self._note_discharge(r, pid, t, d["med_changes"])
         if not d["asks"]:
             self.fo_stats["quiet"] += 1
             return
@@ -446,7 +473,7 @@ class FollowonJourney:
         appt = _dmy(m) if m else None
         if appt is None:
             return
-        for ref in self.fo_refs.get(pid, ()):
+        for ref in self._fo_refs(pid, t):
             if not ref["urgent"] or ref["t"] > t:
                 continue
             gap = (appt - ref["t"]).days
@@ -482,7 +509,7 @@ class FollowonJourney:
         w = Why()
         w.add("source", f"The patient replied on the care line at {when(t)}.", cite(r["id"], q))
         w.add("identity", f"Received in {self.pname(pid)}'s care-line thread (the number registered for this patient).", cite(r["id"]))
-        refs = [x for x in self.fo_refs.get(pid, ()) if x["t"] < t]
+        refs = [x for x in self._fo_refs(pid, t) if x["t"] < t]
         docs = [x for x in self.fo_docs.get(pid, ()) if timedelta(0) <= t - x["t"] <= timedelta(days=30)]
         if docs:
             doc = docs[-1]

@@ -76,9 +76,7 @@ class MedicationJourney:
         super().reset(api)
         if self.med_reader is None:
             self.med_reader = RulesReader()
-        self.mx_changes = defaultdict(list)     # pid -> [{t, rid, action, drug, quote, author}]
-        self.mx_stops = defaultdict(dict)       # pid -> generic -> change
-        self.mx_meds = defaultdict(dict)        # pid -> generic -> {name, t, rid, quote, days, author}
+        self._use_case()
         self.mx_inbox: list[dict] = []          # routine messages, read at the scheduled run
         self.mx_items: dict[str, dict] = {}     # item id -> what this journey opened
         self.mx_by_pid = defaultdict(list)      # pid -> [item id]
@@ -184,14 +182,63 @@ class MedicationJourney:
             return True
         return bool(fs) and bool(fx.mentions(text) or fx.purposes(text) or self._recent(r.get("patient_id"), _t(r)))
 
+    def _use_case(self):
+        """The shared log when the engine attached one, otherwise a private log cleared each run."""
+        from backend.case.wire import ensure_case
+        if getattr(self, "_case_ready", False) and getattr(self, "case", None) is not None:
+            return self.case
+        return ensure_case(self, reset=True)
+
+    def _mx_state(self, pid, as_of=None):
+        """Replay medicine facts into the lists this journey used to keep itself.
+
+        A noted start or stop updates the stop list. The first supply here is also a start, but it does not
+        clear a stop: the reconciliation item still has to see that stop.
+        """
+        changes, stops, meds = [], {}, {}
+        case = getattr(self, "case", None)
+        if case is None:
+            return changes, stops, meds
+        for fact in case.facts(pid, as_of):
+            tag = fact.body.get("mx")
+            if tag in ("change", "supply_start"):
+                ch = {"t": fact.at, "rid": fact.record_id, "action": fact.body.get("action") or "",
+                      "drug": fact.body.get("drug") or "", "quote": fact.quote,
+                      "author": fact.body.get("author") or None, "kind": fact.body.get("src_kind") or ""}
+                changes.append(ch)
+                if tag == "change":
+                    drug = ch["drug"]
+                    if ch["action"] == "stop":
+                        stops[drug] = ch
+                    elif drug in stops and stops[drug]["t"] <= ch["t"]:
+                        stops.pop(drug)
+            elif tag == "dispense":
+                g = fact.body.get("drug") or ""
+                meds[g] = {"name": fact.body.get("name") or g, "t": fact.at, "rid": fact.record_id,
+                           "quote": fact.quote, "days": int(fact.body.get("days") or 0),
+                           "author": fact.body.get("author") or None}
+        return changes, stops, meds
+
+    def _mx_note(self, pid, r, *, tag, action, drug, quote, name=None, days=0):
+        from backend.case.wire import provenance_for, remember
+        body = {"mx": tag, "drug": drug, "action": action, "dose": "" if action == "stop" else (name or drug),
+                "author": r.get("author"), "src_kind": r.get("kind") or "", "dispensed": tag == "dispense"}
+        if tag == "dispense":
+            return remember(self.case, r, patient_id=pid, at=_t(r), provenance="gp", kind="medication",
+                            quote=quote, actor_id="medication",
+                            body={**body, "name": name or drug, "days": days, "status": "active", "dose": name or drug})
+        return remember(self.case, r, patient_id=pid, at=_t(r), provenance=provenance_for(r), kind="dose_change",
+                        quote=quote, actor_id="medication", body=body)
+
     def _classes(self, pid) -> set[str]:
         out = set()
-        for g, m in self.mx_meds.get(pid, {}).items():
-            if g not in self.mx_stops.get(pid, {}) or self.mx_stops[pid][g]["t"] < m["t"]:
+        _changes, stops, meds = self._mx_state(pid)
+        for g, m in meds.items():
+            if g not in stops or stops[g]["t"] < m["t"]:
                 c = fx.drug_class(g)
                 if c:
                     out.add(c)
-        for c in self.mx_changes.get(pid, ()):
+        for c in _changes:
             if c["action"] != "stop":
                 k = fx.drug_class(c["drug"])
                 if k:
@@ -199,7 +246,8 @@ class MedicationJourney:
         return out
 
     def _recent(self, pid, t) -> list[dict]:
-        return [c for c in self.mx_changes.get(pid, ()) if timedelta(0) <= t - c["t"] <= timedelta(days=RECENT_DAYS)]
+        changes, _, _ = self._mx_state(pid, t)
+        return [c for c in changes if timedelta(0) <= t - c["t"] <= timedelta(days=RECENT_DAYS)]
 
     def _read_changes(self, pid, r):
         t = _t(r)
@@ -217,13 +265,7 @@ class MedicationJourney:
                     continue
                 pairs = [(act, d) for d in drugs]
             for act, d in pairs:
-                ch = {"t": t, "rid": r["id"], "action": act, "drug": d, "quote": ln[:240], "author": r.get("author"),
-                      "kind": r["kind"]}
-                self.mx_changes[pid].append(ch)
-                if act == "stop":
-                    self.mx_stops[pid][d] = ch
-                elif d in self.mx_stops[pid] and self.mx_stops[pid][d]["t"] <= t:
-                    self.mx_stops[pid].pop(d)    # restarted on purpose
+                self._mx_note(pid, r, tag="change", action=act, drug=d, quote=ln[:240])
 
     def _dispensed(self, api, pid, r):
         m = DISPENSED.search(r["text"])
@@ -233,11 +275,11 @@ class MedicationJourney:
         g = fx.generic(name)
         t = _t(r)
         quote = _n(m.group(0))
-        stop = self.mx_stops.get(pid, {}).get(g)
-        if g not in self.mx_meds[pid] and not any(c["drug"] == g and c["action"] != "stop" for c in self.mx_changes[pid]):
-            self.mx_changes[pid].append({"t": t, "rid": r["id"], "action": "start", "drug": g, "quote": quote,
-                                         "author": r.get("author"), "kind": "dispensing"})    # first supply here = a start
-        self.mx_meds[pid][g] = {"name": name, "t": t, "rid": r["id"], "quote": quote, "days": days, "author": r.get("author")}
+        changes, stops, meds = self._mx_state(pid, t)
+        stop = stops.get(g)
+        if g not in meds and not any(c["drug"] == g and c["action"] != "stop" for c in changes):
+            self._mx_note(pid, r, tag="supply_start", action="start", drug=g, quote=quote, name=name)  # first supply = a start
+        self._mx_note(pid, r, tag="dispense", action="start", drug=g, quote=quote, name=name, days=days)
         if stop and stop["t"] < t and not r["data"].get("new_start"):
             self._reconcile(api, pid, r, name, quote, stop)
 
@@ -300,7 +342,8 @@ class MedicationJourney:
         recent = self._recent(pid, t)
         named = fx.mentions(text)
         rel = [c for c in recent if c["drug"] in named] or recent[-1:]
-        hint = rel[-1]["author"] if rel else next((self.mx_meds[pid][g]["author"] for g in named if g in self.mx_meds.get(pid, {})), None)
+        _, _, meds = self._mx_state(pid, t)
+        hint = rel[-1]["author"] if rel else next((meds[g]["author"] for g in named if g in meds), None)
         top = fs[0]
         existing = self._open_mine(api, pid, "med_change")
         escalates = None
@@ -335,8 +378,9 @@ class MedicationJourney:
                              f"{' by ' + self.nm(c['author']) if c['author'] in self.staff else ''}.", {"record": c["rid"], "quote": c["quote"]})
             ev.append(c["rid"])
         if not rel:
+            _, _, taking = self._mx_state(pid, t)
             w.add("context", "No medicine change recorded here in the last 60 days" +
-                  (f"; they take {', '.join(sorted(self.mx_meds.get(pid, {})))}." if self.mx_meds.get(pid) else "."))
+                  (f"; they take {', '.join(sorted(taking))}." if taking else "."))
         n, q = self.chart_search(api, pid, list(STAFF_KINDS), t + timedelta(minutes=1))
         w.add("loop_status", f"{'No' if n == 0 else n} consultation or call note since the message.", search=q)
         w.add("assessment", f"Working problem: {top['label']}{' after a medicine change' if rel else ''}. "
@@ -349,8 +393,8 @@ class MedicationJourney:
         self._open(api, ("mx", r["id"]), pid, "med_change", reason, ev, urgency, hint, w,
                    {"kind": "concern", "labels": [f["label"] for f in fs], "template": tid}, escalates=escalates)
 
-    def _requested(self, pid, text) -> tuple[list[str], str]:
-        meds = self.mx_meds.get(pid, {})
+    def _requested(self, pid, text, as_of=None) -> tuple[list[str], str]:
+        _, _, meds = self._mx_state(pid, as_of)
         named = fx.mentions(text)
         if named:
             return named, "named"
@@ -364,8 +408,8 @@ class MedicationJourney:
         return live, "not specified"
 
     def _repeat(self, api, r, pid, t, text, f):
-        meds = self.mx_meds.get(pid, {})
-        want, how = self._requested(pid, text)
+        _, stops, meds = self._mx_state(pid, t)
+        want, how = self._requested(pid, text, t)
         ran_out = bool(RAN_OUT.search(text))
         existing = self._open_mine(api, pid, "repeat_prescription")
         if existing:
@@ -412,7 +456,7 @@ class MedicationJourney:
                     notes.append("has run out, and a gap in this medicine is unsafe")
                     flags.append(f"{g}: run out")
                     urgency = max(urgency, 3)
-            stop = self.mx_stops.get(pid, {}).get(g)
+            stop = stops.get(g)
             if stop and (m is None or stop["t"] > m["t"]):
                 notes.append(f"stopped on {stop['t']:%d %b %Y}")
                 flags.append(f"{g}: stopped")
@@ -481,7 +525,7 @@ class MedicationJourney:
         for iid, m in self.mx_items.items():
             if m["family"] != "repeat_prescription" or iid not in open_ids or open_ids[iid]["urgency"] >= 3:
                 continue
-            meds = self.mx_meds.get(m["pid"], {})
+            _, _, meds = self._mx_state(m["pid"], now)
             ends = [meds[g]["t"] + timedelta(days=meds[g]["days"]) for g in m.get("meds", []) if g in meds]
             if ends and now >= min(ends) - timedelta(days=1) and now - m["asked_at"] >= timedelta(days=1):
                 api.raise_urgency(iid, 3, f"Still not decided and the supply ends {min(ends):%a %d %b}.")

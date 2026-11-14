@@ -280,6 +280,9 @@ class InsuranceJourney:
 
     def reset(self, api):
         super().reset(api)
+        if getattr(self, "case", None) is None:
+            from backend.case.wire import ensure_case
+            ensure_case(self, reset=not getattr(self, "_case_ready", False))
         self.ins_waiting: list[tuple[dict, datetime]] = []      # (record, first seen) held one run for a completion note
         self.ins_open: dict[str, dict] = {}                     # item id -> {"due", "pid", "label"}
         self.ins_seen: set[str] = set()
@@ -335,7 +338,15 @@ class InsuranceJourney:
         return True
 
     def ins_linked_referral(self, pid: str, t: datetime) -> dict | None:
-        refs = [x for x in self.referrals if x["pid"] == pid and t - timedelta(days=45) <= x["t"] <= t]
+        """The latest referral in the 45-day window. The case projection wins when it has one."""
+        case = getattr(self, "case", None)
+        if case is not None:
+            from backend.case.wire import referral_rows
+            rows = [x for x in referral_rows(case, pid, t, open_only=True)
+                    if t - timedelta(days=45) <= x["t"] <= t]
+            if rows:
+                return rows[-1]
+        refs = [x for x in getattr(self, "referrals", ()) if x["pid"] == pid and t - timedelta(days=45) <= x["t"] <= t]
         return refs[-1] if refs else None
 
     def ins_open_item(self, api, r, doc, pid, how, t, search):
