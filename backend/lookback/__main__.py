@@ -41,6 +41,8 @@ def main(argv=None):
               datetime.fromisoformat(a.start) if a.start else None, datetime.fromisoformat(a.end) if a.end else None)
     write(res, a.out)
     print(json.dumps(res["summary"], indent=1))
+    from .checks import report_text
+    print(report_text(res["summary"]["counters"]))
 
 
 if __name__ == "__main__":
