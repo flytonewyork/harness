@@ -1,0 +1,44 @@
+# Medication reader probe 2: written after probe 1 was fixed, scored once untuned (first_pass), to estimate how the
+# floor does on wording it has not seen. Synthetic only. Same format as medication_probe.yaml.
+first_pass: {date: "2026-11-12", cases: 40, correct: 24, emergencies_caught: "3 of 9", quiet_kept: "7 of 7"}
+cases:
+  - {text: "her tongue is getting bigger and she sounds strange", classes: [acei], kinds: [red_flag], min: 3}
+  - {text: "條喉好似收窄咗咁，吞嘢好難", kinds: [red_flag], min: 4}
+  - {text: "Struggling for breath tonight, wheezy", kinds: [red_flag], min: 4}
+  - {text: "I coughed up some blood after the new blood thinner", classes: [anticoagulant], kinds: [red_flag], min: 4}
+  - {text: "My stools are like tar", classes: [anticoagulant], kinds: [red_flag], min: 4}
+  - {text: "成身起晒泡，口都爛埋", classes: [xanthine_oxidase], kinds: [red_flag], min: 4}
+  - {text: "he collapsed in the kitchen", classes: [beta_blocker], kinds: [red_flag], min: 3}
+  - {text: "I don't see the point anymore", classes: [ssri], kinds: [crisis], min: 4}
+  - {text: "諗住一次過食晒啲藥", classes: [ssri], kinds: [crisis, red_flag], min: 4}
+  - {text: "Crushing chest pain right now", kinds: [red_flag], min: 4}
+  - {text: "Had a fit this afternoon, first time ever", kinds: [red_flag], min: 4}
+  - {text: "rash spreading on my arms and chest since the amoxicillin", classes: [antibiotic], kinds: [side_effect], min: 3}
+  - {text: "my calves are really sore and my wee is brown", classes: [statin], kinds: [side_effect], min: 3}
+  - {text: "glucose 3.4 and sweating buckets", classes: [insulin], kinds: [side_effect], min: 3}
+  - {text: "Lots of bruises on my legs I can't explain", classes: [anticoagulant], kinds: [side_effect], min: 3}
+  - {text: "nose bleed won't stop for 20 mins", classes: [anticoagulant], kinds: [side_effect, red_flag], min: 3}
+  - {text: "我有咗BB，仲食唔食得個血壓藥？", classes: [acei], kinds: [side_effect], min: 3}
+  - {text: "Took tonight's dose twice by mistake", kinds: [confusion], min: 3}
+  - {text: "pulse 42 and very tired", classes: [beta_blocker], kinds: [side_effect], min: 3}
+  - {text: "keep throwing up and my belly hurts, on the new diabetes pill", classes: [sglt2], kinds: [side_effect], min: 3}
+  - {text: "Feel woozy every morning", classes: [acei], kinds: [side_effect], min: 1, max: 3}
+  - {text: "我自己停咗粒膽固醇藥", classes: [statin], kinds: [adherence], min: 2, max: 3}
+  - {text: "Haven't taken my tablets for a week", kinds: [adherence], min: 2, max: 3}
+  - {text: "Is it ok to have alcohol with this?", kinds: [question, dose_question], min: 1, max: 2}
+  - {text: "可唔可以飯後先食？", kinds: [dose_question, question], min: 1, max: 2}
+  - {text: "I'm mixed up, the pharmacy gave me a different looking pill", kinds: [confusion], min: 2, max: 3}
+  - {text: "stomach is upset since the new tablets", kinds: [side_effect], min: 1, max: 2}
+  - {text: "ankles puffy in the evenings", classes: [ccb], kinds: [side_effect], min: 1, max: 2}
+  - {text: "this cough is driving me mad since the new BP pill", classes: [acei], kinds: [side_effect], min: 1, max: 2}
+  - {text: "Please renew my prescription", kinds: [repeat]}
+  - {text: "想再拎多次胃藥", classes: [ppi], kinds: [repeat]}
+  - {text: "only 2 tablets left of my bisoprolol", classes: [beta_blocker], kinds: [repeat]}
+  - {text: "could you send another script for my cholesterol meds", classes: [statin], kinds: [repeat]}
+  - {text: "Feeling great, no issues with the new meds", quiet: true}
+  - {text: "冇事，一切正常", quiet: true}
+  - {text: "No rash or itching anymore, thanks!", quiet: true}
+  - {text: "My son had a fever but he's fine now", quiet: true}
+  - {text: "Appointment on Tuesday is fine for me", quiet: true}
+  - {text: "我老公話佢食呢隻藥都冇副作用", quiet: true}
+  - {text: "not dizzy, not swollen, sleeping well", quiet: true}

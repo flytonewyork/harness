@@ -46,11 +46,24 @@ jobs:
         if: env.REPOS_TOKEN != ''
         with:
           path: harness
+      - name: Pick the loopbench branch (same name as this PR's head, else its base, else main)
+        if: env.REPOS_TOKEN != ''
+        id: pair
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          ref=main
+          for b in "$HEAD_REF" "$BASE_REF"; do
+            if [ -n "$b" ] && git ls-remote --exit-code --heads "https://x-access-token:${REPOS_TOKEN}@github.com/flytonewyork/loopbench.git" "$b" >/dev/null 2>&1; then ref="$b"; break; fi
+          done
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"; echo "Using loopbench@$ref"
       - uses: actions/checkout@v4
         if: env.REPOS_TOKEN != ''
         with:
           repository: flytonewyork/loopbench
           token: ${{ secrets.REPOS_TOKEN }}
+          ref: ${{ steps.pair.outputs.ref }}
           path: loopbench
       - uses: actions/setup-python@v5
         if: env.REPOS_TOKEN != ''
@@ -63,6 +76,15 @@ jobs:
         if: env.REPOS_TOKEN != ''
         working-directory: loopbench
         run: PYTHONPATH=src python scripts/scoreboard.py --seeds 1 2 3 --summary "$GITHUB_STEP_SUMMARY" --json scoreboard.json
+      - name: Journey eval (gate - every journey scenario passes, zero hard fails, zero made-up quotes)
+        if: env.REPOS_TOKEN != ''
+        working-directory: loopbench
+        run: |
+          if [ -f scripts/journey_eval.py ]; then
+            PYTHONPATH=src python scripts/journey_eval.py --journey all --seeds 1 2 3 --summary "$GITHUB_STEP_SUMMARY"
+          else
+            echo "This loopbench checkout has no journey eval yet; skipped."
+          fi
       - uses: actions/upload-artifact@v4
         if: always() && env.REPOS_TOKEN != ''
         with:

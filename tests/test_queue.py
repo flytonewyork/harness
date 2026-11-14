@@ -24,6 +24,10 @@ def blocks(text, marker):
     return [" ".join(block.split()) for block in found]
 
 
+def test_now_stays_under_two_kilobytes():
+    assert len((ROOT / "NOW.md").read_bytes()) < 2048
+
+
 def test_at_most_three_items_in_progress():
     items = blocks(section("In progress"), r"\d+\. ")
     assert 1 <= len(items) <= 3, f"{len(items)} items in progress: the queue allows three at most"
