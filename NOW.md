@@ -17,7 +17,7 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 14 Nov
 
 - **The EC discovery's fee.** Default: a fixed fee you set in the scope; nobody names one at the meeting. By Thu 12 Nov.
 - **Stale PRs.** harness #13, #16, #18 and loopbench #5 are superseded (#26 stays: #28 is stacked on it). Default: close them. By Fri 13 Nov.
-- **Mac mini readers.** `docs/MODEL_ROUTING.md` and medication lists (blind 3/12). Default: wait for go-ahead. By Fri 13 Nov.
+- **Mac mini readers.** Grok 4.7 extra high, insurance blind v4. Default: no second model. By Mon 16 Nov.
 
 ## Next, after EC answers
 
