@@ -1,9 +1,10 @@
 """FastAPI service: the doctor's follow-up list.
 
 Read endpoints serve the list as it stood at `as_of` (default: the end of the data). Two write surfaces, kept
-apart: /api/agent/* (open an item, raise its urgency; nothing else) and /api/doctor/* (close an item). Each
-checks the caller's role (X-Role header: agent or doctor; real login comes with EC's environment). The built
-React app is served from frontend/dist when present.
+apart: /api/agent/* (open an item, raise its urgency; nothing else) and /api/doctor/* (close an item, or
+confirm, reject or close a case fact). Each checks the caller's role (X-Role header: agent or doctor; real
+login comes with EC's environment). A patient's `case` is the `case-projection/1` view. An item carries that
+same projection beside its own reasoning trace. The built React app is served from frontend/dist when present.
 """
 from __future__ import annotations
 
@@ -39,6 +40,12 @@ class Raise(BaseModel):
 
 class Close(BaseModel):
     resolution: str
+    note: str = ""
+
+
+class FactAct(BaseModel):
+    record_id: str
+    quote: str
     note: str = ""
 
 
@@ -133,6 +140,24 @@ def create_app(store: Store) -> FastAPI:
             raise HTTPException(404, "no such item")
         try:
             return store.doctor_close(iid, body.resolution, x_doctor or "doctor", body.note, when(as_of))
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    @app.post("/api/doctor/patients/{pid}/facts/{fact_id}/{action}")
+    def doctor_fact(pid: str, fact_id: str, action: str, body: FactAct, as_of: str | None = None,
+                    x_role: str | None = Header(None), x_doctor: str | None = Header(None)):
+        role(x_role, "doctor")
+        if action not in ("confirm", "reject", "close"):
+            raise HTTPException(404, "no such action")
+        if pid not in store.patients:
+            raise HTTPException(404, "no such patient")
+        try:
+            return store.doctor_fact(pid, fact_id, action, body.record_id, body.quote, x_doctor or "doctor",
+                                     body.note, when(as_of))
+        except KeyError:
+            raise HTTPException(404, "no such fact")
+        except AuthorityError as e:
+            raise HTTPException(403, str(e))
         except ValueError as e:
             raise HTTPException(422, str(e))
 
