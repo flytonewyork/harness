@@ -3,8 +3,9 @@
 The demo (spec 002) shows Harbourview Family Clinic, the simulated solo GP, at 09:30 on Sunday 13 Jun 2027. This
 script takes, unchanged, every item the engine had open at that moment (Mr Chan's critical potassium among them),
 the records they cite, Mr Chan's consult note, what the engine opened over the weekend and the year's totals. It
-writes `data.json` and embeds the same JSON in `index.html`, so the page shows the engine's own words. It reads the
-run file the way the product's adapters do and never imports LoopBench.
+writes `data.json` and embeds the same JSON in `index.html` and in the EC version of the page
+(`demo/ec-care-line/index.html`), so both show the engine's own words. It reads the run file the way the product's
+adapters do and never imports LoopBench.
 
     cd ../loopbench && PYTHONPATH=src python -m loopbench.cli product-feed --clinic hk_solo --system apricot_vita \\
         --harness agentic --seeds 1
@@ -31,6 +32,7 @@ MR_CHAN_DOB = "1964-09-23"         # the LoopBench demo patient (scenario dev_mr
 KEEP_DOC = ("id", "kind", "channel", "available_at", "text")
 KEEP_ITEM = ("id", "patient_id", "family", "reason", "urgency_at_open", "urgency", "opened_at", "due", "reasoning")
 START, END = "<!-- DATA:START -->", "<!-- DATA:END -->"
+PAGES = (HERE / "index.html", HERE.parent / "ec-care-line" / "index.html")   # the same data, two framings
 
 
 def gate(results: list) -> dict:
@@ -101,8 +103,9 @@ def main() -> None:
     data["gate"] = gate(json.loads(Path(a.results).read_text(encoding="utf-8")))
     data["catalogue"] = json.loads((HERE / "tasks.json").read_text(encoding="utf-8"))
     (HERE / "data.json").write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    embed(HERE / "index.html", data)
-    print(f"wrote data.json and embedded it: {len(data['items'])} open items at {NOW}, "
+    for page in PAGES:
+        embed(page, data)
+    print(f"wrote data.json and embedded it in {len(PAGES)} pages: {len(data['items'])} open items at {NOW}, "
           f"{len(data['documents'])} cited records")
 
 

@@ -13,7 +13,7 @@ export type Item = {
   checks_passed: boolean;
 };
 export type DocMeta = { id: string; kind: string; channel: string; available_at: string; author: string | null };
-export type ItemDetail = Item & { reasoning: Step[]; checks: Check[]; documents: DocMeta[] };
+export type ItemDetail = Item & { reasoning: Step[]; checks: Check[]; documents: DocMeta[]; case: CaseProjection };
 export type Doc = DocMeta & { text: string; patient_id: string | null; data: Record<string, unknown> };
 export type Feed = { channel: string; status: string; since: string; detail: string };
 export type Staff = { id: string; name: string; role: string };
@@ -36,8 +36,28 @@ export type Evaluation = {
   note?: string;
 };
 export type FeedAlarm = { channel: string; alarm_at: string; recovered_at: string | null; detail: string };
+export type CaseQuote = { fact_id?: string; quote: string; record_id: string; provenance: string; text?: string };
+export type CaseLine = {
+  text: string; quote: string; record_id: string; provenance: string; at: string; fact_id: string; quotes?: CaseQuote[];
+};
+export type CaseSection = { id: string; title: string; lines: CaseLine[] };
+export type CaseAct = "confirm" | "reject" | "close";
+export type CaseProjection = {
+  format: "case-projection/1";
+  patient_id: string;
+  as_of: string;
+  medications: Record<string, unknown>[];
+  conflicts: Record<string, unknown>[];
+  not_dispensed_here: Record<string, unknown>[];
+  referrals: Record<string, unknown>[];
+  admissions: Record<string, unknown>[];
+  conditions: Record<string, unknown>[];
+  allergies: Record<string, unknown>[];
+  observations: Record<string, unknown>[];
+  strip: CaseSection[];
+};
 export type PatientView = { card: Patient & { registered_doctor: string }; items: Item[]; documents: DocMeta[];
-                            evaluation: { scenario: string; loops: LoopRow[] } | null };
+                            evaluation: { scenario: string; loops: LoopRow[] } | null; case: CaseProjection };
 
 // Static build (VITE_STATIC=1): no server; the run file ships beside the page and is read in the browser.
 import { LocalStore, type Run } from "./store";
@@ -70,6 +90,14 @@ const remote = {
     if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
     return r.json() as Promise<Item>;
   },
+  caseAct: async (patientId: string, factId: string, action: CaseAct, as_of: string, record_id: string, quote: string) => {
+    const r = await fetch(`/api/doctor/patients/${patientId}/facts/${factId}/${action}?as_of=${encodeURIComponent(as_of)}`, {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Role": "doctor", "X-Doctor": "doctor" },
+      body: JSON.stringify({ record_id, quote }),
+    });
+    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+    return r.json() as Promise<CaseProjection>;
+  },
 };
 
 const offline: typeof remote = {
@@ -85,6 +113,7 @@ const offline: typeof remote = {
   patient: async (id, as_of) => (await store()).patient(id, as_of),
   alarms: async () => (await store()).run.feeds,
   close: async (id, as_of, resolution) => (await store()).close(id, as_of, resolution),
+  caseAct: async () => { throw new Error("the static page has no case log to write"); },
 };
 
 export const api = STATIC ? offline : remote;

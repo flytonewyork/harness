@@ -260,7 +260,7 @@ class RulesHarness:
     version "1.1": second attempts are routed through the roster, and unactioned items escalate at day 7 and 14."""
 
     def __init__(self, ehealth_sweep_days: int = 14, grace_open_days: dict | None = None, attest: bool = False,
-                 version: str = "1.0"):
+                 version: str = "1.0", case=None):
         if version not in ("1.0", "1.1"):
             raise ValueError(f"unknown rules version {version}")
         self.version = version
@@ -269,6 +269,8 @@ class RulesHarness:
         self.grace = grace_open_days or {1: 3, 2: 1, 3: 0, 4: 0}
         self.attest = attest
         self.escalation = Escalation() if version != "1.0" else None
+        # v1.0 never reads or writes this. v1.1 attaches it in reset, clearing an injected log in place.
+        self._given_case = case
 
     # ------------------------------------------------------------------------------- set-up
     def reset(self, api):
@@ -300,6 +302,13 @@ class RulesHarness:
         self._roster: dict = {}
         self.lab_hist = defaultdict(lambda: defaultdict(list))   # pid -> test -> [(t, value, record id, quote, lab no)]
         self.meds = defaultdict(list)                            # pid -> [(t, quote, record id)]
+        # v1.0 keeps the chart lists above and does not open a case log.
+        if self.version == "1.0":
+            self._case_ready = False
+        else:
+            from ..case.wire import ensure_case
+            ensure_case(self, reset=True)
+            self._case_ready = True
 
     # ------------------------------------------------------------------------------- helpers
     def roster(self, api, d):
@@ -415,6 +424,20 @@ class RulesHarness:
                         out.append((t, q, rid))
                         seen.add(rid)
                     break
+        if self.version == "1.0" or getattr(self, "case", None) is None:
+            return out[:3]
+        from ..case.wire import medication_lines
+        for test in tests:
+            if len(out) >= 3:
+                break
+            pat = RELEVANT_MEDS.get(test)
+            if not pat or any(q and re.search(pat, q, re.I) for _, q, _ in out):
+                continue
+            for mt, mq, mrid in reversed(medication_lines(self.case, pid, before)):
+                if mq and re.search(pat, mq, re.I) and mrid not in seen:
+                    out.append((mt, mq, mrid))
+                    seen.add(mrid)
+                    break
         return out[:3]
 
     def context_step(self, w: Why, pid: str, tests_vals: list[tuple], t: datetime, lab_no):
@@ -428,6 +451,10 @@ class RulesHarness:
             else:
                 lines.append(test)
         meds = self.relevant_meds(pid, [tv[0] for tv in tests_vals], t)
+        chart = {rid for _, _, rid in self.meds.get(pid, ())}
+        # v1.0 cites only what was dispensed on the chart. v1.1 may add a case line the chart does not have.
+        here = meds if self.version == "1.0" else [m for m in meds if m[2] in chart]
+        extra = [] if self.version == "1.0" else [m for m in meds if m[2] not in chart]
         for mt, mq, mrid in meds:
             cites_.append(cite(mrid, mq))
         parts = []
@@ -436,8 +463,10 @@ class RulesHarness:
         if lines:
             names = lines[0] if len(lines) == 1 else ", ".join(lines[:-1]) + " or " + lines[-1]
             parts.append(f"No earlier {names} result on file")
-        parts.append(("Relevant medicines dispensed here: " + "; ".join(f"{med_name(q)} ({mt:%d %b %Y})" for mt, q, _ in meds))
-                     if meds else "No relevant medicines dispensed at this clinic")
+        parts.append(("Relevant medicines dispensed here: " + "; ".join(f"{med_name(q)} ({mt:%d %b %Y})" for mt, q, _ in here))
+                     if here else "No relevant medicines dispensed at this clinic")
+        if extra:
+            parts.append("Also recorded on the case: " + "; ".join(f"{med_name(q)} ({mt:%d %b %Y})" for mt, q, _ in extra))
         w.add("context", ". ".join(parts) + ".", *cites_, diff=diff or None)
         return meds
 
@@ -525,6 +554,9 @@ class RulesHarness:
         elif k == "dispensing" and pid:
             q = line_with(text, r"^Dispensed")
             self.meds[pid].append((t, q, r["id"]))
+            if self.version != "1.0" and getattr(self, "case", None) is not None:
+                from ..case.wire import note_dispensing
+                note_dispensing(self.case, r, pid, t, q)
             if r["data"].get("new_start"):
                 items = str(r["data"].get("items", "")).lower()
                 for name, pat, panel, days in MONITOR:
@@ -534,6 +566,9 @@ class RulesHarness:
         elif k == "referral_letter" and pid:
             self.referrals.append({"pid": pid, "t": t, "rid": r["id"], "owner": r["author"], "text": text,
                                    "urgent": r["data"].get("urgency") == "urgent" or "URGENT" in text})
+            if self.version != "1.0" and getattr(self, "case", None) is not None:
+                from ..case.wire import note_referral
+                note_referral(self.case, r, pid, t)
         elif k == "imaging_report":
             hdr, _ = parse_lab_text(text)
             pid2, how = self.identify(api, r, hdr)
@@ -549,12 +584,22 @@ class RulesHarness:
                 self.raise_item(api, ("img", r["id"]), pid2, "followup_recommended", "Imaging report recommends follow-up", [r["id"]], 2, r["author"], 30,
                                 why=self.imaging_why(api, r, pid2, how, t, screen=False))
         elif k in ("discharge_summary", "aed_summary") and pid:
-            self.on_discharge(api, pid, r, t)
+            if not self.claims(api, r):
+                self.on_discharge(api, pid, r, t)
         elif k in ("specialist_letter",) and pid:
             self.closure_ev[pid].append((t, "letter"))
-        elif k == "message" and pid and re.search(r"報告|report|高|high", text + str(r["data"]), re.I):
+        elif k == "message" and pid and not self.claims(api, r) and re.search(r"報告|report|高|high", text + str(r["data"]), re.I):
             self.raise_item(api, ("msg", r["id"]), pid, "abnormal_result", "Patient sent an outside report with abnormal results",
                             [r["id"]], 2, why=self.message_why(api, r, pid, t))
+
+    def on_ehealth(self, api, pid: str, r: dict):
+        """Every new eHealth record the sweep reads, for journeys (cooperative: call super()). Core does nothing here."""
+
+    def claims(self, api, r: dict) -> bool:
+        """A journey (backend/journeys/) that reads this record more fully than the core rule returns True here, so
+        the core's simpler rule for it (discharge summaries, patient messages) does not open a second item. The
+        record still reaches every journey's on_cms. With no journeys (rules v1.0, v1.1) this is always False."""
+        return False
 
     def on_portal(self, api, src, r):
         t = datetime.fromisoformat(r["available_at"])
@@ -782,10 +827,11 @@ class RulesHarness:
                     continue
                 self.ehealth_seen.add(r["id"])
                 t = datetime.fromisoformat(r["available_at"])
+                self.on_ehealth(api, pid, r)
                 if r["kind"] == "appointment":
                     self.closure_ev[pid].append((t, "appointment"))
                 elif r["kind"] in ("discharge_summary", "aed_summary") and t > api.now - timedelta(days=21):
-                    if not any(c > t for c in self.consults.get(pid, ())):
+                    if not any(c > t for c in self.consults.get(pid, ())) and not self.claims(api, r):
                         self.on_discharge(api, pid, r, t)
 
     def check_pending(self, api):

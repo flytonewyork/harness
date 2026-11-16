@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TABLE = ROOT / "evals" / "agent_features.csv"
-SPEC = ROOT / "docs" / "specs" / "003-agent-features-rubric.md"
+SPEC = ROOT / "archive" / "docs" / "specs" / "003-agent-features-rubric.md"
 CATALOGUE = ROOT / "demo" / "clinic-backend" / "tasks.json"
 LANDING_V3 = ROOT / "demo" / "landing" / "v3.dc.html"
 

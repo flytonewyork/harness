@@ -2,27 +2,33 @@
 
 `demo/clinic-backend/data.json` is built from a LoopBench run by `build_data.py`, and the same JSON is embedded in the
 page, which draws the engine's items from it. These tests hold the page to that data, the data's quotes to their
-records, and the care team's own copy to the authority line.
+records, and the care team's own copy to the authority line. The EC version of the page (`demo/ec-care-line/`) carries
+the same data and is held to the same tests, and its ask to needing no patient data.
 """
 import json
 import re
 from pathlib import Path
 
+import pytest
+
 from backend.engine.verify import STEPS, norm
 
 DEMO = Path(__file__).resolve().parents[1] / "demo" / "clinic-backend"
 DATA = json.loads((DEMO / "data.json").read_text(encoding="utf-8"))
-PAGE = (DEMO / "index.html").read_text(encoding="utf-8")
+PAGES = {name: (DEMO.parent / name / "index.html").read_text(encoding="utf-8") for name in ("clinic-backend", "ec-care-line")}
+PAGE = PAGES["clinic-backend"]
+both = pytest.mark.parametrize("page", list(PAGES.values()), ids=list(PAGES))
 
 
-def embedded():
-    m = re.search(r'<script type="application/json" id="engine-data">(.*?)</script>', PAGE, flags=re.S)
+def embedded(page=PAGE):
+    m = re.search(r'<script type="application/json" id="engine-data">(.*?)</script>', page, flags=re.S)
     assert m, "the page should embed the engine data"
     return json.loads(m.group(1).replace("<\\/", "</"))
 
 
-def test_page_embeds_exactly_the_built_data():
-    assert embedded() == DATA
+@both
+def test_page_embeds_exactly_the_built_data(page):
+    assert embedded(page) == DATA
 
 
 def test_data_is_synthetic():
@@ -51,27 +57,50 @@ def test_mr_chan_is_the_critical_item_at_the_top():
     assert [it["urgency"] for it in DATA["items"]] == sorted((it["urgency"] for it in DATA["items"]), reverse=True)
 
 
-def test_note_quotes_are_verbatim_in_mr_chans_note():
+@both
+def test_note_quotes_are_verbatim_in_mr_chans_note(page):
     note = norm(DATA["consult_note"]["text"])
-    shown = [norm(q) for q in re.findall(r'<q class="q-note">(.*?)</q>', PAGE, flags=re.S)]
+    shown = [norm(q) for q in re.findall(r'<q class="q-note">(.*?)</q>', page, flags=re.S)]
     assert shown
     for q in shown:
         assert q in note, q
 
 
-def test_page_renders_engine_text_from_the_data_not_by_hand():
+@both
+def test_page_renders_engine_text_from_the_data_not_by_hand(page):
     # Engine words reach the page only through the embedded JSON: none of its step texts are typed into the markup.
-    markup = PAGE.split("<!-- DATA:START -->")[0]
+    markup = page.split("<!-- DATA:START -->")[0]
     for it in DATA["items"]:
         for s in it["reasoning"]:
             assert norm(s["text"]) not in norm(markup), f"hand-copied engine text: {s['text'][:60]!r}"
 
 
-def test_care_team_never_signs_prescribes_or_closes():
-    agent = re.findall(r'data-actor="agent"[^>]*>(.*?)<span class="meta">', PAGE, flags=re.S)
+@both
+def test_care_team_never_signs_prescribes_or_closes(page):
+    agent = re.findall(r'data-actor="agent"[^>]*>(.*?)<span class="meta">', page, flags=re.S)
     assert len(agent) >= 4
     for line in agent:
         assert not re.search(r"\b(prescribed|signed|closed|dismissed|refilled)\b|已經幫你配咗|已批", line, flags=re.I), line
+
+
+def section(page, sid):
+    m = re.search(rf'<section[^>]*id="{sid}".*?</section>', page, flags=re.S)
+    assert m, sid
+    return re.sub(r"<[^>]+>", " ", m.group(0))
+
+
+def test_ec_page_asks_for_no_patient_data():
+    # EC talks are exploratory: the first step asks for people's time, never for records or access to them.
+    page = PAGES["ec-care-line"]
+    ask = section(page, "ask")
+    assert "no patient data" in ask
+    assert not re.search(r"read(-only)? access|credentials|a shadow|export of", ask, flags=re.I), ask
+    emr = section(page, "emr")
+    assert "Nothing leaves EC" in emr and "None of this is needed to start" in emr
+    never = re.search(r"<th>Never</th><td>(.*?)</td>", page, flags=re.S).group(1)
+    for act in ("Prescribes", "diagnoses", "closes"):
+        assert act in never, act
+    assert "not an EC service" in page                 # a demo for EC, never presented as EC's own
 
 
 CATALOGUE = json.loads((DEMO / "tasks.json").read_text(encoding="utf-8"))
@@ -115,8 +144,60 @@ def test_unscored_tasks_are_never_live_and_doctor_acts_stay_off_the_list():
         assert word in never, word
 
 
-def test_only_doctor_actions_close():
+@both
+def test_only_doctor_actions_close(page):
     # Close buttons exist only in the doctor's decision box.
-    for m in re.finditer(r"data-close=", PAGE):
-        before = PAGE[max(0, m.start() - 600): m.start()]
+    for m in re.finditer(r"data-close=", page):
+        before = page[max(0, m.start() - 600): m.start()]
         assert "Your decision" in before
+
+
+def test_ec_discovery_scope_needs_no_patient_data():
+    # The scope that follows Wednesday's meeting asks for people's time only, and says so.
+    scope = (DEMO.parents[1] / "docs" / "EC_DISCOVERY_SCOPE.md").read_text(encoding="utf-8")
+    needs = re.search(r"## What it needs from EC\n(.*?)\n## ", scope, flags=re.S).group(1)
+    assert not re.search(r"patient (records?|data)|an export of|access to|credentials|log-?in", needs, flags=re.I), needs
+    never = re.search(r"## What it never needs\n(.*?)\n## ", scope, flags=re.S).group(1)
+    for word in ("No patient records", "exports", "access"):
+        assert word in never, word
+
+
+def raw_section(page, sid):
+    m = re.search(rf'<section[^>]*id="{sid}".*?</section>', page, flags=re.S)
+    assert m, sid
+    return m.group(0)
+
+
+def plain(html):
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html))
+
+
+def test_kwok_walkthrough_has_the_five_beats_then_the_ask():
+    page = PAGES["ec-care-line"]
+    walk = re.search(r"kwok: \[(.*?)\]", page, flags=re.S).group(1)
+    ids = re.findall(r"id: '([\w-]+)'", walk)
+    assert ids == ["front"] * 4 + ["kwok-item", "numbers", "ask"]
+    assert re.findall(r"beat: (\d)", walk) == ["1", "2", "3", "4"]
+    for i in set(ids):
+        assert f'id="{i}"' in page, i
+
+
+def test_kwok_item_quotes_are_verbatim_from_her_chat_and_signed_plan():
+    page = PAGES["ec-care-line"]
+    item = raw_section(page, "kwok-item")
+    quotes = re.findall(r"<q class=\"q-engine\" data-quote>(.*?)</q>", item)
+    assert len(quotes) >= 3
+    rest = plain(page.replace(item, ""))                 # the quotes must come from elsewhere on the page
+    for q in quotes:
+        assert q in rest, q
+
+
+def test_kwok_item_keeps_asymmetric_authority():
+    item = raw_section(PAGES["ec-care-line"], "kwok-item")
+    done = re.findall(r'class="row yes">(.*?)<', item)
+    assert done == ["Opened the item", "Raised its urgency", "Alerted Dr Chan"]   # open_item, raise_urgency, alarm
+    cant = " ".join(re.findall(r'class="row no">(.*?)<', item))
+    for act in ("Close", "dismiss", "downgrade", "Reassure", "prescribe"):
+        assert act in cant, act
+    assert re.search(r'data-kact="close" disabled', item)       # closes only after the doctor has acted
+    assert "doctors only" in item
