@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tmrw care line</title>
+<style>
+  :root { --ink:#0B1F33; --mute:#5F6875; --line:#E3E7ED; --bg:#F6F7F9; --wa:#075E54; --wa2:#DCF8C6; --red:#C62828; --amber:#B26A00; --green:#1B7F3B; --blue:#1E5AA8; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans HK", sans-serif; color:var(--ink); background:var(--bg); }
+  header { display:flex; gap:16px; align-items:center; padding:12px 20px; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  header h1 { font-size:16px; margin:0; }
+  .pill { padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--line); background:#fff; white-space:nowrap; }
+  .pill.ok { color:var(--green); border-color:#BFE3CB; background:#F0FAF3; }
+  .pill.bad { color:var(--red); border-color:#F3C7C7; background:#FDF2F2; }
+  .pill.warn { color:var(--amber); border-color:#F2DDB4; background:#FFF8EA; }
+  nav { margin-left:auto; display:flex; gap:4px; }
+  nav button { border:0; background:none; padding:8px 12px; border-radius:8px; cursor:pointer; font:inherit; color:var(--mute); }
+  nav button.on { background:var(--ink); color:#fff; }
+  main { padding:16px 20px; }
+  .grid { display:grid; grid-template-columns: 360px 1fr 1fr; gap:16px; align-items:start; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .card h2 { font-size:14px; margin:0 0 10px; }
+  .muted { color:var(--mute); font-size:12px; }
+  .phone { background:#ECE5DD; border-radius:18px; border:1px solid var(--line); overflow:hidden; }
+  .phone .top { background:var(--wa); color:#fff; padding:10px 12px; font-weight:600; font-size:13px; }
+  .phone .top small { display:block; font-weight:400; opacity:.85; }
+  .chat { height:440px; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:6px; }
+  .b { max-width:86%; padding:6px 9px; border-radius:8px; white-space:pre-wrap; font-size:13px; box-shadow:0 1px 0 rgba(0,0,0,.06); }
+  .b.in { align-self:flex-end; background:var(--wa2); }
+  .b.out { align-self:flex-start; background:#fff; }
+  .b.out.blocked { border:1px solid var(--red); }
+  .b .lab { font-size:11px; color:var(--wa); font-weight:600; display:block; margin-bottom:2px; }
+  .opts { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+  .opts button { border:1px solid #C9D7D2; background:#F7FBF9; color:var(--wa); border-radius:14px; padding:3px 9px; font-size:12px; cursor:pointer; }
+  .compose { display:flex; gap:6px; padding:8px; background:#F0F0F0; }
+  .compose input { flex:1; border:1px solid var(--line); border-radius:18px; padding:8px 12px; font:inherit; }
+  button.act { border:1px solid var(--line); background:#fff; border-radius:8px; padding:5px 10px; cursor:pointer; font:inherit; font-size:12px; }
+  button.act.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .persona { border:1px solid var(--line); border-radius:8px; padding:6px 8px; margin:4px 0; cursor:pointer; font-size:12px; }
+  .persona:hover { background:#F4F8FF; }
+  .h { border:1px solid var(--line); border-radius:10px; padding:10px; margin-bottom:8px; }
+  .h.named { border-color:#F3C7C7; background:#FFF8F8; }
+  .h.closed { opacity:.55; }
+  .h .q { background:#F6F7F9; border-left:3px solid var(--line); padding:6px 8px; margin:6px 0; white-space:pre-wrap; font-size:13px; }
+  textarea { width:100%; font:inherit; border:1px solid var(--line); border-radius:8px; padding:8px; min-height:90px; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mute); font-weight:600; position:sticky; top:56px; background:#fff; }
+  .sev-critical { color:var(--red); font-weight:600; } .sev-high { color:var(--amber); font-weight:600; }
+  .ev { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11.5px; color:var(--mute); }
+  .stat { font-size:26px; font-weight:700; }
+  .stats { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; margin-bottom:16px; }
+  details summary { cursor:pointer; }
+  pre { white-space:pre-wrap; background:#F6F7F9; padding:8px; border-radius:8px; font-size:12px; }
+  .hidden { display:none; }
+  .conv { padding:6px 8px; border-radius:8px; cursor:pointer; border:1px solid transparent; }
+  .conv.on { border-color:var(--line); background:#F6F7F9; }
+  @media (max-width: 1200px) { .grid { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2,1fr); } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="clinic">tmrw care line</h1>
+  <span class="pill" id="mode"></span>
+  <span class="pill" id="open"></span>
+  <span class="pill" id="evalpill"></span>
+  <span class="muted" id="src"></span>
+  <nav>
+    <button data-tab="live" class="on">Care line</button>
+    <button data-tab="evals">Evals</button>
+    <button data-tab="setup">Setup</button>
+  </nav>
+</header>
+<main>
+  <!-- ======================= LIVE ======================= -->
+  <section id="tab-live">
+    <div class="grid">
+      <div>
+        <div class="phone">
+          <div class="top"><span id="ph-title">Patient's WhatsApp (simulated)</span><small id="ph-sub">sim-85290000001</small></div>
+          <div class="chat" id="chat"></div>
+          <div class="compose"><input id="msg" placeholder="Write as the patient… (try: JOIN)"><button class="act primary" id="send">Send</button></div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div class="row"><label class="muted">Patient number</label><input id="wa" value="sim-85290000001" style="flex:1;padding:4px 8px;border:1px solid var(--line);border-radius:6px"></div>
+          <div class="row" style="margin-top:6px"><label class="muted">Clock</label><input id="clock" type="datetime-local" style="padding:4px 6px;border:1px solid var(--line);border-radius:6px"><span class="muted">blank = now (HK)</span></div>
+          <div class="row" style="margin-top:8px">
+            <button class="act" id="checkin">Clinic sends day-3 check-in</button>
+            <button class="act" id="newpt">New patient phone</button>
+            <button class="act" id="photo">Send a photo</button>
+          </div>
+          <h2 style="margin-top:12px">Synthetic patients to join as</h2>
+          <div class="muted">From the simulated clinic's chart. Join, then type the name and date of birth.</div>
+          <div id="personas"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>People's queue <span class="muted">· only a person claims, replies or closes</span></h2>
+        <div class="row" style="margin-bottom:8px"><span class="muted">Acting as</span><select id="person"></select><button class="act" id="tick">Move overdue on</button></div>
+        <div id="drafts"></div>
+        <div id="handoffs"></div>
+      </div>
+      <div class="card">
+        <h2>Conversations and record</h2>
+        <div id="convs"></div>
+        <h2 style="margin-top:14px">Record (RP-01)</h2>
+        <div id="events" style="max-height:420px;overflow:auto"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= EVALS ======================= -->
+  <section id="tab-evals" class="hidden">
+    <div class="stats" id="stats"></div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="row"><h2 style="margin:0">Features and gates</h2><span class="muted">evals/agent_features.csv · spec 003. A row is live only when its gate is met; until then every step waits for a person.</span>
+        <span style="margin-left:auto"></span><button class="act" id="rerun">Re-run evals</button></div>
+      <table id="feats"><thead><tr><th>ID</th><th>Feature</th><th>Severity</th><th>Hours</th><th>Escalates to</th><th>Gate</th><th>Cases</th><th>Where it stands</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <h2>Cases</h2>
+      <div id="cases"></div>
+    </div>
+  </section>
+
+  <!-- ======================= SETUP ======================= -->
+  <section id="tab-setup" class="hidden">
+    <div class="grid" style="grid-template-columns: 320px 1fr">
+      <div class="card">
+        <h2>QR code for the website</h2>
+        <img id="qr" src="/careline/qr.svg" style="width:100%;border:1px solid var(--line);border-radius:12px" alt="QR code">
+        <p class="muted" id="walink"></p>
+        <p><a href="/join" target="_blank">Patient join page</a></p>
+      </div>
+      <div class="card" id="setup"></div>
+    </div>
+  </section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let S = null, E = null, convSel = null;
+const people = () => S ? S.people : {};
+const pname = id => (people()[id] || {}).name || id;
+const fmt = t => t ? t.replace("T", " ").slice(0, 16) : "";
+
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  ["live", "evals", "setup"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+});
+
+async function api(path, body, person) {
+  const r = await fetch(path, { method: body === undefined ? "GET" : "POST", headers: { "Content-Type": "application/json", ...(person ? { "X-Person": person } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
+  if (!r.ok) { alert((await r.json().catch(() => ({}))).detail || r.statusText); throw new Error(r.status); }
+  return r.json();
+}
+const clock = () => $("#clock").value ? $("#clock").value + ":00" : null;
+
+async function send(text, reply_id, kind) {
+  const r = await api("/api/careline/sim/message", { wa: $("#wa").value, text: text || "", reply_id: reply_id || null, kind: kind || (reply_id ? "interactive" : "text"), at: clock() });
+  window.__lastOpts = r.replies.flatMap(x => (x.buttons || []).concat(x.rows || []));
+  convSel = $("#wa").value; await refresh();
+}
+$("#send").onclick = () => { const v = $("#msg").value.trim(); if (v) { $("#msg").value = ""; send(v); } };
+$("#msg").onkeydown = e => { if (e.key === "Enter") $("#send").click(); };
+$("#checkin").onclick = async () => { const r = await api("/api/careline/sim/checkin", { wa: $("#wa").value, at: clock() }); if (r.note) alert(r.note); refresh(); };
+$("#newpt").onclick = () => { $("#wa").value = "sim-8529" + Math.floor(1000000 + Math.random() * 8999999); convSel = $("#wa").value; refresh(); };
+$("#photo").onclick = () => send("[photo]", null, "image");
+$("#tick").onclick = async () => { await api("/api/careline/tick", {}); refresh(); };
+$("#wa").onchange = () => { convSel = $("#wa").value; renderChat(); };
+
+function renderChat() {
+  const c = (S.conversations || []).find(c => c.wa === $("#wa").value);
+  $("#ph-sub").textContent = $("#wa").value + (c && c.patient ? " · linked to " + c.patient.name_en : c ? " · " + c.state : "");
+  const box = $("#chat"); box.innerHTML = "";
+  if (!c) { box.innerHTML = '<div class="muted" style="text-align:center;margin-top:30px">Scanning the QR code opens WhatsApp with "JOIN ' + esc(S.clinic.name) + '". Send it to start.</div>'; return; }
+  const lastOut = [...c.messages].reverse().find(m => m.dir === "out");
+  c.messages.forEach(m => {
+    const d = document.createElement("div");
+    d.className = "b " + m.dir + (m.blocked ? " blocked" : "");
+    if (m.dir === "out") {
+      const [lab, ...rest] = m.text.split("\n");
+      d.innerHTML = '<span class="lab">' + esc(lab) + "</span>" + esc(rest.join("\n")) + (m.blocked ? '<div class="muted" style="color:var(--red)">blocked by checks: ' + esc(m.blocked.join(", ")) + "</div>" : "");
+    } else d.textContent = m.text || ("[" + (m.reply_id || m.kind) + "]");
+    box.appendChild(d);
+  });
+  box.scrollTop = box.scrollHeight;
+  // options of the replies just sent
+  const opts = window.__lastOpts || [];
+  if (opts.length) {
+    const o = document.createElement("div"); o.className = "opts";
+    opts.forEach(x => { const b = document.createElement("button"); b.textContent = x.title; b.onclick = () => send(x.title, x.id); o.appendChild(b); });
+    box.appendChild(o); box.scrollTop = box.scrollHeight;
+  }
+}
+
+function renderQueue() {
+  const me = $("#person").value;
+  $("#drafts").innerHTML = S.drafts.filter(d => d.status === "pending").map(d => `
+    <div class="h"><div class="row"><b>Draft for approval · ${esc(d.feature)} written plan</b><span class="muted">${esc(d.patient_id)}</span></div>
+      <div class="muted">The doctor's own words from the consult note (${esc(d.source)}). Edit, then approve: what you approve is sent word for word.</div>
+      <textarea id="dt-${d.id}">${esc(d.text)}</textarea>
+      <div class="row"><button class="act primary" onclick="approve('${d.id}')">Approve as ${esc(pname(me))}</button></div></div>`).join("");
+  $("#handoffs").innerHTML = S.handoffs.map(h => `
+    <div class="h ${h.kind === "named doctor" ? "named" : ""} ${h.status === "closed" ? "closed" : ""}">
+      <div class="row"><b>${esc(h.feature)}</b><span class="pill ${h.kind === "named doctor" ? "bad" : h.kind === "doctor" ? "warn" : ""}">${esc(h.kind)}</span>
+        <span class="muted">owner <b>${esc(pname(h.owner))}</b> · reply by ${fmt(h.reply_by)}${h.overdue ? ' · <span style="color:var(--red)">overdue</span>' : ""}${h.claimed_by ? " · claimed by " + esc(pname(h.claimed_by)) : ""}</span>
+        <span class="muted" style="margin-left:auto">${esc(h.status)}</span></div>
+      <div class="q">${esc(h.quote)}</div>
+      ${h.note ? `<div class="muted">${esc(h.note)}</div>` : ""}
+      ${h.history.length ? `<div class="muted">${h.history.map(x => esc(x.moved_from ? "moved " + pname(x.moved_from) + " → " + pname(x.to) + " at " + fmt(x.at) : "claimed by " + pname(x.claimed_by))).join(" · ")}</div>` : ""}
+      ${h.status === "open" ? `<div class="row" style="margin-top:6px">
+        <input id="rp-${h.id}" placeholder="Reply to the patient as ${esc(pname(me))}…" style="flex:1;padding:5px 8px;border:1px solid var(--line);border-radius:6px">
+        <button class="act" onclick="reply('${h.id}')">Reply</button><button class="act" onclick="claim('${h.id}')">Claim</button><button class="act" onclick="closeH('${h.id}')">Close</button></div>` : `<div class="muted">closed by ${esc(pname(h.closed_by))}: ${esc(h.resolution)}</div>`}
+    </div>`).join("") || '<div class="muted">Nothing waiting.</div>';
+}
+window.approve = async id => { await api("/api/careline/person/approve", { id, text: $("#dt-" + id).value }, $("#person").value); refresh(); };
+window.claim = async id => { await api("/api/careline/person/claim", { id }, $("#person").value); refresh(); };
+window.closeH = async id => { const r = prompt("How was it resolved?", "replied"); if (r) { await api("/api/careline/person/close", { id, resolution: r }, $("#person").value); refresh(); } };
+window.reply = async id => { const t = $("#rp-" + id).value.trim(); if (t) { await api("/api/careline/person/reply", { id, text: t }, $("#person").value); refresh(); } };
+
+function renderSide() {
+  $("#convs").innerHTML = S.conversations.map(c => `<div class="conv ${c.wa === $("#wa").value ? "on" : ""}" onclick="pick('${esc(c.wa)}')">
+      <b>${esc(c.patient ? c.patient.name_en : c.wa)}</b> <span class="muted">${esc(c.wa)} · ${esc(c.state)}${c.consent ? " · consent " + fmt(c.consent.at) : ""}${c.invites ? " · invitations yes" : ""}${c.stopped ? " · STOPPED" : ""}</span></div>`).join("") || '<div class="muted">No conversations yet.</div>';
+  $("#events").innerHTML = [...S.events].reverse().slice(0, 120).map(e => `<div class="ev">${fmt(e.at)} ${esc(e.wa)} <b>${esc(e.kind)}</b> ${esc(Object.entries(e).filter(([k]) => !["at", "wa", "kind"].includes(k)).map(([k, v]) => k + "=" + (typeof v === "object" ? JSON.stringify(v) : v)).join(" "))}</div>`).join("");
+}
+window.pick = wa => { $("#wa").value = wa; window.__lastOpts = []; renderChat(); renderSide(); };
+
+function renderHeader() {
+  $("#clinic").textContent = S.clinic.name + " · care line";
+  $("#mode").textContent = "mode: " + S.mode + " · " + S.transport;
+  $("#mode").className = "pill " + (S.mode === "sim" ? "" : S.mode === "tester" ? "warn" : "bad");
+  $("#open").textContent = S.open ? "clinic open now" : "clinic closed · opens " + fmt(S.next_open);
+  $("#open").className = "pill " + (S.open ? "ok" : "warn");
+  $("#src").textContent = "chart: " + (S.source.clinic_name || "") + " (simulated, LoopBench seed " + (S.source.seed ?? "?") + ") as of " + fmt(S.source.as_of) + " · intent: " + S.intent_model;
+  if (!$("#person").options.length) {
+    $("#person").innerHTML = Object.values(S.people).map(p => `<option value="${p.id}">${esc(p.name)} (${p.role})</option>`).join("");
+    $("#person").value = S.named_doctor;
+  }
+  $("#personas").innerHTML = S.personas.map(p => `<div class="persona" onclick="joinAs('${esc(p.name_en)}','${p.dob}')"><b>${esc(p.name_en)}</b> ${esc(p.name_zh || "")} · born ${p.dob} · last visit ${p.last_visit} · ${p.results} results</div>`).join("");
+}
+window.joinAs = async (name, dob) => {
+  if (!confirm("Join a new phone as " + name + "? (sends JOIN, yes, name, date of birth)")) return;
+  $("#newpt").click();
+  await send("JOIN " + S.clinic.name); await send("Yes, join", "consent:yes"); await send(name); const [y, m, d] = dob.split("-"); await send(`${d}/${m}/${y}`);
+};
+
+function renderSetup() {
+  const base = location.origin;
+  $("#walink").innerHTML = S.wa_link ? `Opens <a href="${esc(S.wa_link)}">${esc(S.wa_link)}</a>` : "Set WA_DISPLAY_NUMBER to draw the real QR code (it points at an empty wa.me link now).";
+  $("#setup").innerHTML = `<h2>Connect WhatsApp</h2>
+  <ol>
+    <li>Meta app → WhatsApp → Configuration → Webhook. Callback URL: <code>https://&lt;your tunnel&gt;/webhook/whatsapp</code> (this server: <code>${esc(base)}/webhook/whatsapp</code>). Verify token: the value of <code>WA_VERIFY_TOKEN</code>. Subscribe to <b>messages</b>.</li>
+    <li>Set <code>WA_TOKEN</code>, <code>WA_PHONE_NUMBER_ID</code>, <code>WA_APP_SECRET</code>, <code>WA_DISPLAY_NUMBER</code> and <code>CARELINE_TESTERS</code> in <code>~/.tmrw-careline/env</code>, then run <code>scripts/careline_mac_mini.sh tester</code>.</li>
+    <li>Scan the QR code from a tester's phone. Numbers not on the tester list get one fixed notice, and nothing they write is kept.</li>
+  </ol>
+  <h2>Mode: ${esc(S.mode)}</h2>
+  <p class="muted">sim: nothing leaves this machine · tester: real WhatsApp, testers only · live: everyone (refused until the spec 003 gates are signed off and the real-patient-data decision is recorded).</p>
+  <h2>What's safe by construction</h2>
+  <ul><li>The agent sends only fixed texts (backend/careline/texts.py) filled with facts; the model, if any, only picks an intent.</li>
+  <li>Red flags and crisis messages get the fixed reply and an alert first, whatever the state.</li>
+  <li>Every reply is checked before it is sent (clinical advice, disclosure, promotion, impersonation, unapproved plan, no consent); a failed check blocks it and hands it to a person.</li>
+  <li>The agent opens hand-offs and drafts; only a person claims, replies, approves or closes.</li></ul>`;
+}
+
+async function refresh() {
+  S = await api("/api/careline/state");
+  renderHeader(); renderChat(); renderQueue(); renderSide(); renderSetup();
+}
+
+async function loadEvals() {
+  E = await api("/api/careline/evals");
+  const s = E.summary;
+  $("#evalpill").textContent = `evals ${s.passed}/${s.cases} · hard fails ${s.hard_fails}`;
+  $("#evalpill").className = "pill " + (s.hard_fails === 0 && s.passed === s.cases ? "ok" : "bad");
+  $("#stats").innerHTML = [["Cases passing", `${s.passed}/${s.cases}`], ["Hard fails", s.hard_fails], ["Features with cases", `${s.features_with_cases}/${s.features}`],
+    ["Gates met", `${s.live}/${s.features}`], ["Intent model", esc(E.intent_model)]].map(([k, v]) => `<div class="card"><div class="muted">${k}</div><div class="stat">${v}</div></div>`).join("");
+  $("#feats tbody").innerHTML = E.features.map(f => { const r = f.result; return `<tr>
+    <td><b>${f.id}</b></td><td>${esc(f.feature)}${f.menu_option ? `<div class="muted">menu: ${esc(f.menu_option)}</div>` : ""}<div class="muted">hard fails: ${esc(f.hard_fail)}</div></td>
+    <td class="sev-${f.severity}">${f.severity}</td><td>${esc(f.hours)}</td><td>${esc(f.escalates_to)}</td><td>${f.gate}</td>
+    <td>${r.cases ? `${r.passed}/${r.cases}` : "—"}</td>
+    <td><span class="pill ${r.live ? "ok" : r.hard_fails ? "bad" : r.cases ? "warn" : ""}">${r.live ? "gate met" : r.stage === "shadow" ? "needs shadow" : r.stage === "LoopBench" ? "LoopBench" : r.cases ? "cases" : "not started"}</span> <span class="muted">${esc(r.detail)}</span></td></tr>`; }).join("");
+  $("#cases").innerHTML = E.cases.map(c => `<details class="h"><summary><span class="pill ${c.pass ? "ok" : "bad"}">${c.pass ? "pass" : "FAIL"}</span> <b>${c.id}</b> <span class="muted">${c.feature} · ${c.method}${c.note ? " · " + esc(c.note) : ""}</span>
+     ${c.hard_fails.length ? `<span class="pill bad">${c.hard_fails.join(", ")}</span>` : ""}</summary>
+     ${c.misses.length ? `<pre>${esc(c.misses.join("\n"))}</pre>` : ""}
+     ${c.transcript.map(m => `<div class="b ${m.dir}" style="margin:4px 0;${m.dir === "in" ? "margin-left:auto" : ""}">${esc(m.text)}</div>`).join("")}
+     ${c.handoffs.map(h => `<div class="muted">→ hand-off ${esc(h.kind)} ${esc(h.feature)} to ${esc(h.owner)} by ${fmt(h.reply_by)}: “${esc(h.quote)}”</div>`).join("")}
+   </details>`).join("");
+}
+$("#rerun").onclick = async () => { $("#rerun").textContent = "Running…"; await api("/api/careline/evals/run", {}); await loadEvals(); $("#rerun").textContent = "Re-run evals"; };
+$("#person").onchange = renderQueue;
+
+refresh(); loadEvals(); setInterval(() => { if (document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") refresh(); }, 4000);
+</script>
+</body>
+</html>

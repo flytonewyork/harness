@@ -1,0 +1,46 @@
+{
+  "_note": "Synthetic clinic settings for the simulated Harbourview Family Clinic. Every patient-facing text here is a proposal until the doctor approves it (approved_by). Hotline numbers must be checked by the doctor before any real patient sees them.",
+  "clinic_id": "hk_solo",
+  "name_en": "Harbourview Family Clinic",
+  "name_zh": "海景家庭醫務所",
+  "address_en": "Shop 12, 1/F, Harbour Plaza (simulated), Tsuen Wan",
+  "address_zh": "荃灣海港廣場一樓12號舖（模擬）",
+  "phone": "2345 6789 (simulated)",
+  "timezone": "Asia/Hong_Kong",
+  "hours": {
+    "mon": [["09:00", "13:00"], ["14:30", "19:00"]],
+    "tue": [["09:00", "13:00"], ["14:30", "19:00"]],
+    "wed": [["09:00", "13:00"], ["14:30", "19:00"]],
+    "thu": [["09:00", "13:00"], ["14:30", "19:00"]],
+    "fri": [["09:00", "13:00"], ["14:30", "19:00"]],
+    "sat": [["09:00", "13:00"]],
+    "sun": []
+  },
+  "holidays": ["2026-12-25", "2026-12-26", "2027-01-01", "2027-02-06", "2027-02-08"],
+  "daytime": ["09:00", "20:00"],
+  "named_doctor": "dr_chan",
+  "people": {
+    "front_desk": {"name": "Ms WONG Mei Ling (front desk, simulated)", "role": "staff"},
+    "dr_chan": {"name": "Dr CHAN Siu Ming", "role": "doctor"},
+    "dr_locum": {"name": "Dr LEE Wing Yan", "role": "doctor"}
+  },
+  "chains": {
+    "staff": ["front_desk", "dr_chan"],
+    "doctor": ["dr_chan", "dr_locum"],
+    "named doctor": ["dr_chan", "dr_locum"]
+  },
+  "reply_minutes": {"staff": 60, "doctor": 240, "named doctor": 15},
+  "slots_per_session": 6,
+  "slot_minutes": 15,
+  "fees": [
+    {"en": "Consultation with 3 days' medicine", "zh": "診金連三日藥", "hkd": 380},
+    {"en": "Elderly Health Care Voucher accepted (age 65+)", "zh": "接受長者醫療券（65歲或以上）", "hkd": null}
+  ],
+  "test_prep_approved": {
+    "fasting_blood": {
+      "en": "For a fasting blood test: nothing to eat or drink except plain water for 10 hours before. Take your usual medicines unless the doctor told you otherwise.",
+      "zh": "空腹驗血：抽血前10個鐘唔好食嘢或飲嘢（清水除外）。除非醫生另有吩咐，照食平時嘅藥。"
+    }
+  },
+  "approved_by": "PENDING: Thomas / the clinic's doctor must approve every text in texts.py and here before a real patient sees them"
+}

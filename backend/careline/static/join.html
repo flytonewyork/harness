@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{CLINIC}} · WhatsApp care line</title>
+<style>
+  body { margin:0; font:16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans HK", sans-serif; color:#0B1F33; background:#F6F7F9; }
+  .wrap { max-width:560px; margin:0 auto; padding:28px 20px; }
+  .card { background:#fff; border:1px solid #E3E7ED; border-radius:16px; padding:22px; }
+  h1 { font-size:24px; margin:0 0 4px; } h2 { font-size:17px; margin:18px 0 6px; }
+  .zh { color:#4F5866; }
+  img { width:240px; height:240px; display:block; margin:16px auto; }
+  a.btn { display:block; text-align:center; background:#075E54; color:#fff; padding:12px; border-radius:12px; text-decoration:none; font-weight:600; }
+  .warn { background:#FDF2F2; border:1px solid #F3C7C7; border-radius:12px; padding:12px; margin-top:16px; font-size:15px; }
+  .test { background:#FFF8EA; border:1px solid #F2DDB4; border-radius:12px; padding:10px 12px; margin-bottom:14px; font-size:14px; }
+  ul { padding-left:20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="test" data-mode="{{MODE}}">Test service: a simulated clinic, for invited testers only. It is not a medical service. Please don't send real health information.<br><span class="zh">測試服務：模擬診所，只限受邀測試者使用，並非醫療服務。請唔好send真實健康資料。</span></div>
+  <div class="card">
+    <h1>{{CLINIC}} care line</h1>
+    <div class="zh">{{CLINIC_ZH}} 護理熱線</div>
+    <img src="/careline/qr.svg" alt="QR code: opens WhatsApp">
+    <a class="btn" href="{{WA_LINK}}">Open WhatsApp · 打開 WhatsApp</a>
+    <h2>After your visit · 睇完醫生之後</h2>
+    <ul>
+      <li>Your plan in writing, approved by your doctor · 醫生批核嘅書面計劃</li>
+      <li>Book or change a visit · 預約或改期</li>
+      <li>Is my result back? · 報告返咗未？</li>
+      <li>Repeat prescription requests · 覆配藥物</li>
+      <li>A check-in a few days after your visit · 覆診後幾日嘅問候</li>
+    </ul>
+    <p>It's an automated care team working for your doctor, in Cantonese or English. Replies come in the clinic's opening hours, and a person at the clinic sees anything clinical.<br>
+    <span class="zh">呢個係為你醫生服務嘅自動護理團隊，用廣東話或英文。我哋喺診所開放時間內回覆，所有醫療問題都會由診所嘅人睇過。</span></p>
+    <div class="warn"><b>Emergency? Call 999 or go to A&amp;E.</b> Don't wait for a WhatsApp reply.<br><span class="zh"><b>緊急情況請即打999或去急症室</b>，唔好等WhatsApp回覆。</span></div>
+  </div>
+</div>
+<script>if (document.querySelector(".test").dataset.mode === "live") document.querySelector(".test").remove();</script>
+</body>
+</html>

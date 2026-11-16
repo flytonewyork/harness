@@ -1,0 +1,859 @@
+{
+"format": "harness-run/1",
+"source": {
+"kind": "loopbench",
+"simulated": true,
+"clinic": "hk_solo",
+"clinic_name": "Harbourview Family Clinic",
+"system": "Apricot VITA",
+"harness": "agentic[rules]",
+"seed": 1,
+"start": "2027-01-04T00:00",
+"end": "2028-01-03T23:59",
+"note": "Cut from the LoopBench product feed (synthetic) for the care line tests: 5 patients"
+},
+"staff": [
+{
+"id": "dr_chan",
+"name": "Dr CHAN Siu Ming",
+"role": "principal"
+},
+{
+"id": "dr_locum",
+"name": "Dr LEE Wing Yan",
+"role": "locum"
+}
+],
+"patients": {
+"P13022E340B": {
+"id": "P13022E340B",
+"mrn": "HFC-9125534",
+"name_en": "WONG Hiu Tung",
+"name_zh": "黃曉彤",
+"sex": "F",
+"dob": "1935-05-19",
+"hkid": "R031XXX(X)",
+"registered_doctor": "Dr CHAN Siu Ming",
+"ehealth_consent": true,
+"cdcc": false
+},
+"P01C5A80329": {
+"id": "P01C5A80329",
+"mrn": "HFC-9408143",
+"name_en": "FUNG Hon Wai",
+"name_zh": "馮漢威",
+"sex": "M",
+"dob": "2008-11-06",
+"hkid": "R853XXX(X)",
+"registered_doctor": "Dr CHAN Siu Ming",
+"ehealth_consent": true,
+"cdcc": false
+},
+"PF99D4DB079": {
+"id": "PF99D4DB079",
+"mrn": "HFC-4639211",
+"name_en": "CHAN Tai Man",
+"name_zh": "陳大文",
+"sex": "M",
+"dob": "1964-09-23",
+"hkid": "D505XXX(X)",
+"registered_doctor": "Dr CHAN Siu Ming",
+"ehealth_consent": true,
+"cdcc": false
+},
+"P6D746215D6": {
+"id": "P6D746215D6",
+"mrn": "HFC-0690405",
+"name_en": "CHAN Kwok Keung",
+"name_zh": "陳國強",
+"sex": "M",
+"dob": "1978-05-08",
+"hkid": "Z618XXX(X)",
+"registered_doctor": "Dr CHAN Siu Ming",
+"ehealth_consent": true,
+"cdcc": true
+},
+"P1EC910CAEF": {
+"id": "P1EC910CAEF",
+"mrn": "HFC-4141211",
+"name_en": "TSANG Kwok Wai",
+"name_zh": "曾國偉",
+"sex": "M",
+"dob": "1958-05-17",
+"hkid": "Y154XXX(X)",
+"registered_doctor": "Dr CHAN Siu Ming",
+"ehealth_consent": true,
+"cdcc": false
+}
+},
+"documents": {
+"DFBDA3A5FFB8E": {
+"id": "DFBDA3A5FFB8E",
+"kind": "action_note",
+"channel": "cms",
+"available_at": "2027-06-13T09:35",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "PF99D4DB079",
+"text": "Result reviewed: lab no PA27-849629. Clinic assistant to call patient. -- Dr CHAN Siu Ming",
+"data": {}
+},
+"DD9B564EF50F6": {
+"id": "DD9B564EF50F6",
+"kind": "specialist_letter",
+"channel": "fax",
+"available_at": "2027-08-11T15:08",
+"author": null,
+"patient_id": "PF99D4DB079",
+"text": "Dr NG Ho Yin, Specialist in Ophthalmology\n11/08/2027\n\nDear Dr CHAN Siu Ming,\n\nRe: CHAN, Tai Man  DOB 23/09/1964\n\nThank you for the referral. Assessed today; plan enclosed.\n\nYours sincerely,\nDr NG Ho Yin\n-- SIMULATED (LoopBench synthetic patient). Not issued by Dr NG Ho Yin. --",
+"data": {
+"doc_type": "Specialist letter"
+}
+},
+"RBD2EA8737039": {
+"id": "RBD2EA8737039",
+"kind": "consult_note",
+"channel": "cms",
+"available_at": "2027-06-01T09:22",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "P13022E340B",
+"text": "S: FU Chronic congestive heart failure (disorder). Feels well, compliant with meds.\nO: BP 130/80.\nRV 4/52.",
+"data": {
+"visit": "chronic follow-up"
+}
+},
+"R3B116AFAEC13": {
+"id": "R3B116AFAEC13",
+"kind": "dispensing",
+"channel": "cms",
+"available_at": "2027-03-31T16:50",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "P01C5A80329",
+"text": "Dispensed: amLODIPine 5 MG / Hydrochlorothiazide 12.5 MG / Olmesartan medoxomil 20 MG Oral Tablet x28 days. Label printed (Chinese/English).",
+"data": {
+"items": "amLODIPine 5 MG / Hydrochlorothiazide 12.5 MG / Olmesartan medoxomil 20 MG Oral Tablet"
+}
+},
+"RA48E3C1C64ED": {
+"id": "RA48E3C1C64ED",
+"kind": "lab_request",
+"channel": "cms",
+"available_at": "2027-06-12T09:35",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "PF99D4DB079",
+"text": "Lab request to PathLab Medical Laboratories Ltd.: RFT (K+, eGFR). Blood taken in clinic.",
+"data": {
+"lab": "pathlab",
+"lab_no": "PA27-849629"
+}
+},
+"RB91617AFC86A": {
+"id": "RB91617AFC86A",
+"kind": "lab_report",
+"channel": "courier",
+"available_at": "2027-06-11T09:00",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "P6D746215D6",
+"text": "PATHLAB MEDICAL LABORATORIES LTD.\nLABORATORY REPORT\n\nName : CHAN, Kwok Keung  陳國強        Sex/Age : M/49Y\nHKID : Z618XXX(X)        DOB : 08/05/1978        Lab No : PA27-991006\nClinic : Harbourview Family Clinic        Doctor : Dr CHAN Siu Ming\nCollected : 07/06/2027 15:32        Reported : 08/06/2027 22:23\n\nTEST                                RESULT  FLAG UNIT          REFERENCE RANGE\neGFR                                    54  L    mL/min/1.73m2 > 60\nAlbumin                                 39       g/L           38 - 49\nBilirubin                               13       umol/L        4 - 21\nHDL cholesterol                       2.15       mmol/L        > 1\nALT                                     14       U/L           7 - 49\nAST                                     17       U/L           11 - 33\nTotal cholesterol                        6  H    mmol/L        < 5.2\nTriglycerides                          2.1  H    mmol/L        < 1.7\nLDL cholesterol                        2.6       mmol/L        < 3.4\nBicarbonate                             23       mmol/L        22 - 29\nALP                                     74       U/L           47 - 168\nChloride                               105       mmol/L        102 - 109\nSodium                                 142       mmol/L        137 - 143\nCalcium                               2.28       mmol/L        2.19 - 2.5\nCreatinine                             126  H    umol/L        69 - 110\nPotassium                              4.5       mmol/L        3.6 - 5.2\nUrea                                   8.4  H    mmol/L        2.7 - 7.2\nGlucose (fasting)                      5.1       mmol/L        3.9 - 6\n\n** END OF REPORT **\n-- SIMULATED (LoopBench synthetic patient). Not issued by PathLab Medical Laboratories Ltd.. --",
+"data": {
+"doc_type": "Lab report",
+"lab": "pathlab"
+}
+},
+"D65EFDABE7458": {
+"id": "D65EFDABE7458",
+"kind": "action_note",
+"channel": "cms",
+"available_at": "2027-07-31T13:05",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "PF99D4DB079",
+"text": "Referral chased: Ophthalmology referral. Clinic assistant to call patient. -- Dr CHAN Siu Ming",
+"data": {}
+},
+"D975D5BA912DB": {
+"id": "D975D5BA912DB",
+"kind": "action_note",
+"channel": "cms",
+"available_at": "2027-05-27T13:05",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "P1EC910CAEF",
+"text": "Patient recalled for review: chronic review. Clinic assistant to call patient. -- Dr CHAN Siu Ming",
+"data": {}
+},
+"R238A9006BBA4": {
+"id": "R238A9006BBA4",
+"kind": "aed_summary",
+"channel": "patient_carried",
+"available_at": "2027-06-01T09:15",
+"author": null,
+"patient_id": "P13022E340B",
+"text": "HOSPITAL AUTHORITY - Caritas Medical Centre\nA&E ATTENDANCE SUMMARY\n\nPatient: WONG, Hiu Tung  F/92Y\nAttended: 22/05/2027 00:40\nDiagnosis: Emergency room admission (procedure)\nDisposal: discharged. Please follow up with family doctor in 2 weeks: repeat RFT and review BP.\n-- SIMULATED (LoopBench synthetic patient). Not issued by the Hospital Authority. --",
+"data": {
+"doc_type": "Hospital discharge summary"
+}
+},
+"REABF8BA757E7": {
+"id": "REABF8BA757E7",
+"kind": "lab_report",
+"channel": "portal:pathlab",
+"available_at": "2027-06-08T22:23",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "P6D746215D6",
+"text": "PATHLAB MEDICAL LABORATORIES LTD.\nLABORATORY REPORT\n\nName : CHAN, Kwok Keung  陳國強        Sex/Age : M/49Y\nHKID : Z618XXX(X)        DOB : 08/05/1978        Lab No : PA27-991006\nClinic : Harbourview Family Clinic        Doctor : Dr CHAN Siu Ming\nCollected : 07/06/2027 15:32        Reported : 08/06/2027 22:23\n\nTEST                                RESULT  FLAG UNIT          REFERENCE RANGE\neGFR                                    54  L    mL/min/1.73m2 > 60\nAlbumin                                 39       g/L           38 - 49\nBilirubin                               13       umol/L        4 - 21\nHDL cholesterol                       2.15       mmol/L        > 1\nALT                                     14       U/L           7 - 49\nAST                                     17       U/L           11 - 33\nTotal cholesterol                        6  H    mmol/L        < 5.2\nTriglycerides                          2.1  H    mmol/L        < 1.7\nLDL cholesterol                        2.6       mmol/L        < 3.4\nBicarbonate                             23       mmol/L        22 - 29\nALP                                     74       U/L           47 - 168\nChloride                               105       mmol/L        102 - 109\nSodium                                 142       mmol/L        137 - 143\nCalcium                               2.28       mmol/L        2.19 - 2.5\nCreatinine                             126  H    umol/L        69 - 110\nPotassium                              4.5       mmol/L        3.6 - 5.2\nUrea                                   8.4  H    mmol/L        2.7 - 7.2\nGlucose (fasting)                      5.1       mmol/L        3.9 - 6\n\n** END OF REPORT **\n-- SIMULATED (LoopBench synthetic patient). Not issued by PathLab Medical Laboratories Ltd.. --",
+"data": {
+"lab": "pathlab",
+"lab_no": "PA27-991006",
+"results": [
+{
+"test": "eGFR",
+"value": 54.0,
+"unit": "mL/min/1.73m2",
+"ref_low": 60,
+"ref_high": null,
+"flag": "L"
+},
+{
+"test": "Albumin",
+"value": 39.0,
+"unit": "g/L",
+"ref_low": 38,
+"ref_high": 49,
+"flag": "N"
+},
+{
+"test": "Bilirubin",
+"value": 13.0,
+"unit": "umol/L",
+"ref_low": 4,
+"ref_high": 21,
+"flag": "N"
+},
+{
+"test": "HDL cholesterol",
+"value": 2.15,
+"unit": "mmol/L",
+"ref_low": 1.0,
+"ref_high": null,
+"flag": "N"
+},
+{
+"test": "ALT",
+"value": 14.0,
+"unit": "U/L",
+"ref_low": 7,
+"ref_high": 49,
+"flag": "N"
+},
+{
+"test": "AST",
+"value": 17.0,
+"unit": "U/L",
+"ref_low": 11,
+"ref_high": 33,
+"flag": "N"
+},
+{
+"test": "Total cholesterol",
+"value": 6.0,
+"unit": "mmol/L",
+"ref_low": null,
+"ref_high": 5.2,
+"flag": "H"
+},
+{
+"test": "Triglycerides",
+"value": 2.1,
+"unit": "mmol/L",
+"ref_low": null,
+"ref_high": 1.7,
+"flag": "H"
+},
+{
+"test": "LDL cholesterol",
+"value": 2.6,
+"unit": "mmol/L",
+"ref_low": null,
+"ref_high": 3.4,
+"flag": "N"
+},
+{
+"test": "Bicarbonate",
+"value": 23.0,
+"unit": "mmol/L",
+"ref_low": 22,
+"ref_high": 29,
+"flag": "N"
+},
+{
+"test": "ALP",
+"value": 74.0,
+"unit": "U/L",
+"ref_low": 47,
+"ref_high": 168,
+"flag": "N"
+},
+{
+"test": "Chloride",
+"value": 105.0,
+"unit": "mmol/L",
+"ref_low": 102,
+"ref_high": 109,
+"flag": "N"
+},
+{
+"test": "Sodium",
+"value": 142.0,
+"unit": "mmol/L",
+"ref_low": 137,
+"ref_high": 143,
+"flag": "N"
+},
+{
+"test": "Calcium",
+"value": 2.28,
+"unit": "mmol/L",
+"ref_low": 2.19,
+"ref_high": 2.5,
+"flag": "N"
+},
+{
+"test": "Creatinine",
+"value": 126.0,
+"unit": "umol/L",
+"ref_low": 69,
+"ref_high": 110,
+"flag": "H"
+},
+{
+"test": "Potassium",
+"value": 4.5,
+"unit": "mmol/L",
+"ref_low": 3.6,
+"ref_high": 5.2,
+"flag": "N"
+},
+{
+"test": "Urea",
+"value": 8.4,
+"unit": "mmol/L",
+"ref_low": 2.7,
+"ref_high": 7.2,
+"flag": "H"
+},
+{
+"test": "Glucose (fasting)",
+"value": 5.1,
+"unit": "mmol/L",
+"ref_low": 3.9,
+"ref_high": 6.0,
+"flag": "N"
+}
+]
+}
+},
+"R73B2CE109AB8": {
+"id": "R73B2CE109AB8",
+"kind": "referral_letter",
+"channel": "cms",
+"available_at": "2027-06-05T10:54",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "PF99D4DB079",
+"text": "REFERRAL LETTER\n05/06/2027\nTo: Eye clinic (private), diabetic retinal screening\n\nRe: CHAN, Tai Man (陳大文), M/62Y\nReason: Diabetic eye screening (retinal photography). T2DM 12 years; no screening on record.\nKindly assess and manage. Thank you.\nDr CHAN Siu Ming",
+"data": {
+"to": "private",
+"specialty": "Ophthalmology",
+"urgency": "stable"
+}
+},
+"R8183DF720D36": {
+"id": "R8183DF720D36",
+"kind": "referral_letter",
+"channel": "cms",
+"available_at": "2027-03-31T16:48",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "P01C5A80329",
+"text": "REFERRAL LETTER\n31/03/2027\nTo: Gynaecology SOPC, Hospital Authority\n\nRe: FUNG, Hon Wai (馮漢威), M/18Y\nReason: Gynaecology assessment\nKindly assess and manage. Thank you.\nDr CHAN Siu Ming",
+"data": {
+"to": "HA",
+"specialty": "Gynaecology",
+"urgency": "stable"
+}
+},
+"R5575C5EEF2E9": {
+"id": "R5575C5EEF2E9",
+"kind": "lab_report",
+"channel": "portal:pathlab",
+"available_at": "2027-01-06T23:53",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "P13022E340B",
+"text": "PATHLAB MEDICAL LABORATORIES LTD.\nLABORATORY REPORT\n\nName : WONG, Hiu Tung  黃曉彤        Sex/Age : F/91Y\nHKID : R031XXX(X)        DOB : 19/05/1935        Lab No : PA27-435241\nClinic : Harbourview Family Clinic        Doctor : Dr CHAN Siu Ming\nCollected : 06/01/2027 10:54        Reported : 06/01/2027 23:53\n\nTEST                                RESULT  FLAG UNIT          REFERENCE RANGE\nChloride                               110  H    mmol/L        102 - 109\nPotassium                              4.3       mmol/L        3.6 - 5.2\nCreatinine                             103  H    umol/L        55 - 83\nUrea                                  11.3  H    mmol/L        2.7 - 7.2\nSodium                                 135  L    mmol/L        137 - 143\nCalcium                               2.69  H    mmol/L        2.19 - 2.5\nGlucose (fasting)                      4.2       mmol/L        3.9 - 6\neGFR                                    49  L    mL/min/1.73m2 > 60\nAlbumin                                 45       g/L           38 - 49\nBilirubin                                7       umol/L        4 - 21\nALP                                    107  H    U/L           36 - 105\nALT                                     36       U/L           7 - 49\nAST                                     26       U/L           11 - 33\nBicarbonate                             26       mmol/L        22 - 29\nHDL cholesterol                        1.1       mmol/L        > 1\nLDL cholesterol                        3.8  H    mmol/L        < 3.4\nTriglycerides                          1.5       mmol/L        < 1.7\nTotal cholesterol                      6.1  H    mmol/L        < 5.2\n\n** END OF REPORT **\n-- SIMULATED (LoopBench synthetic patient). Not issued by PathLab Medical Laboratories Ltd.. --",
+"data": {
+"lab": "pathlab",
+"lab_no": "PA27-435241",
+"results": [
+{
+"test": "Chloride",
+"value": 110.0,
+"unit": "mmol/L",
+"ref_low": 102,
+"ref_high": 109,
+"flag": "H"
+},
+{
+"test": "Potassium",
+"value": 4.3,
+"unit": "mmol/L",
+"ref_low": 3.6,
+"ref_high": 5.2,
+"flag": "N"
+},
+{
+"test": "Creatinine",
+"value": 103.0,
+"unit": "umol/L",
+"ref_low": 55,
+"ref_high": 83,
+"flag": "H"
+},
+{
+"test": "Urea",
+"value": 11.3,
+"unit": "mmol/L",
+"ref_low": 2.7,
+"ref_high": 7.2,
+"flag": "H"
+},
+{
+"test": "Sodium",
+"value": 135.0,
+"unit": "mmol/L",
+"ref_low": 137,
+"ref_high": 143,
+"flag": "L"
+},
+{
+"test": "Calcium",
+"value": 2.69,
+"unit": "mmol/L",
+"ref_low": 2.19,
+"ref_high": 2.5,
+"flag": "H"
+},
+{
+"test": "Glucose (fasting)",
+"value": 4.2,
+"unit": "mmol/L",
+"ref_low": 3.9,
+"ref_high": 6.0,
+"flag": "N"
+},
+{
+"test": "eGFR",
+"value": 49.0,
+"unit": "mL/min/1.73m2",
+"ref_low": 60,
+"ref_high": null,
+"flag": "L"
+},
+{
+"test": "Albumin",
+"value": 45.0,
+"unit": "g/L",
+"ref_low": 38,
+"ref_high": 49,
+"flag": "N"
+},
+{
+"test": "Bilirubin",
+"value": 7.0,
+"unit": "umol/L",
+"ref_low": 4,
+"ref_high": 21,
+"flag": "N"
+},
+{
+"test": "ALP",
+"value": 107.0,
+"unit": "U/L",
+"ref_low": 36,
+"ref_high": 105,
+"flag": "H"
+},
+{
+"test": "ALT",
+"value": 36.0,
+"unit": "U/L",
+"ref_low": 7,
+"ref_high": 49,
+"flag": "N"
+},
+{
+"test": "AST",
+"value": 26.0,
+"unit": "U/L",
+"ref_low": 11,
+"ref_high": 33,
+"flag": "N"
+},
+{
+"test": "Bicarbonate",
+"value": 26.0,
+"unit": "mmol/L",
+"ref_low": 22,
+"ref_high": 29,
+"flag": "N"
+},
+{
+"test": "HDL cholesterol",
+"value": 1.1,
+"unit": "mmol/L",
+"ref_low": 1.0,
+"ref_high": null,
+"flag": "N"
+},
+{
+"test": "LDL cholesterol",
+"value": 3.8,
+"unit": "mmol/L",
+"ref_low": null,
+"ref_high": 3.4,
+"flag": "H"
+},
+{
+"test": "Triglycerides",
+"value": 1.5,
+"unit": "mmol/L",
+"ref_low": null,
+"ref_high": 1.7,
+"flag": "N"
+},
+{
+"test": "Total cholesterol",
+"value": 6.1,
+"unit": "mmol/L",
+"ref_low": null,
+"ref_high": 5.2,
+"flag": "H"
+}
+]
+}
+},
+"RC4323BD7ECA1": {
+"id": "RC4323BD7ECA1",
+"kind": "consult_note",
+"channel": "cms",
+"available_at": "2027-05-10T16:30",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "P1EC910CAEF",
+"text": "S: BP 168/102 on repeat. A: uncontrolled HT. P: Amlodipine increased to 10mg daily. RV 2/52 for BP.",
+"data": {
+"visit": "chronic follow-up"
+}
+},
+"D18AF1FE5F241": {
+"id": "D18AF1FE5F241",
+"kind": "consult_note",
+"channel": "cms",
+"available_at": "2027-06-07T21:11",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "P1EC910CAEF",
+"text": "S: chronic disease review as planned. Meds reviewed. Next review per chronic care schedule.",
+"data": {
+"visit": "review"
+}
+},
+"R158B7098FAA0": {
+"id": "R158B7098FAA0",
+"kind": "lab_report",
+"channel": "courier",
+"available_at": "2027-06-14T17:45",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "PF99D4DB079",
+"text": "PATHLAB MEDICAL LABORATORIES LTD.\nLABORATORY REPORT\n\nName : CHAN, Tai Man  陳大文        Sex/Age : M/62Y\nHKID : D505XXX(X)        DOB : 23/09/1964        Lab No : PA27-849629\nClinic : Harbourview Family Clinic        Doctor : Dr CHAN Siu Ming\nCollected : 12/06/2027 09:30        Reported : 12/06/2027 19:40\n\nTEST                                RESULT  FLAG UNIT          REFERENCE RANGE\nPotassium                              6.6  H    mmol/L        3.5 - 5.1\nSodium                                 136       mmol/L        136 - 145\nCreatinine                             132  H    umol/L        62 - 106\neGFR                                    47  L    mL/min/1.73m2 > 60\n\n** END OF REPORT **\n-- SIMULATED (LoopBench synthetic patient). Not issued by PathLab Medical Laboratories Ltd.. --",
+"data": {
+"doc_type": "Lab report",
+"lab": "pathlab"
+}
+},
+"R9B26B22E91E8": {
+"id": "R9B26B22E91E8",
+"kind": "consult_note",
+"channel": "cms",
+"available_at": "2027-06-05T10:52",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "PF99D4DB079",
+"text": "New patient, 62M. T2DM 12 yrs, HT, CKD 3a. Previously followed up at HA GOPC.\nOutside records reviewed: HA discharge summary (2024), health-check report 20 May 2027 (in Chinese), medication list.\nPenicillin allergy documented (rash, 2019); amoxicillin from the dental clinic stopped today.\nK+ 5.4 on lisinopril and spironolactone, eGFR 52. HbA1c 8.1%.\nRepeat K+ and eGFR in 1 week. HbA1c in 3 months. Refer for diabetic eye screening.\nReturn urgently if rash, facial swelling or breathing difficulty.\nTold pt: 下個禮拜再驗血，check 下個鉀。",
+"data": {
+"visit": "new patient"
+}
+},
+"RDC0EDCBE66D1": {
+"id": "RDC0EDCBE66D1",
+"kind": "consult_note",
+"channel": "cms",
+"available_at": "2027-06-07T15:42",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "P6D746215D6",
+"text": "S: FU Hyperlipidemia. Feels well, compliant with meds.\nO: BP 135/82.\nP: Blood x FBS / LFT / lipid / RFT taken today, results to be reviewed.\nRV 12/52.",
+"data": {
+"visit": "chronic follow-up"
+}
+},
+"RADB8342E3894": {
+"id": "RADB8342E3894",
+"kind": "lab_report",
+"channel": "portal:pathlab",
+"available_at": "2027-06-12T19:40",
+"author": "Dr CHAN Siu Ming",
+"patient_id": "PF99D4DB079",
+"text": "PATHLAB MEDICAL LABORATORIES LTD.\nLABORATORY REPORT\n\nName : CHAN, Tai Man  陳大文        Sex/Age : M/62Y\nHKID : D505XXX(X)        DOB : 23/09/1964        Lab No : PA27-849629\nClinic : Harbourview Family Clinic        Doctor : Dr CHAN Siu Ming\nCollected : 12/06/2027 09:30        Reported : 12/06/2027 19:40\n\nTEST                                RESULT  FLAG UNIT          REFERENCE RANGE\nPotassium                              6.6  H    mmol/L        3.5 - 5.1\nSodium                                 136       mmol/L        136 - 145\nCreatinine                             132  H    umol/L        62 - 106\neGFR                                    47  L    mL/min/1.73m2 > 60\n\n** END OF REPORT **\n-- SIMULATED (LoopBench synthetic patient). Not issued by PathLab Medical Laboratories Ltd.. --",
+"data": {
+"lab": "pathlab",
+"lab_no": "PA27-849629",
+"results": [
+{
+"test": "Potassium",
+"value": 6.6,
+"unit": "mmol/L",
+"ref_low": 3.5,
+"ref_high": 5.1,
+"flag": "H"
+},
+{
+"test": "Sodium",
+"value": 136.0,
+"unit": "mmol/L",
+"ref_low": 136,
+"ref_high": 145,
+"flag": "N"
+},
+{
+"test": "Creatinine",
+"value": 132.0,
+"unit": "umol/L",
+"ref_low": 62,
+"ref_high": 106,
+"flag": "H"
+},
+{
+"test": "eGFR",
+"value": 47.0,
+"unit": "mL/min/1.73m2",
+"ref_low": 60,
+"ref_high": null,
+"flag": "L"
+}
+]
+}
+}
+},
+"items": [
+{
+"id": "QD8D326A9B723",
+"patient_id": "P13022E340B",
+"owner_id": "dr_chan",
+"family": "abnormal_result",
+"reason": "Abnormal: Chloride 110, Creatinine 103, Urea 11.3, Sodium 135, Calcium 2.69, eGFR 49, ALP 107, LDL cholesterol 3.8, Total cholesterol 6.1",
+"urgency_at_open": 2,
+"urgency": 2,
+"history": [],
+"opened_at": "2027-01-08T08:30",
+"due": "2027-01-15T08:30",
+"resolved_at": "2027-01-08T13:00",
+"resolution": "acted",
+"escalates": null,
+"evidence": [
+"R5575C5EEF2E9"
+]
+},
+{
+"id": "QBECD467E2D87",
+"patient_id": "P01C5A80329",
+"owner_id": "dr_chan",
+"family": "drug_monitoring",
+"reason": "ace/arb started: RFT due",
+"urgency_at_open": 2,
+"urgency": 2,
+"history": [],
+"opened_at": "2027-04-12T19:30",
+"due": "2027-04-22T19:30",
+"resolved_at": "2027-04-13T13:00",
+"resolution": "acted",
+"escalates": null,
+"evidence": [
+"R3B116AFAEC13"
+]
+},
+{
+"id": "QEDB6423DEF1C",
+"patient_id": "P01C5A80329",
+"owner_id": "dr_chan",
+"family": "referral",
+"reason": "No booking or reply for referral",
+"urgency_at_open": 2,
+"urgency": 2,
+"history": [],
+"opened_at": "2027-05-12T19:30",
+"due": "2027-06-11T19:30",
+"resolved_at": "2027-05-14T13:00",
+"resolution": "already_done",
+"escalates": null,
+"evidence": [
+"R8183DF720D36"
+]
+},
+{
+"id": "Q71CAB6C0F96B",
+"patient_id": "P1EC910CAEF",
+"owner_id": "dr_chan",
+"family": "planned_review",
+"reason": "Planned review not attended",
+"urgency_at_open": 1,
+"urgency": 1,
+"history": [],
+"opened_at": "2027-05-26T19:30",
+"due": "2027-06-09T19:30",
+"resolved_at": "2027-05-27T13:00",
+"resolution": "acted",
+"escalates": null,
+"evidence": [
+"RC4323BD7ECA1"
+]
+},
+{
+"id": "QE810D0B82FB2",
+"patient_id": "P13022E340B",
+"owner_id": "dr_chan",
+"family": "followup_recommended",
+"reason": "Hospital asks family doctor to follow up",
+"urgency_at_open": 2,
+"urgency": 2,
+"history": [],
+"opened_at": "2027-06-01T13:30",
+"due": "2027-06-15T13:30",
+"resolved_at": "2027-06-01T19:00",
+"resolution": "acted",
+"escalates": null,
+"evidence": [
+"R238A9006BBA4"
+]
+},
+{
+"id": "Q229F8E4CC7E4",
+"patient_id": "P6D746215D6",
+"owner_id": "dr_chan",
+"family": "abnormal_result",
+"reason": "Abnormal: eGFR 54, Total cholesterol 6, Triglycerides 2.1, Creatinine 126, Urea 8.4",
+"urgency_at_open": 1,
+"urgency": 1,
+"history": [],
+"opened_at": "2027-06-13T08:30",
+"due": "2027-06-27T08:30",
+"resolved_at": "2027-06-14T13:00",
+"resolution": "acted",
+"escalates": null,
+"evidence": [
+"REABF8BA757E7",
+"RB91617AFC86A"
+]
+},
+{
+"id": "Q068D2548CFD4",
+"patient_id": "PF99D4DB079",
+"owner_id": "dr_chan",
+"family": "abnormal_result",
+"reason": "Abnormal: Potassium 6.6, Creatinine 132, eGFR 47",
+"urgency_at_open": 4,
+"urgency": 4,
+"history": [],
+"opened_at": "2027-06-13T08:30",
+"due": "2027-06-14T08:30",
+"resolved_at": "2027-06-13T09:30",
+"resolution": "acted",
+"escalates": null,
+"evidence": [
+"RADB8342E3894"
+]
+},
+{
+"id": "Q8CC745239BFA",
+"patient_id": "P13022E340B",
+"owner_id": "dr_chan",
+"family": "planned_review",
+"reason": "Planned review not attended",
+"urgency_at_open": 1,
+"urgency": 1,
+"history": [],
+"opened_at": "2027-07-01T13:30",
+"due": "2027-07-15T13:30",
+"resolved_at": "2027-07-02T13:00",
+"resolution": "not_relevant",
+"escalates": null,
+"evidence": [
+"RBD2EA8737039"
+]
+},
+{
+"id": "Q9C9AF11D95CF",
+"patient_id": "PF99D4DB079",
+"owner_id": "dr_chan",
+"family": "referral",
+"reason": "No booking or reply for referral",
+"urgency_at_open": 2,
+"urgency": 3,
+"history": [
+[
+"2027-07-24T08:30",
+"raised",
+2,
+3,
+"Unactioned for 7 days: raised from 2 to 3."
+]
+],
+"opened_at": "2027-07-17T13:30",
+"due": "2027-08-16T13:30",
+"resolved_at": "2027-08-02T13:00",
+"resolution": "linked_done",
+"escalates": null,
+"evidence": [
+"R73B2CE109AB8"
+]
+},
+{
+"id": "QCF71CCBD1AED",
+"patient_id": "PF99D4DB079",
+"owner_id": "dr_locum",
+"family": "referral",
+"reason": "Escalated (day 14): No booking or reply for referral",
+"urgency_at_open": 3,
+"urgency": 3,
+"history": [],
+"opened_at": "2027-07-31T08:30",
+"due": "2027-08-01T08:30",
+"resolved_at": "2027-07-31T13:00",
+"resolution": "acted",
+"escalates": "Q9C9AF11D95CF",
+"evidence": [
+"R73B2CE109AB8"
+]
+},
+{
+"id": "Q0561CF7084F5",
+"patient_id": "P6D746215D6",
+"owner_id": "dr_chan",
+"family": "planned_review",
+"reason": "Planned review not attended",
+"urgency_at_open": 1,
+"urgency": 1,
+"history": [],
+"opened_at": "2027-09-01T19:30",
+"due": "2027-09-15T19:30",
+"resolved_at": "2027-09-02T13:00",
+"resolution": "acted",
+"escalates": null,
+"evidence": [
+"RDC0EDCBE66D1"
+]
+}
+],
+"feeds": []
+}
