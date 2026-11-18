@@ -10,7 +10,7 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 18 Nov
    Fill the **[after Wed]** fields from the 11 Nov meeting (`docs/EC_MEETING_PREP.md`, `docs/EC_JULIE_CHEATSHEET.md`).
 2. **The EC demo.** `demo/ec-care-line/index.html?walk=kwok` and `suite.html` (case strip, four counters).
    Journey suite: `docs/JOURNEYS.md`. Bug pass `-wyqxsy`. Case strip: `backend/case/`. Gate: `scripts/check.sh`.
-3. **The care line.** Service stays off (#26, draft #28 unmerged). In-process path: message in, draft held for a doctor tap these two weeks. US-00 consent. No patient send.
+3. **The care line.** Service stays off (#26, draft #28 unmerged). Swappable draft composer: Grok first, Sonnet 5.5 later. Held for a doctor tap. US-00 consent. No patient send.
 
 ## Waiting on you
 
