@@ -1,7 +1,8 @@
 """What the in-process care flow may read and do. Not the WhatsApp line and not a new engine verb.
 
 Writes stay the engine's four: open_item, raise_urgency, alarm, attest_all_clear. There is no close, dismiss,
-downgrade, or reassure. `send_fixed` is only how consent, STOP, and crisis / 999 leave this process, in memory.
+downgrade, or reassure. `send_fixed` is how consent, STOP, and crisis / 999 leave this process, in memory.
+`send_tapped` is a doctor tap on a held draft. Neither one is a WhatsApp send.
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ class CareFlowPort(Protocol):
     def begin_turn(self, turn: int, silenced: bool, inbound: str | None) -> None: ...
 
     def send_fixed(self, thread_id: str, act: str, lang: str, text: str) -> str: ...
+    def send_tapped(self, thread_id: str, text: str, lang: str) -> str: ...
     def open_item(self, patient_id: str, owner_id: str, family: str, reason: str, evidence: list[str],
                   urgency: int = 1, due: datetime | None = None, reasoning: list[dict] | None = None,
                   escalates: str | None = None) -> str: ...

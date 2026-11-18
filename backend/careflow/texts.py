@@ -1,6 +1,6 @@
-"""Fixed acts only: labelled consent, the one retry, decline, STOP, red flag, and crisis.
+"""Fixed acts: labelled consent, the one retry, decline, STOP, red flag, and crisis.
 
-Other patient-facing replies are not rendered here. There is no compose sender.
+These may send on their own. Other patient-facing replies are not rendered here.
 """
 from __future__ import annotations
 

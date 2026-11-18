@@ -154,6 +154,8 @@ def score(flow, port, thread_id: str = "T1") -> dict:
         outs = turn["outs"]
         if turn["silenced_at_start"]:
             for out in outs:
+                if out.get("by") == "doctor":
+                    continue
                 if kind and _emergency_text(kind, out["text"]) and not clinical_closure(out["text"]):
                     continue
                 _fail(fails, "auto_reply", f"{out['id']} after {'needs_review' if st.get('needs_review') else 'stop'}")
@@ -203,6 +205,11 @@ def score(flow, port, thread_id: str = "T1") -> dict:
         held = [it for it in port.items.values() if it["patient_id"] == patient and it["turn"] <= turn_n]
         if not held:
             _fail(fails, "false_promise", out["id"])
+
+    for draft in st.get("drafts") or []:
+        leaked = [m for m in messages if m["dir"] == "out" and m["text"] == draft["text"] and m.get("by") != "doctor"]
+        if leaked or (draft.get("status") == "sent" and not draft.get("tapped")):
+            _fail(fails, "draft_auto_send", draft["id"])
 
     for w in port.writes:
         if w["verb"] in FORBIDDEN or w["verb"] == "attest_all_clear":

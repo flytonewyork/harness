@@ -1,9 +1,9 @@
-"""US-00: labelled consent before anything is kept or shared.
+"""US-00 consent, and compose lock v4 for these two weeks.
 
-Decline, or two unclear answers, stops the flow and keeps nothing. STOP is respected. A red flag or crisis
-still gets the fixed 999 reply and an alarm, including before consent and after STOP. The patient's words
-go on an item only after labelled consent. This flow does not compose a reply. Consent, STOP, and crisis / 999
-are fixed templates.
+Decline, or two unclear answers, stops the flow and keeps nothing. STOP is respected. Consent, STOP, and
+crisis / 999 still send as fixed templates. Any other reply is a draft: it is not sent until the doctor taps.
+The patient's words go on an item only after labelled consent. No live model. The patient text is the draft
+itself, never the reasoning.
 """
 from __future__ import annotations
 
@@ -16,6 +16,8 @@ from . import guard
 from .texts import TEXT_VERSION, render
 
 QUOTE_MAX = 300
+# Compose lock v4. A composed draft waits for a doctor tap during this phase. There is no timer that sends it.
+DRAFT_HOLD = "two-weeks"
 
 
 def screen_inbound(text: str) -> str | None:
@@ -24,8 +26,9 @@ def screen_inbound(text: str) -> str | None:
 
 
 class CareFlow:
-    def __init__(self, port):
+    def __init__(self, port, composer=None):
         self.port = port
+        self.composer = composer          # synthetic fixture only; nothing here calls a model
         self.state: dict[str, dict] = {}
         self.blocked: list[dict] = []
 
@@ -35,7 +38,7 @@ class CareFlow:
             self.state[thread_id] = {
                 "patient_id": t["patient_id"], "owner_id": t["owner_id"],
                 "doctor_en": t["doctor_en"], "doctor_zh": t.get("doctor_zh") or t["doctor_en"],
-                "step": "new", "lang": "en", "consent_asks": 0, "consent": None, "kept": [],
+                "step": "new", "lang": "en", "consent_asks": 0, "consent": None, "kept": [], "drafts": [],
                 "silenced": False, "needs_review": False, "flags": [], "turn": -1,
             }
         return self.state[thread_id]
@@ -109,12 +112,32 @@ class CareFlow:
         return None
 
     def _on_consented_message(self, thread_id: str, st: dict, msg: dict):
-        """Consent is on file, so the message may be kept. No reply is composed."""
+        """Consent is on file, so the message may be kept. A composed reply is held for the doctor."""
         st["kept"].append({"record": msg["id"], "text": msg.get("text") or "", "patient_id": st["patient_id"]})
+        if self.composer:
+            draft = self.composer(st, msg)
+            if draft:
+                self.hold_draft(st, draft["text"], draft.get("lang") or st["lang"], draft.get("reasoning"))
         st["needs_review"] = True
         st["silenced"] = True
         st["step"] = "needs_review"
         return None
+
+    def hold_draft(self, st: dict, text: str, lang: str, reasoning=None) -> str:
+        """Keep a composed reply off the transcript until the doctor taps. Reasoning stays on the draft."""
+        did = f"d{len(st['drafts']) + 1}"
+        st["drafts"].append({"id": did, "text": text, "lang": lang, "reasoning": reasoning, "status": "held", "tapped": False})
+        return did
+
+    def doctor_tap(self, thread_id: str, draft_id: str) -> str | None:
+        """Send the draft's patient text only. Fixed templates do not use this; they already went out."""
+        st = self.state[thread_id]
+        draft = next(d for d in st["drafts"] if d["id"] == draft_id)
+        if draft["tapped"] or draft["status"] != "held":
+            return None
+        draft["tapped"] = True
+        draft["status"] = "sent"
+        return self.port.send_tapped(thread_id, draft["text"], draft["lang"])
 
     def _escalate(self, thread_id: str, st: dict, msg: dict, kind: str):
         self._send(thread_id, st, kind)

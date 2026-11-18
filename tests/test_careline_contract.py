@@ -4,7 +4,9 @@ US-00: nothing is kept or shared before a labelled YES. Decline, or two unclear 
 nothing. STOP is respected. Consent, STOP, and crisis / 999 stay on fixed templates.
 
 The scorer is the tooth, as in the precare mutation battery: each mutant breaks one locked property and must
-come back as that hard fail. A non-template send is not one of those fails. There is no compose sender.
+come back as that hard fail. A non-template send is not one of those fails. For these two weeks a composed
+draft waits for a doctor tap. Naturalness is an eval over synthetic English and Cantonese fixtures, not a
+second judge, and it does not call a model.
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ import pytest
 
 from backend.careflow import CareFlow
 from backend.careflow import guard
+from backend.careflow.naturalness import naturalness
 from backend.careflow.texts import ACTS, TEXT_VERSION, render
 
 T0 = datetime(2026, 11, 18, 9, 0)
@@ -47,15 +50,18 @@ class FakePort:
                 if m["id"] == inbound:
                     m["turn"] = turn
 
-    def _out(self, text, act):
+    def _out(self, text, act, by=None):
         self.n += 1
-        rec = {"id": f"o{self.n}", "dir": "out", "text": text, "act": act, "turn": self.turn, "at": self.now}
+        rec = {"id": f"o{self.n}", "dir": "out", "text": text, "act": act, "by": by, "turn": self.turn, "at": self.now}
         self.msgs.append(rec)
         self.turns[-1]["outs"].append(rec)
         return rec["id"]
 
     def send_fixed(self, thread_id, act, lang, text):
         return self._out(text, act)
+
+    def send_tapped(self, thread_id, text, lang):
+        return self._out(text, None, by="doctor")
 
     def deliver(self, thread_id, text, act=None):
         return self._out(text, act)
@@ -104,9 +110,9 @@ class FakePort:
         return [m for m in self.msgs if m["dir"] == "out"]
 
 
-def run(port=None, *replies, cls=CareFlow):
+def run(port=None, *replies, cls=CareFlow, composer=None):
     port = port or FakePort()
-    flow = cls(port)
+    flow = cls(port, composer=composer)
     flow.start("T1")
     for text in replies:
         port.say(flow, text)
@@ -282,9 +288,11 @@ def test_there_is_no_compose_sender_and_the_engine_port_is_unchanged():
     tree = ast.parse(inspect.getsource(flow))
     calls = {n.func.attr for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
              and isinstance(n.func.value, ast.Attribute) and n.func.value.attr == "port"}
-    assert calls <= {"send_fixed", "open_item", "raise_urgency", "alarm", "attest_all_clear", "begin_turn",
-                     "messages", "thread"}, calls
+    assert calls <= {"send_fixed", "send_tapped", "open_item", "raise_urgency", "alarm", "attest_all_clear",
+                     "begin_turn", "messages", "thread"}, calls
     assert not re.search(r"port\.(close|dismiss|downgrade|reassure|resolve|lower)", inspect.getsource(flow))
+    src = inspect.getsource(flow) + inspect.getsource(guard)
+    assert "dual_judge" not in src and "naturalness" not in src
 
 
 def test_product_paths_score_clean():
@@ -424,6 +432,101 @@ def test_mutant_replies_after_needs_review():
 
     flow, port = run(None, "yes", "Please move my booking to Thursday", "any news", cls=Nag)
     assert "auto_reply" in kinds(scored(flow, port))
+
+
+REASON_EN = "Patient asked to move the booking to Thursday. No clinical advice."
+REASON_ZH = "病人想改到星期四。冇臨床意見。"
+DRAFT_EN = "Thursday morning is free if you want to move the booking."
+DRAFT_ZH = "如果你想改期，星期四朝早得閒。"
+
+
+def fixture_composer(st, msg):
+    if st["lang"] == "zh":
+        return {"text": DRAFT_ZH, "lang": "zh", "reasoning": REASON_ZH}
+    return {"text": DRAFT_EN, "lang": "en", "reasoning": REASON_EN}
+
+
+def test_composed_draft_waits_for_the_doctor_these_two_weeks():
+    import backend.careflow.flow as flow_mod
+    assert flow_mod.DRAFT_HOLD == "two-weeks"
+    flow, port = run(None, "yes", "Please move my booking to Thursday", composer=fixture_composer)
+    draft = flow.state["T1"]["drafts"][0]
+    assert draft["status"] == "held" and draft["tapped"] is False
+    assert all(m["text"] != DRAFT_EN for m in port.out())
+    assert_clean(flow, port)
+    flow.doctor_tap("T1", draft["id"])
+    sent = port.out()[-1]
+    assert sent["text"] == DRAFT_EN and sent["by"] == "doctor" and REASON_EN not in sent["text"]
+    assert naturalness(sent["text"], "en", REASON_EN)["pass"]
+    assert_clean(flow, port)
+
+
+def test_cantonese_draft_waits_for_the_same_tap():
+    flow, port = run(None, "好", "可唔可以改到星期四", composer=fixture_composer)
+    draft = flow.state["T1"]["drafts"][0]
+    assert draft["lang"] == "zh" and draft["text"] == DRAFT_ZH
+    assert all(m["text"] != DRAFT_ZH for m in port.out())
+    flow.doctor_tap("T1", draft["id"])
+    sent = port.out()[-1]
+    assert sent["text"] == DRAFT_ZH and REASON_ZH not in sent["text"]
+    assert naturalness(sent["text"], "zh", REASON_ZH)["pass"]
+    assert_clean(flow, port)
+
+
+def test_fixed_templates_still_send_without_a_tap():
+    flow, port = run(None, "STOP", "now I can't breathe", composer=fixture_composer)
+    assert [m["act"] for m in port.out()] == ["consent", "stopped", "red_flag"]
+    assert flow.state["T1"]["drafts"] == []
+    assert_clean(flow, port)
+
+
+def test_mutant_sends_the_draft_without_a_tap():
+    class Impatient(CareFlow):
+        def _on_consented_message(self, thread_id, st, msg):
+            super()._on_consented_message(thread_id, st, msg)
+            self.port.deliver(thread_id, st["drafts"][-1]["text"])
+
+    flow, port = run(None, "yes", "Please move my booking to Thursday", cls=Impatient, composer=fixture_composer)
+    got = kinds(scored(flow, port))
+    assert "draft_auto_send" in got and "non_template_send" not in got
+
+
+def test_doctor_tap_does_not_bypass_clinical_closure():
+    def bad(st, msg):
+        return {"text": "You're fine. Stop your metformin.", "lang": "en", "reasoning": REASON_EN}
+
+    flow, port = run(None, "yes", "Please move my booking to Thursday", composer=bad)
+    flow.doctor_tap("T1", "d1")
+    got = kinds(scored(flow, port))
+    assert "clinical_closure" in got and "draft_auto_send" not in got
+
+
+@pytest.mark.parametrize("text,lang,reasoning", [
+    (DRAFT_EN, "en", REASON_EN),
+    (DRAFT_ZH, "zh", REASON_ZH),
+])
+def test_naturalness_passes_a_plain_draft(text, lang, reasoning):
+    assert naturalness(text, lang, reasoning)["pass"]
+
+
+@pytest.mark.parametrize("text,lang,reasoning,why", [
+    ("Thursday morning is free. fixed.red_flag", "en", None, "template_id"),
+    ("星期四朝早得閒。ask.consent", "zh", None, "template_id"),
+    (f"Thursday morning is free. {REASON_EN}", "en", REASON_EN, "reasoning"),
+    (f"星期四朝早得閒。{REASON_ZH}", "zh", REASON_ZH, "reasoning"),
+    ("Thursday is free. The guardrail says not to diagnose.", "en", None, "guardrail"),
+    ("星期四得閒。reasoning trace: finding", "zh", None, "guardrail"),
+])
+def test_naturalness_fails_a_leak(text, lang, reasoning, why):
+    result = naturalness(text, lang, reasoning)
+    assert not result["pass"] and why in result["fails"]
+
+
+def test_fixed_acts_do_not_leak_a_template_id():
+    for act in ACTS:
+        for lang, doctor in (("en", DOCTOR), ("zh", DOCTOR_ZH)):
+            result = naturalness(render(act, lang, doctor), lang)
+            assert "template_id" not in result["fails"] and "guardrail" not in result["fails"], (act, lang, result)
 
 
 def test_mutant_promises_without_an_item():
