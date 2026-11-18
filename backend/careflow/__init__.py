@@ -2,9 +2,10 @@
 
 This is not the care-line service and it does not send WhatsApp. A non-template send is not a hard fail.
 Consent, STOP, and crisis / 999 stay on fixed templates. For these two weeks any other reply is a draft
-the doctor taps to send. `CareLine` is that path: a synthetic message goes in, and the draft stays held.
+the doctor taps to send. `CareLine` is that path. A `DraftComposer` may write the draft, Grok first.
 """
 from .flow import CareFlow
 from .line import CareLine
+from .models import GROK_MODEL, SONNET_MODEL, DraftComposer
 
-__all__ = ["CareFlow", "CareLine"]
+__all__ = ["CareFlow", "CareLine", "DraftComposer", "GROK_MODEL", "SONNET_MODEL"]

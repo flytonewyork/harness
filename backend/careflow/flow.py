@@ -28,7 +28,7 @@ def screen_inbound(text: str) -> str | None:
 class CareFlow:
     def __init__(self, port, composer=None):
         self.port = port
-        self.composer = composer          # synthetic fixture only; nothing here calls a model
+        self.composer = composer          # drafts only; this class does not call a model itself
         self.state: dict[str, dict] = {}
         self.blocked: list[dict] = []
 

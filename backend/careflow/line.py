@@ -2,8 +2,8 @@
 
 Nothing is sent until the doctor taps. Consent, STOP, and crisis / 999 stay on the fixed
 templates. Nothing is kept before labelled consent. The patient text does not include the
-reasoning. There is no second outbound judge, no model call, and no network send. This
-does not start the care-line service.
+reasoning. The default composer does not call a model. A caller may pass another composer.
+There is no second outbound judge and no network send. This does not start the care-line service.
 """
 from __future__ import annotations
 
@@ -132,9 +132,10 @@ class Transcript:
 class CareLine:
     """The path. `receive` returns a held draft, or None when the turn stayed on a fixed act."""
 
-    def __init__(self, port: Transcript | None = None):
+    def __init__(self, port: Transcript | None = None, *, composer=None):
         self.port = port if port is not None else Transcript()
-        self.flow = CareFlow(self.port, composer=compose_draft)
+        # The default does not call a model. A caller may pass a composer in.
+        self.flow = CareFlow(self.port, composer=compose_draft if composer is None else composer)
 
     def start(self, thread_id: str = "T1") -> None:
         self.flow.start(thread_id)
