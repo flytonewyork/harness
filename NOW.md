@@ -1,6 +1,6 @@
 # NOW
 
-The one queue for harness and loopbench. Keep it under 2 KB. Last updated 14 Nov 2026.
+The one queue for harness and loopbench. Keep it under 2 KB. Last updated 18 Nov 2026.
 
 **Focus until the 26 Nov go/no-go:** a written next step from EC Healthcare. Everything else is in `archive/` or Parked.
 
@@ -10,8 +10,7 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 14 Nov
    Fill the **[after Wed]** fields from the 11 Nov meeting (`docs/EC_MEETING_PREP.md`, `docs/EC_JULIE_CHEATSHEET.md`).
 2. **The EC demo.** `demo/ec-care-line/index.html?walk=kwok` and `suite.html` (case strip, four counters).
    Journey suite: `docs/JOURNEYS.md`. Bug pass `-wyqxsy`. Case strip: `backend/case/`. Gate: `scripts/check.sh`.
-3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. Service `com.tmrw.careline`
-   stays off until Thomas restarts it.
+3. **The care line.** Service stays off (#26, draft #28 unmerged). US-00 consent contract is in review; no patient send.
 
 ## Waiting on you
 
