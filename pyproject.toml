@@ -16,6 +16,8 @@ acute = [
   "fpdf2>=2.8",
   "python-multipart",
   "google-auth>=2.35",
+  "requests>=2.32",
+  "google-cloud-storage>=2.18",
   "httpx>=0.28",
   "pyyaml>=6.0",
 ]

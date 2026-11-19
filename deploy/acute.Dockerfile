@@ -28,7 +28,8 @@ COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 RUN pip install --no-cache-dir -e "." \
     "sqlalchemy>=2.0" "psycopg[binary]>=3.2" "alembic>=1.14" \
     "cryptography>=43.0" "pyjwt>=2.9" "fpdf2>=2.8" \
-    "python-multipart" "google-auth>=2.35" "httpx>=0.28" "pyyaml>=6.0" \
+    "python-multipart" "google-auth>=2.35" "requests>=2.32" "google-cloud-storage>=2.18" \
+    "httpx>=0.28" "pyyaml>=6.0" \
     && mkdir -p /tmp/tmrw-vault && chown -R app:app /app /tmp/tmrw-vault
 
 USER app
