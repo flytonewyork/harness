@@ -381,6 +381,8 @@ def _check_http_error(resp: httpx.Response, provider: str) -> None:
             f"{provider} transient HTTP {resp.status_code}: {resp.text[:200]}",
             status_code=resp.status_code,
         )
+    if resp.status_code in (401, 403, 404):
+        raise ProviderUnavailableError(f"{provider} unavailable HTTP {resp.status_code}: {resp.text[:200]}")
     if resp.status_code >= 400:
         raise GatewayError(f"{provider} HTTP {resp.status_code}: {resp.text[:200]}")
 

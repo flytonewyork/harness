@@ -49,7 +49,7 @@ fi
 echo "==> 4. Ensuring least-privilege runtime service account"
 gcloud iam service-accounts describe "${SA_EMAIL}" >/dev/null 2>&1 || \
   gcloud iam service-accounts create "${SA_NAME}" --display-name="Clinic AI Harness Runtime" --quiet
-for role in roles/cloudsql.client roles/storage.objectAdmin roles/aiplatform.user roles/secretmanager.secretAccessor; do
+for role in roles/cloudsql.client roles/storage.objectAdmin roles/aiplatform.user roles/secretmanager.secretAccessor roles/artifactregistry.writer roles/logging.logWriter; do
   gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
     --member="serviceAccount:${SA_EMAIL}" --role="${role}" --quiet >/dev/null
 done
@@ -67,8 +67,11 @@ fi
 DB_PASS="${CLOUDSQL_APP_PASSWORD:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')}"
 gcloud sql databases describe "${DB_NAME}" --instance="${SQL_INSTANCE}" >/dev/null 2>&1 || \
   gcloud sql databases create "${DB_NAME}" --instance="${SQL_INSTANCE}" --quiet
-gcloud sql users list --instance="${SQL_INSTANCE}" --format="value(name)" | grep -qx "${DB_USER}" || \
+if gcloud sql users list --instance="${SQL_INSTANCE}" --format="value(name)" | grep -qx "${DB_USER}"; then
+  gcloud sql users set-password "${DB_USER}" --instance="${SQL_INSTANCE}" --password="${DB_PASS}" --quiet
+else
   gcloud sql users create "${DB_USER}" --instance="${SQL_INSTANCE}" --password="${DB_PASS}" --quiet
+fi
 
 CONN_NAME=$(gcloud sql instances describe "${SQL_INSTANCE}" --format="value(connectionName)")
 JWT_SECRET="${JWT_SECRET:-$(python3 -c 'import secrets; print(secrets.token_hex(32))')}"
@@ -87,8 +90,13 @@ steps:
     args: ["build", "-f", "deploy/acute.Dockerfile", "-t", "${IMAGE}", "."]
 images:
   - "${IMAGE}"
+options:
+  logging: CLOUD_LOGGING_ONLY
 EOF
-gcloud builds submit --region="${REGION}" --config="${CB_TMP}" . --quiet
+gcloud builds submit \
+  --region="${REGION}" \
+  --service-account="projects/${PROJECT_ID}/serviceAccounts/${SA_EMAIL}" \
+  --config="${CB_TMP}" . --quiet
 
 gcloud run deploy "${SERVICE}" \
   --image="${IMAGE}" \
