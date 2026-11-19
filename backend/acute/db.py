@@ -454,14 +454,15 @@ class Database:
                 conn.execute(text("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO clinic_app"))
 
             # Enforce FORCE ROW LEVEL SECURITY on every tenant-scoped table
+            # Fail-closed default: without transaction-local app.tenant_id or explicit admin_session bypass, 0 rows visible.
             for tbl in TENANT_SCOPED_TABLES:
                 conn.execute(text(f"ALTER TABLE {tbl} ENABLE ROW LEVEL SECURITY"))
                 conn.execute(text(f"ALTER TABLE {tbl} FORCE ROW LEVEL SECURITY"))
                 conn.execute(text(f"DROP POLICY IF EXISTS tenant_isolation_{tbl} ON {tbl}"))
                 conn.execute(text(
                     f"CREATE POLICY tenant_isolation_{tbl} ON {tbl} "
-                    f"USING (tenant_id = current_setting('app.tenant_id', true)) "
-                    f"WITH CHECK (tenant_id = current_setting('app.tenant_id', true))"
+                    f"USING (current_setting('app.bypass_rls', true) = 'on' OR tenant_id = current_setting('app.tenant_id', true)) "
+                    f"WITH CHECK (current_setting('app.bypass_rls', true) = 'on' OR tenant_id = current_setting('app.tenant_id', true))"
                 ))
 
             # Install PostgreSQL append-only immutability trigger on audit_events and consents
@@ -486,14 +487,16 @@ class Database:
         """Yield a PostgreSQL session locked to `tenant_id` via SET LOCAL app.tenant_id (enforced by RLS)."""
         with self._app_sm() as session:
             with session.begin():
+                session.execute(text("SELECT set_config('app.bypass_rls', 'off', true)"))
                 session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_id})
                 yield session
 
     @contextmanager
     def admin_session(self) -> Iterator[Session]:
-        """Yield an admin/bootstrap session (only for tenant lookup, campaign code lookup, and schema init)."""
+        """Yield an admin/bootstrap session (only for pre-auth tenant lookup, campaign lookup, and schema init)."""
         with self._admin_sm() as session:
             with session.begin():
+                session.execute(text("SELECT set_config('app.bypass_rls', 'on', true)"))
                 yield session
 
 
