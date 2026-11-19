@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: clinic_harness
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev_password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d clinic_harness"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  harness:
+    build:
+      context: .
+      dockerfile: deploy/acute.Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      HARNESS_ENV: staging
+      HARNESS_REGION: asia-east2
+      DEMO_MODE: "true"
+      DEMO_SHOW_OTP: "true"
+      DATABASE_URL: "postgresql+psycopg://postgres:postgres_dev_password@postgres:5432/clinic_harness"
+      VAULT_LOCAL_DIR: "/data/vault"
+      JWT_SECRET: "local-docker-compose-jwt-secret-change-in-prod-32b"
+      VAULT_SIGNING_SECRET: "local-docker-compose-vault-signing-secret"
+    volumes:
+      - vaultdata:/data/vault
+
+volumes:
+  pgdata:
+  vaultdata:

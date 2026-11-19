@@ -1,0 +1,133 @@
+protocol_id: acute_consult_draft_v1
+version: "1.0.0"
+autonomy_level: L1
+scope:
+  domain: hk_acute_flu_consult_draft
+  jurisdiction: Hong Kong SAR
+  regulations:
+    - HK PDPO (Cap. 486)
+    - MCHK Telemedicine Guidelines (MCHK registered doctor sign-off required)
+    - Pharmacy and Poisons Ordinance (Cap. 138)
+    - Dangerous Drugs Ordinance (Cap. 134 - hard blocked)
+  description: >
+    Generates clinician-facing L1 draft consultation notes, dual ICD-10 + ICPC-2 working
+    diagnoses, proposed 1-2 day sick-leave drafts (never autonomously issued), allergy/G6PD-safe
+    OTC/antiviral draft proposals, and plain-language patient summary drafts requiring MCHK
+    doctor review and sign-off.
+  tools_allowed: false
+
+inputs:
+  required:
+    - intake
+    - patient
+  optional:
+    - source_text
+    - lang
+    - tenant_id
+
+red_flag_rules:
+  block_draft_on_emergency: true
+  require_triage_urgency_lt: 4
+  escalate_if_new_red_flag_detected: true
+
+thresholds:
+  max_proposed_sick_leave_days: 2
+  min_proposed_sick_leave_days: 0
+  oseltamivir_onset_max_hours: 48
+  egfr_renal_adjust_oseltamivir: 60
+  pediatric_aspirin_contraindicated_age_lt: 16
+  blocked_hk_schedules:
+    - DANGEROUS_DRUG
+
+escalation_rules:
+  dangerous_drug_requested:
+    action: hard_block_and_flag_clinician
+    reason: Cap. 134 Dangerous Drugs are prohibited in acute teleconsultation drafts.
+  allergy_or_g6pd_conflict:
+    action: exclude_drug_and_highlight_allergy_banner
+  emergency_red_flag_present:
+    action: abort_draft_and_return_emergency_banner
+
+banned_claims:
+  - "nothing to worry"
+  - "don't worry"
+  - "all clear"
+  - "looks normal"
+  - "no need to see"
+  - "not serious"
+  - "sick leave has been issued"
+  - "sick leave is approved"
+  - "prescription has been issued"
+  - "prescription is approved"
+  - "you definitely have"
+  - "I am Dr"
+  - "我係醫生"
+  - "正常"
+  - "唔使擔心"
+  - "冇事"
+  - "已發出病假"
+  - "已批出病假"
+  - "已處方"
+
+output_schema:
+  type: object
+  required:
+    - status
+    - autonomy_level
+    - clinician_signoff_required
+    - working_diagnosis
+    - clinical_note
+    - suggested_sick_leave
+    - suggested_medications
+    - patient_summary_draft
+    - evidence_quotes
+  properties:
+    status:
+      type: string
+      enum: ["PROPOSED_DRAFT_ONLY"]
+    autonomy_level:
+      type: string
+      enum: ["L1"]
+    clinician_signoff_required:
+      type: boolean
+      const: true
+    working_diagnosis:
+      type: object
+      required: [icd10, icpc2, icd10_display, icpc2_display]
+    clinical_note:
+      type: object
+      required: [subjective, objective, assessment, plan]
+    suggested_sick_leave:
+      type: object
+      required: [days, status, autonomously_issued, clinician_signoff_required]
+    suggested_medications:
+      type: array
+      items:
+        type: object
+        required: [drug, rxnorm, atc, hk_schedule, status]
+    patient_summary_draft:
+      type: string
+    evidence_quotes:
+      type: array
+      items:
+        type: string
+
+patient_message_style:
+  languages: ["en", "zh-HK"]
+  automated_label_en: "Care team (automated)"
+  automated_label_zh: "護理團隊（自動回覆）"
+  must_include_safety_net: true
+  must_state_clinician_review_pending: true
+  no_clinical_diagnosis_to_patient_before_signoff: true
+
+instructions: |
+  You are drafting a Hong Kong primary-care acute flu consultation proposal at autonomy level L1.
+  1. Produce a structured SOAP draft clinical note grounded ONLY in extracted symptoms, vitals,
+     and exact verbatim patient quotes.
+  2. Propose a dual ICD-10 + ICPC-2 working diagnosis strictly from HK_DIAGNOSES.
+  3. Suggest 1-2 days sick leave for acute flu/URTI strictly as a draft proposal (never autonomously issued).
+  4. Propose only safe, non-dangerous OTC or antiviral (oseltamivir if Flu A/B positive within 48h)
+     drafts from HK_ACUTE_FORMULARY, strictly respecting patient allergies, G6PD deficiency, age,
+     and renal function. Never propose Cap. 134 Dangerous Drugs.
+  5. Draft a plain-language patient summary prefixed with the automated care-team label, containing
+     no banned reassurance/autonomous claims and always including 999 / A&E safety-netting.
