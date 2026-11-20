@@ -184,6 +184,17 @@ def seed_demo_data(db: Database, vault: DocumentVault, runtime: AcuteHarnessRunt
                 {"day": "Mon-Sat", "slots": ["10:00", "11:30", "14:30", "16:00", "18:00"]},
             ],
         )
+        nurse1 = Practitioner(
+            id="nurse_chan",
+            tenant_id=DEMO_TENANT_1,
+            email="nurse.chan@central-gp.tmrw.hk",
+            password_hash=pw_hash,
+            name_en="Nurse Rachel Chan (RN)",
+            name_zh="陳嘉敏註冊護士",
+            role="nurse",
+            mchk_reg_no=None,
+            clinic_name="Central & Mid-Levels Family Medical",
+        )
         admin1 = Practitioner(
             id="adm_central_ops",
             tenant_id=DEMO_TENANT_1,
@@ -195,7 +206,7 @@ def seed_demo_data(db: Database, vault: DocumentVault, runtime: AcuteHarnessRunt
             mchk_reg_no=None,
             clinic_name="Central & Mid-Levels Family Medical",
         )
-        s.add_all([doc1, doc2, admin1])
+        s.add_all([doc1, doc2, nurse1, admin1])
         s.flush()
 
         # Load git-versioned YAML protocols into ProtocolVersion table
@@ -504,6 +515,343 @@ def seed_demo_data(db: Database, vault: DocumentVault, runtime: AcuteHarnessRunt
                     booking_ref=f"VAX-{idx+5001}",
                 ))
 
+        # ------------------------------------------------------------------
+        # Seed 3 Flagship Longitudinal Demo Stories (corporate_id=None so
+        # corporate k-anonymity counts stay untouched)
+        # ------------------------------------------------------------------
+        # Story A: CHAN Tai Man (M 71) — QEH Discharge PDF with Warfarin DoseConflict + Duplicate Statin
+        qeh_doc_text = (
+            "QUEEN ELIZABETH HOSPITAL (HA SOPC) — DISCHARGE SUMMARY\n"
+            "Patient: CHAN, Tai Man (陳大文)  |  DOB: 18/03/1955  |  HKID: D505XXX(X)\n"
+            "Admission: 11 Nov 2026  |  Discharge: 14 Nov 2026  |  Ward: Medical E4\n\n"
+            "Principal Diagnosis: Atrial fibrillation with supratherapeutic INR (3.8), minor epistaxis (resolved).\n\n"
+            "Discharge Medications:\n"
+            "1. Warfarin 3mg nocte (reduced from 5mg due to INR 3.8 on 12 Nov — recheck INR in 5 days).\n"
+            "2. Atorvastatin 40mg nocte (NEW — switched from Simvastatin 20mg for secondary CV prevention).\n"
+            "3. Bisoprolol 2.5mg OM (unchanged).\n\n"
+            "GP Clinic Dispensing Record (Central & Mid-Levels Family Medical, 02 Oct 2026):\n"
+            "- Dispensed Warfarin Sodium 5mg nocte x 28d\n"
+            "- Active Repeat: Simvastatin 20mg nocte x 56d\n"
+        )
+        pat_qeh = Patient(
+            id="pat_chan_qeh_discharge",
+            tenant_id=DEMO_TENANT_1,
+            corporate_id=None,
+            campaign_id=None,
+            phone_hash=sha256_hex("+85291000010"),
+            phone_masked="****0010",
+            name_en="CHAN Tai Man",
+            name_zh="陳大文",
+            dob="1955-03-18",
+            sex="M",
+            hkid_masked="D505XXX(X)",
+            preferred_lang="zh-HK",
+            g6pd_deficient=False,
+            allergies_json=[],
+            current_meds_json=["Warfarin 5mg nocte (Central GP, 02 Oct)", "Simvastatin 20mg nocte (GP active repeat)", "Bisoprolol 2.5mg OM"],
+            weight_kg=69.0,
+            egfr=68.0,
+            ehealth_consent=True,
+            referral_code="REF-QEH010",
+            status="active",
+        )
+        s.add(pat_qeh)
+        s.flush()
+        enc_qeh = Encounter(
+            id="enc_qeh_discharge",
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_qeh.id,
+            encounter_type="discharge_reconciliation",
+            status="pending_review",
+            chief_complaint_text=qeh_doc_text,
+            icd10_code="I48.9",
+            icpc2_code="K78",
+            snomed_codes_json=[{"code": "49436004", "display": "Atrial fibrillation"}],
+            clinical_note="QEH discharge 14 Nov: Warfarin reduced 5mg -> 3mg nocte (INR 3.8); Atorvastatin 40mg started (duplicate with GP Simvastatin 20mg).",
+            created_at=now - timedelta(minutes=25),
+        )
+        s.add(enc_qeh)
+        s.flush()
+        s.add(Proposal(
+            id="prop_qeh_discharge",
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_qeh.id,
+            encounter_id=enc_qeh.id,
+            kind="discharge_reconciliation",
+            urgency=3,
+            status="pending_review",
+            sla_due_at=now + timedelta(hours=2),
+            protocol_id="acute_consult_draft_v1",
+            protocol_version="1.0.0",
+            payload_json={
+                "story_tag": "qeh_discharge",
+                "title": "QEH discharge, 14 Nov: settle 1 dose conflict before signing.",
+                "summary_points": [
+                    {"text": "Admitted QEH with supratherapeutic INR 3.8 and minor epistaxis; discharged 14 Nov.", "quote": "reduced from 5mg due to INR 3.8 on 12 Nov"},
+                    {"text": "QEH started Atorvastatin 40mg nocte while our GP Simvastatin 20mg repeat is still active.", "quote": "Atorvastatin 40mg nocte (NEW — switched from Simvastatin 20mg"},
+                ],
+                "case_sites": ["Central GP", "QEH HA SOPC", "eHealth"],
+                "conflicts": [
+                    {
+                        "id": "conf_warfarin_qeh",
+                        "drug": "Warfarin",
+                        "resolved": False,
+                        "chosen_side": None,
+                        "sides": [
+                            {"key": "1", "site": "QEH HA SOPC", "date": "14 Nov", "regimen": "Warfarin 3 mg nocte", "quote": "Warfarin 3mg nocte (reduced from 5mg due to INR 3.8 on 12 Nov"},
+                            {"key": "2", "site": "Central GP", "date": "02 Oct", "regimen": "Warfarin 5 mg nocte", "quote": "Dispensed Warfarin Sodium 5mg nocte x 28d"},
+                        ],
+                    }
+                ],
+                "extra_chart_meds": ["Atorvastatin 40mg nocte", "Simvastatin 20mg nocte"],
+                "draft": {
+                    "working_diagnosis": {"icd10": "I48.9", "icpc2": "K78", "display": "Atrial fibrillation — post-discharge medication reconciliation"},
+                    "suggested_medications": [
+                        {"drug": "atorvastatin", "display": "Continue Atorvastatin 40 mg nocte (QEH)", "dose_mg": 40, "frequency": "nocte", "days": 28, "is_non_acute_order": True},
+                        {"drug": "simvastatin", "display": "Stop Simvastatin 20 mg repeat (duplicate statin)", "dose_mg": 20, "frequency": "STOP", "days": 0, "is_non_acute_order": True},
+                        {"drug": "inr_blood", "display": "Order INR blood test in 5 days (19 Nov)", "is_non_acute_order": True},
+                    ],
+                    "patient_summary_draft": "陳先生你好，我已核對你 11 月 14 日伊利沙伯醫院出院摘要。請確認你今晚服用邊一款華法林劑量（醫院已減至每晚 3mg），並停止舊有嘅 Simvastatin（現改服醫院新開嘅 Atorvastatin 40mg）。診所已安排你 5 日後返嚟抽血覆檢 INR。",
+                },
+            },
+            source_quotes_json=[
+                {"field": "Warfarin reduction", "quote": "Warfarin 3mg nocte (reduced from 5mg due to INR 3.8 on 12 Nov", "source": "QEH Discharge 14 Nov"},
+                {"field": "GP prior dispense", "quote": "Dispensed Warfarin Sodium 5mg nocte x 28d", "source": "Central GP Dispensing"},
+                {"field": "New statin", "quote": "Atorvastatin 40mg nocte (NEW — switched from Simvastatin 20mg", "source": "QEH Discharge 14 Nov"},
+            ],
+            checks_json=[],
+            created_at=now - timedelta(minutes=24),
+        ))
+        s.add(Message(
+            id=new_id("msg"),
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_qeh.id,
+            encounter_id=enc_qeh.id,
+            direction="inbound",
+            sender_role="patient",
+            body_text="林醫生，我啱啱喺伊利沙伯醫院出院，上傳咗出院紙。請問今晚薄血丸同膽固醇藥應該點食？",
+            created_at=now - timedelta(minutes=22),
+        ))
+
+        # Story B: HO Ka-Yan (F 58) — Chronic HTN 3-Week Home BP Drift (avg 152/94) + 365-Day Companion
+        bp_log_text = (
+            "7-DAY HOME BLOOD PRESSURE PROTOCOL LOG (Validated Omron HEM-7156 Upper-Arm Cuff)\n"
+            "Patient: HO, Ka-Yan (何嘉欣)  |  DOB: 22/07/1968  |  HKID: E412XXX(X)\n"
+            "Goal set by Dr. Kenneth Lam: < 135/85 mmHg  |  Current regimen: Amlodipine 5mg mane (dispensed here 01 Nov)\n\n"
+            "24 Readings across 3 weeks — Average: 152/94 mmHg (morning avg 154/95, evening avg 150/93)\n"
+            "- 19 Nov 07:45: 156/96 mmHg (monitor photo confirmed)\n"
+            "- 18 Nov 20:10: 150/92 mmHg (monitor photo confirmed)\n"
+            "- 17 Nov 07:50: 154/95 mmHg (monitor photo confirmed)\n"
+            "- 16 Nov 20:05: 149/93 mmHg (monitor photo confirmed)\n"
+            "- 14 Nov 08:00: 151/94 mmHg (monitor photo confirmed)\n\n"
+            "Relevant Clinic Labs (03 May 2026): Creatinine 88 µmol/L (eGFR 78), Potassium 4.1 mmol/L, HbA1c 7.8%.\n"
+        )
+        pat_htn = Patient(
+            id="pat_ho_htn_drift",
+            tenant_id=DEMO_TENANT_1,
+            corporate_id=None,
+            campaign_id=None,
+            phone_hash=sha256_hex("+85291000011"),
+            phone_masked="****0011",
+            name_en="HO Ka-Yan",
+            name_zh="何嘉欣",
+            dob="1968-07-22",
+            sex="F",
+            hkid_masked="E412XXX(X)",
+            preferred_lang="en",
+            g6pd_deficient=False,
+            allergies_json=[],
+            current_meds_json=["Amlodipine 5mg mane (dispensed here 01 Nov)"],
+            weight_kg=62.0,
+            egfr=78.0,
+            ehealth_consent=True,
+            referral_code="REF-HTN011",
+            status="active",
+        )
+        s.add(pat_htn)
+        s.flush()
+        enc_htn = Encounter(
+            id="enc_htn_drift",
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_htn.id,
+            encounter_type="chronic_bp_drift",
+            status="pending_review",
+            chief_complaint_text=bp_log_text,
+            icd10_code="I10",
+            icpc2_code="K86",
+            snomed_codes_json=[{"code": "38341003", "display": "Essential hypertension"}],
+            clinical_note="Home BP above goal (<135/85) for 3 weeks: avg 152/94 across 24 validated readings. Cr 88, K 4.1 (5m ago). Propose Amlodipine 5 -> 10mg mane.",
+            created_at=now - timedelta(hours=1),
+        )
+        s.add(enc_htn)
+        s.flush()
+        s.add(Observation(
+            id=new_id("obs"),
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_htn.id,
+            encounter_id=enc_htn.id,
+            loinc_code="85354-9",
+            display="Home Blood Pressure (7-day average)",
+            value_num=152.0,
+            value_text="152/94 mmHg",
+            ucum_unit="mm[Hg]",
+            source_quote="Average: 152/94 mmHg",
+        ))
+        s.add(Proposal(
+            id="prop_htn_bp_drift",
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_htn.id,
+            encounter_id=enc_htn.id,
+            kind="chronic_bp_drift",
+            urgency=2,
+            status="pending_review",
+            sla_due_at=now + timedelta(hours=6),
+            protocol_id="followup_48h_v1",
+            protocol_version="1.0.0",
+            payload_json={
+                "story_tag": "htn_drift",
+                "title": "Home BP above goal for 3 weeks: avg 152/94 (24 readings).",
+                "summary_points": [
+                    {"text": "7-day validated home BP protocol shows sustained elevation above <135/85 goal.", "quote": "Average: 152/94 mmHg (morning avg 154/95, evening avg 150/93)"},
+                    {"text": "Most recent reading 156/96 confirmed via monitor photo; no chest pain, headache, or visual symptoms.", "quote": "19 Nov 07:45: 156/96 mmHg (monitor photo confirmed)"},
+                ],
+                "case_sites": ["Central GP", "Home Monitor"],
+                "labs_context": "Cr 88 µmol/L, K+ 4.1 mmol/L · 5 months ago",
+                "bp_series": [
+                    {"date": "29 Oct", "sys": 144, "dia": 89},
+                    {"date": "01 Nov", "sys": 148, "dia": 91},
+                    {"date": "04 Nov", "sys": 150, "dia": 92},
+                    {"date": "07 Nov", "sys": 153, "dia": 95},
+                    {"date": "10 Nov", "sys": 151, "dia": 93},
+                    {"date": "13 Nov", "sys": 154, "dia": 95},
+                    {"date": "16 Nov", "sys": 149, "dia": 93},
+                    {"date": "17 Nov", "sys": 154, "dia": 95},
+                    {"date": "18 Nov", "sys": 150, "dia": 92},
+                    {"date": "19 Nov", "sys": 156, "dia": 96},
+                ],
+                "conflicts": [],
+                "draft": {
+                    "working_diagnosis": {"icd10": "I10", "icpc2": "K86", "display": "Essential hypertension — suboptimal home BP control"},
+                    "suggested_medications": [
+                        {"drug": "amlodipine", "display": "Amlodipine 5 → 10 mg mane (28 days)", "dose_mg": 10, "frequency": "OM", "days": 28, "is_non_acute_order": True},
+                        {"drug": "home_bp_recheck", "display": "Repeat 7-day home BP log in 2 weeks", "is_non_acute_order": True},
+                    ],
+                    "patient_summary_draft": "Ms Ho, your 3-week home blood pressure averaged 152/94, above our <135/85 goal. I am increasing your Amlodipine from 5 mg to 10 mg each morning. Please watch for mild ankle swelling and send another 7-day BP log in 2 weeks.",
+                },
+            },
+            source_quotes_json=[
+                {"field": "3-week average", "quote": "Average: 152/94 mmHg (morning avg 154/95, evening avg 150/93)", "source": "Home BP Protocol"},
+                {"field": "Latest monitor photo", "quote": "19 Nov 07:45: 156/96 mmHg (monitor photo confirmed)", "source": "Home BP Protocol"},
+                {"field": "Renal & K+ baseline", "quote": "Creatinine 88 µmol/L (eGFR 78), Potassium 4.1 mmol/L, HbA1c 7.8%", "source": "PathLab 03 May"},
+            ],
+            checks_json=[],
+            created_at=now - timedelta(minutes=55),
+        ))
+        s.add(Message(
+            id=new_id("msg"),
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_htn.id,
+            encounter_id=enc_htn.id,
+            direction="outbound",
+            sender_role="clinician",
+            body_text="Your HbA1c was 7.8% on 3 May. Please recheck your HbA1c in 6 months — any weekday 8–10am at the clinic.",
+            created_at=now - timedelta(days=14),
+        ))
+        s.add(Message(
+            id=new_id("msg"),
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_htn.id,
+            encounter_id=enc_htn.id,
+            direction="inbound",
+            sender_role="patient",
+            body_text="Sent this morning's BP photo: 156/96. Feeling fine, no headache.",
+            created_at=now - timedelta(minutes=56),
+        ))
+
+        # Story C Variant: CHEUNG Wing-Kit (M 70) — Acute Flu A <24h with Unknown eGFR (Renal Warning Demo)
+        elderly_flu_text = (
+            "Patient Intake (Portal, 09:12 HKT)\n"
+            "Patient: CHEUNG, Wing-Kit (張永傑)  |  DOB: 12/04/1956 (70M)  |  HKID: A819XXX(X)\n\n"
+            "「尋晚開始發燒 38.3°C，今朝快速測試甲型流感陽性，全身骨痛同少少乾咳。無胸口痛、無氣促。」\n"
+            "Vitals: Temp 38.3°C · SpO2 97% · RAT Influenza A Positive · Onset < 24h · NKDA · No recent eGFR on file."
+        )
+        pat_elderly = Patient(
+            id="pat_cheung_elderly_flu",
+            tenant_id=DEMO_TENANT_1,
+            corporate_id=None,
+            campaign_id=None,
+            phone_hash=sha256_hex("+85291000012"),
+            phone_masked="****0012",
+            name_en="CHEUNG Wing-Kit",
+            name_zh="張永傑",
+            dob="1956-04-12",
+            sex="M",
+            hkid_masked="A819XXX(X)",
+            preferred_lang="zh-HK",
+            g6pd_deficient=False,
+            allergies_json=[],
+            current_meds_json=[],
+            weight_kg=66.0,
+            egfr=None,
+            ehealth_consent=True,
+            referral_code="REF-FLU012",
+            status="active",
+        )
+        s.add(pat_elderly)
+        s.flush()
+        enc_elderly = Encounter(
+            id="enc_elderly_flu",
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_elderly.id,
+            encounter_type="acute_flu",
+            status="pending_review",
+            chief_complaint_text=elderly_flu_text,
+            icd10_code="J10.1",
+            icpc2_code="R80",
+            snomed_codes_json=[{"code": "442696006", "display": "Influenza A"}],
+            clinical_note="70M Influenza A RAT+, onset <24h, Temp 38.3C, SpO2 97%, no red flags. No recent eGFR on file — confirm Oseltamivir 75mg vs 30mg BD.",
+            created_at=now - timedelta(minutes=18),
+        )
+        s.add(enc_elderly)
+        s.flush()
+        s.add(Proposal(
+            id="prop_elderly_flu",
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_elderly.id,
+            encounter_id=enc_elderly.id,
+            kind="consult_draft",
+            urgency=2,
+            status="pending_review",
+            sla_due_at=now + timedelta(hours=1),
+            protocol_id="acute_consult_draft_v1",
+            protocol_version="1.0.0",
+            payload_json={
+                "story_tag": "elderly_flu",
+                "title": "Influenza A, RAT positive, onset under 24 h (70M, eGFR unknown).",
+                "summary_points": [
+                    {"text": "Onset last night (<24h), within 48h antiviral window; Influenza A RAT positive.", "quote": "尋晚開始發燒 38.3°C，今朝快速測試甲型流感陽性"},
+                    {"text": "No chest pain or dyspnoea; SpO2 97%.", "quote": "無胸口痛、無氣促"},
+                ],
+                "case_sites": ["Central GP"],
+                "conflicts": [],
+                "draft": {
+                    "working_diagnosis": {"icd10": "J10.1", "icpc2": "R80", "display": "Influenza A with respiratory manifestations"},
+                    "suggested_medications": [
+                        {"drug": "oseltamivir", "display": "Oseltamivir 75 mg BD × 5 days", "dose_mg": 75, "frequency": "BD", "days": 5},
+                        {"drug": "paracetamol", "display": "Paracetamol 500 mg QDS PRN × 3 days", "dose_mg": 500, "frequency": "QDS", "days": 3},
+                    ],
+                    "suggested_sick_leave": {"days_off": 2, "start_date": today_hkt.isoformat()},
+                    "patient_summary_draft": "張先生你好，你甲型流感快速測試陽性且發病未滿 24 小時，適合盡早開始抗病毒藥特敏福療程。請多休息及補充水份；如出現氣促、胸悶或第 3 日仍持續高燒，請即時聯絡診所或前往急症室。",
+                },
+            },
+            source_quotes_json=[
+                {"field": "Onset & RAT", "quote": "尋晚開始發燒 38.3°C，今朝快速測試甲型流感陽性", "source": "Patient Portal"},
+                {"field": "Red-flag negatives", "quote": "無胸口痛、無氣促", "source": "Patient Portal"},
+            ],
+            checks_json=[],
+            created_at=now - timedelta(minutes=17),
+        ))
+
         # Seed one clean non-clinical WhatsApp doorbell message for demo inspection
         s.add(WhatsAppOutbox(
             id=new_id("wao"),
@@ -524,7 +872,7 @@ def seed_demo_data(db: Database, vault: DocumentVault, runtime: AcuteHarnessRunt
             action="demo.seeded",
             resource_type="Tenant",
             resource_id=DEMO_TENANT_1,
-            metadata={"synthetic_only": True, "patients": len(synthetic_patients)},
+            metadata={"synthetic_only": True, "patients": len(synthetic_patients) + 3},
         )
 
     # Seed Tenant 2 with one clinician & one patient (for cross-tenant RLS verification & multi-clinic demo)

@@ -17,8 +17,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Create non-root runtime user
-RUN groupadd --system app && useradd --system --gid app --home /app app
+# Install Noto CJK fonts for native Traditional Chinese MCHK sick-leave PDFs & create non-root user
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-noto-cjk && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app && useradd --system --gid app --home /app app
 
 COPY pyproject.toml ./
 COPY backend/ ./backend/

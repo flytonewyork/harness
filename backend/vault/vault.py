@@ -80,8 +80,9 @@ class LocalFSBackend:
 
     def _path(self, key: str) -> Path:
         safe = key.replace("..", "").lstrip("/")
-        p = (self.root / safe).resolve()
-        if not str(p).startswith(str(self.root.resolve())):
+        root_resolved = self.root.resolve()
+        p = (root_resolved / safe).resolve()
+        if not p.is_relative_to(root_resolved):
             raise VaultError("Path traversal rejected")
         p.parent.mkdir(parents=True, exist_ok=True)
         return p

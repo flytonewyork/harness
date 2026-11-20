@@ -70,8 +70,13 @@ class PHIScrubber:
 
 class PHISafeLogFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        if isinstance(record.msg, str):
-            record.msg, _ = PHIScrubber.scrub(record.msg)
+        try:
+            rendered = record.getMessage()
+        except Exception:
+            rendered = str(record.msg)
+        scrubbed, _ = PHIScrubber.scrub(rendered)
+        record.msg = scrubbed
+        record.args = ()
         return True
 
 

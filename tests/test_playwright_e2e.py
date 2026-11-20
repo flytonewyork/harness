@@ -1,16 +1,17 @@
-"""Full-stack headless Chromium Playwright E2E test across ALL 4 surfaces of Clinic AI Harness.
+"""Full-stack headless Chromium Playwright E2E across the Minimalist 2-Surface Clinical OS.
 
-Boots a real uvicorn FastAPI server backed by real PostgreSQL 15 + FORCE RLS + AES-256-GCM Vault
-serving the compiled React/TypeScript/Vite bundle from `frontend/dist`, then drives a real Chromium
-browser through:
-1. Surface 1 (WhatsApp Doorbell): QR campaign scan, zero-leakage badge, GET preview (token unburned), open PWA
-2. Surface 2 (Patient PWA): POST magic-link redeem, 6-digit OTP step-up, HK PDPO PICS & granular consents,
-   bilingual intake + 999 red-flag crisis banner, teleconsult booking, flu vax booking, Vault PDF cert,
-   e-script fulfilment, 48h check-in, PDPO DAR HL7 FHIR R4 export, DCR, statutory deletion hold
-3. Surface 3 (Clinician Console): prioritized queue (red flags first), source quotes, G6PD/allergy badges,
-   live Cap. 134 hard-block check, automation-bias friction, sign cert+Rx, audit trail
-4. Surface 4 (Clinic Ops Admin & Corporate Admin): asia-east2 residency, AI kill switch, protocol governance,
-   invoicing, audit log, corporate <5 k-anonymity suppression & zero individual PII in DOM
+Boots a real uvicorn FastAPI server backed by PostgreSQL 15 + FORCE RLS + AES-256-GCM Vault
+serving the compiled React/TypeScript/Vite bundle from `frontend/dist`, and drives real Chromium
+through all 4 rationalised MVP demo stories with ZERO console/page errors:
+1. Story A (Dr. Lam — QEH Discharge Conflict): Paper.tsx verbatim highlight, Warfarin DoseConflict
+   resolution (1/2/Q), duplicate statin inline warning, Sign & send + 10-second Undo (Z).
+2. Story B (Chronic HTN BP Drift): Doctor minimalist 30-day BP sparkline -> Patient 0-tab Companion
+   (mobile viewport), pinned Now card, monitor-photo BP confirm, protocol nudge, grounded Q&A with
+   tracked SLA, single Your Record sheet.
+3. Story C (Nurse Handoff + 70M Unknown-eGFR Renal Flu Variant): Nurse Rachel Chan prep & 'Ready
+   for Dr Lam' (zero Sign button), Dr. Lam inline renal 30mg BD choice & sign-off.
+4. Story D (Safety & Ops): Bundled HK Mental-Health crisis screen (2389 2222 / 2896 0000 / 2382 0000
+   + server-acked paging), Ops /c/settings Kill Switch -> FeedLine banner, deterministic ⌘K palette.
 """
 from __future__ import annotations
 
@@ -64,6 +65,7 @@ def live_server():
             **os.environ,
             "PORT": str(port),
             "HARNESS_ENV": "staging",
+            "HARNESS_RUNTIME_MODE": "demo",
             "DEMO_MODE": "true",
             "DEMO_SHOW_OTP": "true",
             "VAULT_LOCAL_DIR": vault_dir,
@@ -78,9 +80,10 @@ def live_server():
         )
         try:
             _wait_health(base_url)
-            # Ensure fresh deterministic seeded state
+            # Ensure fresh deterministic seeded state before E2E
             req = urllib.request.Request(f"{base_url}/api/v1/demo/reset", method="POST")
-            urllib.request.urlopen(req, timeout=10).read()
+            with urllib.request.urlopen(req, timeout=15) as r:
+                assert r.status == 200
             yield base_url
         finally:
             proc.terminate()
@@ -90,178 +93,151 @@ def live_server():
                 proc.kill()
 
 
-def test_four_surfaces_end_to_end_in_chromium(live_server: str):
-    page_errors: list[str] = []
+def test_minimalist_two_surface_e2e_all_demo_stories(live_server: str):
+    shot_dir = Path(os.environ["E2E_SCREENSHOT_DIR"]) if os.environ.get("E2E_SCREENSHOT_DIR") else None
+    if shot_dir:
+        shot_dir.mkdir(parents=True, exist_ok=True)
+
     console_errors: list[str] = []
+    page_errors: list[str] = []
 
-    with playwright_sync.sync_playwright() as p:
-        browser = p.chromium.launch(executable_path=CHROMIUM_BIN, headless=True, args=["--no-sandbox"])
-        context = browser.new_context(viewport={"width": 1366, "height": 900})
-        page = context.new_page()
+    with playwright_sync.sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=CHROMIUM_BIN, headless=True)
+        ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+        page = ctx.new_page()
+        page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
         page.on("pageerror", lambda err: page_errors.append(str(err)))
-        page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
 
-        # ------------------------------------------------------------------ 1. WHATSAPP DOORBELL
-        page.goto(f"{live_server}/wa", wait_until="networkidle")
-        page.get_by_test_id("surface-wa").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("wa-zero-leakage-badge").wait_for(state="visible")
-        page.get_by_test_id("wa-phone-input").fill("+85296881122")
-        page.get_by_test_id("wa-simulate-scan-btn").click()
+        # ------------------------------------------------------------------
+        # STORY A: Dr. Lam — QEH Discharge Warfarin Conflict + Duplicate Statin + 10s Undo
+        # ------------------------------------------------------------------
+        page.goto(f"{live_server}/c", wait_until="networkidle")
+        page.wait_for_selector('[data-testid="staff-workspace"]', timeout=10000)
 
-        # Verify magic-link card appears, GET preview does not burn token, then open Patient PWA
-        page.get_by_test_id("wa-magic-link-card").first.wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("wa-preview-magic-btn").first.click()
-        page.get_by_test_id("wa-magic-preview-result").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("wa-open-magic-btn").first.click()
+        # Open Queue and pick QEH Discharge item
+        page.click('[data-testid="queue-toggle-btn"]')
+        page.wait_for_selector('[data-testid="queue-item-prop_qeh_discharge"]', timeout=10000)
+        page.click('[data-testid="queue-item-prop_qeh_discharge"]')
+        page.wait_for_selector('[data-testid="conflict-card-conf_warfarin_qeh"]', timeout=10000)
 
-        # ------------------------------------------------------------------ 2. PATIENT PWA (POST REDEEM + OTP + PDPO ONBOARD)
-        page.get_by_test_id("surface-patient-auth").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("magic-redeem-btn").click()
-        page.get_by_test_id("otp-step-screen").wait_for(state="visible", timeout=10000)
+        # Verify Paper.tsx highlights verbatim quote on click & Sign CTA requires settling conflict
+        assert "Settle 1 conflict" in page.inner_text('[data-testid="sign-and-send-btn"]')
+        assert page.is_disabled('[data-testid="sign-and-send-btn"]')
+        page.locator('.v2-quote-link').first.click()
+        page.wait_for_selector('mark[data-focus="true"]', timeout=5000)
+        if shot_dir:
+            page.screenshot(path=str(shot_dir / "e2e_staff_qeh_conflict.png"))
 
-        otp_hint = page.get_by_test_id("otp-demo-hint").inner_text()
-        digits = "".join(ch for ch in otp_hint if ch.isdigit())
-        otp_code = digits[-6:]
-        assert len(otp_code) == 6, f"Could not read 6-digit demo OTP from: {otp_hint}"
-        page.get_by_test_id("otp-code-input").fill(otp_code)
-        page.get_by_test_id("otp-verify-btn").click()
+        # Resolve Warfarin conflict -> Sign unlocks -> Sign -> Undo within 10s!
+        page.click('[data-testid="resolve-conflict-1"]')
+        page.wait_for_selector('[data-testid="conflict-resolved-conf_warfarin_qeh"]', timeout=10000)
+        page.fill('[data-testid="override-reason-input"]', "Stopping GP Simvastatin 20mg; continuing QEH Atorvastatin 40mg.")
+        page.click('[data-testid="sign-and-send-btn"]')
+        page.wait_for_selector('[data-testid="undo-send-btn"]', timeout=10000)
+        assert "Undo Z" in page.inner_text('[data-testid="undo-send-btn"]')
+        page.click('[data-testid="undo-send-btn"]')
+        page.wait_for_selector('[data-testid="sign-and-send-btn"]', timeout=10000)
 
-        # Onboarding + HK PDPO PICS & granular consent
-        page.get_by_test_id("surface-patient-onboard").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("onboard-name-en").fill("MAK Siu-Ling")
-        page.get_by_test_id("onboard-name-zh").fill("麥小玲")
-        page.get_by_test_id("onboard-dob").fill("1992-05-20")
-        page.get_by_test_id("onboard-hkid").fill("E441920(3)")
-        page.get_by_test_id("onboard-allergies").fill("Penicillin")
-        page.get_by_test_id("onboard-g6pd").check()
-        # Check required clinical_care & ai_assisted_intake consents if not already checked
-        for cid in ("consent-clinical_care", "consent-ai_assisted_intake", "consent-ehealth_sharing"):
-            cb = page.get_by_test_id(cid)
-            if cb.count() > 0 and not cb.is_checked():
-                cb.check()
-        page.get_by_test_id("onboard-submit-btn").click()
+        # Check VerifyLine popover & deterministic ⌘K palette
+        page.click('[data-testid="verify-line-btn"]')
+        page.wait_for_selector('[data-testid="verify-popover"]', timeout=5000)
+        page.click('[data-testid="verify-line-btn"]')
+        page.click('[data-testid="cmd-k-btn"]')
+        page.wait_for_selector('[data-testid="command-palette"]', timeout=5000)
+        page.keyboard.press("Escape")
 
-        # Patient Portal unlocked -> test Cantonese red-flag emergency banner + normal flu intake
-        page.get_by_test_id("surface-patient-portal").wait_for(state="visible", timeout=10000)
-        intake_box = page.locator("textarea").first
-        intake_box.fill("發燒39.4度，而家心口痛同唞唔到氣，講唔到成句。")
-        page.locator("[data-testid='pt-panel-intake'] button[type='submit']").click()
-        page.get_by_test_id("crisis-banner").wait_for(state="visible", timeout=10000)
-        assert "999" in page.get_by_test_id("crisis-banner").inner_text()
+        # ------------------------------------------------------------------
+        # STORY B (Staff side): Chronic HTN BP Drift Sparkline
+        # ------------------------------------------------------------------
+        page.click('[data-testid="queue-toggle-btn"]')
+        page.click('[data-testid="queue-item-prop_htn_bp_drift"]')
+        page.wait_for_selector('[data-testid="bp-sparkline"]', timeout=10000)
+        if shot_dir:
+            page.screenshot(path=str(shot_dir / "e2e_staff_htn_drift.png"))
 
-        # Submit ordinary flu intake
-        intake_box.fill("Fever 38.5C, dry cough and sore throat for 2 days. Flu A RAT positive.")
-        page.locator("[data-testid='pt-panel-intake'] button[type='submit']").click()
-        page.get_by_test_id("intake-success-alert").wait_for(state="visible", timeout=10000)
-
-        # Book teleconsult slot + seasonal flu vaccination (CVX)
-        page.get_by_test_id("pt-tab-booking").click()
-        page.get_by_test_id("pt-panel-booking").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("book-slot-btn").first.click()
-        page.wait_for_timeout(400)
-        page.get_by_test_id("book-fluvax-btn").click()
-        page.get_by_test_id("booked-fluvax-item").first.wait_for(state="visible", timeout=10000)
-
-        # Check Privacy & PDPO DAR HL7 FHIR R4 Export + Submit Data Correction Request (DCR)
-        page.get_by_test_id("pt-tab-privacy").click()
-        page.get_by_test_id("patient-referral-code").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("pdpo-export-fhir-btn").click()
-        page.get_by_test_id("fhir-bundle-preview").wait_for(state="visible", timeout=10000)
-        assert '"resourceType": "Bundle"' in page.get_by_test_id("fhir-bundle-preview").inner_text()
-        page.get_by_test_id("pdpo-dcr-value").fill("Add peanut allergy")
-        page.get_by_test_id("pdpo-dcr-reason").fill("Confirmed by allergist report")
-        page.get_by_test_id("pdpo-dcr-submit-btn").click()
+        # ------------------------------------------------------------------
+        # STORY C: Nurse Rachel Chan Handoff -> Dr. Lam 70M Elderly Flu Renal Variant
+        # ------------------------------------------------------------------
+        page.click('[data-testid="demo-dock-pill"]')
+        page.click('[data-testid="switch-nurse-nurse_chan"]')
+        page.wait_for_selector('[data-testid="staff-workspace"]', timeout=10000)
+        page.click('[data-testid="queue-toggle-btn"]')
+        page.click('[data-testid="queue-item-prop_elderly_flu"]')
+        page.wait_for_selector('[data-testid="nurse-ready-btn"]', timeout=10000)
+        assert page.locator('[data-testid="sign-and-send-btn"]').count() == 0
+        page.fill('[data-testid="nurse-prep-input"]', "Flu A RAT+ <24h confirmed; no recent eGFR on file.")
+        page.click('[data-testid="nurse-ready-btn"]')
         page.wait_for_timeout(400)
 
-        # ------------------------------------------------------------------ 3. CLINICIAN CONSOLE
-        page.get_by_test_id("demo-persona-select").select_option(value="clinician:doc_dr_lam")
-        page.get_by_test_id("demo-login-btn").click()
-        page.get_by_test_id("nav-surface-clinician").click()
-        page.get_by_test_id("surface-clinician").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("clinician-mchk-badge").wait_for(state="visible")
-        page.get_by_test_id("clinician-queue-list").wait_for(state="visible")
-        page.get_by_test_id("clinician-filter-redflags").click()
-        page.get_by_test_id("clinician-filter-pending").click()
+        # Switch back to Dr. Lam -> verify Nurse Ready + renal quick choice -> sign
+        page.click('[data-testid="demo-dock-pill"]')
+        page.click('[data-testid="switch-clinician-doc_dr_lam"]')
+        page.wait_for_selector('[data-testid="staff-workspace"]', timeout=10000)
+        page.click('[data-testid="queue-toggle-btn"]')
+        page.click('[data-testid="queue-item-prop_elderly_flu"]')
+        page.wait_for_selector('[data-testid="sign-and-send-btn"]', timeout=10000)
+        body_text = page.inner_text('[data-testid="staff-workspace"]')
+        assert "Prepared by Nurse Rachel Chan" in body_text
+        assert "Renal function unknown at 70" in body_text
+        page.get_by_role("button", name="Switch to 30 mg BD (renal dose)").click()
+        page.click('[data-testid="sign-and-send-btn"]')
+        page.wait_for_selector('[data-testid="undo-send-btn"]', timeout=10000)
 
-        # Click the seeded pending flu consult proposal (WONG Siu-Mei, G6PD+ & Penicillin allergy)
-        page.get_by_test_id("queue-item-prop_pat_wong_flu_g6pd").click()
-        page.get_by_test_id("clinician-patient-card").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("clinician-g6pd-badge").wait_for(state="visible")
-        page.get_by_test_id("clinician-source-quotes").wait_for(state="visible")
-        page.get_by_test_id("clinician-cds-card").wait_for(state="visible", timeout=10000)
+        # ------------------------------------------------------------------
+        # STORY D1: Clinic Ops /c/settings Kill Switch -> FeedLine Banner
+        # ------------------------------------------------------------------
+        page.click('[data-testid="demo-dock-pill"]')
+        page.click('[data-testid="switch-clinic_admin-adm_central_ops"]')
+        page.wait_for_selector('[data-testid="clinic-settings-page"]', timeout=10000)
+        assert "HARNESS_RUNTIME_MODE" in page.inner_text('[data-testid="clinic-settings-page"]')
+        page.click('[data-testid="toggle-kill-switch-btn"]')
+        page.wait_for_selector('[data-testid="feed-health-banner"]', timeout=10000)
+        assert "AI drafting is off. Every item is manual." in page.inner_text('[data-testid="feed-health-banner"]')
+        # Re-enable AI cleanly
+        page.click('[data-testid="toggle-kill-switch-btn"]')
+        page.wait_for_timeout(300)
 
-        # Send secure in-portal clinician reply (zero clinical text on WhatsApp)
-        page.get_by_test_id("clinician-reply-input").fill("Rest well, hydrate, and return to A&E if dyspnoea develops.")
-        page.get_by_test_id("clinician-reply-btn").click()
+        # ------------------------------------------------------------------
+        # STORY B (Patient Mobile) + STORY D2 (Dedicated Mental-Health Crisis Screen)
+        # ------------------------------------------------------------------
+        page.set_viewport_size({"width": 390, "height": 844})
+        page.click('[data-testid="demo-dock-pill"]')
+        page.click('[data-testid="switch-patient-pat_ho_htn_drift"]')
+        page.wait_for_selector('[data-testid="patient-companion"]', timeout=10000)
+        assert "under 135/85" in page.inner_text('[data-testid="patient-goal-line"]')
+        if shot_dir:
+            page.screenshot(path=str(shot_dir / "e2e_patient_companion_mobile.png"))
+
+        # Confirm monitor photo BP reading
+        page.click('[data-testid="bp-photo-btn"]')
+        page.click('[data-testid="confirm-bp-btn"]')
         page.wait_for_timeout(400)
-        assert "Rest well, hydrate" in page.get_by_test_id("clinician-message-thread").inner_text()
 
-        # Live deterministic Rx safety check: add Cap. 134 codeine -> must show HARD BLOCK!
-        page.get_by_test_id("clinician-add-drug-select").select_option("codeine")
-        page.get_by_test_id("clinician-add-drug-btn").click()
-        page.get_by_test_id("clinician-run-rx-safety-btn").click()
-        page.get_by_test_id("rx-safety-findings").wait_for(state="visible", timeout=10000)
-        assert "HARD" in page.get_by_test_id("rx-safety-findings").inner_text().upper() or "CAP" in page.get_by_test_id("rx-safety-findings").inner_text().upper()
-
-        # Remove codeine, verify paracetamol passes, confirm automation-bias friction, sign cert + Rx!
-        page.get_by_test_id("rx-remove-codeine").click()
-        page.get_by_test_id("clinician-run-rx-safety-btn").click()
-        friction_cb = page.get_by_test_id("clinician-friction-checkbox")
-        if friction_cb.count() > 0 and friction_cb.is_visible():
-            friction_cb.check()
-        page.get_by_test_id("clinician-approve-btn").click()
-        page.wait_for_timeout(800)
-
-        # Check Clinician Audit Trail tab
-        page.get_by_test_id("clinician-tab-audit").click()
-        page.get_by_test_id("clinician-panel-audit").wait_for(state="visible", timeout=10000)
-
-        # ------------------------------------------------------------------ 4A. CLINIC OPS ADMIN
-        page.get_by_test_id("demo-persona-select").select_option(value="clinic_admin:adm_central_ops")
-        page.get_by_test_id("demo-login-btn").click()
-        page.get_by_test_id("nav-surface-admin").click()
-        page.get_by_test_id("surface-admin").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("admin-residency-card").wait_for(state="visible")
-        assert "asia-east2" in page.get_by_test_id("admin-residency-card").inner_text()
-        page.get_by_test_id("admin-protocols-section").wait_for(state="visible")
-
-        # Toggle AI Kill Switch off and back on
-        page.get_by_test_id("admin-kill-switch-btn").click()
+        # Grounded Q&A turn with tracked SLA
+        page.fill('[data-testid="patient-composer-input"]', "Should I double my amlodipine tonight?")
+        page.click('[data-testid="patient-send-btn"]')
         page.wait_for_timeout(500)
-        page.get_by_test_id("admin-kill-switch-btn").click()
-        page.wait_for_timeout(500)
+        assert "Dr. Kenneth Lam reviews by" in page.inner_text('[data-testid="patient-timeline"]')
 
-        # Check Observability & PDPO Ops tab: SLO counters, Outbox sweep, and DCR approval
-        page.get_by_test_id("admin-tab-observability").click()
-        page.get_by_test_id("admin-observability-panel").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("admin-safety-counters-card").wait_for(state="visible")
-        page.get_by_test_id("admin-process-outbox-btn").click()
-        page.wait_for_timeout(400)
-        page.get_by_test_id("admin-dcr-table").wait_for(state="visible")
-        approve_dcr_btn = page.locator("[data-testid^='admin-dcr-approve-']").first
-        if approve_dcr_btn.count() > 0:
-            approve_dcr_btn.click()
-            page.wait_for_timeout(400)
-            assert "approved_addendum" in page.get_by_test_id("admin-dcr-table").inner_text()
+        # Single "Your record" sheet
+        page.click('[data-testid="your-record-btn"]')
+        page.wait_for_selector('role=dialog', timeout=5000)
+        page.keyboard.press("Escape")
 
-        # Check Invoicing & Immutable Audit tabs
-        page.get_by_test_id("admin-tab-invoicing").click()
-        page.get_by_test_id("admin-invoicing-table").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("admin-tab-audit").click()
-        page.get_by_test_id("admin-audit-table").wait_for(state="visible", timeout=10000)
-
-        # ------------------------------------------------------------------ 4B. CORPORATE ADMIN (k-ANONYMITY <5 & ZERO PII)
-        page.get_by_test_id("demo-persona-select").select_option(value="corporate_admin:corp_pacific_bio")
-        page.get_by_test_id("demo-login-btn").click()
-        page.get_by_test_id("nav-surface-corporate").click()
-        page.get_by_test_id("surface-corporate").wait_for(state="visible", timeout=10000)
-        page.get_by_test_id("corp-privacy-guarantee").wait_for(state="visible")
-        corp_dom = page.get_by_test_id("surface-corporate").inner_text()
-        assert "<5" in corp_dom, f"Expected k-anonymity <5 suppression in Corporate Admin DOM, got: {corp_dom[:400]}"
-        for forbidden in ("CHAN Ka-Ho", "WONG Siu-Mei", "MAK Siu-Ling", "Warfarin", "J11.1"):
-            assert forbidden not in corp_dom, f"Employer PII leaked in Corporate DOM: {forbidden}"
+        # Mental-Health crisis screen (dedicated, separate from medical 999, verified HK hotlines)
+        page.fill('[data-testid="patient-composer-input"]', "I cannot cope anymore and want to end my life")
+        page.click('[data-testid="patient-send-btn"]')
+        page.wait_for_selector('[data-testid="crisis-mental-health"]', timeout=10000)
+        mh_text = page.inner_text('[data-testid="crisis-mental-health"]')
+        assert "2389 2222" in mh_text
+        assert "2896 0000" in mh_text
+        assert "2382 0000" in mh_text
+        assert "was paged at" in mh_text
+        if shot_dir:
+            page.screenshot(path=str(shot_dir / "e2e_crisis_mental_health.png"))
+        page.click('[data-testid="crisis-ack-btn"]')
 
         browser.close()
 
-    assert not page_errors, f"Uncaught JS page errors: {page_errors}"
-    assert not console_errors, f"Browser console errors: {console_errors}"
+    assert not console_errors, f"Console errors detected: {console_errors}"
+    assert not page_errors, f"Uncaught JS page errors detected: {page_errors}"

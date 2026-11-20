@@ -83,19 +83,32 @@ _NAME_PATTERNS = [
 
 
 def doc_identifiers(text: str) -> dict:
-    """Patient identifiers printed on a document, in any of the layouts used here (labs, HA, imaging, letters,
-    screening, phone memos). Returns any of: dob (yyyy-mm-dd), hkid (letter + first 3 digits), name (token set)."""
-    out = {}
-    m = re.search(r"(?:DOB|D\.O\.B\.)\s*:?\s*(\d{2})/(\d{2})/(\d{4})", text)
-    if m:
-        out["dob"] = f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
-    else:
-        m = re.search(r"(?:DOB|D\.O\.B\.)\s*:?\s*(\d{4}-\d{2}-\d{2})", text)
-        if m:
-            out["dob"] = m.group(1)
-    m = re.search(r"\b([A-Z]\d{3})XXX\(X\)", text)
-    if m:
-        out["hkid"] = m.group(1)
+    """Patient identifiers printed on a document, scanning all pages to detect multi-patient misfax collisions."""
+    out: dict = {}
+    dobs: list[str] = []
+    for m in re.finditer(r"(?:DOB|D\.O\.B\.)\s*:?\s*(\d{2})/(\d{2})/(\d{4})", text):
+        d = f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
+        if d not in dobs:
+            dobs.append(d)
+    for m in re.finditer(r"(?:DOB|D\.O\.B\.)\s*:?\s*(\d{4}-\d{2}-\d{2})", text):
+        d = m.group(1)
+        if d not in dobs:
+            dobs.append(d)
+    if dobs:
+        out["dob"] = dobs[0]
+        if len(dobs) > 1:
+            out["dob_collision"] = dobs
+
+    hkids: list[str] = []
+    for m in re.finditer(r"\b([A-Z]\d{3})XXX\(X\)", text):
+        h = m.group(1)
+        if h not in hkids:
+            hkids.append(h)
+    if hkids:
+        out["hkid"] = hkids[0]
+        if len(hkids) > 1:
+            out["hkid_collision"] = hkids
+
     for pat in _NAME_PATTERNS:
         m = pat.search(text)
         if m:
@@ -108,13 +121,16 @@ def identity_of(card: dict, rec: dict, patient_id: str) -> tuple[str, str]:
     """Does this document belong to the item's patient, judged only from what is visible: the chart it is filed to
     (`rec['patient_id']`) and the identifiers printed on it, against the patient's card from the port."""
     ids = doc_identifiers(rec.get("text") or "")
+    kind = (rec.get("kind") or "record").replace("_", " ")
+    if "hkid_collision" in ids or "dob_collision" in ids:
+        return "fail", f"{kind} contains multiple distinct patient identifiers across pages (multi_patient_document_collision)"
     mine = {"dob": card.get("dob") or "", "hkid": (card.get("hkid") or "")[:4],
             "name": set((card.get("name_en") or "").upper().replace("-", " ").split())}
     label = {"dob": "DOB", "hkid": "HKID", "name": "name"}
-    ok = [k for k in ids if (ids[k] <= mine[k] if k == "name" else ids[k] == mine[k])]
-    bad = [k for k in ids if k not in ok]
+    cmp_keys = [k for k in ("dob", "hkid", "name") if k in ids]
+    ok = [k for k in cmp_keys if (ids[k] <= mine[k] if k == "name" else ids[k] == mine[k])]
+    bad = [k for k in cmp_keys if k not in ok]
     filed = rec.get("patient_id") == patient_id
-    kind = (rec.get("kind") or "record").replace("_", " ")
     if bad:
         return "fail", f"{kind} names a different patient: {', '.join(label[k] for k in bad)} do not match"
     if filed:

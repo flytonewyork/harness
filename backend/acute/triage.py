@@ -1754,14 +1754,16 @@ class AcuteHarnessRuntime:
         lang: str = "auto",
         vitals: dict[str, Any] | None = None,
         tenant_id: str = "default",
+        kill_switch: bool | None = None,
     ) -> TriageResult:
+        eff_kill = self.kill_switch if kill_switch is None else bool(kill_switch)
         return screen_acute_message(
             text,
             lang=lang,
             gateway=self.gateway,
             vitals=vitals,
             enable_model_screen=self.enable_model_screen,
-            kill_switch=self.kill_switch,
+            kill_switch=eff_kill,
             tenant_id=tenant_id,
             model_id=self.default_model_id,
             provider=self.default_provider,
@@ -1775,12 +1777,14 @@ class AcuteHarnessRuntime:
         lang: str = "auto",
         tenant_id: str = "default",
         use_gateway: bool = False,
+        kill_switch: bool | None = None,
     ) -> IntakeExtraction:
+        eff_kill = self.kill_switch if kill_switch is None else bool(kill_switch)
         return extract_intake(
             text,
             vitals=vitals,
             lang=lang,
-            gateway=self.gateway if (use_gateway and not self.kill_switch) else None,
+            gateway=self.gateway if (use_gateway and not eff_kill) else None,
             tenant_id=tenant_id,
             model_id=self.default_model_id,
             provider=self.default_provider,
@@ -1793,11 +1797,13 @@ class AcuteHarnessRuntime:
         *,
         lang: str | None = None,
         tenant_id: str = "default",
+        kill_switch: bool | None = None,
     ) -> DraftBundle:
+        eff_kill = self.kill_switch if kill_switch is None else bool(kill_switch)
         return draft_consult_proposal(
             intake,
             patient,
-            gateway=None if self.kill_switch else self.gateway,
+            gateway=None if eff_kill else self.gateway,
             lang=lang,
             tenant_id=tenant_id,
         )
@@ -1810,9 +1816,10 @@ class AcuteHarnessRuntime:
         patient: dict[str, Any] | None = None,
         lang: str = "auto",
         tenant_id: str = "default",
+        kill_switch: bool | None = None,
     ) -> dict[str, Any]:
         """Run full L1 acute intake pipeline: union-only red-flag screen -> short-circuit emergency OR extract+draft."""
-        triage = self.screen_message(text, lang=lang, vitals=vitals, tenant_id=tenant_id)
+        triage = self.screen_message(text, lang=lang, vitals=vitals, tenant_id=tenant_id, kill_switch=kill_switch)
         if triage.is_emergency:
             return {
                 "triage": triage,
@@ -1821,8 +1828,8 @@ class AcuteHarnessRuntime:
                 "patient_reply": triage.banner,
                 "escalated": True,
             }
-        intake = self.extract(text, vitals=vitals, lang=lang, tenant_id=tenant_id)
-        draft = self.draft(intake, patient or {}, lang=None if lang == "auto" else lang, tenant_id=tenant_id)
+        intake = self.extract(text, vitals=vitals, lang=lang, tenant_id=tenant_id, kill_switch=kill_switch)
+        draft = self.draft(intake, patient or {}, lang=None if lang == "auto" else lang, tenant_id=tenant_id, kill_switch=kill_switch)
         return {
             "triage": triage,
             "intake": intake,

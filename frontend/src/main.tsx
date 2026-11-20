@@ -1,6 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import AcuteApp from "./acute/AcuteApp";
-import "./styles.css";
+import AppShell from "./v2/AppShell";
 
-createRoot(document.getElementById("root")!).render(<StrictMode><AcuteApp /></StrictMode>);
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <AppShell />
+  </StrictMode>,
+);

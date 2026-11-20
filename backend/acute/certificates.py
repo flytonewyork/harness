@@ -31,11 +31,34 @@ MCHK_ATTESTATION = (
 )
 
 
+_CJK_FONT_REGULAR = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+_CJK_FONT_BOLD = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
+
+
+def _has_non_latin1(value: str) -> bool:
+    if not value:
+        return False
+    try:
+        value.encode("latin-1")
+        return False
+    except UnicodeEncodeError:
+        return True
+
+
 def _to_latin1_safe(value: str) -> str:
     """Ensure strings render cleanly with standard PDF Helvetica core fonts."""
     if not value:
         return ""
     return value.encode("latin-1", errors="replace").decode("latin-1")
+
+
+def _pdf_text(pdf: FPDF, style: str, size: float, text: str, has_cjk_font: bool) -> str:
+    """Select NotoCJK when text contains CJK/Unicode characters so Chinese names never turn into '???'."""
+    if has_cjk_font and _has_non_latin1(text):
+        pdf.set_font("NotoCJK", "B" if "B" in style else "", size)
+        return text
+    pdf.set_font("Helvetica", style, size)
+    return _to_latin1_safe(text)
 
 
 def _parse_iso_date(val: str | date | datetime, field_name: str) -> date:
@@ -182,9 +205,18 @@ def generate_sick_leave_pdf(
         issued_at_iso=issued_iso,
     )
 
+    import os
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_compression(False)
     pdf.set_auto_page_break(auto=True, margin=18)
+    has_cjk_font = False
+    if any(
+        _has_non_latin1(s or "")
+        for s in (clinic_name, patient_name, doctor_name, resolved_diag_display, clinical_remarks)
+    ) and os.path.exists(_CJK_FONT_REGULAR):
+        pdf.add_font("NotoCJK", "", _CJK_FONT_REGULAR)
+        pdf.add_font("NotoCJK", "B", _CJK_FONT_BOLD if os.path.exists(_CJK_FONT_BOLD) else _CJK_FONT_REGULAR)
+        has_cjk_font = True
     pdf.add_page()
 
     # Header banner
@@ -192,8 +224,7 @@ def generate_sick_leave_pdf(
     pdf.rect(10, 10, 190, 26, style="F")
     pdf.set_xy(15, 14)
     pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Helvetica", "B", 15)
-    pdf.cell(180, 8, _to_latin1_safe(clinic_name.strip()), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(180, 8, _pdf_text(pdf, "B", 15, clinic_name.strip(), has_cjk_font), new_x="LMARGIN", new_y="NEXT")
     pdf.set_x(15)
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(
@@ -220,8 +251,7 @@ def generate_sick_leave_pdf(
     pdf.cell(0, 7, "1. PATIENT PARTICULARS", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(50, 7, "Patient Full Name:")
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 7, _to_latin1_safe(patient_name.strip()), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 7, _pdf_text(pdf, "B", 10, patient_name.strip(), has_cjk_font), new_x="LMARGIN", new_y="NEXT")
 
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(50, 7, "HKID (Masked):")
@@ -263,13 +293,12 @@ def generate_sick_leave_pdf(
         diag_line = f"{resolved_diag_display} [ICD-10: {norm_icd10} | ICPC-2: {norm_icpc2}]"
     else:
         diag_line = "Withheld at patient request (confidential medical condition)"
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.multi_cell(0, 7, _to_latin1_safe(diag_line), new_x="LMARGIN", new_y="NEXT")
+    pdf.multi_cell(0, 7, _pdf_text(pdf, "B", 10, diag_line, has_cjk_font), new_x="LMARGIN", new_y="NEXT")
 
     if clinical_remarks and clinical_remarks.strip():
         pdf.set_font("Helvetica", "", 10)
         pdf.cell(50, 7, "Remarks:")
-        pdf.multi_cell(0, 7, _to_latin1_safe(clinical_remarks.strip()), new_x="LMARGIN", new_y="NEXT")
+        pdf.multi_cell(0, 7, _pdf_text(pdf, "", 10, clinical_remarks.strip(), has_cjk_font), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(6)
 
     # MCHK Attestation box
@@ -290,8 +319,7 @@ def generate_sick_leave_pdf(
     pdf.cell(0, 7, "3. REGISTERED MEDICAL PRACTITIONER", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(55, 7, "Doctor Full Name:")
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 7, _to_latin1_safe(doctor_name.strip()), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 7, _pdf_text(pdf, "B", 10, doctor_name.strip(), has_cjk_font), new_x="LMARGIN", new_y="NEXT")
 
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(55, 7, "MCHK Registration No.:")
@@ -300,8 +328,7 @@ def generate_sick_leave_pdf(
 
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(55, 7, "Clinic / Practice:")
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 7, _to_latin1_safe(clinic_name.strip()), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 7, _pdf_text(pdf, "B", 10, clinic_name.strip(), has_cjk_font), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(8)
 
     # Cryptographic verification footer

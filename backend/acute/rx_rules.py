@@ -1081,3 +1081,48 @@ def check_prescription_safety(
         status = "pass"
 
     return RxSafetyReport(status=status, findings=findings, enriched_items=enriched_items)
+
+
+_CROSS_CHART_THERAPEUTIC_CLASSES: dict[str, tuple[str, tuple[str, ...]]] = {
+    "statin": ("statin", ("atorvastatin", "simvastatin", "rosuvastatin", "pravastatin", "lovastatin", "fluvastatin", "lipitor", "zocor", "crestor")),
+    "nsaid": ("NSAID", ("ibuprofen", "naproxen", "diclofenac", "mefenamic", "celecoxib", "etoricoxib", "indomethacin", "meloxicam", "brufen", "voltaren")),
+    "ras_blocker": ("ACEi/ARB", ("lisinopril", "perindopril", "enalapril", "ramipril", "losartan", "valsartan", "telmisartan", "irbesartan", "candesartan")),
+    "anticoagulant": ("anticoagulant", ("warfarin", "apixaban", "rivaroxaban", "dabigatran", "edoxaban", "marevan", "eliquis", "xarelto", "pradaxa")),
+    "ccb": ("calcium-channel blocker", ("amlodipine", "nifedipine", "felodipine", "diltiazem", "verapamil", "norvasc")),
+}
+
+
+def check_duplicate_therapeutic_classes(medications: list[str]) -> list[RxFinding]:
+    """Detect duplicate drugs from the same therapeutic class across active/discharge medication lists."""
+    by_class: dict[str, list[tuple[str, str]]] = {}
+    for raw in medications:
+        low = str(raw or "").lower()
+        for cls_key, (cls_label, members) in _CROSS_CHART_THERAPEUTIC_CLASSES.items():
+            for member in members:
+                if member in low:
+                    by_class.setdefault(cls_key, []).append((member, str(raw).strip()))
+                    break
+
+    findings: list[RxFinding] = []
+    for cls_key, entries in by_class.items():
+        unique_members = []
+        for member, orig in entries:
+            if not any(m == member for m, _ in unique_members):
+                unique_members.append((member, orig))
+        if len(unique_members) >= 2:
+            cls_label = _CROSS_CHART_THERAPEUTIC_CLASSES[cls_key][0]
+            names = " + ".join(orig for _, orig in unique_members)
+            findings.append(
+                RxFinding(
+                    severity="override_required",
+                    code=f"duplicate_class_{cls_key}",
+                    drug=unique_members[0][0],
+                    message=(
+                        f"Duplicate {cls_label} on file: {names}. "
+                        "Stop the superseded agent before signing repeats."
+                    ),
+                    message_zh=f"重複{cls_label}類別藥物：{names}。簽發處方前請確認停用舊藥。",
+                    rule_ref=f"Duplicate Class Reconciliation ({cls_label})",
+                )
+            )
+    return findings

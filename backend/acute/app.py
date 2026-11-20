@@ -87,9 +87,16 @@ from .security import (
     valid_mchk_reg,
     verify_secret,
 )
+from .companion import (
+    HK_MENTAL_HEALTH_HOTLINES,
+    answer_companion_question,
+    classify_crisis,
+    next_clinic_review_sla,
+)
 from .seed import DEMO_TENANT_1, reset_and_seed, seed_demo_data
 from .terminology import CVX_VACCINES, HK_DIAGNOSES, validate_diagnosis_coding
 from .triage import AcuteHarnessRuntime
+from .verification import build_unified_checks, runtime_toggles
 from .workflows import DurableWorkflowEngine
 
 logger = configure_structured_logger("tmrw.acute")
@@ -353,6 +360,32 @@ class ClinicianDecideReq(BaseModel):
     override_reason: str | None = None
     escalation_reason: str | None = None
     edit_diff: dict[str, Any] | None = None
+    note: str = ""
+    patient_reply: str | None = None
+
+
+class NurseReadyReq(BaseModel):
+    prep_note: str = ""
+    vitals_note: str = ""
+
+
+class ResolveConflictReq(BaseModel):
+    conflict_id: str = Field(min_length=2, max_length=64)
+    choice: str = Field(pattern="^(1|2|Q)$")
+    note: str = ""
+
+
+class CompanionTurnReq(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    lang: str = Field(default="en", max_length=12)
+
+
+class CompanionReadingReq(BaseModel):
+    kind: str = Field(default="bp", pattern="^(bp|glucose|temp)$")
+    systolic: int | None = Field(default=None, ge=50, le=280)
+    diastolic: int | None = Field(default=None, ge=30, le=180)
+    value_num: float | None = None
+    source: str = Field(default="monitor_photo", max_length=40)
     note: str = ""
 
 
@@ -714,6 +747,7 @@ def create_acute_app(
             "ai_enabled": ai_enabled,
             "tenants_count": int(t_count),
             "outbox_worker_enabled": outbox_worker_enabled,
+            "runtime_toggles": runtime_toggles(),
             "compliance": ["HK-PDPO-Cap486", "MCHK-Telemedicine", "HL7-FHIR-R4", "ISO-27799"],
         }
 
@@ -732,7 +766,7 @@ def create_acute_app(
             ]
             pats = [
                 {"id": p.id, "name_en": p.name_en, "name_zh": p.name_zh, "phone_masked": p.phone_masked, "g6pd_deficient": p.g6pd_deficient, "allergies": p.allergies_json}
-                for p in s.scalars(select(Patient).limit(6)).all()
+                for p in s.scalars(select(Patient).limit(15)).all()
             ]
         flat_personas: list[dict[str, Any]] = []
         for p in pracs:
@@ -741,6 +775,13 @@ def create_acute_app(
                     "id": p["id"], "key": f"clinician:{p['id']}", "role": "clinician",
                     "label": f"{p['name_en']} ({p['mchk_reg_no']})", "label_zh": f"{p['name_zh'] or p['name_en']} ({p['mchk_reg_no']})",
                     "email": p["email"], "mchk_reg_no": p["mchk_reg_no"],
+                })
+        for p in pracs:
+            if p["role"] == "nurse":
+                flat_personas.append({
+                    "id": p["id"], "key": f"nurse:{p['id']}", "role": "nurse",
+                    "label": f"{p['name_en']}", "label_zh": f"{p['name_zh'] or p['name_en']}",
+                    "email": p["email"],
                 })
         for p in pracs:
             if p["role"] == "clinic_admin":
@@ -764,11 +805,13 @@ def create_acute_app(
         return {
             "demo_mode": True,
             "synthetic_only": True,
+            "runtime_toggles": runtime_toggles(),
             "personas": flat_personas,
             "tenants": tenants,
             "corporates": corps,
             "campaigns": camps,
             "clinicians": [p for p in pracs if p["role"] == "clinician"],
+            "nurses": [p for p in pracs if p["role"] == "nurse"],
             "clinic_admins": [p for p in pracs if p["role"] == "clinic_admin"],
             "corporate_admins": [{"id": c["id"], "name": c["name"], "email": c["admin_email"]} for c in corps],
             "sample_patients": pats,
@@ -786,7 +829,7 @@ def create_acute_app(
         if not role or not target_id:
             raise HTTPException(422, "Specify role & id or persona key ('role:id')")
         with database.tenant_session(DEMO_TENANT_1) as s:
-            if role in ("clinician", "clinic_admin"):
+            if role in ("clinician", "nurse", "clinic_admin"):
                 p = s.get(Practitioner, target_id)
                 if not p or p.role != role:
                     raise HTTPException(404, "Practitioner not found")
@@ -795,7 +838,7 @@ def create_acute_app(
                     "token": tok, "access_token": tok, "role": p.role, "tenant_id": p.tenant_id,
                     "subject_id": p.id, "user_id": p.id, "step_up_verified": True,
                     "name_en": p.name_en, "name_zh": p.name_zh, "mchk_reg_no": p.mchk_reg_no,
-                    "user": {"id": p.id, "name_en": p.name_en, "name_zh": p.name_zh, "mchk_reg_no": p.mchk_reg_no},
+                    "user": {"id": p.id, "name_en": p.name_en, "name_zh": p.name_zh, "mchk_reg_no": p.mchk_reg_no, "role": p.role},
                 }
             if role == "corporate_admin":
                 c = s.get(Corporate, target_id)
@@ -1349,8 +1392,7 @@ def create_acute_app(
             if rat_covid:
                 vitals["rat_covid"] = rat_covid
 
-            # Respect per-tenant kill switch: deterministic 999 red-flag screen STILL runs!
-            harness_rt.set_kill_switch(not ai_enabled)
+            # Respect per-tenant kill switch without mutating shared singleton state
             res = harness_rt.process_intake(
                 symptom_text,
                 vitals=vitals,
@@ -1361,6 +1403,7 @@ def create_acute_app(
                 },
                 lang=body.lang,
                 tenant_id=tenant_id,
+                kill_switch=not ai_enabled,
             )
             triage = res["triage"]
             intake = res["intake"]
@@ -1944,8 +1987,8 @@ def create_acute_app(
     # ================================================================================== SURFACE 3: CLINICIAN CONSOLE
     @app.get("/api/v1/clinician/queue")
     def clinician_queue(request: Request):
-        """Story 11: Prioritized review queue sorted by risk (red flags first) & SLA."""
-        claims = extract_claims(request, allowed_roles=("clinician",))
+        """Story 11: Prioritized review queue sorted by risk (red flags first) & SLA (clinician + nurse read)."""
+        claims = extract_claims(request, allowed_roles=("clinician", "nurse"))
         tenant_id = claims["tid"]
         now = utcnow()
         with database.admin_session() as s:
@@ -1974,7 +2017,32 @@ def create_acute_app(
                 pat = pat_map.get(p.patient_id)
                 enc = enc_map.get(p.encounter_id)
                 overdue = p.status == "pending_review" and p.sla_due_at < now
-                checks = p.checks_json or []
+                payload_raw = p.payload_json or {}
+                draft = payload_raw.get("draft") or {}
+                triage_data = payload_raw.get("triage") or {}
+                suggested_rx = draft.get("suggested_medications") or draft.get("suggested_prescriptions") or []
+                raw_quotes = [
+                    sq if isinstance(sq, dict) else {"field": "Patient Statement", "quote": str(sq), "source": "Patient Intake"}
+                    for sq in (p.source_quotes_json or [])
+                ]
+                verified = build_unified_checks(
+                    patient={
+                        "name_en": pat.name_en, "dob": pat.dob, "g6pd_deficient": pat.g6pd_deficient,
+                        "allergies": pat.allergies_json, "current_meds": pat.current_meds_json,
+                        "weight_kg": pat.weight_kg, "egfr": pat.egfr,
+                    } if pat else {},
+                    source_text=enc.chief_complaint_text if enc else "",
+                    quotes=raw_quotes,
+                    proposed_meds=suggested_rx,
+                    conflicts=payload_raw.get("conflicts") or [],
+                    diagnosis_icd10=(draft.get("working_diagnosis") or {}).get("icd10") or (enc.icd10_code if enc else None),
+                    ai_enabled=ai_enabled,
+                    prompt_injection_detected=bool(triage_data.get("prompt_injection_detected")),
+                    red_flags=triage_data.get("red_flags") or [],
+                    extra_chart_meds=payload_raw.get("extra_chart_meds") or [],
+                )
+                checks = verified["checks"]
+                csum = verified["summary"]
                 items.append({
                     "id": p.id,
                     "patient_id": p.patient_id,
@@ -1982,6 +2050,10 @@ def create_acute_app(
                     "patient_name_zh": pat.name_zh if pat else "",
                     "encounter_id": p.encounter_id,
                     "kind": p.kind,
+                    "title": payload_raw.get("title") or (enc.chief_complaint_text[:90] if enc else p.kind),
+                    "story_tag": payload_raw.get("story_tag"),
+                    "nurse_ready": bool(payload_raw.get("nurse_ready")),
+                    "nurse_prep_note": payload_raw.get("nurse_prep_note") or "",
                     "urgency": p.urgency,
                     "status": p.status,
                     "sla_due_at": p.sla_due_at.isoformat(),
@@ -1993,32 +2065,46 @@ def create_acute_app(
                     "g6pd_deficient": pat.g6pd_deficient if pat else False,
                     "allergies": pat.allergies_json if pat else [],
                     "chief_complaint": enc.chief_complaint_text if enc else "",
-                    "source_quotes": p.source_quotes_json,
+                    "source_quotes": verified["anchored_quotes"],
                     "checks": checks,
                     "checks_summary": {
-                        "passed": sum(1 for c in checks if c.get("status") == "pass"),
-                        "total": len(checks),
-                        "warnings": sum(1 for c in checks if c.get("status") == "warn"),
-                        "failures": sum(1 for c in checks if c.get("status") == "fail"),
+                        "passed": csum["passed"],
+                        "total": csum["applicable"],
+                        "applicable": csum["applicable"],
+                        "warnings": csum["warn"],
+                        "failures": csum["fail"],
+                        "unknown": csum["unknown"],
+                        "can_sign": csum["can_sign"],
+                        "sign_cta": csum["sign_cta"],
                     },
+                    "unresolved_conflicts": sum(1 for c in (payload_raw.get("conflicts") or []) if not c.get("resolved")),
                     "created_at": p.created_at.isoformat(),
                     "patient": {
                         "id": pat.id, "name_en": pat.name_en, "name_zh": pat.name_zh,
                         "dob": pat.dob, "sex": pat.sex, "hkid_masked": pat.hkid_masked,
                         "g6pd_deficient": pat.g6pd_deficient, "allergies": pat.allergies_json,
-                        "current_meds": pat.current_meds_json,
+                        "current_meds": pat.current_meds_json, "egfr": pat.egfr,
                     } if pat else None,
                     "encounter": {
                         "id": enc.id, "status": enc.status, "chief_complaint_text": enc.chief_complaint_text,
                         "icd10_code": enc.icd10_code, "icpc2_code": enc.icpc2_code,
                     } if enc else None,
                 })
-        return {"items": items, "queue": items, "kill_switch_active": not ai_enabled}
+        return {
+            "items": items,
+            "queue": items,
+            "kill_switch_active": not ai_enabled,
+            "viewer_role": claims["role"],
+            "runtime_toggles": runtime_toggles(),
+        }
 
     @app.get("/api/v1/clinician/proposals/{proposal_id}")
     def clinician_proposal_detail(proposal_id: str, request: Request):
-        claims = extract_claims(request, allowed_roles=("clinician",))
+        claims = extract_claims(request, allowed_roles=("clinician", "nurse"))
         tenant_id, doc_id = claims["tid"], claims["sub"]
+        with database.admin_session() as s:
+            t = s.get(Tenant, tenant_id)
+            ai_enabled = bool(t.ai_enabled) if t else True
         with database.tenant_session(tenant_id) as s:
             p = s.get(Proposal, proposal_id)
             if not p:
@@ -2040,21 +2126,38 @@ def create_acute_app(
                 or draft.get("suggested_prescriptions")
                 or [{"drug": "paracetamol", "dose_mg": 500, "frequency": "QDS", "days": 3}]
             )
+            active_acute_rx = [m for m in suggested_rx if not m.get("is_non_acute_order") and not m.get("stopped")]
             rx_preview = check_prescription_safety(
                 {
                     "dob": pat.dob, "g6pd_deficient": pat.g6pd_deficient,
                     "allergies": pat.allergies_json, "current_meds": pat.current_meds_json,
                     "weight_kg": pat.weight_kg, "egfr": pat.egfr,
                 },
-                suggested_rx,
+                active_acute_rx,
                 diagnosis_icd10=eff_icd10,
-            ).to_dict() if pat else {}
+            ).to_dict() if (pat and active_acute_rx) else {"status": "pass", "findings": [], "enriched_items": []}
 
             raw_quotes = p.source_quotes_json or []
             structured_quotes = [
                 sq if isinstance(sq, dict) else {"field": "Patient Statement", "quote": str(sq), "source": "Patient Intake"}
                 for sq in raw_quotes
             ]
+            verified = build_unified_checks(
+                patient={
+                    "name_en": pat.name_en, "dob": pat.dob, "g6pd_deficient": pat.g6pd_deficient,
+                    "allergies": pat.allergies_json, "current_meds": pat.current_meds_json,
+                    "weight_kg": pat.weight_kg, "egfr": pat.egfr,
+                } if pat else {},
+                source_text=enc.chief_complaint_text if enc else "",
+                quotes=structured_quotes,
+                proposed_meds=suggested_rx,
+                conflicts=payload_raw.get("conflicts") or [],
+                diagnosis_icd10=eff_icd10,
+                ai_enabled=ai_enabled,
+                prompt_injection_detected=bool(triage_data.get("prompt_injection_detected")),
+                red_flags=triage_data.get("red_flags") or [],
+                extra_chart_meds=payload_raw.get("extra_chart_meds") or [],
+            )
             snomed_syms = []
             for code in (enc.snomed_codes_json if enc and enc.snomed_codes_json else []):
                 if isinstance(code, dict):
@@ -2072,10 +2175,10 @@ def create_acute_app(
             if not draft_note_val and enc and enc.clinical_note:
                 draft_note_val = enc.clinical_note
 
-            suggested_cert = draft.get("suggested_sick_leave") or {
-                "days_off": 2,
-                "start_date": utcnow().astimezone(HKT).date().isoformat(),
-            }
+            suggested_cert = draft.get("suggested_sick_leave") or (
+                {"days_off": 2, "start_date": utcnow().astimezone(HKT).date().isoformat()}
+                if p.kind in ("consult_draft", "red_flag_alert") else None
+            )
             enriched_payload = {
                 **payload_raw,
                 "draft_clinical_note": draft_note_val,
@@ -2084,15 +2187,16 @@ def create_acute_app(
                 "contraindications_noted": draft.get("contraindications_noted") or [],
                 "suggested_icd10": eff_icd10,
                 "suggested_icpc2": working_diag.get("icpc2") or (enc.icpc2_code if enc else "R80"),
-                "recommended_sick_leave_days": suggested_cert.get("days_off", 2),
+                "recommended_sick_leave_days": (suggested_cert or {}).get("days_off", 0),
                 "suggested_rx": suggested_rx,
                 "red_flags": triage_data.get("red_flags") or [],
                 "snomed_symptoms": snomed_syms,
                 "structured_intake": intake_data,
+                "patient_reply_draft": draft.get("patient_summary_draft") or "",
             }
 
             record_audit(
-                s, tenant_id=tenant_id, actor_role="clinician", actor_id=doc_id,
+                s, tenant_id=tenant_id, actor_role=claims["role"], actor_id=doc_id,
                 action="proposal.viewed", resource_type="Proposal", resource_id=p.id,
             )
             return {
@@ -2102,6 +2206,7 @@ def create_acute_app(
                 "patient_name_zh": pat.name_zh if pat else "",
                 "encounter_id": p.encounter_id,
                 "kind": p.kind,
+                "title": payload_raw.get("title") or (working_diag.get("display") or p.kind),
                 "urgency": p.urgency,
                 "status": p.status,
                 "sla_due_at": p.sla_due_at.isoformat(),
@@ -2109,8 +2214,11 @@ def create_acute_app(
                 "protocol_version": p.protocol_version,
                 "created_at": p.created_at.isoformat(),
                 "payload": enriched_payload,
-                "source_quotes": structured_quotes,
-                "checks": p.checks_json or [],
+                "source_quotes": verified["anchored_quotes"],
+                "checks": verified["checks"],
+                "checks_summary": verified["summary"],
+                "kill_switch_active": not ai_enabled,
+                "viewer_role": claims["role"],
                 "agent_run": {
                     "id": run.id, "model_id": run.model_id, "provider": run.provider,
                     "region": run.region, "redacted": run.redacted, "latency_ms": run.latency_ms,
@@ -2118,13 +2226,13 @@ def create_acute_app(
                 } if run else None,
                 "practitioner": {
                     "id": doc.id, "name_en": doc.name_en, "name_zh": doc.name_zh,
-                    "mchk_reg_no": doc.mchk_reg_no, "clinic_name": doc.clinic_name,
+                    "role": doc.role, "mchk_reg_no": doc.mchk_reg_no, "clinic_name": doc.clinic_name,
                 } if doc else None,
                 "proposal": {
                     "id": p.id, "kind": p.kind, "urgency": p.urgency, "status": p.status,
                     "sla_due_at": p.sla_due_at.isoformat(), "protocol_id": p.protocol_id,
                     "protocol_version": p.protocol_version, "payload": enriched_payload,
-                    "source_quotes": raw_quotes, "checks": p.checks_json,
+                    "source_quotes": verified["anchored_quotes"], "checks": verified["checks"],
                 },
                 "patient": {
                     "id": pat.id, "name_en": pat.name_en, "name_zh": pat.name_zh, "dob": pat.dob,
@@ -2158,6 +2266,7 @@ def create_acute_app(
                 "suggested_rx": suggested_rx,
                 "rx_safety_preview": rx_preview,
                 "hk_diagnoses": HK_DIAGNOSES,
+                "runtime_toggles": runtime_toggles(),
             }
 
     @app.post("/api/v1/clinician/rx-safety-check")
@@ -2270,6 +2379,11 @@ def create_acute_app(
             enc = s.get(Encounter, prop.encounter_id)
             if not pat or not enc:
                 raise HTTPException(404, "Linked patient or encounter missing")
+
+            # Block sign-off while any cross-site medication DoseConflict remains unresolved
+            unresolved = [c for c in ((prop.payload_json or {}).get("conflicts") or []) if not c.get("resolved")]
+            if unresolved and body.decision in ("approved", "edited"):
+                raise HTTPException(422, f"Settle {len(unresolved)} medication dose conflict(s) before signing.")
 
             # Automation-bias deliberate friction on critical items or sub-3-second rubber-stamping
             if (prop.urgency >= 4 or body.review_seconds < 3.0) and body.decision in ("approved", "edited") and not body.rubber_stamp_confirmed:
@@ -2435,22 +2549,443 @@ def create_acute_app(
                         if corp:
                             corp.spent_hkd += camp.unit_fee_hkd
 
+            # Record doctor-signed patient reply if supplied
+            if body.patient_reply and body.patient_reply.strip() and body.decision in ("approved", "edited"):
+                s.add(Message(
+                    id=new_id("msg"),
+                    tenant_id=tenant_id,
+                    patient_id=pat.id,
+                    encounter_id=enc.id,
+                    direction="outbound",
+                    sender_role="clinician",
+                    body_text=body.patient_reply.strip(),
+                ))
+
+            # Server-held 10-second Undo-Send window on signed dispatch
+            toggles = runtime_toggles()
+            undo_sec = toggles["dispatch_undo_seconds"]
+            undo_until = utcnow() + timedelta(seconds=undo_sec)
+            dispatch_id: str | None = None
+            if body.decision in ("approved", "edited"):
+                dispatch_ev = OutboxEvent(
+                    id=new_id("dsp"),
+                    tenant_id=tenant_id,
+                    event_type="dispatch.signed_packet",
+                    aggregate_id=prop.id,
+                    payload_json={
+                        "proposal_id": prop.id,
+                        "encounter_id": enc.id,
+                        "patient_id": pat.id,
+                        "decision_id": rd.id,
+                        "cert_id": cert_out["id"] if cert_out else None,
+                        "rx_id": rx_out["id"] if rx_out else None,
+                    },
+                    status="pending",
+                    run_after=undo_until,
+                    idempotency_key=f"dispatch:{prop.id}:{rd.id}",
+                )
+                s.add(dispatch_ev)
+                dispatch_id = dispatch_ev.id
+
             record_audit(
                 s, tenant_id=tenant_id, actor_role="clinician", actor_id=doc.id,
                 action=f"proposal.{body.decision}", resource_type="Proposal", resource_id=prop.id,
                 metadata={
                     "mchk_reg_no": doc.mchk_reg_no, "cert_issued": bool(cert_out),
                     "rx_issued": bool(rx_out), "review_seconds": body.review_seconds,
+                    "dispatch_id": dispatch_id,
                 },
             )
             return {
                 "ok": True,
                 "decision_id": rd.id,
                 "status": rd.decision,
+                "dispatch_id": dispatch_id,
+                "dispatch_undo_seconds": undo_sec,
+                "undo_until": undo_until.isoformat(),
                 "review_decision": {"id": rd.id, "decision": rd.decision, "decided_at": rd.decided_at.isoformat()},
                 "certificate": cert_out,
                 "prescription": rx_out,
                 "encounter": {"id": enc.id, "status": enc.status, "icd10_code": enc.icd10_code, "icpc2_code": enc.icpc2_code},
+            }
+
+    @app.post("/api/v1/staff/proposals/{proposal_id}/ready-for-doctor")
+    def staff_nurse_ready(proposal_id: str, body: NurseReadyReq, request: Request):
+        """Nurse / Care Coordinator prepares chart & hands off to MCHK clinician (cannot sign Rx/cert)."""
+        from sqlalchemy.orm.attributes import flag_modified
+        claims = extract_claims(request, allowed_roles=("nurse", "clinician"))
+        tenant_id, actor_id = claims["tid"], claims["sub"]
+        with database.tenant_session(tenant_id) as s:
+            prop = s.get(Proposal, proposal_id)
+            if not prop:
+                raise HTTPException(404, "Proposal not found")
+            prac = s.get(Practitioner, actor_id)
+            payload = dict(prop.payload_json or {})
+            payload["nurse_ready"] = True
+            payload["nurse_ready_by"] = prac.name_en if prac else actor_id
+            payload["nurse_ready_at"] = utcnow().isoformat()
+            if body.prep_note.strip():
+                payload["nurse_prep_note"] = body.prep_note.strip()
+            if body.vitals_note.strip():
+                payload["nurse_vitals_note"] = body.vitals_note.strip()
+            prop.payload_json = payload
+            flag_modified(prop, "payload_json")
+            record_audit(
+                s, tenant_id=tenant_id, actor_role=claims["role"], actor_id=actor_id,
+                action="proposal.nurse_ready", resource_type="Proposal", resource_id=prop.id,
+                metadata={"prep_note": body.prep_note[:160]},
+            )
+            return {"ok": True, "proposal_id": prop.id, "nurse_ready": True, "nurse_ready_by": payload["nurse_ready_by"]}
+
+    @app.post("/api/v1/clinician/proposals/{proposal_id}/resolve-conflict")
+    def clinician_resolve_conflict(proposal_id: str, body: ResolveConflictReq, request: Request):
+        """Doctor resolves a cross-site DoseConflict (`1` side 1, `2` side 2, `Q` ask patient) — agent never picks."""
+        from sqlalchemy.orm.attributes import flag_modified
+        claims = extract_claims(request, allowed_roles=("clinician",))
+        tenant_id, doc_id = claims["tid"], claims["sub"]
+        with database.tenant_session(tenant_id) as s:
+            prop = s.get(Proposal, proposal_id)
+            if not prop:
+                raise HTTPException(404, "Proposal not found")
+            doc = s.get(Practitioner, doc_id)
+            payload = dict(prop.payload_json or {})
+            conflicts = [dict(c) for c in (payload.get("conflicts") or [])]
+            matched = None
+            for c in conflicts:
+                if c.get("id") == body.conflict_id:
+                    c["resolved"] = True
+                    c["chosen_side"] = body.choice
+                    c["resolved_by"] = doc.name_en if doc else doc_id
+                    c["resolved_at"] = utcnow().isoformat()
+                    if body.choice == "Q":
+                        c["resolution_summary"] = "Hold repeat & ask patient which tablets they are taking"
+                    else:
+                        side = next((sd for sd in (c.get("sides") or []) if sd.get("key") == body.choice), None)
+                        c["resolution_summary"] = (
+                            f"{side['regimen']} ({side['site']}, {side['date']}), chosen by you"
+                            if side else f"Option {body.choice} selected"
+                        )
+                    matched = c
+                    break
+            if not matched:
+                raise HTTPException(404, "Conflict not found on proposal")
+            payload["conflicts"] = conflicts
+            prop.payload_json = payload
+            flag_modified(prop, "payload_json")
+            record_audit(
+                s, tenant_id=tenant_id, actor_role="clinician", actor_id=doc_id,
+                action="conflict.resolved", resource_type="Proposal", resource_id=prop.id,
+                metadata={"conflict_id": body.conflict_id, "choice": body.choice, "summary": matched["resolution_summary"]},
+            )
+            return {"ok": True, "conflict": matched, "unresolved_conflicts": sum(1 for c in conflicts if not c.get("resolved"))}
+
+    @app.post("/api/v1/clinician/proposals/{proposal_id}/undo")
+    def clinician_undo_dispatch(proposal_id: str, request: Request):
+        """Cancel a signed packet's outbound dispatch during the server-held 10-second undo window."""
+        claims = extract_claims(request, allowed_roles=("clinician",))
+        tenant_id, doc_id = claims["tid"], claims["sub"]
+        now = utcnow()
+        with database.tenant_session(tenant_id) as s:
+            prop = s.get(Proposal, proposal_id)
+            if not prop:
+                raise HTTPException(404, "Proposal not found")
+            ev = s.scalar(
+                select(OutboxEvent)
+                .where(
+                    OutboxEvent.event_type == "dispatch.signed_packet",
+                    OutboxEvent.aggregate_id == proposal_id,
+                    OutboxEvent.status == "pending",
+                )
+                .order_by(OutboxEvent.created_at.desc())
+            )
+            if not ev or ev.run_after <= now:
+                raise HTTPException(409, "Undo window has closed; dispatch already committed.")
+            ev.status = "cancelled"
+            ev.processed_at = now
+            prop.status = "pending_review"
+            enc = s.get(Encounter, prop.encounter_id)
+            if enc:
+                enc.status = "pending_review"
+            record_audit(
+                s, tenant_id=tenant_id, actor_role="clinician", actor_id=doc_id,
+                action="proposal.dispatch_undone", resource_type="Proposal", resource_id=prop.id,
+                metadata={"dispatch_id": ev.id},
+            )
+            return {"ok": True, "undone": True, "proposal_id": prop.id, "status": prop.status}
+
+    @app.get("/api/v1/patient/companion")
+    def patient_companion_home(request: Request):
+        """Calm 0-tab Patient Care Companion: 1 pinned Now item, episode history, goal line, single Record sheet."""
+        claims = extract_claims(request, allowed_roles=("patient",))
+        tenant_id, pat_id = claims["tid"], claims["sub"]
+        with database.tenant_session(tenant_id) as s:
+            pat = s.get(Patient, pat_id)
+            if not pat:
+                raise HTTPException(404, "Patient not found")
+            encs = s.scalars(select(Encounter).where(Encounter.patient_id == pat_id).order_by(Encounter.created_at.desc())).all()
+            obs = s.scalars(select(Observation).where(Observation.patient_id == pat_id).order_by(Observation.recorded_at.desc()).limit(20)).all()
+            msgs = s.scalars(select(Message).where(Message.patient_id == pat_id).order_by(Message.created_at.asc())).all()
+            certs = s.scalars(select(Certificate).where(Certificate.patient_id == pat_id).order_by(Certificate.signed_at.desc())).all()
+            rxs = s.scalars(select(Prescription).where(Prescription.patient_id == pat_id).order_by(Prescription.signed_at.desc())).all()
+            props = s.scalars(select(Proposal).where(Proposal.patient_id == pat_id).order_by(Proposal.created_at.desc())).all()
+            consents = s.scalars(select(Consent).where(Consent.patient_id == pat_id).order_by(Consent.recorded_at.desc())).all()
+
+            sla = next_clinic_review_sla(doctor_name="Dr. Kenneth Lam")
+            pending_prop = next((p for p in props if p.status == "pending_review"), None)
+            now_item: dict[str, Any] | None = None
+            goal_line: dict[str, Any] | None = None
+
+            if pat_id == "pat_ho_htn_drift":
+                goal_line = {
+                    "label_en": "Your home BP goal: under 135/85, set by Dr. Kenneth Lam.",
+                    "label_zh": "你的家居血壓目標：135/85 以下（由林啟賢醫生設定）。",
+                    "current": "Last 7 days: 152/94",
+                    "source_quote": "Average: 152/94 mmHg (morning avg 154/95, evening avg 150/93)",
+                }
+                now_item = {
+                    "kind": "bp_protocol",
+                    "title_en": "Send this morning's BP",
+                    "title_zh": "上載今朝血壓讀數",
+                    "detail_en": "Photograph your monitor screen or enter systolic/diastolic — Dr. Kenneth Lam is reviewing your 3-week log.",
+                    "detail_zh": "拍下血壓計螢幕或輸入讀數——林啟賢醫生正覆核你的 3 星期紀錄。",
+                    "review_sla": sla,
+                }
+            elif pat_id == "pat_chan_qeh_discharge":
+                now_item = {
+                    "kind": "discharge_review",
+                    "title_en": "QEH discharge medicines under doctor review",
+                    "title_zh": "伊利沙伯醫院出院藥物正由醫生核對",
+                    "detail_en": "Dr. Kenneth Lam is reconciling your Warfarin dose and cholesterol tablets from your 14 Nov discharge letter.",
+                    "detail_zh": "林啟賢醫生正核對你 11 月 14 日出院摘要上的薄血丸及膽固醇藥。",
+                    "review_sla": sla,
+                }
+            elif pending_prop:
+                now_item = {
+                    "kind": "pending_review",
+                    "title_en": "With Dr. Kenneth Lam for review",
+                    "title_zh": "正交由林啟賢醫生覆核",
+                    "detail_en": sla["label_en"],
+                    "detail_zh": sla["label_zh"],
+                    "review_sla": sla,
+                }
+            elif rxs and rxs[0].fulfilment_mode == "pending_choice":
+                now_item = {
+                    "kind": "rx_ready",
+                    "title_en": "Prescription signed — choose delivery or pickup",
+                    "title_zh": "處方已簽發——選擇送遞或自取",
+                    "detail_en": "Signed by Dr. Kenneth Lam (M14829).",
+                    "detail_zh": "由林啟賢醫生（M14829）簽發。",
+                    "rx_id": rxs[0].id,
+                }
+
+            protocol_nudges: list[dict[str, Any]] = []
+            if pat_id == "pat_ho_htn_drift":
+                protocol_nudges.append({
+                    "id": "nudge_hba1c_6m",
+                    "because_en": "Your HbA1c was 7.8% on 3 May. Dr. Kenneth Lam asked to recheck it in 6 months.",
+                    "because_zh": "你於 5 月 3 日的糖化血紅素（HbA1c）為 7.8%。林啟賢醫生建議 6 個月後覆檢。",
+                    "action_en": "Walk in for blood test: any weekday, 8–10am.",
+                    "action_zh": "任何平日上午 8–10 時到診所抽血即可。",
+                    "source_quote": "HbA1c 7.8%",
+                    "source_doc": encs[0].chief_complaint_text if encs else "",
+                })
+
+            episodes = [
+                {
+                    "id": e.id,
+                    "title": (e.icd10_code or e.encounter_type.replace("_", " ").title()),
+                    "encounter_type": e.encounter_type,
+                    "status": e.status,
+                    "date": e.created_at.strftime("%d %b %Y"),
+                    "summary": (e.clinical_note or e.chief_complaint_text or "")[:180],
+                    "source_text": e.chief_complaint_text or "",
+                }
+                for e in encs
+            ]
+
+            return {
+                "clinic_name": "Central & Mid-Levels Family Medical",
+                "doctor_name": "Dr. Kenneth Lam",
+                "doctor_mchk": "M14829",
+                "patient": {
+                    "id": pat.id, "name_en": pat.name_en, "name_zh": pat.name_zh,
+                    "dob": pat.dob, "sex": pat.sex, "hkid_masked": pat.hkid_masked,
+                    "phone_masked": pat.phone_masked, "preferred_lang": pat.preferred_lang,
+                    "g6pd_deficient": pat.g6pd_deficient, "allergies": pat.allergies_json,
+                    "current_meds": pat.current_meds_json, "egfr": pat.egfr,
+                },
+                "now": now_item,
+                "goal_line": goal_line,
+                "protocol_nudges": protocol_nudges,
+                "review_sla": sla,
+                "timeline": [
+                    {
+                        "id": m.id,
+                        "direction": m.direction,
+                        "voice": "doctor" if m.sender_role == "clinician" else ("patient" if m.sender_role == "patient" else "assistant"),
+                        "sender_label": "Dr. Kenneth Lam" if m.sender_role == "clinician" else ("You" if m.sender_role == "patient" else "Clinic assistant"),
+                        "body": m.body_text,
+                        "created_at": m.created_at.isoformat(),
+                    }
+                    for m in msgs
+                ],
+                "episodes": episodes,
+                "record": {
+                    "allergies": pat.allergies_json,
+                    "g6pd_deficient": pat.g6pd_deficient,
+                    "current_meds": pat.current_meds_json,
+                    "observations": [
+                        {"id": o.id, "display": o.display, "value_text": o.value_text, "recorded_at": o.recorded_at.isoformat()}
+                        for o in obs
+                    ],
+                    "certificates": [
+                        {
+                            "id": c.id, "days_off": c.days_off, "start_date": c.start_date, "end_date": c.end_date,
+                            "mchk_reg_no": c.mchk_reg_no, "diagnosis_icd10": c.diagnosis_icd10,
+                            "signed_at": (c.signed_at or utcnow()).isoformat(),
+                        }
+                        for c in certs
+                    ],
+                    "prescriptions": [
+                        {
+                            "id": r.id, "items": r.items_json, "fulfilment_mode": r.fulfilment_mode,
+                            "fulfilment_status": r.fulfilment_status, "fulfilment_ref": r.fulfilment_ref,
+                            "mchk_reg_no": r.mchk_reg_no, "signed_at": (r.signed_at or utcnow()).isoformat(),
+                        }
+                        for r in rxs
+                    ],
+                    "consents": [
+                        {"id": cs.id, "purpose": cs.scope, "granted": cs.granted, "created_at": cs.recorded_at.isoformat()}
+                        for cs in consents[:8]
+                    ],
+                },
+                "crisis_hotlines": HK_MENTAL_HEALTH_HOTLINES,
+                "runtime_toggles": runtime_toggles(),
+            }
+
+    @app.post("/api/v1/patient/companion/turn")
+    def patient_companion_turn(body: CompanionTurnReq, request: Request):
+        """Grounded 24/7 patient companion turn with deterministic Medical 999 vs Mental-Health crisis separation."""
+        claims = extract_claims(request, allowed_roles=("patient",))
+        tenant_id, pat_id = claims["tid"], claims["sub"]
+        crisis_kind = classify_crisis(body.message)
+        with database.tenant_session(tenant_id) as s:
+            pat = s.get(Patient, pat_id)
+            if not pat:
+                raise HTTPException(404, "Patient not found")
+            enc = s.scalar(select(Encounter).where(Encounter.patient_id == pat_id).order_by(Encounter.created_at.desc()))
+            msg_in = Message(
+                id=new_id("msg"), tenant_id=tenant_id, patient_id=pat_id,
+                encounter_id=enc.id if enc else None, direction="inbound",
+                sender_role="patient", body_text=body.message.strip(),
+            )
+            s.add(msg_in)
+            s.flush()
+
+            if crisis_kind:
+                # Create real urgent proposal first -> ONLY THEN confirm server-acked paging!
+                new_enc = Encounter(
+                    id=new_id("enc"), tenant_id=tenant_id, patient_id=pat_id,
+                    encounter_type="crisis_alert", status="red_flag_escalated",
+                    chief_complaint_text=body.message.strip(),
+                )
+                s.add(new_enc)
+                s.flush()
+                prop = Proposal(
+                    id=new_id("prop"), tenant_id=tenant_id, patient_id=pat_id,
+                    encounter_id=new_enc.id, kind="red_flag_alert", urgency=4,
+                    status="pending_review", sla_due_at=utcnow() + timedelta(minutes=15),
+                    protocol_id="flu_intake_v1", protocol_version="1.0.0",
+                    payload_json={"title": f"Urgent {crisis_kind.replace('_', ' ')}", "triage": {"red_flags": [crisis_kind]}},
+                    source_quotes_json=[{"field": "Patient message", "quote": body.message.strip()[:200], "source": "Patient Companion"}],
+                    checks_json=[],
+                )
+                s.add(prop)
+                s.flush()
+                acked_at = utcnow().astimezone(HKT).strftime("%H:%M")
+                record_audit(
+                    s, tenant_id=tenant_id, actor_role="system", actor_id="crisis_floor",
+                    action="crisis.escalated", resource_type="Proposal", resource_id=prop.id,
+                    metadata={"crisis_kind": crisis_kind},
+                )
+                return {
+                    "ok": True,
+                    "crisis": {
+                        "kind": crisis_kind,
+                        "pager_acked": True,
+                        "pager_acked_at": acked_at,
+                        "paged_clinician": "Dr. Kenneth Lam (on duty)",
+                        "hotlines": HK_MENTAL_HEALTH_HOTLINES if crisis_kind == "mental_health_crisis" else [],
+                    },
+                }
+
+            obs = s.scalars(select(Observation).where(Observation.patient_id == pat_id).order_by(Observation.recorded_at.desc()).limit(10)).all()
+            ans = answer_companion_question(
+                body.message,
+                patient={
+                    "name_en": pat.name_en, "allergies": pat.allergies_json,
+                    "current_meds": pat.current_meds_json, "g6pd_deficient": pat.g6pd_deficient,
+                },
+                observations=[{"loinc_code": o.loinc_code, "display": o.display, "value_text": o.value_text} for o in obs],
+                lang=body.lang or pat.preferred_lang,
+            )
+            msg_out = Message(
+                id=new_id("msg"), tenant_id=tenant_id, patient_id=pat_id,
+                encounter_id=enc.id if enc else None, direction="outbound",
+                sender_role="assistant", body_text=ans["reply"],
+            )
+            s.add(msg_out)
+            s.flush()
+            return {"ok": True, "crisis": None, "message": ans, "message_id": msg_out.id}
+
+    @app.post("/api/v1/patient/companion/reading")
+    def patient_companion_reading(body: CompanionReadingReq, request: Request):
+        """Log a confirmed home BP / glucose / temp reading (or monitor photo reading) & check crisis threshold."""
+        claims = extract_claims(request, allowed_roles=("patient",))
+        tenant_id, pat_id = claims["tid"], claims["sub"]
+        crisis_kind = classify_crisis(body.note, systolic=body.systolic, diastolic=body.diastolic)
+        with database.tenant_session(tenant_id) as s:
+            pat = s.get(Patient, pat_id)
+            if not pat:
+                raise HTTPException(404, "Patient not found")
+            enc = s.scalar(select(Encounter).where(Encounter.patient_id == pat_id).order_by(Encounter.created_at.desc()))
+            if body.kind == "bp" and body.systolic and body.diastolic:
+                val_text = f"{body.systolic}/{body.diastolic} mmHg"
+                val_num = float(body.systolic)
+                loinc, disp, unit = "85354-9", "Home Blood Pressure", "mm[Hg]"
+            elif body.kind == "glucose" and body.value_num is not None:
+                val_text = f"{body.value_num:g} mmol/L"
+                val_num = float(body.value_num)
+                loinc, disp, unit = "15074-8", "Home Blood Glucose", "mmol/L"
+            else:
+                val_num = float(body.value_num or 37.0)
+                val_text = f"{val_num:g} °C"
+                loinc, disp, unit = "8310-5", "Body Temperature", "Cel"
+
+            obs_row = Observation(
+                id=new_id("obs"), tenant_id=tenant_id, patient_id=pat_id,
+                encounter_id=enc.id if enc else new_id("enc"),
+                loinc_code=loinc, display=disp, value_num=val_num, value_text=val_text,
+                ucum_unit=unit, source_quote=f"{val_text} ({body.source})",
+            )
+            s.add(obs_row)
+            s.add(Message(
+                id=new_id("msg"), tenant_id=tenant_id, patient_id=pat_id,
+                encounter_id=enc.id if enc else None, direction="inbound",
+                sender_role="patient", body_text=f"Confirmed {disp}: {val_text} ({body.source.replace('_', ' ')}). {body.note}".strip(),
+            ))
+            s.flush()
+            sla = next_clinic_review_sla(doctor_name="Dr. Kenneth Lam")
+            return {
+                "ok": True,
+                "observation": {"id": obs_row.id, "display": disp, "value_text": val_text, "source": body.source},
+                "review_sla": sla,
+                "crisis": {
+                    "kind": crisis_kind,
+                    "pager_acked": True,
+                    "pager_acked_at": utcnow().astimezone(HKT).strftime("%H:%M"),
+                    "paged_clinician": "Dr. Kenneth Lam (on duty)",
+                } if crisis_kind else None,
             }
 
     @app.post("/api/v1/clinician/availability")
