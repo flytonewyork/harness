@@ -35,6 +35,7 @@ WA_TEMPLATE_IDS = (
     "document_ready",
     "rx_status",
     "followup_48h",
+    "new_message",
 )
 
 _RX_STATUS_LABELS: dict[str, tuple[str, str]] = {
@@ -74,6 +75,10 @@ _WA_TEMPLATES: dict[str, dict[str, str]] = {
     "followup_48h": {
         "en": "Hi {patient_first_name}, it has been 48 hours since your visit. Please open your secure portal for a quick check-in: {url}",
         "zh": "您好 {patient_first_name}，距離您的診症已過48小時，請登入安全網站完成簡短跟進：{url}",
+    },
+    "new_message": {
+        "en": "You have a new message from your clinic care team in your secure portal: {url}",
+        "zh": "您有一則來自診所醫護團隊的新訊息，請登入安全網站查閱：{url}",
     },
 }
 

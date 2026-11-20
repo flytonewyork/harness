@@ -104,49 +104,58 @@ class LocalFSBackend:
 
 
 class GCSStorageBackend:
-    """Google Cloud Storage REST backend using Application Default Credentials (asia-east2 bucket)."""
+    """Google Cloud Storage REST backend using cached ADC credentials + pooled httpx.Client (asia-east2 bucket)."""
 
     def __init__(self, bucket: str, prefix: str = "vault"):
+        import threading
         self.bucket = bucket
         self.prefix = prefix.strip("/")
+        self._lock = threading.Lock()
+        self._creds = None
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            import httpx
+            self._client = httpx.Client(timeout=20.0)
+        return self._client
 
     def _headers(self) -> dict[str, str]:
         import google.auth
         from google.auth.transport.requests import Request
-        creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/devstorage.read_write"])
-        if not creds.valid:
-            creds.refresh(Request())
-        return {"Authorization": f"Bearer {creds.token}"}
+        with self._lock:
+            if self._creds is None:
+                self._creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/devstorage.read_write"])
+            if not self._creds.valid:
+                self._creds.refresh(Request())
+            return {"Authorization": f"Bearer {self._creds.token}"}
 
     def _obj(self, key: str) -> str:
         safe = key.replace("..", "").lstrip("/")
         return f"{self.prefix}/{safe}" if self.prefix else safe
 
     def put(self, key: str, payload: bytes) -> None:
-        import httpx
         from urllib.parse import quote
         obj = quote(self._obj(key), safe="")
         url = f"https://storage.googleapis.com/upload/storage/v1/b/{self.bucket}/o?uploadType=media&name={obj}"
-        r = httpx.post(url, content=payload, headers={**self._headers(), "Content-Type": "application/octet-stream"}, timeout=20.0)
+        r = self._get_client().post(url, content=payload, headers={**self._headers(), "Content-Type": "application/octet-stream"})
         if r.status_code not in (200, 201):
             raise VaultError(f"GCS put failed ({r.status_code}): {r.text[:200]}")
 
     def get(self, key: str) -> bytes:
-        import httpx
         from urllib.parse import quote
         obj = quote(self._obj(key), safe="")
         url = f"https://storage.googleapis.com/storage/v1/b/{self.bucket}/o/{obj}?alt=media"
-        r = httpx.get(url, headers=self._headers(), timeout=20.0)
+        r = self._get_client().get(url, headers=self._headers())
         if r.status_code != 200:
             raise VaultError(f"GCS get failed ({r.status_code})")
         return r.content
 
     def delete(self, key: str) -> None:
-        import httpx
         from urllib.parse import quote
         obj = quote(self._obj(key), safe="")
         url = f"https://storage.googleapis.com/storage/v1/b/{self.bucket}/o/{obj}"
-        httpx.delete(url, headers=self._headers(), timeout=20.0)
+        self._get_client().delete(url, headers=self._headers())
 
 
 @dataclass(frozen=True)
@@ -178,6 +187,20 @@ class DocumentVault:
         self.backend = backend
         self.kms = kms or LocalKMSProvider()
         self._signing_key = (signing_secret or os.environ.get("VAULT_SIGNING_SECRET", "tmrw-vault-sign-dev-hk")).encode()
+
+    def health_check(self) -> dict[str, str | bool]:
+        """Verify vault backend & KEK readiness for /api/v1/health/ready."""
+        backend_type = type(self.backend).__name__
+        if isinstance(self.backend, LocalFSBackend):
+            ok = self.backend.root.exists() and os.access(self.backend.root, os.W_OK)
+            return {"ok": ok, "backend": backend_type, "kms_key_id": self.kms.key_id}
+        if isinstance(self.backend, GCSStorageBackend):
+            try:
+                self.backend._headers()
+                return {"ok": True, "backend": backend_type, "bucket": self.backend.bucket, "kms_key_id": self.kms.key_id}
+            except Exception:
+                return {"ok": False, "backend": backend_type, "bucket": self.backend.bucket, "kms_key_id": self.kms.key_id}
+        return {"ok": True, "backend": backend_type, "kms_key_id": self.kms.key_id}
 
     def _aad(self, tenant_id: str, doc_id: str, content_type: str) -> bytes:
         return f"{tenant_id}|{doc_id}|{content_type}".encode("utf-8")

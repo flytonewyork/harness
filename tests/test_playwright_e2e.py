@@ -154,12 +154,24 @@ def test_four_surfaces_end_to_end_in_chromium(live_server: str):
         page.locator("[data-testid='pt-panel-intake'] button[type='submit']").click()
         page.get_by_test_id("intake-success-alert").wait_for(state="visible", timeout=10000)
 
-        # Check Privacy & PDPO DAR HL7 FHIR R4 Export tab
+        # Book teleconsult slot + seasonal flu vaccination (CVX)
+        page.get_by_test_id("pt-tab-booking").click()
+        page.get_by_test_id("pt-panel-booking").wait_for(state="visible", timeout=10000)
+        page.get_by_test_id("book-slot-btn").first.click()
+        page.wait_for_timeout(400)
+        page.get_by_test_id("book-fluvax-btn").click()
+        page.get_by_test_id("booked-fluvax-item").first.wait_for(state="visible", timeout=10000)
+
+        # Check Privacy & PDPO DAR HL7 FHIR R4 Export + Submit Data Correction Request (DCR)
         page.get_by_test_id("pt-tab-privacy").click()
         page.get_by_test_id("patient-referral-code").wait_for(state="visible", timeout=10000)
         page.get_by_test_id("pdpo-export-fhir-btn").click()
         page.get_by_test_id("fhir-bundle-preview").wait_for(state="visible", timeout=10000)
         assert '"resourceType": "Bundle"' in page.get_by_test_id("fhir-bundle-preview").inner_text()
+        page.get_by_test_id("pdpo-dcr-value").fill("Add peanut allergy")
+        page.get_by_test_id("pdpo-dcr-reason").fill("Confirmed by allergist report")
+        page.get_by_test_id("pdpo-dcr-submit-btn").click()
+        page.wait_for_timeout(400)
 
         # ------------------------------------------------------------------ 3. CLINICIAN CONSOLE
         page.get_by_test_id("demo-persona-select").select_option(value="clinician:doc_dr_lam")
@@ -168,12 +180,21 @@ def test_four_surfaces_end_to_end_in_chromium(live_server: str):
         page.get_by_test_id("surface-clinician").wait_for(state="visible", timeout=10000)
         page.get_by_test_id("clinician-mchk-badge").wait_for(state="visible")
         page.get_by_test_id("clinician-queue-list").wait_for(state="visible")
+        page.get_by_test_id("clinician-filter-redflags").click()
+        page.get_by_test_id("clinician-filter-pending").click()
 
         # Click the seeded pending flu consult proposal (WONG Siu-Mei, G6PD+ & Penicillin allergy)
         page.get_by_test_id("queue-item-prop_pat_wong_flu_g6pd").click()
         page.get_by_test_id("clinician-patient-card").wait_for(state="visible", timeout=10000)
         page.get_by_test_id("clinician-g6pd-badge").wait_for(state="visible")
         page.get_by_test_id("clinician-source-quotes").wait_for(state="visible")
+        page.get_by_test_id("clinician-cds-card").wait_for(state="visible", timeout=10000)
+
+        # Send secure in-portal clinician reply (zero clinical text on WhatsApp)
+        page.get_by_test_id("clinician-reply-input").fill("Rest well, hydrate, and return to A&E if dyspnoea develops.")
+        page.get_by_test_id("clinician-reply-btn").click()
+        page.wait_for_timeout(400)
+        assert "Rest well, hydrate" in page.get_by_test_id("clinician-message-thread").inner_text()
 
         # Live deterministic Rx safety check: add Cap. 134 codeine -> must show HARD BLOCK!
         page.get_by_test_id("clinician-add-drug-select").select_option("codeine")
@@ -209,6 +230,19 @@ def test_four_surfaces_end_to_end_in_chromium(live_server: str):
         page.wait_for_timeout(500)
         page.get_by_test_id("admin-kill-switch-btn").click()
         page.wait_for_timeout(500)
+
+        # Check Observability & PDPO Ops tab: SLO counters, Outbox sweep, and DCR approval
+        page.get_by_test_id("admin-tab-observability").click()
+        page.get_by_test_id("admin-observability-panel").wait_for(state="visible", timeout=10000)
+        page.get_by_test_id("admin-safety-counters-card").wait_for(state="visible")
+        page.get_by_test_id("admin-process-outbox-btn").click()
+        page.wait_for_timeout(400)
+        page.get_by_test_id("admin-dcr-table").wait_for(state="visible")
+        approve_dcr_btn = page.locator("[data-testid^='admin-dcr-approve-']").first
+        if approve_dcr_btn.count() > 0:
+            approve_dcr_btn.click()
+            page.wait_for_timeout(400)
+            assert "approved_addendum" in page.get_by_test_id("admin-dcr-table").inner_text()
 
         # Check Invoicing & Immutable Audit tabs
         page.get_by_test_id("admin-tab-invoicing").click()

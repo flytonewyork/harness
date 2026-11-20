@@ -646,6 +646,7 @@ class ModelGateway:
         retry_backoff_s: float = 0.05,
         allow_fallback: bool = True,
         prefer_replay: bool = False,
+        circuit_breaker_ttl_s: float = 120.0,
         fallback_handler: Callable[[GatewayRequest, ProviderCall], str] | None = None,
     ) -> None:
         self.replay = replay_provider or ReplayProvider()
@@ -668,6 +669,10 @@ class ModelGateway:
         self.retry_backoff_s = retry_backoff_s
         self.allow_fallback = allow_fallback
         self.prefer_replay = prefer_replay
+        self.circuit_breaker_ttl_s = max(0.0, float(circuit_breaker_ttl_s))
+        self._circuit_open_until: dict[tuple[str, str, str], float] = {}
+        self.circuit_breaker_trips: int = 0
+        self.fallback_count: int = 0
         self.fallback_handler = fallback_handler
         self.audit_log: list[dict[str, Any]] = []
 
@@ -869,26 +874,41 @@ class ModelGateway:
             if provider is None:
                 raise ValueError(f"Unknown provider: {req.provider}")
 
+            cb_key = (req.provider, region, req.model_id)
+            circuit_open = False
+            if self.allow_fallback and self.circuit_breaker_ttl_s > 0:
+                with self._lock:
+                    open_until = self._circuit_open_until.get(cb_key, 0.0)
+                    if time.monotonic() < open_until:
+                        circuit_open = True
+
             last_exc: Exception | None = None
-            for attempt in range(1, self.max_retries + 2):
-                attempts = attempt
-                try:
-                    result = provider.invoke(call)
-                    break
-                except ProviderUnavailableError as exc:
-                    last_exc = exc
-                    break  # No point retrying missing credentials
-                except TransientProviderError as exc:
-                    last_exc = exc
-                    if attempt <= self.max_retries:
-                        time.sleep(self.retry_backoff_s * (2 ** (attempt - 1)))
-                        continue
-                    break
+            if not circuit_open:
+                for attempt in range(1, self.max_retries + 2):
+                    attempts = attempt
+                    try:
+                        result = provider.invoke(call)
+                        break
+                    except ProviderUnavailableError as exc:
+                        last_exc = exc
+                        if self.allow_fallback and self.circuit_breaker_ttl_s > 0:
+                            with self._lock:
+                                self._circuit_open_until[cb_key] = time.monotonic() + self.circuit_breaker_ttl_s
+                                self.circuit_breaker_trips += 1
+                        break  # No point retrying missing credentials / 404 publisher model
+                    except TransientProviderError as exc:
+                        last_exc = exc
+                        if attempt <= self.max_retries:
+                            time.sleep(self.retry_backoff_s * (2 ** (attempt - 1)))
+                            continue
+                        break
 
             if result is None:
                 if not self.allow_fallback:
                     assert last_exc is not None
                     raise last_exc
+                with self._lock:
+                    self.fallback_count += 1
                 # Try replay cache before deterministic fallback
                 if self.replay.has(cache_key):
                     result = self.replay.invoke(call)

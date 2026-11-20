@@ -627,6 +627,7 @@ def test_whatsapp_templates_leakage_guard_and_hmac():
         "document_ready": {"url": "https://portal.tmrw.hk/docs/1"},
         "rx_status": {"status": "out_for_delivery", "url": "https://portal.tmrw.hk/orders/1"},
         "followup_48h": {"patient_first_name": "Alex", "url": "https://portal.tmrw.hk/f/1"},
+        "new_message": {"url": "https://portal.tmrw.hk/messages"},
     }
     for tpl_id in WA_TEMPLATE_IDS:
         for lang in ("en", "zh-HK", "bilingual"):

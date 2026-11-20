@@ -43,7 +43,14 @@ from backend.acute.terminology import (
     validate_observation_coding,
     validate_snomed_codes,
 )
-from backend.gateway.gateway import GatewayRequest, ModelGateway, ProtocolBundle, load_protocol
+from backend.gateway.gateway import (
+    GatewayError,
+    GatewayRequest,
+    ModelGateway,
+    ProtocolBundle,
+    ResidencyViolationError,
+    load_protocol,
+)
 from backend.precare import safety as precare_safety
 
 # --- Fixed Non-LLM Bilingual Emergency & Crisis Banners ---
@@ -209,20 +216,25 @@ ACUTE_RED_FLAG_PATTERNS: list[tuple[str, str]] = [
     ("non_blanching_rash", r"\bnon[- ]?blanching\b|\bpetechia\w*|\bpurpur(?:a|ic)\b"),
     ("non_blanching_rash", r"\b(rash|spots?)\b.{0,35}\b(doesn'?t|does\s+not|won'?t|did\s+not)\s+(fade|blanch|disappear)\b"),
     ("non_blanching_rash", r"\bglass\s+test\b.{0,25}\b(doesn'?t|does\s+not|still\s+visible|positive|failed)\b"),
-    ("non_blanching_rash", r"(按落去|玻璃杯按壓).{0,8}(唔褪色|唔退色)|唔褪色.{0,6}(紅點|紅疹|紫斑)|瘀點|紫癜"),
+    ("non_blanching_rash", r"(按落去|玻璃杯按壓).{0,8}(唔褪色|唔退色)|唔會?(?:褪色|退色).{0,8}(紅點|紅疹|紫斑|紫紅色?皮疹|皮疹)|瘀點|紫癜"),
+    # Meningitis red flags (stiff neck + photophobia / severe headache / fever)
+    ("meningitis_red_flag", r"\b(?:stiff\s+neck|neck\s+stiffness)\b.{0,50}\b(?:photophobia|bright\s+lights?|can'?t\s+look\s+at\s+light|fever|worst\s+headache|rash)\b"),
+    ("meningitis_red_flag", r"\b(?:photophobia|bright\s+lights?\s+hurt)\b.{0,50}\b(?:stiff\s+neck|neck\s+stiffness|fever|severe\s+headache)\b"),
+    ("meningitis_red_flag", r"(?:頸硬|頸梗|頸部僵硬).{0,25}(?:畏光|怕光|發燒|高燒|劇烈頭痛|紅疹|皮疹)|(?:畏光|怕光).{0,25}(?:頸硬|頸梗|頸部僵硬|發燒|高燒)"),
     # Sudden unilateral vision loss
     ("sudden_unilateral_vision_loss", r"\bsudden(?:ly)?\s+(?:lost|loss\s+of)\s+(?:all\s+|my\s+|the\s+)?(?:vision|sight)\b"),
     ("sudden_unilateral_vision_loss", r"\b(?:went\s+blind|lost\s+(?:all\s+|my\s+)?(?:sight|vision)|can'?t\s+see(?:\s+anything)?)\s+(?:in|out\s+of)\s+(?:one|my\s+left|my\s+right|the\s+left|the\s+right)\s+eye\b"),
     ("sudden_unilateral_vision_loss", r"\bcurtain\s+(?:came\s+)?over\s+(?:my\s+)?(?:eye|vision)\b"),
     ("sudden_unilateral_vision_loss", r"(一隻眼|單眼|左眼|右眼).{0,8}突然.{0,4}(睇唔到|失明|盲咗|黑晒|黑咗)|突然(單眼)?失明"),
     # Pediatric / elderly caregiver acute deterioration
-    ("pediatric_deterioration", r"\b(baby|infant|toddler|child|kid|son|daughter|newborn)\b.{0,50}\b(floppy|limp|lethargic|no\s+wet\s+(?:nappies|diapers)|not\s+drinking|refusing\s+fluids|sunken\s+eyes|grunting|won'?t\s+wake|hard\s+to\s+wake|seizure|fitting|blue)\b"),
-    ("pediatric_deterioration", r"(bb|嬰兒|小朋友|個仔|個女|阿仔|阿女).{0,25}(軟晒|叫唔醒|冇反應|唔肯飲水|冇尿|唔肯食奶|抽筋|發紫|吸氣凹陷|呼吸好急)"),
+    ("pediatric_deterioration", r"\b(baby|infant|toddler|child|kid|son|daughter|newborn)\b.{0,50}\b(floppy|limp|lethargic|no\s+wet\s+(?:nappies|diapers)|not\s+drinking|refusing\s+fluids|sunken\s+eyes|grunting|won'?t\s+wake|hard\s+to\s+wake|seizure|fitting|blue|stridor|bulging\s+fontanelle)\b"),
+    ("pediatric_deterioration", r"(bb|嬰兒|小朋友|個仔|個女|阿仔|阿女).{0,25}(軟晒|叫唔醒|冇反應|唔肯飲水|冇尿|唔肯食奶|抽筋|發紫|吸氣凹陷|呼吸好急|喘鳴)"),
     ("elderly_deterioration", r"\b(elderly|grandma|grandpa|grandmother|grandfather|mother|father|mum|mom|dad)\b.{0,45}\b(confused|delirious|collapsed|won'?t\s+wake|unresponsive|gasping|blue\s+lips|not\s+making\s+sense|fell\s+and\s+hit)\b"),
     ("elderly_deterioration", r"(婆婆|公公|阿媽|阿爸|老人家|爺爺|嫲嫲).{0,25}(意識混亂|神志不清|胡言亂語|暈低|叫唔醒|冇反應|唞唔到氣|嘴唇發紫)"),
 ]
 
-# Calf pain / unilateral leg swelling + sudden dyspnoea / chest pain -> suspected PE
+# Composite guideline red-flag detectors (NICE NG143 / HK HA A&E / RCOG / IDSA)
+# 1. Calf pain / unilateral leg swelling + sudden dyspnoea / chest pain -> suspected PE
 _CALF_DVT_RE = re.compile(
     r"\b(?:calf\s+(?:pain|ache|swollen|swelling|tender|tight|cramp)|"
     r"(?:left|right|one)\s+(?:calf|leg)\s+(?:is\s+)?(?:swollen|painful|hot|red|tender)|swollen\s+calf)\b|"
@@ -233,6 +245,50 @@ _ACUTE_DYSPNOEA_PE_RE = re.compile(
     r"\b(?:sudden(?:ly)?\s+(?:short(?:ness)?\s+of\s+breath|breathless|dyspnoea|dyspnea|can'?t\s+breathe)|"
     r"short(?:ness)?\s+of\s+breath|breathless|dyspnoea|dyspnea|chest\s+pain|pleuritic)\b|"
     r"(?:突然(?:氣促|唞唔到氣|呼吸困難|唞氣辛苦)|氣促|唞唔到氣|呼吸困難|胸痛|心口痛)",
+    re.I,
+)
+
+# 2. Neutropenic sepsis (chemotherapy / neutropenia / transplant / immunosuppressant + fever >= 38C)
+# Note: use (?<![A-Za-z]) so HK code-switched CJK+EN like "食緊immunosuppressant" still matches cleanly.
+_NEUTROPENIC_HOST_RE = re.compile(
+    r"(?<![A-Za-z])(?:chemo(?:therapy)?|neutropeni[a-z]*|(?:bone\s+marrow|stem\s+cell|kidney|liver|organ)\s+transplant|"
+    r"active\s+cancer\s+treatment|immunosuppress[a-z]*)(?![A-Za-z])|"
+    r"(?:化療|中性粒細胞減少|骨髓移植|器官移植|免疫抑制劑|免疫力嚴重受抑)",
+    re.I,
+)
+_FEVER_MENTION_RE = re.compile(
+    r"(?<![A-Za-z])(?:fever|febrile|chills|rigors|high\s+temp(?:erature)?)(?![A-Za-z])|發燒|高燒|發冷|打冷震",
+    re.I,
+)
+
+# 3. Febrile infant < 3 months (NICE NG143 / HK HA Paediatrics mandatory A&E sepsis workup)
+_INFANT_UNDER_3M_RE = re.compile(
+    r"\b(?:newborn|neonate|(?:[1-9]|1[0-2])\s*[- ]?weeks?[- ]?old\s+(?:baby|infant|son|daughter)|"
+    r"(?:1|2)\s*[- ]?months?[- ]?old\s+(?:baby|infant|son|daughter)|under\s+3\s+months?\s+old)\b|"
+    r"(?:初生(?:嬰兒|BB)|(?:1|2|一|兩)個月大(?:嬰兒|BB)|未滿(?:3|三)個月(?:嬰兒|BB))",
+    re.I,
+)
+
+# 4. Pregnancy emergency red flags (vaginal bleeding, reduced fetal movements, severe pre-eclampsia signs)
+_PREGNANT_HOST_RE = re.compile(
+    r"\b(?:pregnant|pregnancy|\d+\s*weeks?\s+pregnant|expecting\s+a\s+baby)\b|懷孕|大肚|有咗BB|孕婦",
+    re.I,
+)
+_OBSTETRIC_DANGER_RE = re.compile(
+    r"\b(?:vaginal\s+bleeding|bleeding\s+down\s+below|spotting\s+heavily|"
+    r"(?:reduced|decreased|less|no)\s+(?:fetal|baby)\s+movements?|baby\s+(?:stopped|not)\s+moving|"
+    r"(?:severe\s+headache|blinding\s+headache).{0,35}(?:blurr?y?\s+vision|flashing\s+lights?|swollen\s+face|upper\s+abdominal|epigastric)|"
+    r"pre[- ]?eclampsia|water\s+broke)\b|"
+    r"(?:陰道出血|下體流血|見紅好多|胎動減少|冇胎動|BB唔郁|劇烈頭痛.{0,15}(?:視力模糊|眼花|上腹痛)|穿羊水)",
+    re.I,
+)
+
+# 5. Secondary bacterial pneumonia ("double-sickening" on day 4-7 after initial viral improvement)
+_DOUBLE_SICKENING_RE = re.compile(
+    r"\b(?:(?:got|felt|getting)\s+better.{0,30}(?:then|and\s+now|but\s+now).{0,25}(?:got\s+)?(?:much\s+)?(?:worse|worsened|relapsed)|"
+    r"fever\s+(?:came|is)\s+back\s+(?:higher|worse)|fever.{0,20}returning|"
+    r"rusty\s+sputum|dark\s+green\s+phlegm\s+with\s+(?:high\s+)?fever)\b|"
+    r"(?:好返少少.{0,15}(?:又再發燒|突然轉差|變嚴重)|退燒幾日後又再燒|鐵鏽色痰|濃綠痰.{0,10}高燒)",
     re.I,
 )
 
@@ -627,7 +683,7 @@ def screen_acute_message(
                 rules_flags.append(code)
             _add_quote(m.group(0))
 
-    # Step 1D: Calf pain + sudden dyspnoea / chest pain -> suspected PE
+    # Step 1D: Composite clinical guideline red flags (PE, neutropenic sepsis, febrile infant <3m, obstetric emergency, double-sickening)
     calf_m = _CALF_DVT_RE.search(norm_text)
     dys_m = _ACUTE_DYSPNOEA_PE_RE.search(norm_text)
     if calf_m and dys_m:
@@ -637,9 +693,50 @@ def screen_acute_message(
         _add_quote(calf_m.group(0))
         _add_quote(dys_m.group(0))
 
-    # Step 1E: Numeric vitals thresholds (text + structured vitals)
+    # Step 1E: Numeric vitals thresholds (text + structured vitals — NEWS2 / HK HA A&E Cat 1-2)
     vitals_map, vitals_obs = _extract_numeric_vitals(raw_text, vitals)
     rules_urgency = 1
+
+    temp_c = vitals_map.get("8310-5")
+    has_febrile = (temp_c is not None and temp_c >= 38.0) or bool(_FEVER_MENTION_RE.search(norm_text))
+
+    # Neutropenic sepsis: chemo / neutropenia / immunosuppressed + fever >=38C -> immediate 999/A&E
+    neut_m = _NEUTROPENIC_HOST_RE.search(norm_text)
+    if neut_m and has_febrile:
+        rules_kind = _upgrade_kind(rules_kind, "red_flag")
+        if "neutropenic_sepsis_risk" not in rules_flags:
+            rules_flags.append("neutropenic_sepsis_risk")
+        _add_quote(neut_m.group(0))
+        fm = _FEVER_MENTION_RE.search(norm_text)
+        if fm:
+            _add_quote(fm.group(0))
+
+    # Febrile infant < 3 months (NICE NG143 / HK HA Paediatrics mandatory A&E sepsis workup)
+    inf_m = _INFANT_UNDER_3M_RE.search(norm_text)
+    if inf_m and has_febrile:
+        rules_kind = _upgrade_kind(rules_kind, "red_flag")
+        if "febrile_infant_under_3m" not in rules_flags:
+            rules_flags.append("febrile_infant_under_3m")
+        _add_quote(inf_m.group(0))
+        fm = _FEVER_MENTION_RE.search(norm_text)
+        if fm:
+            _add_quote(fm.group(0))
+
+    # Obstetric red flag (pregnancy + bleeding / reduced fetal movement / pre-eclampsia signs)
+    preg_m = _PREGNANT_HOST_RE.search(norm_text)
+    ob_m = _OBSTETRIC_DANGER_RE.search(norm_text)
+    if preg_m and ob_m:
+        rules_kind = _upgrade_kind(rules_kind, "red_flag")
+        if "obstetric_red_flag" not in rules_flags:
+            rules_flags.append("obstetric_red_flag")
+        _add_quote(preg_m.group(0))
+        _add_quote(ob_m.group(0))
+
+    # Secondary bacterial pneumonia ("double-sickening") -> priority urgent clinician review (urgency 3)
+    ds_m = _DOUBLE_SICKENING_RE.search(norm_text)
+    if ds_m:
+        rules_urgency = max(rules_urgency, 3)
+        _add_quote(ds_m.group(0))
 
     spo2 = vitals_map.get("2708-6")
     if spo2 is not None:
@@ -649,20 +746,22 @@ def screen_acute_message(
         elif spo2 == 94.0:
             rules_urgency = max(rules_urgency, 3)
 
-    temp_c = vitals_map.get("8310-5")
     if temp_c is not None:
         if temp_c >= 40.0:
             rules_kind = _upgrade_kind(rules_kind, "red_flag")
             rules_flags.append("hyperpyrexia_temp_gte_40c")
+        elif temp_c <= 35.0:
+            rules_kind = _upgrade_kind(rules_kind, "red_flag")
+            rules_flags.append("hypothermia_sepsis_temp_lte_35c")
         elif temp_c >= 39.5:
             rules_urgency = max(rules_urgency, 3)
         elif temp_c >= 38.5:
             rules_urgency = max(rules_urgency, 2)
 
     rr = vitals_map.get("9279-1")
-    if rr is not None and rr >= 30.0:
+    if rr is not None and rr >= 25.0:
         rules_kind = _upgrade_kind(rules_kind, "red_flag")
-        rules_flags.append("tachypnoea_rr_gte_30")
+        rules_flags.append("tachypnoea_rr_gte_25")
 
     hr = vitals_map.get("8867-4")
     if hr is not None and hr >= 130.0:
@@ -700,45 +799,53 @@ def screen_acute_message(
             tools=None,  # Explicit zero-tools isolation
             response_json=True,
         )
-        resp = gateway.complete(req)
-        gateway_audit = {
-            "provider": resp.provider,
-            "model_id": resp.model_id,
-            "region": resp.region,
-            "protocol_hash": resp.protocol_hash,
-            "redacted": resp.redacted,
-            "fallback_used": resp.fallback_used,
-            "tools_enabled": resp.tools_enabled,
-        }
-        screened_by = f"union({screened_by}, gateway:{resp.provider}:{resp.model_id})"
+        try:
+            resp = gateway.complete(req)
+        except ResidencyViolationError:
+            raise
+        except GatewayError as exc:
+            gateway_audit = {"provider": provider, "model_id": model_id, "fallback_used": True, "error": str(exc)[:160]}
+            resp = None
 
-        parsed = resp.parsed or {}
-        if isinstance(parsed, dict) and not parsed.get("fallback"):
-            raw_m_kind = parsed.get("kind")
-            if raw_m_kind in ("crisis", "red_flag"):
-                model_kind = raw_m_kind
-            raw_m_flags = parsed.get("red_flags") or []
-            if isinstance(raw_m_flags, list):
-                model_flags = [str(f) for f in raw_m_flags if f]
-            try:
-                raw_u = int(parsed.get("urgency", 1))
-                model_urgency = max(1, min(4, raw_u))
-            except (TypeError, ValueError):
-                model_urgency = 1
+        if resp is not None:
+            gateway_audit = {
+                "provider": resp.provider,
+                "model_id": resp.model_id,
+                "region": resp.region,
+                "protocol_hash": resp.protocol_hash,
+                "redacted": resp.redacted,
+                "fallback_used": resp.fallback_used,
+                "tools_enabled": resp.tools_enabled,
+            }
+            screened_by = f"union({screened_by}, gateway:{resp.provider}:{resp.model_id})"
 
-            # Verify any model evidence quotes are exact verbatim substrings
-            cand_quotes: list[str] = []
-            if isinstance(parsed.get("evidence_quote"), str) and parsed["evidence_quote"]:
-                cand_quotes.append(parsed["evidence_quote"])
-            if isinstance(parsed.get("evidence_quotes"), list):
-                cand_quotes.extend(str(q) for q in parsed["evidence_quotes"] if isinstance(q, str))
-            kept_q, dropped_q = filter_verbatim_quotes(cand_quotes, raw_text)
-            dropped_model_quotes.extend(dropped_q)
-            for q in kept_q:
-                _add_quote(q)
+            parsed = resp.parsed or {}
+            if isinstance(parsed, dict) and not parsed.get("fallback"):
+                raw_m_kind = parsed.get("kind")
+                if raw_m_kind in ("crisis", "red_flag"):
+                    model_kind = raw_m_kind
+                raw_m_flags = parsed.get("red_flags") or []
+                if isinstance(raw_m_flags, list):
+                    model_flags = [str(f) for f in raw_m_flags if f]
+                try:
+                    raw_u = int(parsed.get("urgency", 1))
+                    model_urgency = max(1, min(4, raw_u))
+                except (TypeError, ValueError):
+                    model_urgency = 1
 
-            if model_kind in ("crisis", "red_flag"):
-                model_urgency = 4
+                # Verify any model evidence quotes are exact verbatim substrings
+                cand_quotes: list[str] = []
+                if isinstance(parsed.get("evidence_quote"), str) and parsed["evidence_quote"]:
+                    cand_quotes.append(parsed["evidence_quote"])
+                if isinstance(parsed.get("evidence_quotes"), list):
+                    cand_quotes.extend(str(q) for q in parsed["evidence_quotes"] if isinstance(q, str))
+                kept_q, dropped_q = filter_verbatim_quotes(cand_quotes, raw_text)
+                dropped_model_quotes.extend(dropped_q)
+                for q in kept_q:
+                    _add_quote(q)
+
+                if model_kind in ("crisis", "red_flag"):
+                    model_urgency = 4
 
     # UNION-ONLY MERGE: model can ONLY add flags or raise urgency, NEVER suppress or lower
     final_kind = _upgrade_kind(rules_kind, model_kind)
@@ -1177,22 +1284,62 @@ def draft_consult_proposal(
     observations = list(intake_dict.get("observations") or [])
     evidence_quotes, _ = filter_verbatim_quotes(list(intake_dict.get("evidence_quotes") or []), source_text)
 
-    # Patient safety attributes
+    # Patient safety attributes & high-risk host stratification (HK CHP / CDC / NICE)
     allergy_groups = _normalized_allergy_groups(patient, intake_dict)
-    g6pd_deficient = bool(patient.get("g6pd_deficient")) or ("g6pd_deficiency" in (intake_dict.get("comorbidities") or []))
+    all_comorbs = set(intake_dict.get("comorbidities") or []) | set(patient.get("comorbidities") or [])
+    g6pd_deficient = bool(patient.get("g6pd_deficient")) or ("g6pd_deficiency" in all_comorbs)
+    pregnancy_detected = (
+        bool(patient.get("pregnant"))
+        or ("pregnancy" in all_comorbs)
+        or bool(_PREGNANT_HOST_RE.search(source_text))
+    )
     age = int(patient["age"]) if patient.get("age") is not None else None
+    if age is None and patient.get("dob"):
+        try:
+            dob_year = int(str(patient["dob"])[:4])
+            from datetime import date as _date
+            age = max(0, _date.today().year - dob_year)
+        except Exception:
+            age = None
     egfr = float(patient["egfr"]) if patient.get("egfr") is not None else None
+
+    high_risk_factors = sorted(
+        all_comorbs & {"asthma", "diabetes", "copd", "heart_disease", "ckd", "pregnancy", "immunocompromised"}
+    )
+    if pregnancy_detected and "pregnancy" not in high_risk_factors:
+        high_risk_factors.append("pregnancy")
+    if age is not None and age >= 65:
+        high_risk_factors.append("age_gte_65")
+    if age is not None and age < 5:
+        high_risk_factors.append("child_lt_5")
+    high_risk_comorb = bool(high_risk_factors)
+    double_sickening_flag = bool(_DOUBLE_SICKENING_RE.search(source_text))
 
     contraindications_noted: list[str] = []
     if g6pd_deficient:
         contraindications_noted.append("G6PD deficiency documented: avoid aspirin, sulfonamides (co-trimoxazole), nitrofurantoin.")
     if allergy_groups:
         contraindications_noted.append(f"Allergies documented: {', '.join(sorted(allergy_groups))}.")
+    if pregnancy_detected:
+        contraindications_noted.append("Pregnancy documented: avoid NSAIDs (ibuprofen/naproxen/aspirin), pseudoephedrine, and co-trimoxazole.")
 
     # Suggested safe OTC / antiviral draft proposals (never Cap. 134, never autonomously issued)
     suggested_meds: list[dict[str, Any]] = []
 
-    def _propose_drug(drug_key: str, dose_guidance: str, rationale: str) -> None:
+    def _propose_drug(
+        drug_key: str,
+        dose_guidance: str,
+        rationale: str,
+        *,
+        dose_mg: int,
+        frequency: str,
+        days: int,
+    ) -> None:
+        if pregnancy_detected and drug_key in ("ibuprofen", "naproxen", "aspirin", "pseudoephedrine", "co-trimoxazole"):
+            msg = f"Excluded '{drug_key}' due to documented pregnancy contraindication."
+            if msg not in contraindications_noted:
+                contraindications_noted.append(msg)
+            return
         safe, reason = _is_drug_safe_for_patient(
             drug_key,
             allergy_groups=allergy_groups,
@@ -1211,6 +1358,9 @@ def draft_consult_proposal(
             "display": meta["display"],
             "display_zh": meta["display_zh"],
             "hk_schedule": meta["hk_schedule"],
+            "dose_mg": dose_mg,
+            "frequency": frequency,
+            "days": days,
             "dose_guidance": dose_guidance,
             "rationale": rationale,
             "status": "PROPOSED_DRAFT_ONLY",
@@ -1226,31 +1376,55 @@ def draft_consult_proposal(
             _propose_drug(
                 "paracetamol",
                 "500mg-1000mg PO q4-6h PRN (max 4000mg/day; weight-based 15mg/kg if pediatric)",
-                "Symptomatic antipyretic/analgesic for acute febrile illness",
+                "First-line symptomatic antipyretic/analgesic for acute febrile illness (safe in G6PD & pregnancy)",
+                dose_mg=500,
+                frequency="QDS",
+                days=3,
             )
         else:
             contraindications_noted.append("Excluded 'paracetamol' due to documented paracetamol allergy")
             _propose_drug(
                 "ibuprofen",
-                "400mg PO TDS PRN with food (max 1200-2400mg/day; verify no GI/renal/asthma contraindication)",
+                "400mg PO TDS PRN with food (max 1200-2400mg/day; verify no GI/renal/asthma/pregnancy contraindication)",
                 "Alternative antipyretic/analgesic (paracetamol allergic)",
+                dose_mg=400,
+                frequency="TDS",
+                days=3,
             )
 
-    # Antiviral proposal (Oseltamivir) for confirmed Flu A/B within 48h window or high-risk comorbidity
+    # Antiviral guideline evaluation (HK CHP / IDSA / CDC): Oseltamivir within 48h or high-risk host
     onset_hours = intake_dict.get("onset_hours")
-    high_risk_comorb = bool(
-        (set(intake_dict.get("comorbidities") or []) | set(patient.get("comorbidities") or []))
-        & {"asthma", "diabetes", "copd", "heart_disease", "ckd", "pregnancy", "immunocompromised"}
-    )
-    if working_dx["icd10"] == "J10.1" and (onset_hours is None or onset_hours <= 48.0 or high_risk_comorb):
-        dose_note = "75mg PO BD x 5 days (clinician review required)"
-        if egfr is not None and egfr < 60.0:
-            dose_note = "Renal adjustment required (eGFR < 60): clinician to verify reduced oseltamivir dosing"
-            contraindications_noted.append(f"Renal impairment (eGFR={egfr}): adjust oseltamivir dose.")
+    is_influenza_dx = working_dx["icd10"] in ("J10.1", "J11.1")
+    if working_dx["icd10"] == "J10.1":
+        if onset_hours is None or onset_hours <= 48.0:
+            oseltamivir_window = "eligible_within_48h"
+        elif high_risk_comorb:
+            oseltamivir_window = "eligible_high_risk_beyond_48h"
+        else:
+            oseltamivir_window = "outside_48h_low_risk"
+    elif is_influenza_dx:
+        oseltamivir_window = "consider_if_confirmed_or_high_risk"
+    else:
+        oseltamivir_window = "not_indicated"
+
+    if working_dx["icd10"] == "J10.1" and oseltamivir_window in ("eligible_within_48h", "eligible_high_risk_beyond_48h"):
+        osel_dose, osel_freq = 75, "BD"
+        dose_note = "75mg PO BD x 5 days (HK CHP / IDSA guideline; clinician review required)"
+        if egfr is not None and egfr < 30.0:
+            osel_dose, osel_freq = 30, "OD"
+            dose_note = "Severe renal adjustment (eGFR < 30): 30mg PO OD x 5 days (clinician verify)"
+            contraindications_noted.append(f"Severe renal impairment (eGFR={egfr}): reduce oseltamivir to 30mg OD.")
+        elif egfr is not None and egfr < 60.0:
+            osel_dose, osel_freq = 30, "BD"
+            dose_note = "Moderate renal adjustment (eGFR 30-59): 30mg PO BD x 5 days (clinician verify)"
+            contraindications_noted.append(f"Renal impairment (eGFR={egfr}): reduce oseltamivir to 30mg BD (<=75mg/day).")
         _propose_drug(
             "oseltamivir",
             dose_note,
-            "Confirmed seasonal influenza within antiviral treatment window",
+            f"Confirmed seasonal influenza ({oseltamivir_window.replace('_', ' ')})",
+            dose_mg=osel_dose,
+            frequency=osel_freq,
+            days=5,
         )
 
     # Non-sedating antihistamine for nasal discharge
@@ -1259,6 +1433,9 @@ def draft_consult_proposal(
             "cetirizine",
             "10mg PO daily PRN",
             "Symptomatic relief of rhinorrhoea / nasal symptoms",
+            dose_mg=10,
+            frequency="QD",
+            days=5,
         )
 
     # Suggested sick-leave days (1-2 days for flu/URTI; strictly proposal only)
@@ -1272,10 +1449,40 @@ def draft_consult_proposal(
 
     suggested_sick_leave = {
         "days": sl_days,
+        "days_off": sl_days,
         "rationale": sl_rationale,
         "status": "PROPOSED_DRAFT_ONLY",
         "autonomously_issued": False,
         "clinician_signoff_required": True,
+    }
+
+    # Guideline-driven clinical decision support (HK CHP IMPACT / NICE NG84 / IDSA)
+    abx_stewardship = (
+        "HK CHP IMPACT / NICE NG84: Viral respiratory illness — routine empirical antibiotics are NOT indicated "
+        "unless secondary bacterial infection (e.g. double-sickening pneumonia, Centor/FeverPAIN >=4) is confirmed."
+        if working_dx["icd10"] in ("J10.1", "J11.1", "J06.9", "J20.9")
+        else "HK CHP IMPACT: Verify bacterial indication and local susceptibility before any antibiotic prescribing."
+    )
+    if double_sickening_flag:
+        abx_stewardship = (
+            "PRIORITY REVIEW — Double-sickening pattern detected (worsening after initial improvement): "
+            "clinician to evaluate for secondary bacterial pneumonia (auscultation / CXR / face-to-face referral)."
+        )
+
+    clinical_decision_support = {
+        "oseltamivir_window": oseltamivir_window,
+        "onset_hours": onset_hours,
+        "antibiotic_stewardship": abx_stewardship,
+        "high_risk_host_factors": high_risk_factors,
+        "pregnancy_detected": pregnancy_detected,
+        "double_sickening_suspected": double_sickening_flag,
+        "safety_netting_en": (
+            "Seek immediate 999 / A&E care for breathlessness, chest pain, SpO2 <94%, confusion, persistent fever >72h, "
+            "or sudden worsening after initial improvement (days 4-7)."
+        ),
+        "safety_netting_zh": (
+            "如出現氣促、心口痛、血氧低於94%、意識混亂、持續高燒超過72小時，或好轉後突然再度惡化，請立即致電999或前往急症室。"
+        ),
     }
 
     # Structured SOAP clinical note
@@ -1288,18 +1495,21 @@ def draft_consult_proposal(
         "subjective": (
             f"Symptoms reported: {', '.join(sym_displays) if sym_displays else 'Acute respiratory/viral presentation'}. "
             f"Duration: {intake_dict.get('duration_text') or 'Not specified'}."
+            + (f" High-risk host factors: {', '.join(high_risk_factors)}." if high_risk_factors else "")
         ),
         "objective": "; ".join(obs_summary) if obs_summary else "No objective vitals or RAT recorded yet.",
         "assessment": (
             f"Working diagnosis draft: {working_dx['icd10_display']} "
             f"(ICD-10: {working_dx['icd10']}, ICPC-2: {working_dx['icpc2']}). "
-            "Clinician verification required."
+            f"Antiviral window: {oseltamivir_window.replace('_', ' ')}. "
+            f"{abx_stewardship} Clinician verification required."
         ),
         "plan": (
             "1. Clinician teleconsultation review and verification of history, allergies, and red flags. "
             f"2. Review proposed medications ({len(suggested_meds)} item(s)) and sick-leave draft ({sl_days} day(s)). "
-            "3. Safety-netting: advise immediate 999 / A&E attendance if symptoms worsen."
+            f"3. Safety-netting: {clinical_decision_support['safety_netting_en']}"
         ),
+        "clinical_decision_support": clinical_decision_support,
         "snomed_codes": snomed_codes,
         "observations": observations,
         "prompt_injection_flagged": bool(intake_dict.get("prompt_injection_detected")),

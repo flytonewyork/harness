@@ -162,6 +162,17 @@ def valid_mchk_reg(reg_no: str | None) -> bool:
     return bool(reg_no and MCHK_REG_RE.match(reg_no.strip().upper()))
 
 
+_DEV_JWT_DEFAULT = "tmrw-hk-acute-jwt-dev-secret-change-in-prod-32b"
+
+
+def _get_jwt_secret() -> str:
+    secret = os.environ.get("JWT_SECRET", JWT_SECRET)
+    env = os.environ.get("HARNESS_ENV", "staging").lower()
+    if env == "prod" and (not secret or secret == _DEV_JWT_DEFAULT or len(secret) < 32):
+        raise RuntimeError("HARNESS_ENV=prod requires a strong JWT_SECRET (>=32 chars) from Secret Manager")
+    return secret
+
+
 # --- JWT & RBAC / ABAC ---
 def mint_jwt(
     *,
@@ -186,12 +197,12 @@ def mint_jwt(
         payload["cid"] = corporate_id
     if mchk_reg_no:
         payload["mchk"] = mchk_reg_no
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
+    return jwt.encode(payload, _get_jwt_secret(), algorithm=JWT_ALG)
 
 
 def decode_jwt(token: str) -> dict[str, Any]:
     try:
-        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+        return jwt.decode(token, _get_jwt_secret(), algorithms=[JWT_ALG])
     except jwt.ExpiredSignatureError as exc:
         raise HTTPException(401, "Session expired") from exc
     except jwt.InvalidTokenError as exc:
@@ -210,15 +221,43 @@ def extract_claims(request: Request, *, allowed_roles: tuple[str, ...], require_
     return claims
 
 
-# --- In-Memory Sliding-Window Rate Limiter ---
+def client_ip_from_request(request: Request) -> str:
+    """Extract client IP respecting Cloud Run / reverse-proxy X-Forwarded-For."""
+    xff = (request.headers.get("X-Forwarded-For") or request.headers.get("x-forwarded-for") or "").strip()
+    if xff:
+        return xff.split(",")[0].strip() or "unknown"
+    return request.client.host if request.client else "local"
+
+
+# --- Bounded-Memory Sliding-Window Rate Limiter ---
 class SlidingRateLimiter:
-    def __init__(self, max_requests: int = 120, window_seconds: int = 60):
+    """Thread-safe bounded sliding-window rate limiter preventing IP-spray memory exhaustion."""
+
+    def __init__(self, max_requests: int = 120, window_seconds: int = 60, max_keys: int = 10_000):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
+        self.max_keys = max_keys
         self._hits: dict[str, deque[float]] = defaultdict(deque)
+        self._last_gc = time.monotonic()
+
+    def _evict_stale(self, now: float, *, incoming_key: str) -> None:
+        needs_room = incoming_key not in self._hits and len(self._hits) >= self.max_keys
+        if not needs_room and now - self._last_gc < self.window_seconds:
+            return
+        stale = [k for k, q in self._hits.items() if not q or now - q[-1] > self.window_seconds]
+        for k in stale:
+            del self._hits[k]
+        # Hard cap: drop oldest keys if still at/above max_keys under volumetric spray
+        target = self.max_keys - 1 if incoming_key not in self._hits else self.max_keys
+        if len(self._hits) > target:
+            excess = len(self._hits) - target
+            for k in list(self._hits.keys())[:excess]:
+                del self._hits[k]
+        self._last_gc = now
 
     def check(self, key: str) -> None:
         now = time.monotonic()
+        self._evict_stale(now, incoming_key=key)
         q = self._hits[key]
         while q and now - q[0] > self.window_seconds:
             q.popleft()

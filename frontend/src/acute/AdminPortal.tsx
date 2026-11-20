@@ -4,11 +4,14 @@ import {
   AlertTriangle,
   Building2,
   CheckCircle2,
+  Cpu,
+  FileCheck2,
   FileCode2,
   FileSpreadsheet,
   Globe2,
   History,
   Lock,
+  Play,
   Plus,
   Power,
   QrCode,
@@ -18,6 +21,8 @@ import {
 } from "lucide-react";
 import { acuteApi, tr } from "./api";
 import type {
+  AdminDataRequestItem,
+  AdminObservabilityResponse,
   AdminOverviewResponse,
   AuditEventItem,
   AuthSession,
@@ -35,7 +40,7 @@ interface AdminPortalProps {
   onNotify: (msg: string, isError?: boolean) => void;
 }
 
-type AdminTab = "governance" | "corporates" | "invoicing" | "audit";
+type AdminTab = "governance" | "observability" | "corporates" | "invoicing" | "audit";
 
 function KAnonCell({ value, suppressed }: { value: number | string | undefined; suppressed?: boolean }) {
   const isSuppressed = suppressed || String(value) === "<5" || String(value).includes("<5");
@@ -67,6 +72,8 @@ export function AdminPortal({
   // Clinic Ops Admin state
   const [adminTab, setAdminTab] = useState<AdminTab>("governance");
   const [overview, setOverview] = useState<AdminOverviewResponse | null>(null);
+  const [observability, setObservability] = useState<AdminObservabilityResponse | null>(null);
+  const [dataRequests, setDataRequests] = useState<AdminDataRequestItem[]>([]);
   const [invoicing, setInvoicing] = useState<InvoicingResponse | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEventItem[]>([]);
   const [auditFilter, setAuditFilter] = useState("");
@@ -102,14 +109,18 @@ export function AdminPortal({
     if (session?.role !== "clinic_admin") return;
     setBusy(true);
     try {
-      const [ov, inv, aud] = await Promise.all([
+      const [ov, inv, aud, obs, dreqs] = await Promise.all([
         acuteApi.adminOverview(),
         acuteApi.adminInvoicing().catch(() => ({ rows: [] })),
         acuteApi.adminAudit(100).catch(() => []),
+        acuteApi.adminObservability().catch(() => null),
+        acuteApi.adminDataRequests().catch(() => []),
       ]);
       setOverview(ov);
       setInvoicing(inv);
       setAuditEvents(aud);
+      setObservability(obs);
+      setDataRequests(dreqs);
       if (ov.corporates?.length > 0 && !campCorpId) {
         setCampCorpId(ov.corporates[0].id);
       }
@@ -187,6 +198,46 @@ export function AdminPortal({
       onNotify(tr(lang, "Protocol version approved & cryptographically pinned.", "臨床方案版本已批核並鎖定雜湊指紋。"));
     } catch (e) {
       onNotify(e instanceof Error ? e.message : "Protocol approval failed", true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleProcessOutbox = async () => {
+    setBusy(true);
+    try {
+      const res = await acuteApi.adminProcessOutbox();
+      await loadClinicAdmin();
+      onNotify(
+        tr(
+          lang,
+          `Outbox sweep complete: ${res.batch.succeeded} succeeded, ${res.batch.retried} retried, ${res.batch.dlq} DLQ.`,
+          `背景工作佇列已處理：成功 ${res.batch.succeeded} 項，重試 ${res.batch.retried} 項，DLQ ${res.batch.dlq} 項。`
+        )
+      );
+    } catch (e) {
+      onNotify(e instanceof Error ? e.message : "Outbox processing failed", true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResolveDcr = async (reqId: string, action: "approved" | "rejected") => {
+    setBusy(true);
+    try {
+      const note =
+        action === "approved"
+          ? "Verified by HK DPO / Clinic Ops and recorded as append-only PDPO DPP6 addendum."
+          : "Correction declined with written explanation under HK PDPO s.23; original record retained.";
+      await acuteApi.adminResolveDataRequest(reqId, { action, resolution_note: note });
+      await loadClinicAdmin();
+      onNotify(
+        action === "approved"
+          ? tr(lang, "PDPO Data Correction approved as append-only addendum.", "已批核 PDPO 資料更正並寫入附加紀錄。")
+          : tr(lang, "PDPO Data Correction request rejected with audit note.", "已拒絕 PDPO 資料更正要求並記錄審計理由。")
+      );
+    } catch (e) {
+      onNotify(e instanceof Error ? e.message : "Failed to resolve data request", true);
     } finally {
       setBusy(false);
     }
@@ -518,6 +569,9 @@ export function AdminPortal({
         <button type="button" className={`ac-tab${adminTab === "governance" ? " active" : ""}`} data-testid="admin-tab-governance" onClick={() => setAdminTab("governance")}>
           <ShieldCheck size={14} /> {tr(lang, "Residency, Kill Switch & Protocols", "數據駐留、AI 開關與方案")}
         </button>
+        <button type="button" className={`ac-tab${adminTab === "observability" ? " active" : ""}`} data-testid="admin-tab-observability" onClick={() => setAdminTab("observability")}>
+          <Cpu size={14} /> {tr(lang, "Observability & PDPO Ops", "可觀測性與 PDPO 營運")}
+        </button>
         <button type="button" className={`ac-tab${adminTab === "corporates" ? " active" : ""}`} data-testid="admin-tab-corporates" onClick={() => setAdminTab("corporates")}>
           <Building2 size={14} /> {tr(lang, "Corporates & QR Campaigns", "企業客戶與二維碼計劃")}
         </button>
@@ -698,6 +752,199 @@ export function AdminPortal({
                 {overview?.protocols.find((p) => p.id === expandedProtocol)?.yaml_content || ""}
               </pre>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* TAB 1B: PRODUCTION OBSERVABILITY, DURABLE OUTBOX & HK PDPO DCR QUEUE */}
+      {adminTab === "observability" && (
+        <section data-testid="admin-observability-panel">
+          {observability && (
+            <>
+              {/* Live SLO KPI Strip */}
+              <div className="ac-grid-4" style={{ marginBottom: "1rem" }}>
+                <div className="ac-kpi">
+                  <div className="ac-kpi-label">{tr(lang, "Process Uptime", "系統運行時間")}</div>
+                  <div className="ac-kpi-value ac-mono">{Math.round(observability.telemetry.uptime_seconds)}s</div>
+                  <div className="ac-kpi-sub">
+                    Vault: <span className={`ac-badge ${observability.vault.ok ? "ok" : "crit"}`}>{observability.vault.ok ? observability.vault.backend || "OK" : "DEGRADED"}</span>
+                  </div>
+                </div>
+                <div className="ac-kpi">
+                  <div className="ac-kpi-label">{tr(lang, "HTTP Requests", "API 總請求量")}</div>
+                  <div className="ac-kpi-value ac-mono">{observability.telemetry.http.requests_total}</div>
+                  <div className="ac-kpi-sub">
+                    5xx Error Rate: <strong className="ac-mono">{observability.telemetry.http.error_rate_5xx_pct}%</strong>
+                  </div>
+                </div>
+                <div className="ac-kpi">
+                  <div className="ac-kpi-label">{tr(lang, "Latency P50 / P95 / P99", "延遲百分位 (ms)")}</div>
+                  <div className="ac-kpi-value ac-mono" style={{ fontSize: "1.1rem" }}>
+                    {observability.telemetry.http.latency_ms.p50} / {observability.telemetry.http.latency_ms.p95} / {observability.telemetry.http.latency_ms.p99}ms
+                  </div>
+                  <div className="ac-kpi-sub">Prometheus: <span className="ac-mono">/api/v1/metrics</span></div>
+                </div>
+                <div className="ac-kpi">
+                  <div className="ac-kpi-label">{tr(lang, "AI Gateway Resilience", "模型閘道韌性")}</div>
+                  <div className="ac-kpi-value ac-mono">{observability.gateway.fallback_count}</div>
+                  <div className="ac-kpi-sub">
+                    Fallbacks • Breaker trips: {observability.gateway.circuit_breaker_trips}
+                  </div>
+                </div>
+              </div>
+
+              {/* Clinical Safety Gate Counters + Outbox Worker Controls */}
+              <div className="ac-grid-2" style={{ marginBottom: "1rem" }}>
+                <div className="ac-card" data-testid="admin-safety-counters-card">
+                  <h3 className="ac-card-title" style={{ marginBottom: "0.65rem" }}>
+                    <Activity size={16} color="var(--ac-teal)" />
+                    {tr(lang, "Clinical Safety & PDPO Counters", "臨床安全及 PDPO 指標")}
+                  </h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", fontSize: "12.5px" }}>
+                    <div>Intakes processed: <strong className="ac-mono">{observability.telemetry.clinical_safety.intakes_total ?? 0}</strong></div>
+                    <div>Red flags escalated: <strong className="ac-mono" style={{ color: "var(--ac-crit)" }}>{observability.telemetry.clinical_safety.red_flags_escalated_total ?? 0}</strong></div>
+                    <div>Prompt injections neutralized: <strong className="ac-mono">{observability.telemetry.clinical_safety.prompt_injections_neutralized_total ?? 0}</strong></div>
+                    <div>Rx safety checks: <strong className="ac-mono">{observability.telemetry.clinical_safety.rx_safety_checks_total ?? 0}</strong></div>
+                    <div>Rx Cap. 134 / Hard blocks: <strong className="ac-mono" style={{ color: "var(--ac-crit)" }}>{observability.telemetry.clinical_safety.rx_hard_blocks_total ?? 0}</strong></div>
+                    <div>Certs / Rx signed: <strong className="ac-mono">{observability.telemetry.clinical_safety.certs_signed_total ?? 0} / {observability.telemetry.clinical_safety.prescriptions_signed_total ?? 0}</strong></div>
+                    <div>WA Doorbell sends (0 PHI): <strong className="ac-mono">{observability.telemetry.clinical_safety.wa_messages_sent_total ?? 0}</strong></div>
+                    <div>PDPO DAR / DCR / Holds: <strong className="ac-mono">{observability.telemetry.clinical_safety.pdpo_dar_exports_total ?? 0} / {observability.telemetry.clinical_safety.pdpo_dcr_submitted_total ?? 0} / {observability.telemetry.clinical_safety.pdpo_deletions_total ?? 0}</strong></div>
+                  </div>
+                </div>
+
+                <div className="ac-card" data-testid="admin-outbox-card">
+                  <div className="ac-card-head">
+                    <div>
+                      <h3 className="ac-card-title">
+                        <Cpu size={16} color="var(--ac-teal)" />
+                        {tr(lang, "Durable PostgreSQL Outbox Worker", "持久化 PostgreSQL 工作佇列")}
+                      </h3>
+                      <p className="ac-card-sub">
+                        {tr(
+                          lang,
+                          "Reminders, 48h check-in nudges, and SLA escalations survive container restarts.",
+                          "預約提醒、48小時跟進及 SLA 升級均持久化儲存，無懼重啟。"
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="ac-btn primary sm"
+                      data-testid="admin-process-outbox-btn"
+                      disabled={busy}
+                      onClick={() => void handleProcessOutbox()}
+                    >
+                      <Play size={13} /> {tr(lang, "Process Due Jobs", "立即執行到期任務")}
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
+                    <span className="ac-badge info ac-mono">Pending: {observability.outbox.counts.pending}</span>
+                    <span className="ac-badge ok ac-mono">Done: {observability.outbox.counts.done}</span>
+                    <span className={`ac-badge ${observability.outbox.counts.dlq > 0 ? "crit" : "ok"} ac-mono`}>DLQ: {observability.outbox.counts.dlq}</span>
+                    <span className={`ac-badge ${observability.outbox.worker.enabled ? "ok" : "warn"}`}>
+                      Worker: {observability.outbox.worker.enabled ? `AUTO (${observability.outbox.worker.poll_interval_seconds}s)` : "ON-DEMAND"}
+                    </span>
+                  </div>
+                  {observability.outbox.recent_events.length > 0 && (
+                    <div style={{ fontSize: "11.5px", color: "var(--ac-ink-2)" }}>
+                      {observability.outbox.recent_events.slice(0, 4).map((ev) => (
+                        <div key={ev.id} style={{ display: "flex", justifyContent: "space-between", padding: "0.22rem 0", borderTop: "1px solid #edf2f5" }}>
+                          <span className="ac-mono">{ev.event_type}</span>
+                          <span className={`ac-badge ${ev.status === "done" ? "ok" : ev.status === "dlq" ? "crit" : "info"}`} style={{ fontSize: "10px" }}>
+                            {ev.status} ({ev.attempts}/{ev.max_attempts})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* HK PDPO DPP6 Data Correction Request (DCR) Governance Queue */}
+          <div className="ac-card" data-testid="admin-dcr-section">
+            <div className="ac-card-head">
+              <div>
+                <h3 className="ac-card-title">
+                  <FileCheck2 size={16} color="var(--ac-teal)" />
+                  {tr(lang, "HK PDPO DPP6 Data Correction & Rights Queue", "香港 PDPO DPP6 資料更正及私隱請求隊列")}
+                </h3>
+                <p className="ac-card-sub">
+                  {tr(
+                    lang,
+                    "Resolutions append audited addenda under Hong Kong PDPO s.22–23 without mutating historical clinical records.",
+                    "審批結果依香港 PDPO 第22–23條寫入不可篡改附加紀錄，絕不覆寫歷史病歷。"
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="ac-table-wrap">
+              <table className="ac-table" data-testid="admin-dcr-table">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>Type</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dataRequests.map((r) => (
+                    <tr key={r.id} data-testid={`admin-dcr-row-${r.id}`}>
+                      <td>
+                        <strong>{r.patient_name_en || r.patient_id}</strong>
+                        {r.hkid_masked ? <div className="ac-mono" style={{ fontSize: "11px", color: "var(--ac-ink-3)" }}>{r.hkid_masked}</div> : null}
+                      </td>
+                      <td className="ac-mono">{r.request_type}</td>
+                      <td className="ac-mono" style={{ fontSize: "11.5px", maxWidth: 260, wordBreak: "break-word" }}>
+                        {JSON.stringify(r.details || {})}
+                      </td>
+                      <td>
+                        <span className={`ac-badge ${r.status === "approved_addendum" ? "ok" : r.status === "queued_for_review" ? "warn" : "info"}`}>
+                          {r.status}
+                        </span>
+                      </td>
+                      <td>
+                        {r.status === "queued_for_review" ? (
+                          <div className="ac-btn-row">
+                            <button
+                              type="button"
+                              className="ac-btn primary sm"
+                              data-testid={`admin-dcr-approve-${r.id}`}
+                              disabled={busy}
+                              onClick={() => void handleResolveDcr(r.id, "approved")}
+                            >
+                              <CheckCircle2 size={12} /> {tr(lang, "Approve Addendum", "批核附加紀錄")}
+                            </button>
+                            <button
+                              type="button"
+                              className="ac-btn sm"
+                              data-testid={`admin-dcr-reject-${r.id}`}
+                              disabled={busy}
+                              onClick={() => void handleResolveDcr(r.id, "rejected")}
+                            >
+                              {tr(lang, "Reject", "拒絕")}
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: "11.5px", color: "var(--ac-ink-3)" }}>{r.resolution_note || "Finalized"}</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {dataRequests.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ color: "var(--ac-ink-3)" }}>
+                        {tr(lang, "No patient PDPO data correction or deletion requests logged yet.", "暫無病人 PDPO 資料更正或刪除請求。")}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       )}

@@ -12,18 +12,22 @@ Security, HK PDPO (Cap. 486) & MCHK invariants enforced on every request:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import secrets
+import time
+import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text as sql_text
 
 from ..gateway import ModelGateway, TenantPolicy, load_protocol
 from ..vault import DocumentVault, VaultError
@@ -36,6 +40,7 @@ from .adapters import (
 )
 from .certificates import issue_encrypted_certificate
 from .db import (
+    TENANT_SCOPED_TABLES,
     AgentRun,
     AuditEvent,
     Campaign,
@@ -63,13 +68,16 @@ from .db import (
     record_audit,
     utcnow,
 )
+from .observability import TelemetryRegistry, configure_structured_logger
 from .rx_rules import check_prescription_safety
 from .security import (
     HKT,
     PHISafeLogFilter,
     SlidingRateLimiter,
     WhatsAppLeakageGuard,
+    _get_jwt_secret,
     build_fhir_r4_bundle,
+    client_ip_from_request,
     extract_claims,
     hash_secret,
     mask_hkid,
@@ -84,7 +92,7 @@ from .terminology import CVX_VACCINES, HK_DIAGNOSES, validate_diagnosis_coding
 from .triage import AcuteHarnessRuntime
 from .workflows import DurableWorkflowEngine
 
-logger = logging.getLogger("tmrw.acute")
+logger = configure_structured_logger("tmrw.acute")
 logger.addFilter(PHISafeLogFilter())
 
 DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
@@ -306,6 +314,16 @@ class DeleteDataReq(BaseModel):
 class RxCheckReq(BaseModel):
     patient_id: str
     items: list[dict[str, Any]]
+    diagnosis_icd10: str | None = None
+
+
+class ClinicianReplyReq(BaseModel):
+    body_text: str = Field(min_length=1, max_length=2000)
+
+
+class ResolveDataRequestReq(BaseModel):
+    action: str = Field(pattern="^(approved|rejected)$")
+    resolution_note: str = Field(min_length=3, max_length=500)
 
 
 class IssueCertInput(BaseModel):
@@ -397,6 +415,46 @@ def _show_demo_otp() -> bool:
     return _env_flag("DEMO_SHOW_OTP", default=True)
 
 
+def _assert_patient_active(pat: Patient | None) -> Patient:
+    """Enforce HK PDPO statutory retention hold lockout on clinical/transactional mutations."""
+    if not pat:
+        raise HTTPException(404, "Patient not found")
+    if pat.status == "deleted_statutory_hold":
+        raise HTTPException(
+            403,
+            "Account is locked under Hong Kong PDPO statutory retention hold. "
+            "Clinical intake, bookings, and messaging are disabled; Data Access (FHIR export) remains available.",
+        )
+    return pat
+
+
+def _render_soap_note(clinical_note: Any) -> str:
+    """Format structured SOAP note dict into clean prose without dumping nested CDS/metadata dicts."""
+    if isinstance(clinical_note, str):
+        return clinical_note
+    if not isinstance(clinical_note, dict):
+        return ""
+    soap_order = ("subjective", "objective", "assessment", "plan")
+    lines = [f"{k.upper()}: {clinical_note[k]}" for k in soap_order if isinstance(clinical_note.get(k), str) and clinical_note[k]]
+    if not lines:
+        lines = [f"{k.upper()}: {v}" for k, v in clinical_note.items() if isinstance(v, str) and v]
+    return "\n".join(lines)
+
+
+def _apply_security_headers(response: Response, *, request_id: str, latency_ms: float | None = None) -> None:
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'"
+    )
+    response.headers["X-Request-ID"] = request_id
+    if latency_ms is not None:
+        response.headers["X-Response-Time-Ms"] = f"{latency_ms:.2f}"
+
+
 # -------------------------------------------------------------------------------------- App Factory
 def create_acute_app(
     *,
@@ -406,10 +464,14 @@ def create_acute_app(
     runtime: AcuteHarnessRuntime | None = None,
     seed_on_startup: bool = True,
 ) -> FastAPI:
+    # Fail-fast check in production if JWT secret is missing or using dev default
+    _get_jwt_secret()
+
     database = db or Database()
     doc_vault = vault or DocumentVault()
     model_gw = gateway or ModelGateway()
     harness_rt = runtime or AcuteHarnessRuntime(gateway=model_gw, enable_model_screen=True)
+    telemetry = TelemetryRegistry()
 
     wa_adapter = WhatsAppDoorbellAdapter()
     booking_adapter = BookingAdapter()
@@ -424,11 +486,72 @@ def create_acute_app(
     if seed_on_startup:
         seed_demo_data(database, doc_vault, runtime=harness_rt)
 
+    outbox_worker_enabled = _env_flag("OUTBOX_WORKER_ENABLED", default=False)
+    outbox_poll_seconds = max(2, int(os.environ.get("OUTBOX_POLL_INTERVAL_SECONDS", "15")))
+    outbox_worker_state: dict[str, Any] = {
+        "enabled": outbox_worker_enabled,
+        "poll_interval_seconds": outbox_poll_seconds,
+        "ticks": 0,
+        "last_tick_at": None,
+        "last_processed": 0,
+        "last_error": None,
+    }
+
+    def _run_outbox_sweep() -> int:
+        total_processed = 0
+        with database.admin_session() as s:
+            tenant_ids = list(s.scalars(select(Tenant.id)).all())
+        for tid in tenant_ids:
+            res = workflows.process_due(database, tid, limit=50)
+            total_processed += res.processed
+            if res.succeeded:
+                telemetry.inc("outbox_events_processed_total", res.succeeded)
+            if res.dlq:
+                telemetry.inc("outbox_events_dlq_total", res.dlq)
+        return total_processed
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        worker_task: asyncio.Task[None] | None = None
+        stop_event = asyncio.Event()
+
+        async def _worker_loop() -> None:
+            while not stop_event.is_set():
+                try:
+                    processed = await asyncio.to_thread(_run_outbox_sweep)
+                    outbox_worker_state["ticks"] += 1
+                    outbox_worker_state["last_tick_at"] = utcnow().isoformat()
+                    outbox_worker_state["last_processed"] = processed
+                    outbox_worker_state["last_error"] = None
+                except asyncio.CancelledError:
+                    break
+                except Exception as exc:
+                    outbox_worker_state["last_error"] = type(exc).__name__
+                    logger.warning("Outbox worker sweep error: %s", type(exc).__name__)
+                try:
+                    await asyncio.wait_for(stop_event.wait(), timeout=outbox_poll_seconds)
+                except asyncio.TimeoutError:
+                    continue
+
+        if outbox_worker_enabled:
+            worker_task = asyncio.create_task(_worker_loop())
+        try:
+            yield
+        finally:
+            if worker_task is not None:
+                stop_event.set()
+                worker_task.cancel()
+                try:
+                    await worker_task
+                except asyncio.CancelledError:
+                    pass
+
     app = FastAPI(
         title="Clinic AI Harness — Flu-Season Acute Care (Hong Kong)",
         version="1.0.0",
         docs_url="/api/v1/docs" if _is_demo_mode() else None,
         redoc_url=None,
+        lifespan=lifespan,
     )
     app.state.db = database
     app.state.vault = doc_vault
@@ -436,25 +559,144 @@ def create_acute_app(
     app.state.runtime = harness_rt
     app.state.wa_adapter = wa_adapter
     app.state.workflows = workflows
+    app.state.telemetry = telemetry
+    app.state.outbox_worker_state = outbox_worker_state
 
-    # --- OWASP ASVS L2 Security Headers & Rate Limiting Middleware ---
+    # --- OWASP ASVS L2 Security Headers, Request Tracing, Telemetry & Rate Limiting Middleware ---
     @app.middleware("http")
     async def security_middleware(request: Request, call_next):
-        client_ip = request.client.host if request.client else "local"
-        if request.url.path.startswith("/api/"):
-            limiter.check(f"{client_ip}:{request.url.path.split('/')[2] if len(request.url.path.split('/')) > 2 else 'api'}")
-        response: Response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
-            "script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'"
-        )
+        req_id = request.headers.get("X-Request-ID") or f"req_{uuid.uuid4().hex[:12]}"
+        request.state.request_id = req_id
+        t0 = time.perf_counter()
+        path = request.url.path
+        client_ip = client_ip_from_request(request)
+
+        try:
+            if path.startswith("/api/") and path != "/api/v1/health/live":
+                parts = path.split("/")
+                bucket = parts[3] if len(parts) > 3 else "api"
+                limiter.check(f"{client_ip}:{bucket}")
+            response: Response = await call_next(request)
+        except HTTPException as exc:
+            latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+            response = JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail, "request_id": req_id},
+            )
+            _apply_security_headers(response, request_id=req_id, latency_ms=latency_ms)
+            telemetry.record_http(path, response.status_code, latency_ms)
+            return response
+        except Exception as exc:
+            latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+            telemetry.inc("unhandled_errors_total")
+            logger.error(
+                "Unhandled exception (%s) on %s %s",
+                type(exc).__name__,
+                request.method,
+                path,
+                extra={
+                    "request_id": req_id,
+                    "method": request.method,
+                    "path": path,
+                    "status_code": 500,
+                    "latency_ms": latency_ms,
+                    "error_code": "INTERNAL_ERROR",
+                },
+            )
+            response = JSONResponse(
+                status_code=500,
+                content={
+                    "detail": "Internal server error",
+                    "error_code": "INTERNAL_ERROR",
+                    "request_id": req_id,
+                },
+            )
+            _apply_security_headers(response, request_id=req_id, latency_ms=latency_ms)
+            telemetry.record_http(path, 500, latency_ms)
+            return response
+
+        latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+        _apply_security_headers(response, request_id=req_id, latency_ms=latency_ms)
+        telemetry.record_http(path, response.status_code, latency_ms)
+        if path.startswith("/api/") and path not in ("/api/v1/health/live", "/api/v1/metrics"):
+            safe_path = path
+            if "/magic/" in safe_path and "/verify-otp" not in safe_path:
+                segs = safe_path.split("/")
+                for idx, seg in enumerate(segs):
+                    if seg == "magic" and idx + 1 < len(segs):
+                        segs[idx + 1] = "[REDACTED]"
+                safe_path = "/".join(segs)
+            logger.info(
+                "%s %s -> %d (%.1fms)",
+                request.method,
+                safe_path,
+                response.status_code,
+                latency_ms,
+                extra={
+                    "request_id": req_id,
+                    "method": request.method,
+                    "path": safe_path,
+                    "status_code": response.status_code,
+                    "latency_ms": latency_ms,
+                },
+            )
         return response
 
-    # ================================================================================== HEALTH & DEMO
+    # ================================================================================== HEALTH, PROBES & METRICS
+    @app.get("/api/v1/health/live")
+    def health_live():
+        """Zero-DB fast liveness probe for Cloud Run / Kubernetes."""
+        return {"ok": True, "status": "live", "version": "1.0.0"}
+
+    @app.get("/api/v1/health/ready")
+    def health_ready():
+        """Deep readiness probe: Postgres connectivity, FORCED RLS across all 21 tenant tables, and Vault health."""
+        db_ok = False
+        rls_tables = 0
+        db_error = None
+        try:
+            with database.admin_session() as s:
+                s.execute(sql_text("SELECT 1"))
+                db_ok = True
+                rls_tables = int(
+                    s.execute(
+                        sql_text(
+                            "SELECT count(*) FROM pg_class c "
+                            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                            "WHERE n.nspname = 'public' AND c.relname = ANY(:tables) "
+                            "AND c.relrowsecurity = true AND c.relforcerowsecurity = true"
+                        ),
+                        {"tables": list(TENANT_SCOPED_TABLES)},
+                    ).scalar()
+                    or 0
+                )
+        except Exception as exc:
+            db_error = type(exc).__name__
+
+        vault_health = doc_vault.health_check()
+        expected_rls = len(TENANT_SCOPED_TABLES)
+        ready = db_ok and rls_tables == expected_rls and bool(vault_health.get("ok"))
+        payload = {
+            "ok": ready,
+            "status": "ready" if ready else "degraded",
+            "checks": {
+                "postgres": {"ok": db_ok, "error": db_error},
+                "forced_rls": {"ok": rls_tables == expected_rls, "rls_tables": rls_tables, "expected": expected_rls},
+                "vault": vault_health,
+            },
+            "region": os.environ.get("HARNESS_REGION", "asia-east2"),
+            "outbox_worker": outbox_worker_state,
+        }
+        return JSONResponse(status_code=200 if ready else 503, content=payload)
+
+    @app.get("/api/v1/metrics")
+    def prometheus_metrics():
+        """Prometheus exposition format (zero PHI, bounded cardinality)."""
+        return PlainTextResponse(
+            content=telemetry.render_prometheus(),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
+
     @app.get("/api/v1/health")
     def health():
         with database.admin_session() as s:
@@ -471,6 +713,7 @@ def create_acute_app(
             "demo_mode": _is_demo_mode(),
             "ai_enabled": ai_enabled,
             "tenants_count": int(t_count),
+            "outbox_worker_enabled": outbox_worker_enabled,
             "compliance": ["HK-PDPO-Cap486", "MCHK-Telemedicine", "HL7-FHIR-R4", "ISO-27799"],
         }
 
@@ -663,6 +906,7 @@ def create_acute_app(
                 action="wa.qr_scanned", resource_type="Campaign", resource_id=body.campaign_code,
                 metadata={"conversation_id": conv_id, "has_referral": bool(body.referral_code)},
             )
+        telemetry.inc("wa_messages_sent_total")
 
         return {
             "ok": True,
@@ -794,6 +1038,7 @@ def create_acute_app(
                 leakage_passed=True,
                 status="sent",
             ))
+        telemetry.inc("wa_messages_sent_total")
 
         return {
             "ok": True,
@@ -1083,9 +1328,7 @@ def create_acute_app(
         ))
 
         with database.tenant_session(tenant_id) as s:
-            pat = s.get(Patient, pid)
-            if not pat:
-                raise HTTPException(404, "Patient not found")
+            pat = _assert_patient_active(s.get(Patient, pid))
             # Enforce PDPO DPP1: verify latest clinical_care consent is granted
             latest_care = s.scalar(
                 select(Consent).where(Consent.patient_id == pid, Consent.scope == "clinical_care")
@@ -1123,11 +1366,13 @@ def create_acute_app(
             intake = res["intake"]
             draft = res["draft"] if ai_enabled else None
 
-            note_text = (
-                "\n".join(f"{k.upper()}: {v}" for k, v in draft.clinical_note.items())
-                if draft and isinstance(draft.clinical_note, dict)
-                else ""
-            )
+            telemetry.inc("intakes_total")
+            if triage.is_emergency:
+                telemetry.inc("red_flags_escalated_total")
+            if triage.prompt_injection_detected:
+                telemetry.inc("prompt_injections_neutralized_total")
+
+            note_text = _render_soap_note(draft.clinical_note) if draft else ""
             enc = Encounter(
                 id=new_id("enc"),
                 tenant_id=tenant_id,
@@ -1289,6 +1534,7 @@ def create_acute_app(
         claims = extract_claims(request, allowed_roles=("patient",), require_step_up=True)
         tenant_id, pid = claims["tid"], claims["sub"]
         with database.tenant_session(tenant_id) as s:
+            pat = _assert_patient_active(s.get(Patient, pid))
             enc = (
                 s.get(Encounter, body.encounter_id)
                 if body.encounter_id
@@ -1296,7 +1542,6 @@ def create_acute_app(
             )
             if not enc or enc.patient_id != pid:
                 raise HTTPException(404, "Encounter not found")
-            pat = s.get(Patient, pid)
             doc = s.get(Practitioner, body.practitioner_id)
             if not doc or doc.role != "clinician":
                 raise HTTPException(404, "Clinician not found")
@@ -1386,18 +1631,18 @@ def create_acute_app(
         slot_dt = datetime.fromisoformat(body.slot_at.replace("Z", "+00:00"))
         if slot_dt.tzinfo is None:
             slot_dt = slot_dt.replace(tzinfo=timezone.utc)
-        res = vax_adapter.book_vaccination(
-            patient_id=pid, slot_id=f"vax_{pid[-6:]}_{slot_dt.strftime('%Y%m%d_%H%M')}",
-            cvx_code=body.cvx_code, partner_clinic=body.partner_clinic,
-            idempotency_key=f"vax:{pid}:{body.slot_at}",
-        )
         with database.tenant_session(tenant_id) as s:
-            pat = s.get(Patient, pid)
+            pat = _assert_patient_active(s.get(Patient, pid))
+            res = vax_adapter.book_vaccination(
+                patient_id=pid, slot_id=f"vax_{pid[-6:]}_{slot_dt.strftime('%Y%m%d_%H%M')}",
+                cvx_code=body.cvx_code, partner_clinic=body.partner_clinic,
+                idempotency_key=f"vax:{pid}:{body.slot_at}",
+            )
             imm = Immunization(
                 id=new_id("imm"),
                 tenant_id=tenant_id,
                 patient_id=pid,
-                campaign_id=pat.campaign_id if pat else None,
+                campaign_id=pat.campaign_id,
                 cvx_code=body.cvx_code,
                 vaccine_display=CVX_VACCINES[body.cvx_code][0],
                 partner_clinic=body.partner_clinic,
@@ -1445,6 +1690,7 @@ def create_acute_app(
         triage = harness_rt.screen_message(status_text, tenant_id=tenant_id)
         urgency = 4 if triage.is_emergency else (3 if need_human else max(1, triage.urgency))
         with database.tenant_session(tenant_id) as s:
+            _assert_patient_active(s.get(Patient, pid))
             enc = (
                 s.get(Encounter, body.encounter_id)
                 if body.encounter_id
@@ -1477,6 +1723,8 @@ def create_acute_app(
                 action="followup_48h.submitted", resource_type="Proposal", resource_id=prop.id,
                 metadata={"need_human": need_human, "urgency": urgency},
             )
+            if triage.is_emergency:
+                telemetry.inc("red_flags_escalated_total")
             return {
                 "ok": True,
                 "proposal_id": prop.id,
@@ -1490,6 +1738,7 @@ def create_acute_app(
         claims = extract_claims(request, allowed_roles=("patient",), require_step_up=True)
         tenant_id, pid = claims["tid"], claims["sub"]
         with database.tenant_session(tenant_id) as s:
+            _assert_patient_active(s.get(Patient, pid))
             m = Message(
                 id=new_id("msg"), tenant_id=tenant_id, patient_id=pid, encounter_id=body.encounter_id,
                 direction="in", sender_role="patient", body_text=body.body_text,
@@ -1581,6 +1830,7 @@ def create_acute_app(
                 s, tenant_id=tenant_id, actor_role="patient", actor_id=pid,
                 action="pdpo.dar_exported", resource_type="Patient", resource_id=pid,
             )
+            telemetry.inc("pdpo_dar_exports_total")
             return build_fhir_r4_bundle(
                 patient={
                     "id": pat.id, "name_en": pat.name_en, "name_zh": pat.name_zh, "dob": pat.dob,
@@ -1607,6 +1857,7 @@ def create_acute_app(
                 s, tenant_id=tenant_id, actor_role="patient", actor_id=pid,
                 action="pdpo.dcr_submitted", resource_type="DataRequest", resource_id=dr.id,
             )
+            telemetry.inc("pdpo_dcr_submitted_total")
             return {
                 "ok": True,
                 "request_id": dr.id,
@@ -1682,6 +1933,7 @@ def create_acute_app(
                 action="pdpo.deletion_statutory_hold", resource_type="Patient", resource_id=pid,
                 metadata={"retention_until": retention_until.isoformat()},
             )
+            telemetry.inc("pdpo_deletions_total")
             return {
                 "data_request": {"id": dr.id, "status": dr.status},
                 "status": "statutory_hold_applied",
@@ -1707,10 +1959,20 @@ def create_acute_app(
                     Proposal.sla_due_at.asc(),
                 )
             ).all()
+            pat_ids = list({p.patient_id for p in props})
+            enc_ids = list({p.encounter_id for p in props})
+            pat_map = (
+                {pt.id: pt for pt in s.scalars(select(Patient).where(Patient.id.in_(pat_ids))).all()}
+                if pat_ids else {}
+            )
+            enc_map = (
+                {en.id: en for en in s.scalars(select(Encounter).where(Encounter.id.in_(enc_ids))).all()}
+                if enc_ids else {}
+            )
             items = []
             for p in props:
-                pat = s.get(Patient, p.patient_id)
-                enc = s.get(Encounter, p.encounter_id)
+                pat = pat_map.get(p.patient_id)
+                enc = enc_map.get(p.encounter_id)
                 overdue = p.status == "pending_review" and p.sla_due_at < now
                 checks = p.checks_json or []
                 items.append({
@@ -1771,9 +2033,13 @@ def create_acute_app(
             draft = payload_raw.get("draft") or {}
             triage_data = payload_raw.get("triage") or {}
             intake_data = payload_raw.get("intake") or {}
-            suggested_rx = draft.get("suggested_prescriptions") or [
-                {"drug": "paracetamol", "dose_mg": 500, "frequency": "QDS", "days": 3}
-            ]
+            working_diag = draft.get("working_diagnosis") or {}
+            eff_icd10 = working_diag.get("icd10") or (enc.icd10_code if enc else "J11.1")
+            suggested_rx = (
+                draft.get("suggested_medications")
+                or draft.get("suggested_prescriptions")
+                or [{"drug": "paracetamol", "dose_mg": 500, "frequency": "QDS", "days": 3}]
+            )
             rx_preview = check_prescription_safety(
                 {
                     "dob": pat.dob, "g6pd_deficient": pat.g6pd_deficient,
@@ -1781,6 +2047,7 @@ def create_acute_app(
                     "weight_kg": pat.weight_kg, "egfr": pat.egfr,
                 },
                 suggested_rx,
+                diagnosis_icd10=eff_icd10,
             ).to_dict() if pat else {}
 
             raw_quotes = p.source_quotes_json or []
@@ -1795,15 +2062,16 @@ def create_acute_app(
                 else:
                     snomed_syms.append({"code": str(code), "display": str(code)})
 
-            draft_note_val = ""
-            if isinstance(draft.get("clinical_note"), dict):
-                draft_note_val = "\n".join(f"{k.upper()}: {v}" for k, v in draft["clinical_note"].items())
-            elif isinstance(draft.get("clinical_note"), str):
-                draft_note_val = draft["clinical_note"]
-            elif enc and enc.clinical_note:
+            raw_clinical_note = draft.get("clinical_note")
+            cds_data = (
+                raw_clinical_note.get("clinical_decision_support")
+                if isinstance(raw_clinical_note, dict)
+                else None
+            )
+            draft_note_val = _render_soap_note(raw_clinical_note)
+            if not draft_note_val and enc and enc.clinical_note:
                 draft_note_val = enc.clinical_note
 
-            working_diag = draft.get("working_diagnosis") or {}
             suggested_cert = draft.get("suggested_sick_leave") or {
                 "days_off": 2,
                 "start_date": utcnow().astimezone(HKT).date().isoformat(),
@@ -1812,7 +2080,9 @@ def create_acute_app(
                 **payload_raw,
                 "draft_clinical_note": draft_note_val,
                 "clinical_note": draft_note_val,
-                "suggested_icd10": working_diag.get("icd10") or (enc.icd10_code if enc else "J11.1"),
+                "clinical_decision_support": cds_data,
+                "contraindications_noted": draft.get("contraindications_noted") or [],
+                "suggested_icd10": eff_icd10,
                 "suggested_icpc2": working_diag.get("icpc2") or (enc.icpc2_code if enc else "R80"),
                 "recommended_sick_leave_days": suggested_cert.get("days_off", 2),
                 "suggested_rx": suggested_rx,
@@ -1892,7 +2162,7 @@ def create_acute_app(
 
     @app.post("/api/v1/clinician/rx-safety-check")
     def clinician_rx_safety_check(body: RxCheckReq, request: Request):
-        """Story 13: Real-time 100% deterministic allergy, G6PD, Cap. 134, DDI & dose check."""
+        """Story 13: Real-time 100% deterministic allergy, G6PD, Cap. 134, pregnancy, pediatric, renal, stewardship & DDI check."""
         claims = extract_claims(request, allowed_roles=("clinician",))
         tenant_id = claims["tid"]
         with database.tenant_session(tenant_id) as s:
@@ -1906,8 +2176,67 @@ def create_acute_app(
                     "weight_kg": pat.weight_kg, "egfr": pat.egfr,
                 },
                 body.items,
+                diagnosis_icd10=body.diagnosis_icd10,
             )
+            telemetry.inc("rx_safety_checks_total")
+            if report.hard_blocks:
+                telemetry.inc("rx_hard_blocks_total")
             return report.to_dict()
+
+    @app.post("/api/v1/clinician/proposals/{proposal_id}/message")
+    def clinician_reply_message(proposal_id: str, body: ClinicianReplyReq, request: Request):
+        """Clinician sends a secure in-portal message to patient + non-clinical WhatsApp doorbell ping."""
+        claims = extract_claims(request, allowed_roles=("clinician",))
+        tenant_id, doc_id = claims["tid"], claims["sub"]
+        with database.tenant_session(tenant_id) as s:
+            prop = s.get(Proposal, proposal_id)
+            if not prop:
+                raise HTTPException(404, "Proposal not found")
+            pat = s.get(Patient, prop.patient_id)
+            if not pat:
+                raise HTTPException(404, "Patient not found")
+            m = Message(
+                id=new_id("msg"),
+                tenant_id=tenant_id,
+                patient_id=pat.id,
+                encounter_id=prop.encounter_id,
+                direction="out",
+                sender_role="clinician",
+                body_text=body.body_text.strip(),
+            )
+            s.add(m)
+            s.flush()
+            # Non-clinical WhatsApp doorbell notification only (zero clinical text on WhatsApp!)
+            wa_msg = wa_adapter.render_template("new_message", {"url": "/p"}, lang="bilingual")
+            WhatsAppLeakageGuard.assert_clean(wa_msg)
+            s.add(WhatsAppOutbox(
+                id=new_id("wao"),
+                tenant_id=tenant_id,
+                phone=pat.phone_masked,
+                conversation_id=f"msg_{prop.encounter_id}",
+                template_id="new_message",
+                body_text=wa_msg,
+                magic_link_url="/p",
+                leakage_passed=True,
+                status="sent",
+            ))
+            record_audit(
+                s, tenant_id=tenant_id, actor_role="clinician", actor_id=doc_id,
+                action="clinician.message_sent", resource_type="Message", resource_id=m.id,
+                metadata={"proposal_id": prop.id, "patient_id": pat.id},
+            )
+            telemetry.inc("wa_messages_sent_total")
+            return {
+                "ok": True,
+                "message": {
+                    "id": m.id,
+                    "direction": m.direction,
+                    "sender_role": m.sender_role,
+                    "body_text": m.body_text,
+                    "created_at": (m.created_at or utcnow()).isoformat(),
+                },
+                "doorbell_sent": True,
+            }
 
     @app.post("/api/v1/clinician/proposals/{proposal_id}/decide")
     def clinician_decide(proposal_id: str, body: ClinicianDecideReq, request: Request):
@@ -1966,10 +2295,16 @@ def create_acute_app(
                         "weight_kg": pat.weight_kg, "egfr": pat.egfr,
                     },
                     eff_issue_rx.items,
+                    diagnosis_icd10=body.icd10_code or enc.icd10_code,
                 )
+                telemetry.inc("rx_safety_checks_total")
                 ok_override, err_msg = rx_report.validate_override(eff_issue_rx.override_reason)
                 if not ok_override:
+                    if rx_report.hard_blocks:
+                        telemetry.inc("rx_hard_blocks_total")
                     raise HTTPException(422, err_msg or "Prescription blocked by deterministic clinical safety rules")
+                if rx_report.overrides_required and eff_issue_rx.override_reason:
+                    telemetry.inc("rx_overrides_total")
 
             edit_diff: dict[str, Any] = dict(body.edit_diff or {})
             if body.clinical_note and body.clinical_note != enc.clinical_note:
@@ -2038,6 +2373,7 @@ def create_acute_app(
                 )
                 s.add(cert_row)
                 s.flush()
+                telemetry.inc("certs_signed_total")
                 cert_out = {
                     "id": cert_row.id, "encounter_id": cert_row.encounter_id,
                     "vault_doc_id": cert_row.vault_doc_id,
@@ -2067,6 +2403,7 @@ def create_acute_app(
                 )
                 s.add(rx_row)
                 s.flush()
+                telemetry.inc("prescriptions_signed_total")
                 rx_out = {
                     "id": rx_row.id, "encounter_id": rx_row.encounter_id, "mchk_reg_no": rx_row.mchk_reg_no,
                     "items": rx_row.items_json, "fulfilment_mode": rx_row.fulfilment_mode,
@@ -2088,6 +2425,7 @@ def create_acute_app(
                         conversation_id=f"docready_{enc.id}", template_id="document_ready",
                         body_text=wa_msg, magic_link_url="/p", leakage_passed=True, status="sent",
                     ))
+                    telemetry.inc("wa_messages_sent_total")
                 # Update corporate campaign spend if linked
                 if pat.campaign_id:
                     camp = s.get(Campaign, pat.campaign_id)
@@ -2354,21 +2692,60 @@ def create_acute_app(
 
     @app.get("/api/v1/admin/invoicing")
     def admin_invoicing(request: Request):
-        """Story 19: Corporate invoicing & fulfilment reconciliation (aggregate only)."""
+        """Story 19: Corporate invoicing & fulfilment reconciliation (aggregate only, zero N+1 queries)."""
         claims = extract_claims(request, allowed_roles=("clinic_admin",))
         tenant_id = claims["tid"]
         with database.tenant_session(tenant_id) as s:
             corps = s.scalars(select(Corporate)).all()
+            all_camps = s.scalars(select(Campaign)).all()
+            camps_by_corp: dict[str, list[Campaign]] = {}
+            for cm in all_camps:
+                camps_by_corp.setdefault(cm.corporate_id, []).append(cm)
+
+            enc_by_camp = {
+                cid: int(cnt)
+                for cid, cnt in s.execute(
+                    select(Encounter.campaign_id, func.count(Encounter.id))
+                    .where(Encounter.campaign_id.is_not(None))
+                    .group_by(Encounter.campaign_id)
+                ).all()
+            }
+            vax_by_camp = {
+                cid: int(cnt)
+                for cid, cnt in s.execute(
+                    select(Immunization.campaign_id, func.count(Immunization.id))
+                    .where(Immunization.campaign_id.is_not(None))
+                    .group_by(Immunization.campaign_id)
+                ).all()
+            }
+            cert_by_corp = {
+                cid: int(cnt)
+                for cid, cnt in s.execute(
+                    select(Patient.corporate_id, func.count(Certificate.id))
+                    .join(Certificate, Certificate.patient_id == Patient.id)
+                    .where(Patient.corporate_id.is_not(None))
+                    .group_by(Patient.corporate_id)
+                ).all()
+            }
+            rx_by_corp = {
+                cid: int(cnt)
+                for cid, cnt in s.execute(
+                    select(Patient.corporate_id, func.count(Prescription.id))
+                    .join(Prescription, Prescription.patient_id == Patient.id)
+                    .where(Patient.corporate_id.is_not(None))
+                    .group_by(Patient.corporate_id)
+                ).all()
+            }
+
             invoices = []
             rows_out = []
             for c in corps:
-                camps = s.scalars(select(Campaign).where(Campaign.corporate_id == c.id)).all()
+                camps = camps_by_corp.get(c.id, [])
                 camp_ids = [cm.id for cm in camps]
-                pat_ids = [p.id for p in s.scalars(select(Patient).where(Patient.corporate_id == c.id)).all()]
-                visits = int(s.scalar(select(func.count(Encounter.id)).where(Encounter.campaign_id.in_(camp_ids))) or 0) if camp_ids else 0
-                certs = int(s.scalar(select(func.count(Certificate.id)).where(Certificate.patient_id.in_(pat_ids))) or 0) if pat_ids else 0
-                vaxs = int(s.scalar(select(func.count(Immunization.id)).where(Immunization.campaign_id.in_(camp_ids))) or 0) if camp_ids else 0
-                rxs = int(s.scalar(select(func.count(Prescription.id)).where(Prescription.patient_id.in_(pat_ids))) or 0) if pat_ids else 0
+                visits = sum(enc_by_camp.get(cid, 0) for cid in camp_ids)
+                vaxs = sum(vax_by_camp.get(cid, 0) for cid in camp_ids)
+                certs = cert_by_corp.get(c.id, 0)
+                rxs = rx_by_corp.get(c.id, 0)
                 billing_records: list[dict[str, Any]] = []
                 for _ in range(visits):
                     billing_records.append({"service_type": "teleconsult", "status": "completed", "campaign_id": camp_ids[0] if camp_ids else "default"})
@@ -2393,7 +2770,7 @@ def create_acute_app(
                     "reconciled": True,
                 })
                 for cm in camps:
-                    cm_visits = int(s.scalar(select(func.count(Encounter.id)).where(Encounter.campaign_id == cm.id)) or 0)
+                    cm_visits = enc_by_camp.get(cm.id, 0)
                     cm_total = min(cm.spend_cap_hkd, cm_visits * cm.unit_fee_hkd)
                     util = round((cm_total / cm.spend_cap_hkd) * 100.0, 1) if cm.spend_cap_hkd > 0 else 0.0
                     rows_out.append({
@@ -2415,6 +2792,162 @@ def create_acute_app(
             "invoices": invoices,
             "rows": rows_out,
         }
+
+    @app.get("/api/v1/admin/observability")
+    def admin_observability(request: Request):
+        """Production SLO telemetry, clinical safety counters, ModelGateway circuit breaker, Vault health & Outbox status."""
+        claims = extract_claims(request, allowed_roles=("clinic_admin",))
+        tenant_id = claims["tid"]
+        with database.tenant_session(tenant_id) as s:
+            status_counts = {
+                st: int(cnt)
+                for st, cnt in s.execute(
+                    select(OutboxEvent.status, func.count(OutboxEvent.id)).group_by(OutboxEvent.status)
+                ).all()
+            }
+            recent_outbox = [
+                {
+                    "id": ev.id,
+                    "event_type": ev.event_type,
+                    "aggregate_id": ev.aggregate_id,
+                    "status": ev.status,
+                    "attempts": ev.attempts,
+                    "max_attempts": ev.max_attempts,
+                    "last_error": ev.last_error,
+                    "run_after": ev.run_after.isoformat(),
+                    "created_at": ev.created_at.isoformat(),
+                    "processed_at": ev.processed_at.isoformat() if ev.processed_at else None,
+                }
+                for ev in s.scalars(select(OutboxEvent).order_by(OutboxEvent.created_at.desc()).limit(15)).all()
+            ]
+        now_mono = time.monotonic()
+        with model_gw._lock:
+            open_circuits = [
+                {"provider": k[0], "region": k[1], "model_id": k[2], "remaining_seconds": round(v - now_mono, 1)}
+                for k, v in model_gw._circuit_open_until.items()
+                if v > now_mono
+            ]
+            usage_obj = model_gw._usage.get(tenant_id)
+            gw_usage = {
+                "requests": usage_obj.requests if usage_obj else 0,
+                "total_tokens": usage_obj.total_tokens if usage_obj else 0,
+                "cost_usd": usage_obj.cost_usd if usage_obj else 0.0,
+            }
+            gw_stats = {
+                "fallback_count": model_gw.fallback_count,
+                "circuit_breaker_trips": model_gw.circuit_breaker_trips,
+                "open_circuits": open_circuits,
+                "audit_entries": len(model_gw.audit_log),
+                "tenant_usage": gw_usage,
+            }
+        return {
+            "telemetry": telemetry.snapshot(),
+            "gateway": gw_stats,
+            "vault": doc_vault.health_check(),
+            "outbox": {
+                "counts": {
+                    "pending": status_counts.get("pending", 0),
+                    "done": status_counts.get("done", 0),
+                    "dlq": status_counts.get("dlq", 0),
+                },
+                "worker": outbox_worker_state,
+                "recent_events": recent_outbox,
+            },
+        }
+
+    @app.post("/api/v1/admin/outbox/process")
+    def admin_process_outbox(request: Request):
+        """Immediately process due durable PostgreSQL outbox workflow events for this tenant."""
+        claims = extract_claims(request, allowed_roles=("clinic_admin",))
+        tenant_id, admin_id = claims["tid"], claims["sub"]
+        res = workflows.process_due(database, tenant_id, limit=50)
+        if res.succeeded:
+            telemetry.inc("outbox_events_processed_total", res.succeeded)
+        if res.dlq:
+            telemetry.inc("outbox_events_dlq_total", res.dlq)
+        with database.tenant_session(tenant_id) as s:
+            record_audit(
+                s, tenant_id=tenant_id, actor_role="clinic_admin", actor_id=admin_id,
+                action="outbox.processed_manual", resource_type="OutboxEvent", resource_id=tenant_id,
+                metadata=res.to_dict(),
+            )
+            counts = {
+                st: int(cnt)
+                for st, cnt in s.execute(
+                    select(OutboxEvent.status, func.count(OutboxEvent.id)).group_by(OutboxEvent.status)
+                ).all()
+            }
+        return {
+            "ok": True,
+            "batch": res.to_dict(),
+            "counts": {
+                "pending": counts.get("pending", 0),
+                "done": counts.get("done", 0),
+                "dlq": counts.get("dlq", 0),
+            },
+        }
+
+    @app.get("/api/v1/admin/data-requests")
+    def admin_list_data_requests(request: Request):
+        """HK PDPO DPP6 Admin Governance Queue: list patient DAR / DCR / statutory deletion requests."""
+        claims = extract_claims(request, allowed_roles=("clinic_admin",))
+        tenant_id = claims["tid"]
+        with database.tenant_session(tenant_id) as s:
+            rows = s.scalars(select(DataRequest).order_by(DataRequest.created_at.desc()).limit(100)).all()
+            pat_ids = list({r.patient_id for r in rows})
+            pat_map = (
+                {p.id: p for p in s.scalars(select(Patient).where(Patient.id.in_(pat_ids))).all()}
+                if pat_ids else {}
+            )
+            return {
+                "data_requests": [
+                    {
+                        "id": r.id,
+                        "patient_id": r.patient_id,
+                        "patient_name_en": pat_map[r.patient_id].name_en if r.patient_id in pat_map else "",
+                        "hkid_masked": pat_map[r.patient_id].hkid_masked if r.patient_id in pat_map else "",
+                        "request_type": r.request_type,
+                        "status": r.status,
+                        "details": r.details_json,
+                        "resolution_note": r.resolution_note,
+                        "created_at": r.created_at.isoformat(),
+                        "resolved_at": r.resolved_at.isoformat() if r.resolved_at else None,
+                    }
+                    for r in rows
+                ]
+            }
+
+    @app.post("/api/v1/admin/data-requests/{req_id}/resolve")
+    def admin_resolve_data_request(req_id: str, body: ResolveDataRequestReq, request: Request):
+        """HK PDPO DPP2/DPP6: resolve queued Data Correction Request as append-only audited addendum."""
+        claims = extract_claims(request, allowed_roles=("clinic_admin",))
+        tenant_id, admin_id = claims["tid"], claims["sub"]
+        with database.tenant_session(tenant_id) as s:
+            dr = s.get(DataRequest, req_id)
+            if not dr:
+                raise HTTPException(404, "Data request not found")
+            if dr.status not in ("queued_for_review", "recorded"):
+                raise HTTPException(409, f"Data request is already finalized ({dr.status})")
+            dr.status = "approved_addendum" if body.action == "approved" else "rejected"
+            dr.resolution_note = body.resolution_note.strip()
+            dr.resolved_at = utcnow()
+            record_audit(
+                s, tenant_id=tenant_id, actor_role="clinic_admin", actor_id=admin_id,
+                action=f"pdpo.dcr_{body.action}", resource_type="DataRequest", resource_id=dr.id,
+                metadata={"patient_id": dr.patient_id, "status": dr.status},
+            )
+            return {
+                "ok": True,
+                "data_request": {
+                    "id": dr.id,
+                    "patient_id": dr.patient_id,
+                    "request_type": dr.request_type,
+                    "status": dr.status,
+                    "details": dr.details_json,
+                    "resolution_note": dr.resolution_note,
+                    "resolved_at": dr.resolved_at.isoformat(),
+                },
+            }
 
     @app.get("/api/v1/admin/audit")
     def admin_audit(request: Request, limit: int = Query(default=200, ge=1, le=500)):
@@ -2442,13 +2975,47 @@ def create_acute_app(
             if not corp:
                 raise HTTPException(404, "Corporate account not found")
             camps = s.scalars(select(Campaign).where(Campaign.corporate_id == corp_id)).all()
+            camp_ids = [cm.id for cm in camps]
+            visits_by_camp = (
+                {
+                    cid: int(cnt)
+                    for cid, cnt in s.execute(
+                        select(Encounter.campaign_id, func.count(Encounter.id))
+                        .where(Encounter.campaign_id.in_(camp_ids))
+                        .group_by(Encounter.campaign_id)
+                    ).all()
+                }
+                if camp_ids else {}
+            )
+            certs_by_camp = (
+                {
+                    cid: int(cnt)
+                    for cid, cnt in s.execute(
+                        select(Patient.campaign_id, func.count(Certificate.id))
+                        .join(Certificate, Certificate.patient_id == Patient.id)
+                        .where(Patient.campaign_id.in_(camp_ids))
+                        .group_by(Patient.campaign_id)
+                    ).all()
+                }
+                if camp_ids else {}
+            )
+            vaxs_by_camp = (
+                {
+                    cid: int(cnt)
+                    for cid, cnt in s.execute(
+                        select(Immunization.campaign_id, func.count(Immunization.id))
+                        .where(Immunization.campaign_id.in_(camp_ids))
+                        .group_by(Immunization.campaign_id)
+                    ).all()
+                }
+                if camp_ids else {}
+            )
             out_camps = []
             tot_visits, tot_certs, tot_vaxs = 0, 0, 0
             for cm in camps:
-                pat_ids = [p.id for p in s.scalars(select(Patient).where(Patient.campaign_id == cm.id)).all()]
-                visits = int(s.scalar(select(func.count(Encounter.id)).where(Encounter.campaign_id == cm.id)) or 0)
-                certs = int(s.scalar(select(func.count(Certificate.id)).where(Certificate.patient_id.in_(pat_ids))) or 0) if pat_ids else 0
-                vaxs = int(s.scalar(select(func.count(Immunization.id)).where(Immunization.campaign_id == cm.id)) or 0)
+                visits = visits_by_camp.get(cm.id, 0)
+                certs = certs_by_camp.get(cm.id, 0)
+                vaxs = vaxs_by_camp.get(cm.id, 0)
                 tot_visits += visits
                 tot_certs += certs
                 tot_vaxs += vaxs

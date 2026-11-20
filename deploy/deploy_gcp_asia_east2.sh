@@ -54,7 +54,24 @@ for role in roles/cloudsql.client roles/storage.objectAdmin roles/aiplatform.use
     --member="serviceAccount:${SA_EMAIL}" --role="${role}" --quiet >/dev/null
 done
 
-echo "==> 5. Ensuring Cloud SQL PostgreSQL 15 instance in ${REGION}"
+ensure_secret() {
+  local name="$1"
+  local gen_cmd="$2"
+  if ! gcloud secrets describe "${name}" >/dev/null 2>&1; then
+    gcloud secrets create "${name}" --replication-policy="user-managed" --locations="${REGION}" --quiet
+    eval "${gen_cmd}" | gcloud secrets versions add "${name}" --data-file=- --quiet
+  fi
+}
+
+echo "==> 5. Ensuring persistent secrets in GCP Secret Manager (${REGION})"
+ensure_secret "clinic-harness-db-pass" "python3 -c 'import secrets; print(secrets.token_urlsafe(24), end=\"\")'"
+ensure_secret "clinic-harness-jwt-secret" "python3 -c 'import secrets; print(secrets.token_hex(32), end=\"\")'"
+ensure_secret "clinic-harness-vault-kek" "python3 -c 'import os,base64; print(base64.b64encode(os.urandom(32)).decode(), end=\"\")'"
+ensure_secret "clinic-harness-vault-signing" "python3 -c 'import secrets; print(secrets.token_hex(32), end=\"\")'"
+
+DB_PASS="${CLOUDSQL_APP_PASSWORD:-$(gcloud secrets versions access latest --secret=clinic-harness-db-pass)}"
+
+echo "==> 6. Ensuring Cloud SQL PostgreSQL 15 instance in ${REGION}"
 if ! gcloud sql instances describe "${SQL_INSTANCE}" >/dev/null 2>&1; then
   gcloud sql instances create "${SQL_INSTANCE}" \
     --database-version=POSTGRES_15 \
@@ -64,7 +81,6 @@ if ! gcloud sql instances describe "${SQL_INSTANCE}" >/dev/null 2>&1; then
     --backup-start-time=19:00 --quiet
 fi
 
-DB_PASS="${CLOUDSQL_APP_PASSWORD:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')}"
 gcloud sql databases describe "${DB_NAME}" --instance="${SQL_INSTANCE}" >/dev/null 2>&1 || \
   gcloud sql databases create "${DB_NAME}" --instance="${SQL_INSTANCE}" --quiet
 if gcloud sql users list --instance="${SQL_INSTANCE}" --format="value(name)" | grep -qx "${DB_USER}"; then
@@ -74,12 +90,9 @@ else
 fi
 
 CONN_NAME=$(gcloud sql instances describe "${SQL_INSTANCE}" --format="value(connectionName)")
-JWT_SECRET="${JWT_SECRET:-$(python3 -c 'import secrets; print(secrets.token_hex(32))')}"
-VAULT_KEK_B64="${VAULT_KEK_B64:-$(python3 -c 'import os,base64; print(base64.b64encode(os.urandom(32)).decode())')}"
-VAULT_SIGNING_SECRET="${VAULT_SIGNING_SECRET:-$(python3 -c 'import secrets; print(secrets.token_hex(32))')}"
 DATABASE_URL="postgresql+psycopg://${DB_USER}:${DB_PASS}@/${DB_NAME}?host=/cloudsql/${CONN_NAME}"
 
-echo "==> 6. Building container remotely via Cloud Build & deploying to Cloud Run (${REGION})"
+echo "==> 7. Building container remotely via Cloud Build & deploying to Cloud Run (${REGION})"
 cd "$(dirname "$0")/.."
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE}:$(git rev-parse --short HEAD)"
 CB_TMP="$(mktemp /tmp/cloudbuild-acute.XXXXXX.yaml)"
@@ -107,7 +120,8 @@ gcloud run deploy "${SERVICE}" \
   --memory=1Gi \
   --cpu=1 \
   --add-cloudsql-instances="${CONN_NAME}" \
-  --set-env-vars="HARNESS_ENV=staging,HARNESS_REGION=${REGION},GCP_PROJECT_ID=${PROJECT_ID},VERTEX_REGION=${REGION},VERTEX_MODEL=gemini-2.5-flash,VAULT_GCS_BUCKET=${VAULT_BUCKET},DEMO_MODE=true,DEMO_SHOW_OTP=true,DATABASE_URL=${DATABASE_URL},JWT_SECRET=${JWT_SECRET},VAULT_KEK_B64=${VAULT_KEK_B64},VAULT_SIGNING_SECRET=${VAULT_SIGNING_SECRET}" \
+  --set-env-vars="HARNESS_ENV=staging,HARNESS_REGION=${REGION},GCP_PROJECT_ID=${PROJECT_ID},VERTEX_REGION=${REGION},VERTEX_MODEL=gemini-2.5-flash,VAULT_GCS_BUCKET=${VAULT_BUCKET},DEMO_MODE=true,DEMO_SHOW_OTP=true,OUTBOX_WORKER_ENABLED=true,DATABASE_URL=${DATABASE_URL}" \
+  --set-secrets="JWT_SECRET=clinic-harness-jwt-secret:latest,VAULT_KEK_B64=clinic-harness-vault-kek:latest,VAULT_SIGNING_SECRET=clinic-harness-vault-signing:latest" \
   --quiet
 
 URL=$(gcloud run services describe "${SERVICE}" --region="${REGION}" --format="value(status.url)")

@@ -391,6 +391,17 @@ export interface QueueProposalSummary {
   created_at: string;
 }
 
+export interface ClinicalDecisionSupport {
+  oseltamivir_window?: string;
+  onset_hours?: number | null;
+  antibiotic_stewardship?: string;
+  high_risk_host_factors?: string[];
+  pregnancy_detected?: boolean;
+  double_sickening_suspected?: boolean;
+  safety_netting_en?: string;
+  safety_netting_zh?: string;
+}
+
 export interface ProposalDetail extends QueueProposalSummary {
   patient: PatientProfile;
   encounter: EncounterSummary;
@@ -404,10 +415,13 @@ export interface ProposalDetail extends QueueProposalSummary {
     source_quote?: string;
     recorded_at: string;
   }>;
+  messages?: SecureMessage[];
   payload: {
     summary?: string;
     draft_clinical_note?: string;
     clinical_note?: string;
+    clinical_decision_support?: ClinicalDecisionSupport | null;
+    contraindications_noted?: string[];
     suggested_icd10?: string;
     suggested_icpc2?: string;
     recommended_sick_leave_days?: number;
@@ -586,6 +600,69 @@ export interface CorporateDashboardResponse {
     vax_display?: number | string;
     vax_suppressed?: boolean;
   }>;
+}
+
+export interface AdminObservabilityResponse {
+  telemetry: {
+    uptime_seconds: number;
+    http: {
+      requests_total: number;
+      status_classes: Record<string, number>;
+      error_rate_5xx_pct: number;
+      latency_ms: { p50: number; p95: number; p99: number };
+      routes: Record<string, { count: number; p50_ms: number; p95_ms: number; p99_ms: number }>;
+    };
+    clinical_safety: Record<string, number>;
+  };
+  gateway: {
+    fallback_count: number;
+    circuit_breaker_trips: number;
+    open_circuits: Array<{ provider: string; region: string; model_id: string; remaining_seconds: number }>;
+    audit_entries: number;
+    tenant_usage: { requests: number; total_tokens: number; cost_usd: number };
+  };
+  vault: {
+    ok: boolean;
+    backend?: string;
+    bucket?: string;
+    kms_key_id?: string;
+  };
+  outbox: {
+    counts: { pending: number; done: number; dlq: number };
+    worker: {
+      enabled: boolean;
+      poll_interval_seconds: number;
+      ticks: number;
+      last_tick_at: string | null;
+      last_processed: number;
+      last_error: string | null;
+    };
+    recent_events: Array<{
+      id: string;
+      event_type: string;
+      aggregate_id: string;
+      status: string;
+      attempts: number;
+      max_attempts: number;
+      last_error?: string | null;
+      run_after: string;
+      created_at: string;
+      processed_at?: string | null;
+    }>;
+  };
+}
+
+export interface AdminDataRequestItem {
+  id: string;
+  patient_id: string;
+  patient_name_en: string;
+  hkid_masked: string;
+  request_type: string;
+  status: string;
+  details: Record<string, unknown>;
+  resolution_note: string;
+  created_at: string;
+  resolved_at?: string | null;
 }
 
 // -------------------------------------------------------------------------------------- Token Storage & HTTP Core
@@ -830,8 +907,15 @@ export const acuteApi = {
   clinicianProposal: (id: string) =>
     request<ProposalDetail>("GET", `/api/v1/clinician/proposals/${encodeURIComponent(id)}`),
 
-  clinicianRxSafetyCheck: (payload: { patient_id: string; items: PrescriptionItem[] }) =>
+  clinicianRxSafetyCheck: (payload: { patient_id: string; items: PrescriptionItem[]; diagnosis_icd10?: string }) =>
     request<RxSafetyCheckResponse>("POST", "/api/v1/clinician/rx-safety-check", { body: payload }),
+
+  clinicianSendMessage: (proposalId: string, body_text: string) =>
+    request<{ ok?: boolean; message: SecureMessage; doorbell_sent?: boolean }>(
+      "POST",
+      `/api/v1/clinician/proposals/${encodeURIComponent(proposalId)}/message`,
+      { body: { body_text } }
+    ),
 
   clinicianDecide: (
     id: string,
@@ -872,6 +956,27 @@ export const acuteApi = {
 
   // Surface 4: Clinic Ops Admin & Corporate Admin (Stories 16–19)
   adminOverview: () => request<AdminOverviewResponse>("GET", "/api/v1/admin/overview"),
+
+  adminObservability: () => request<AdminObservabilityResponse>("GET", "/api/v1/admin/observability"),
+
+  adminProcessOutbox: () =>
+    request<{ ok?: boolean; batch: { processed: number; succeeded: number; retried: number; dlq: number }; counts: { pending: number; done: number; dlq: number } }>(
+      "POST",
+      "/api/v1/admin/outbox/process",
+      { body: {} }
+    ),
+
+  adminDataRequests: () =>
+    request<{ data_requests?: AdminDataRequestItem[] }>("GET", "/api/v1/admin/data-requests").then(
+      (r) => r.data_requests ?? []
+    ),
+
+  adminResolveDataRequest: (reqId: string, payload: { action: "approved" | "rejected"; resolution_note: string }) =>
+    request<{ ok?: boolean; data_request: AdminDataRequestItem }>(
+      "POST",
+      `/api/v1/admin/data-requests/${encodeURIComponent(reqId)}/resolve`,
+      { body: payload }
+    ),
 
   adminCreateCorporate: (payload: {
     name: string;

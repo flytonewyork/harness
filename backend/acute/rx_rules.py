@@ -418,6 +418,14 @@ def _normalize_patient(patient_profile: Any, as_of: date | None = None) -> dict[
     ):
         uncontrolled_htn = True
 
+    pregnant = bool(_get_attr(patient_profile, "pregnant", "is_pregnant", default=False))
+    if not pregnant:
+        for cond in conditions:
+            c_low = cond.lower()
+            if any(term in c_low for term in ("pregnant", "pregnancy", "懷孕", "大肚", "孕婦")):
+                pregnant = True
+                break
+
     weight_raw = _get_attr(patient_profile, "weight_kg")
     egfr_raw = _get_attr(patient_profile, "egfr")
 
@@ -426,6 +434,7 @@ def _normalize_patient(patient_profile: Any, as_of: date | None = None) -> dict[
         "weight_kg": float(weight_raw) if weight_raw is not None else None,
         "egfr": float(egfr_raw) if egfr_raw is not None else None,
         "g6pd_deficient": bool(_get_attr(patient_profile, "g6pd_deficient", default=False)),
+        "pregnant": pregnant,
         "allergies": allergies,
         "current_meds": current_meds,
         "conditions": conditions,
@@ -478,6 +487,7 @@ def check_prescription_safety(
     items: Sequence[dict[str, Any]],
     *,
     as_of: date | None = None,
+    diagnosis_icd10: str | None = None,
 ) -> RxSafetyReport:
     """Run deterministic HK clinical safety checks on a proposed prescription.
 
@@ -837,9 +847,125 @@ def check_prescription_safety(
                     )
                 )
 
+        # 7b. Pregnancy Safety Rules (BNF / HK DH / RCOG) -> override_required
+        if patient["pregnant"]:
+            if canon in _NSAID_FORMULARY:
+                findings.append(
+                    RxFinding(
+                        severity="override_required",
+                        code="pregnancy_nsaid_contraindication",
+                        drug=canon,
+                        message=(
+                            f"Pregnancy contraindication: NSAID ({entry['display']}) carries risks of premature "
+                            "ductus arteriosus closure and oligohydramnios (>=20 weeks); prefer Paracetamol."
+                        ),
+                        message_zh=f"懷孕期禁忌：孕婦應避免使用非類固醇消炎止痛藥（{entry['display_zh']}），以免影響胎兒動脈導管或羊水；建議改用撲熱息痛。",
+                        rule_ref="Pregnancy Safety / NSAIDs",
+                    )
+                )
+            elif canon == "pseudoephedrine":
+                findings.append(
+                    RxFinding(
+                        severity="override_required",
+                        code="pregnancy_decongestant_caution",
+                        drug=canon,
+                        message=(
+                            "Pregnancy caution: Oral pseudoephedrine is discouraged in pregnancy due to "
+                            "vasoconstriction and first-trimester fetal risk; prefer saline nasal spray."
+                        ),
+                        message_zh="懷孕期警示：孕婦應避免口服偽麻黃鹼，建議改用生理鹽水洗鼻。",
+                        rule_ref="Pregnancy Safety / Decongestants",
+                    )
+                )
+            elif canon == "co-trimoxazole":
+                findings.append(
+                    RxFinding(
+                        severity="override_required",
+                        code="pregnancy_folate_kernicterus_risk",
+                        drug=canon,
+                        message=(
+                            "Pregnancy contraindication: Co-trimoxazole carries folate-antagonist risk in the 1st "
+                            "trimester and neonatal kernicterus risk near term."
+                        ),
+                        message_zh="懷孕期禁忌：復方新諾明於懷孕早期具葉酸拮抗風險，後期具新生兒核黃疸風險。",
+                        rule_ref="Pregnancy Safety / Sulfonamides",
+                    )
+                )
+            elif canon == "clarithromycin":
+                findings.append(
+                    RxFinding(
+                        severity="override_required",
+                        code="pregnancy_macrolide_caution",
+                        drug=canon,
+                        message=(
+                            "Pregnancy caution: Clarithromycin should be avoided in pregnancy where safer "
+                            "alternatives exist (consult BNF/RCOG)."
+                        ),
+                        message_zh="懷孕期警示：孕婦一般不建議使用克拉黴素，請醫生評估更安全替代方案。",
+                        rule_ref="Pregnancy Safety / Macrolides",
+                    )
+                )
+
+        # 7c. Pediatric < 6y Dextromethorphan (HK DH / FDA cough-suppressant safety warning) -> override_required
+        if canon == "dextromethorphan" and age_years is not None and age_years < 6:
+            findings.append(
+                RxFinding(
+                    severity="override_required",
+                    code="pediatric_antitussive_under_6",
+                    drug=canon,
+                    message=(
+                        f"Pediatric safety alert: Dextromethorphan is not recommended for children under 6 years "
+                        f"(age {age_years:.0f}) per HK Department of Health OTC cough medicine guidance."
+                    ),
+                    message_zh="兒童用藥警示：香港衞生署不建議 6 歲以下兒童使用右美沙芬止咳藥。",
+                    rule_ref="HK DH Paediatric Cough Safety (<6y)",
+                )
+            )
+
+        # 7d. Pediatric Oseltamivir weight-band check (IDSA / HK CHP) -> override_required
+        if canon == "oseltamivir" and is_pediatric and weight_kg is not None and weight_kg > 0 and dose_mg is not None:
+            if weight_kg <= 15.0:
+                band_max = 30.0
+            elif weight_kg <= 23.0:
+                band_max = 45.0
+            elif weight_kg <= 40.0:
+                band_max = 60.0
+            else:
+                band_max = 75.0
+            if dose_mg > band_max + 1e-6:
+                findings.append(
+                    RxFinding(
+                        severity="override_required",
+                        code="pediatric_oseltamivir_weight_band",
+                        drug=canon,
+                        message=(
+                            f"Pediatric Oseltamivir weight-band exceeded: {dose_mg:g}mg/dose exceeds "
+                            f"{band_max:g}mg/dose ceiling for weight {weight_kg:g}kg (HK CHP / IDSA)."
+                        ),
+                        message_zh=f"兒童特敏福體重分層超標：{weight_kg:g}kg 單次劑量上限為 {band_max:g}mg（現處方 {dose_mg:g}mg）。",
+                        rule_ref="HK CHP / IDSA Pediatric Oseltamivir",
+                    )
+                )
+
         egfr = patient["egfr"]
         if egfr is not None:
-            if canon == "oseltamivir" and egfr < 60:
+            if canon == "oseltamivir" and egfr < 30:
+                if daily_mg is None or daily_mg > 30.0 + 1e-6:
+                    findings.append(
+                        RxFinding(
+                            severity="override_required",
+                            code="renal_dose_adjustment_required",
+                            drug=canon,
+                            message=(
+                                f"Severe renal adjustment required for Oseltamivir at eGFR {egfr:g} (< 30): "
+                                f"daily dose ({daily_mg if daily_mg is not None else 'unspecified'}mg/day) "
+                                "must be reduced to <= 30mg/day (30mg OD)."
+                            ),
+                            message_zh=f"嚴重腎功能調整警示：eGFR {egfr:g}（<30）時，特敏福每日劑量需減至 <= 30mg（每日一次 30mg）。",
+                            rule_ref="Renal Dosing / eGFR < 30",
+                        )
+                    )
+            elif canon == "oseltamivir" and egfr < 60:
                 if daily_mg is None or daily_mg > 75.0 + 1e-6:
                     findings.append(
                         RxFinding(
@@ -871,6 +997,27 @@ def check_prescription_safety(
                 )
 
         # 8. Advisory Warnings (warn — no override required)
+        # HK CHP IMPACT / NICE NG84 Antibiotic Stewardship for uncomplicated viral influenza/URTI
+        if (
+            diagnosis_icd10
+            and diagnosis_icd10.strip().upper() in {"J10.1", "J11.1", "J06.9"}
+            and canon in {"amoxicillin", "amoxicillin-clavulanate", "clarithromycin", "co-trimoxazole", "nitrofurantoin"}
+        ):
+            findings.append(
+                RxFinding(
+                    severity="warn",
+                    code="antibiotic_stewardship_viral_illness",
+                    drug=canon,
+                    message=(
+                        f"HK CHP IMPACT / NICE NG84 Antibiotic Stewardship: {entry['display']} prescribed for "
+                        f"viral diagnosis ({diagnosis_icd10}). Routine empirical antibiotics are not indicated "
+                        "for uncomplicated influenza/URTI unless secondary bacterial infection is documented."
+                    ),
+                    message_zh=f"香港衞生防護中心 IMPACT 抗生素管理提示：病毒性診斷（{diagnosis_icd10}）一般無需常規處方抗生素（{entry['display_zh']}），請記錄繼發細菌感染依據。",
+                    rule_ref="HK CHP IMPACT / NICE NG84",
+                )
+            )
+
         norm_class = _DUP_THERAPY_CLASS_MAP.get(entry["class"], entry["class"])
         if canon in seen_drugs or norm_class in seen_classes:
             other = canon if canon in seen_drugs else seen_classes[norm_class]

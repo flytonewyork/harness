@@ -2,15 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertOctagon,
   AlertTriangle,
+  BookOpen,
   Calendar,
   CheckCircle2,
   Clock,
   FileSignature,
   History,
   Lock,
+  MessageSquare,
   Pill,
   Plus,
   RefreshCw,
+  Send,
   ShieldAlert,
   ShieldCheck,
   Stethoscope,
@@ -36,6 +39,7 @@ interface ClinicianConsoleProps {
 }
 
 type ConsoleTab = "queue" | "availability" | "audit";
+type QueueFilter = "pending" | "all" | "red_flags";
 
 function formatSla(slaIso: string): { label: string; overdue: boolean } {
   const diffMin = Math.round((new Date(slaIso).getTime() - Date.now()) / 60000);
@@ -70,6 +74,7 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
   const [loginBusy, setLoginBusy] = useState(false);
 
   const [tab, setTab] = useState<ConsoleTab>("queue");
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>("pending");
   const [queue, setQueue] = useState<QueueProposalSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ProposalDetail | null>(null);
@@ -91,6 +96,10 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
   const [safetyBusy, setSafetyBusy] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
 
+  // Secure clinician-to-patient messaging
+  const [replyText, setReplyText] = useState("");
+  const [replyBusy, setReplyBusy] = useState(false);
+
   // Automation-bias friction & escalation
   const openedAtRef = useRef<number>(Date.now());
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -106,14 +115,26 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
   const [auditEvents, setAuditEvents] = useState<AuditEventItem[]>([]);
   const [auditBusy, setAuditBusy] = useState(false);
 
-  const isClinician = session?.role === "clinician" || session?.role === "clinic_admin";
+  // Strict RBAC firewall matching backend: only licensed `clinician` role may access clinical queue
+  const isClinician = session?.role === "clinician";
 
   const sortedQueue = useMemo(() => {
-    return [...queue].sort((a, b) => {
+    const filtered = queue.filter((item) => {
+      if (queueFilter === "pending") return item.status === "pending_review";
+      if (queueFilter === "red_flags") return item.urgency >= 4 || Boolean(item.red_flag);
+      return true;
+    });
+    return [...filtered].sort((a, b) => {
+      const ap = a.status === "pending_review" ? 0 : 1;
+      const bp = b.status === "pending_review" ? 0 : 1;
+      if (ap !== bp) return ap - bp;
       if (b.urgency !== a.urgency) return b.urgency - a.urgency;
       return new Date(a.sla_due_at).getTime() - new Date(b.sla_due_at).getTime();
     });
-  }, [queue]);
+  }, [queue, queueFilter]);
+
+  const pendingCount = useMemo(() => queue.filter((x) => x.status === "pending_review").length, [queue]);
+  const redFlagCount = useMemo(() => queue.filter((x) => x.urgency >= 4 || Boolean(x.red_flag)).length, [queue]);
 
   const loadQueue = async () => {
     if (!isClinician) return;
@@ -121,8 +142,10 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
     try {
       const list = await acuteApi.clinicianQueue();
       setQueue(list);
-      if (list.length > 0 && (!selectedId || !list.some((x) => x.id === selectedId))) {
-        const sorted = [...list].sort((a, b) =>
+      const pending = list.filter((x) => x.status === "pending_review");
+      const pickPool = pending.length > 0 ? pending : list;
+      if (pickPool.length > 0 && (!selectedId || !list.some((x) => x.id === selectedId))) {
+        const sorted = [...pickPool].sort((a, b) =>
           b.urgency !== a.urgency ? b.urgency - a.urgency : new Date(a.sla_due_at).getTime() - new Date(b.sla_due_at).getTime()
         );
         setSelectedId(sorted[0].id);
@@ -157,6 +180,7 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
     setShowEscalateBox(false);
     setEscalationReason("");
     setSafetyResult(null);
+    setReplyText("");
 
     acuteApi
       .clinicianProposal(selectedId)
@@ -185,15 +209,19 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
     return () => window.clearInterval(id);
   }, [detail?.id]);
 
-  // Live Rx safety check whenever rxItems change
-  const runRxSafetyCheck = async (patientId: string, items: PrescriptionItem[]) => {
+  // Live Rx safety check whenever rxItems or diagnosis ICD-10 change
+  const runRxSafetyCheck = async (patientId: string, items: PrescriptionItem[], diagnosisIcd10?: string) => {
     if (items.length === 0) {
       setSafetyResult(null);
       return;
     }
     setSafetyBusy(true);
     try {
-      const res = await acuteApi.clinicianRxSafetyCheck({ patient_id: patientId, items });
+      const res = await acuteApi.clinicianRxSafetyCheck({
+        patient_id: patientId,
+        items,
+        diagnosis_icd10: diagnosisIcd10 || icd10Code,
+      });
       setSafetyResult(res);
     } catch (e) {
       onNotify(e instanceof Error ? e.message : "Rx safety check failed", true);
@@ -208,10 +236,10 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
       return;
     }
     const timer = window.setTimeout(() => {
-      void runRxSafetyCheck(detail.patient.id, rxItems);
+      void runRxSafetyCheck(detail.patient.id, rxItems, icd10Code);
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [detail?.patient?.id, rxItems]);
+  }, [detail?.patient?.id, rxItems, icd10Code]);
 
   // Load clinician audit trail when switching to audit tab
   useEffect(() => {
@@ -429,6 +457,28 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
     }
   };
 
+  const handleSendClinicianReply = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!detail || !replyText.trim()) return;
+    setReplyBusy(true);
+    try {
+      const res = await acuteApi.clinicianSendMessage(detail.id, replyText.trim());
+      setDetail((prev) => (prev ? { ...prev, messages: [...(prev.messages || []), res.message] } : prev));
+      setReplyText("");
+      onNotify(
+        tr(
+          lang,
+          "Secure portal message sent (non-clinical WhatsApp doorbell dispatched).",
+          "安全網站醫生回覆已發送（僅發送非臨床 WhatsApp 通知提醒）。"
+        )
+      );
+    } catch (e) {
+      onNotify(e instanceof Error ? e.message : "Failed to send secure reply", true);
+    } finally {
+      setReplyBusy(false);
+    }
+  };
+
   // ========================================================================= UNAUTHENTICATED VIEW
   if (!isClinician) {
     return (
@@ -485,7 +535,7 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
 
         <div className="ac-btn-row">
           <button type="button" className={`ac-btn sm${tab === "queue" ? " primary" : ""}`} data-testid="clinician-tab-queue" onClick={() => setTab("queue")}>
-            {tr(lang, `Review Queue (${queue.length})`, `待審核隊列 (${queue.length})`)}
+            {tr(lang, `Review Queue (${pendingCount})`, `待審核隊列 (${pendingCount})`)}
           </button>
           <button type="button" className={`ac-btn sm${tab === "availability" ? " primary" : ""}`} data-testid="clinician-tab-availability" onClick={() => setTab("availability")}>
             <Calendar size={13} /> {tr(lang, "Availability & Roster", "應診當值表")}
@@ -504,9 +554,40 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
         <div className="ac-console-split">
           {/* Left Pane: Risk & SLA-Sorted Queue */}
           <aside className="ac-queue-col" aria-label="Clinician Review Queue" data-testid="clinician-queue-list">
-            <div style={{ padding: "0.65rem 0.95rem", borderBottom: "1px solid var(--ac-border)", fontSize: "12px", fontWeight: 700, color: "var(--ac-ink-2)", display: "flex", justifyContent: "space-between" }}>
-              <span>{tr(lang, "SLA & Risk-Sorted Queue", "風險及時限排序隊列")}</span>
-              <span>{sortedQueue.length} {tr(lang, "pending", "待處理")}</span>
+            <div style={{ padding: "0.65rem 0.95rem", borderBottom: "1px solid var(--ac-border)" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--ac-ink-2)", display: "flex", justifyContent: "space-between", marginBottom: "0.45rem" }}>
+                <span>{tr(lang, "SLA & Risk-Sorted Queue", "風險及時限排序隊列")}</span>
+                <span>{sortedQueue.length} {tr(lang, "shown", "顯示")}</span>
+              </div>
+              <div className="ac-btn-row" style={{ gap: "0.3rem" }}>
+                <button
+                  type="button"
+                  className={`ac-btn sm${queueFilter === "pending" ? " primary" : ""}`}
+                  data-testid="clinician-filter-pending"
+                  onClick={() => setQueueFilter("pending")}
+                  style={{ fontSize: "11px", padding: "0.2rem 0.45rem" }}
+                >
+                  {tr(lang, `Pending (${pendingCount})`, `待審 (${pendingCount})`)}
+                </button>
+                <button
+                  type="button"
+                  className={`ac-btn sm${queueFilter === "red_flags" ? " danger" : ""}`}
+                  data-testid="clinician-filter-redflags"
+                  onClick={() => setQueueFilter("red_flags")}
+                  style={{ fontSize: "11px", padding: "0.2rem 0.45rem" }}
+                >
+                  {tr(lang, `Red Flags (${redFlagCount})`, `危急 (${redFlagCount})`)}
+                </button>
+                <button
+                  type="button"
+                  className={`ac-btn sm${queueFilter === "all" ? " primary" : ""}`}
+                  data-testid="clinician-filter-all"
+                  onClick={() => setQueueFilter("all")}
+                  style={{ fontSize: "11px", padding: "0.2rem 0.45rem" }}
+                >
+                  {tr(lang, `All (${queue.length})`, `全部 (${queue.length})`)}
+                </button>
+              </div>
             </div>
 
             {sortedQueue.length === 0 && (
@@ -756,6 +837,66 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
                   </section>
                 </div>
 
+                {/* Guideline-Driven Clinical Decision Support (HK CHP / NICE NG84 / IDSA) */}
+                {detail.payload?.clinical_decision_support && (
+                  <section className="ac-card" data-testid="clinician-cds-card" style={{ borderLeft: "3px solid var(--ac-teal)" }}>
+                    <div className="ac-card-head" style={{ marginBottom: "0.5rem" }}>
+                      <div>
+                        <h3 className="ac-card-title">
+                          <BookOpen size={16} color="var(--ac-teal)" />
+                          {tr(lang, "Clinical Guideline Decision Support (HK CHP IMPACT / NICE / IDSA)", "香港 CHP / NICE / IDSA 臨床指引決策輔助")}
+                        </h3>
+                      </div>
+                      <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+                        {detail.payload.clinical_decision_support.oseltamivir_window && (
+                          <span className="ac-badge teal ac-mono" data-testid="clinician-cds-oseltamivir">
+                            Antiviral: {detail.payload.clinical_decision_support.oseltamivir_window.replace(/_/g, " ")}
+                          </span>
+                        )}
+                        {detail.payload.clinical_decision_support.pregnancy_detected && (
+                          <span className="ac-badge crit">PREGNANCY — Avoid NSAIDs</span>
+                        )}
+                        {detail.payload.clinical_decision_support.double_sickening_suspected && (
+                          <span className="ac-badge warn">DOUBLE-SICKENING — Evaluate 2° Pneumonia</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gap: "0.45rem", fontSize: "12.5px" }}>
+                      {detail.payload.clinical_decision_support.antibiotic_stewardship && (
+                        <div>
+                          <strong>{tr(lang, "Antibiotic Stewardship:", "抗生素合理使用指引：")}</strong>{" "}
+                          {detail.payload.clinical_decision_support.antibiotic_stewardship}
+                        </div>
+                      )}
+                      {(detail.payload.clinical_decision_support.high_risk_host_factors?.length || 0) > 0 && (
+                        <div>
+                          <strong>{tr(lang, "High-Risk Host Factors:", "高危因素：")}</strong>{" "}
+                          {detail.payload.clinical_decision_support.high_risk_host_factors!.map((hf) => (
+                            <span key={hf} className="ac-badge warn" style={{ marginRight: "0.3rem" }}>
+                              {hf}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {(detail.payload.contraindications_noted?.length || 0) > 0 && (
+                        <div>
+                          <strong>{tr(lang, "Auto-Filtered Contraindications:", "系統已自動排除禁忌藥物：")}</strong>{" "}
+                          {detail.payload.contraindications_noted!.join(" • ")}
+                        </div>
+                      )}
+                      {(detail.payload.clinical_decision_support.safety_netting_en || detail.payload.clinical_decision_support.safety_netting_zh) && (
+                        <div style={{ color: "var(--ac-ink-2)", fontSize: "12px", paddingTop: "0.25rem", borderTop: "1px solid #edf2f5" }}>
+                          <strong>{tr(lang, "Safety-Netting:", "安全叮囑：")}</strong>{" "}
+                          {lang === "zh"
+                            ? detail.payload.clinical_decision_support.safety_netting_zh || detail.payload.clinical_decision_support.safety_netting_en
+                            : detail.payload.clinical_decision_support.safety_netting_en}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
                 {/* Editable Clinical Note & Dual Diagnosis Picker */}
                 <section className="ac-card">
                   <h3 className="ac-card-title" style={{ marginBottom: "0.65rem" }}>
@@ -855,7 +996,7 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
                       className="ac-btn sm"
                       data-testid="clinician-run-rx-safety-btn"
                       disabled={safetyBusy || rxItems.length === 0}
-                      onClick={() => void runRxSafetyCheck(detail.patient.id, rxItems)}
+                      onClick={() => void runRxSafetyCheck(detail.patient.id, rxItems, icd10Code)}
                     >
                       <ShieldCheck size={13} /> {safetyBusy ? tr(lang, "Checking…", "檢查中…") : tr(lang, "Run Safety Check", "執行安全檢查")}
                     </button>
@@ -992,6 +1133,66 @@ export function ClinicianConsole({ lang, session, onSessionChange, onNotify }: C
                       )}
                     </div>
                   )}
+                </section>
+
+                {/* Secure Patient Portal Message Thread & Clinician Reply (Zero Clinical WhatsApp Text) */}
+                <section className="ac-card" data-testid="clinician-message-thread">
+                  <div className="ac-card-head" style={{ marginBottom: "0.5rem" }}>
+                    <div>
+                      <h3 className="ac-card-title">
+                        <MessageSquare size={16} color="var(--ac-teal)" />
+                        {tr(lang, "Secure In-Portal Patient Thread", "安全網站病人通訊記錄")}
+                      </h3>
+                      <p className="ac-card-sub">
+                        {tr(
+                          lang,
+                          "Replies stay inside the authenticated HK portal; WhatsApp sends only a non-clinical doorbell ping.",
+                          "醫生回覆僅儲存於香港加密網站；WhatsApp 僅發送無臨床內容的通知提醒。"
+                        )}
+                      </p>
+                    </div>
+                    <span className="ac-badge ok">0 PHI on WhatsApp</span>
+                  </div>
+
+                  <div style={{ display: "grid", gap: "0.4rem", maxHeight: 170, overflowY: "auto", marginBottom: "0.65rem" }}>
+                    {(detail.messages || []).length === 0 ? (
+                      <div style={{ fontSize: "12px", color: "var(--ac-ink-3)" }}>
+                        {tr(lang, "No portal messages yet.", "暫無網站通訊記錄。")}
+                      </div>
+                    ) : (
+                      (detail.messages || []).map((m) => (
+                        <div
+                          key={m.id}
+                          style={{
+                            padding: "0.45rem 0.65rem",
+                            borderRadius: "8px",
+                            background: m.sender_role === "clinician" ? "#e6f5f4" : "#f5f8fa",
+                            border: "1px solid var(--ac-border)",
+                            fontSize: "12.5px",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--ac-ink-3)", marginBottom: "0.15rem" }}>
+                            <strong>{m.sender_role === "clinician" ? "Clinician (Portal)" : m.sender_role === "patient" ? "Patient" : "System Template"}</strong>
+                            <span className="ac-mono">{new Date(m.created_at).toLocaleTimeString()}</span>
+                          </div>
+                          <div>{m.body_text}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <form onSubmit={(e) => void handleSendClinicianReply(e)} style={{ display: "flex", gap: "0.5rem" }}>
+                    <input
+                      className="ac-input"
+                      data-testid="clinician-reply-input"
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder={tr(lang, "Send secure clinical follow-up advice to patient portal…", "向病人安全網站發送臨床跟進指示…")}
+                    />
+                    <button type="submit" className="ac-btn primary sm" data-testid="clinician-reply-btn" disabled={replyBusy || !replyText.trim()}>
+                      <Send size={13} /> {replyBusy ? tr(lang, "Sending…", "發送中…") : tr(lang, "Send Reply", "發送回覆")}
+                    </button>
+                  </form>
                 </section>
 
                 {/* Automation-Bias Friction & Final Decision Footer */}
