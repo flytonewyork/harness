@@ -4,6 +4,7 @@ import type { CompanionHome, CrisisPayload, StoredSession } from "../api";
 import { Paper } from "../shared/Paper";
 import { Sheet } from "../shared/Sheet";
 import { CrisisScreen } from "./CrisisScreen";
+import { RecordSheet } from "./RecordSheet";
 
 interface PatientAppProps {
   session: StoredSession;
@@ -66,11 +67,6 @@ export function PatientApp({ session }: PatientAppProps) {
     } finally {
       setBusy(false);
     }
-  };
-
-  const openCertPdf = async (certId: string) => {
-    const res = await v2Api.certDownloadToken(certId, session.token);
-    window.open(res.download_url, "_blank", "noopener");
   };
 
   if (crisis) {
@@ -246,51 +242,14 @@ export function PatientApp({ session }: PatientAppProps) {
         </div>
       </div>
 
-      {/* Single "Your record" Sheet (Meds, Allergies, Signed Docs, Account & Privacy at foot) */}
-      <Sheet open={recordOpen} title={isZh ? "你的病歷紀錄" : "Your record"} onClose={() => setRecordOpen(false)}>
-        <div className="v2-sec">
-          <div className="v2-sec-label">Medicines &amp; allergies</div>
-          <div className="v2-card-flat">
-            <div><strong>Active medicines:</strong> {home.record.current_meds.length ? home.record.current_meds.join(", ") : "None"}</div>
-            <div><strong>Allergies:</strong> {home.record.allergies.length ? home.record.allergies.join(", ") : "None recorded"}</div>
-            <div><strong>G6PD:</strong> {home.record.g6pd_deficient ? "Deficient" : "Normal"}</div>
-          </div>
-        </div>
-
-        <div className="v2-sec">
-          <div className="v2-sec-label">Signed certificates &amp; prescriptions</div>
-          <div className="v2-card-flat">
-            {home.record.certificates.map((c) => (
-              <div key={c.id} className="v2-summary-item v2-order-head">
-                <span className="voice-doctor">Sick leave {c.start_date} – {c.end_date} ({c.days_off}d) · MCHK {c.mchk_reg_no}</span>
-                <button type="button" className="v2-btn-secondary" onClick={() => openCertPdf(c.id)}>PDF</button>
-              </div>
-            ))}
-            {home.record.prescriptions.map((r) => (
-              <div key={r.id} className="v2-summary-item">
-                <div className="voice-doctor">e-Script ({r.fulfilment_status}) · MCHK {r.mchk_reg_no}</div>
-                {r.fulfilment_mode === "pending_choice" && (
-                  <div className="v2-composer-row">
-                    <button type="button" className="v2-btn-secondary" onClick={async () => { await v2Api.chooseFulfilment(r.id, "pickup", "", session.token); await load(); }}>Clinic pickup</button>
-                    <button type="button" className="v2-btn-secondary" onClick={async () => { await v2Api.chooseFulfilment(r.id, "delivery", "Central, Hong Kong", session.token); await load(); }}>Courier delivery</button>
-                  </div>
-                )}
-              </div>
-            ))}
-            {home.record.certificates.length === 0 && home.record.prescriptions.length === 0 && (
-              <div className="voice-assistant">No signed documents yet.</div>
-            )}
-          </div>
-        </div>
-
-        <div className="v2-sec">
-          <div className="v2-sec-label">Account &amp; Hong Kong PDPO Privacy</div>
-          <div className="v2-card-flat voice-assistant">
-            <div>{home.patient.name_en} · HKID {home.patient.hkid_masked} · {home.patient.phone_masked}</div>
-            <div>Data stored in Hong Kong (asia-east2). Statutory medical record retention applies (Cap. 347).</div>
-          </div>
-        </div>
-      </Sheet>
+      <RecordSheet
+        open={recordOpen}
+        isZh={isZh}
+        home={home}
+        token={session.token}
+        onClose={() => setRecordOpen(false)}
+        onUpdated={load}
+      />
 
       <Sheet open={Boolean(paperModal)} title={paperModal?.title || "Source document"} onClose={() => setPaperModal(null)}>
         {paperModal && (

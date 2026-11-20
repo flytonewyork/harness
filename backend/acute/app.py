@@ -965,7 +965,9 @@ def create_acute_app(
 
     @app.get("/api/v1/wa/inbox")
     def wa_inbox(phone: str = Query(..., min_length=4)):
-        """Return simulated non-clinical WhatsApp doorbell messages for a phone number."""
+        """Return simulated non-clinical WhatsApp doorbell messages for a phone number (demo/staging only)."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "WhatsApp inbox simulator disabled in production")
         with database.admin_session() as s:
             rows = s.scalars(
                 select(WhatsAppOutbox)
@@ -2929,6 +2931,56 @@ def create_acute_app(
                 observations=[{"loinc_code": o.loinc_code, "display": o.display, "value_text": o.value_text} for o in obs],
                 lang=body.lang or pat.preferred_lang,
             )
+            created_prop_id: str | None = None
+            low_msg = body.message.lower()
+            is_new_symptom = any(
+                k in low_msg
+                for k in ("fever", "flu", "cough", "sore throat", "rat", "tamiflu", "oseltamivir", "sick leave", "發燒", "流感", "喉嚨痛", "咳", "快測", "病假")
+            )
+            if is_new_symptom:
+                t_row = s.get(Tenant, tenant_id)
+                ai_on = bool(t_row.ai_enabled) if t_row else True
+                intake_res = harness_rt.process_intake(
+                    body.message.strip(),
+                    patient={
+                        "id": pat.id, "name_en": pat.name_en, "dob": pat.dob,
+                        "allergies": pat.allergies_json, "current_meds": pat.current_meds_json,
+                        "g6pd_deficient": pat.g6pd_deficient, "weight_kg": pat.weight_kg, "egfr": pat.egfr,
+                    },
+                    lang=body.lang or pat.preferred_lang,
+                    tenant_id=tenant_id,
+                    kill_switch=not ai_on,
+                )
+                draft_b = intake_res.get("draft")
+                new_enc = Encounter(
+                    id=new_id("enc"), tenant_id=tenant_id, patient_id=pat_id,
+                    encounter_type="acute_flu", status="pending_review",
+                    chief_complaint_text=body.message.strip(),
+                    icd10_code=(draft_b.working_diagnosis.get("icd10") if draft_b else "J06.9"),
+                    icpc2_code=(draft_b.working_diagnosis.get("icpc2") if draft_b else "R74"),
+                )
+                s.add(new_enc)
+                s.flush()
+                prop = Proposal(
+                    id=new_id("prop"), tenant_id=tenant_id, patient_id=pat_id,
+                    encounter_id=new_enc.id, kind="consult_draft", urgency=2,
+                    status="pending_review", sla_due_at=utcnow() + timedelta(hours=2),
+                    protocol_id="acute_consult_draft_v1", protocol_version="1.0.0",
+                    payload_json={
+                        "title": f"New symptom message from {pat.name_en}",
+                        "summary_points": [{"text": "Submitted via patient care companion; awaiting clinician review.", "quote": body.message.strip()[:140]}],
+                        "case_sites": ["Central GP", "Patient Companion"],
+                        "conflicts": [],
+                        "draft": draft_b.to_dict() if draft_b else {"patient_summary_draft": ans["reply"]},
+                    },
+                    source_quotes_json=[{"field": "Patient message", "quote": body.message.strip()[:140], "source": "Patient Companion"}],
+                    checks_json=[],
+                )
+                s.add(prop)
+                s.flush()
+                created_prop_id = prop.id
+                msg_in.encounter_id = new_enc.id
+
             msg_out = Message(
                 id=new_id("msg"), tenant_id=tenant_id, patient_id=pat_id,
                 encounter_id=enc.id if enc else None, direction="outbound",
@@ -2936,7 +2988,7 @@ def create_acute_app(
             )
             s.add(msg_out)
             s.flush()
-            return {"ok": True, "crisis": None, "message": ans, "message_id": msg_out.id}
+            return {"ok": True, "crisis": None, "message": ans, "message_id": msg_out.id, "proposal_id": created_prop_id}
 
     @app.post("/api/v1/patient/companion/reading")
     def patient_companion_reading(body: CompanionReadingReq, request: Request):

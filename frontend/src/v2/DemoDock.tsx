@@ -15,6 +15,7 @@ const DEMO_SHORTCUTS = [
   { key: "clinic_admin:adm_central_ops", label: "Grace Ho (Clinic Ops)", sub: "Settings · Kill Switch", path: "/c/settings" },
   { key: "patient:pat_ho_htn_drift", label: "HO Ka-Yan (HTN Drift)", sub: "Patient · 365d Companion", path: "/p" },
   { key: "patient:pat_chan_qeh_discharge", label: "CHAN Tai Man (QEH)", sub: "Patient · Discharge", path: "/p" },
+  { key: "patient:pat_cheung_elderly_flu", label: "CHEUNG Wing-Kit (70M Flu)", sub: "Patient · Renal Flu", path: "/p" },
   { key: "patient:pat_wong_flu_g6pd", label: "WONG Siu-Mei (Flu+G6PD)", sub: "Patient · Acute Flu", path: "/p" },
 ];
 

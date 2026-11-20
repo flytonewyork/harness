@@ -237,6 +237,24 @@ def test_minimalist_two_surface_e2e_all_demo_stories(live_server: str):
             page.screenshot(path=str(shot_dir / "e2e_crisis_mental_health.png"))
         page.click('[data-testid="crisis-ack-btn"]')
 
+        # Medical 999 crisis screen (separate calm screen from Mental-Health)
+        page.fill('[data-testid="patient-composer-input"]', "I have severe chest pain and can't breathe")
+        page.click('[data-testid="patient-send-btn"]')
+        page.wait_for_selector('[data-testid="crisis-medical-999"]', timeout=10000)
+        assert "Call 999" in page.inner_text('[data-testid="crisis-medical-999"]')
+        page.click('[data-testid="crisis-ack-btn"]')
+
+        # Post-sign Patient Loop: switch to CHEUNG Wing-Kit -> sees Serif doctor reply + signed Rx choice!
+        page.click('[data-testid="demo-dock-pill"]')
+        page.click('[data-testid="switch-patient-pat_cheung_elderly_flu"]')
+        page.wait_for_selector('[data-testid="your-record-btn"]:has-text("CHEUNG Wing-Kit")', timeout=10000)
+        now_text = page.inner_text('[data-testid="patient-now-card"]')
+        assert ("Prescription signed" in now_text) or ("處方已簽發" in now_text)
+        page.click('[data-testid="your-record-btn"]')
+        page.wait_for_selector('role=dialog', timeout=5000)
+        assert "MCHK M14829" in page.inner_text('role=dialog')
+        page.keyboard.press("Escape")
+
         browser.close()
 
     assert not console_errors, f"Console errors detected: {console_errors}"

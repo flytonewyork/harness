@@ -103,9 +103,9 @@ export default function AppShell() {
     <>
       {session ? (
         isPatientRoute && session.role === "patient" ? (
-          <PatientApp session={session} />
+          <PatientApp key={session.userId} session={session} />
         ) : (
-          <StaffApp session={session} initialView={initialStaffView} />
+          <StaffApp key={`${session.userId}:${initialStaffView}`} session={session} initialView={initialStaffView} />
         )
       ) : (
         <div className="v2-staff-shell">

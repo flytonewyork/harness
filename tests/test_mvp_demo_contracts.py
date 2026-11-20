@@ -237,3 +237,33 @@ def test_mvp_demo_stories_nurse_rbac_conflict_undo_and_companion(tmp_path):
     assert mh.json()["crisis"]["kind"] == "mental_health_crisis"
     assert mh.json()["crisis"]["pager_acked"] is True
     assert len(mh.json()["crisis"]["hotlines"]) == 3
+
+    # 6. Live Patient Symptom Turn -> Auto-creates real Proposal in Dr. Lam's queue!
+    live_sym = client.post(
+        "/api/v1/patient/companion/turn",
+        headers=ph,
+        json={"message": "Started fever 38.6C last night and tested Flu A RAT positive this morning.", "lang": "en"},
+    )
+    assert live_sym.status_code == 200
+    live_prop_id = live_sym.json()["proposal_id"]
+    assert live_prop_id
+    q_after = client.get("/api/v1/clinician/queue", headers=dh).json()["items"]
+    assert any(it["id"] == live_prop_id for it in q_after)
+
+    # 7. Production lockdown: HARNESS_ENV=prod + DEMO_MODE=false disables /wa/inbox and /demo/*
+    old_env, old_demo, old_rt = os.environ.get("HARNESS_ENV"), os.environ.get("DEMO_MODE"), os.environ.get("HARNESS_RUNTIME_MODE")
+    try:
+        os.environ["HARNESS_ENV"] = "prod"
+        os.environ["DEMO_MODE"] = "false"
+        os.environ["HARNESS_RUNTIME_MODE"] = "prod"
+        assert client.get("/api/v1/wa/inbox?phone=+85291000003").status_code == 404
+        assert client.get("/api/v1/demo/personas").status_code == 404
+    finally:
+        if old_env is not None:
+            os.environ["HARNESS_ENV"] = old_env
+        if old_demo is not None:
+            os.environ["DEMO_MODE"] = old_demo
+        else:
+            os.environ.pop("DEMO_MODE", None)
+        if old_rt is not None:
+            os.environ["HARNESS_RUNTIME_MODE"] = old_rt

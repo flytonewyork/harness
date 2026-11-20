@@ -4,6 +4,7 @@ import { Paper } from "../shared/Paper";
 import { Sparkline } from "../shared/Sparkline";
 import { VerifyLine } from "../shared/VerifyLine";
 import { ConflictCard } from "./ConflictCard";
+import { OrderList } from "./OrderList";
 
 interface ReviewPaneProps {
   detail: ProposalDetail;
@@ -52,7 +53,6 @@ export function ReviewPane({
   const labsContext: string | undefined = detail.payload?.labs_context;
   const checks = detail.checks || [];
   const csum = detail.checks_summary;
-  const warningsNeedingReason = checks.filter((c) => c.status === "warn" && c.requires_reason);
   const hasRenalChoice = checks.some((c) => c.id === "renal_unknown_elderly");
 
   const submitPrimary = () => {
@@ -89,9 +89,6 @@ export function ReviewPane({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isClinician, unresolvedConflicts, busy, undoState, reply, overrideReason, renalDose, issueCert, nurseNote, csum.can_sign]);
-
-  const findingsForOrder = (drug: string) =>
-    checks.filter((c) => (c.status === "warn" || c.status === "fail") && c.affects === `order:${drug.toLowerCase()}`);
 
   const isSigned = detail.status !== "pending_review";
 
@@ -160,69 +157,18 @@ export function ReviewPane({
           ))}
 
           {/* Section 2: What we'll do (Orders — never labeled "Safe") */}
-          <section className="v2-sec">
-            <div className="v2-sec-label">What we&apos;ll do · Orders</div>
-            <div className="v2-card-flat">
-              {(detail.suggested_rx || []).map((rx, i) => {
-                const drug = String(rx.drug || rx.name || "");
-                const inlineChecks = findingsForOrder(drug);
-                const label =
-                  rx.display ||
-                  `${drug.charAt(0).toUpperCase() + drug.slice(1)} ${rx.dose_mg ? `${rx.dose_mg} mg` : ""} ${rx.frequency || ""} ${rx.days ? `× ${rx.days}d` : ""}`.trim();
-                return (
-                  <div key={i} className="v2-order-row">
-                    <div className="v2-order-head">
-                      <span>{drug.toLowerCase() === "oseltamivir" && renalDose === "30" ? "Oseltamivir 30 mg BD × 5 days (renal)" : label}</span>
-                      {rx.frequency === "STOP" && <span className="voice-quote">stop repeat</span>}
-                    </div>
-                    {inlineChecks.map((ck) => (
-                      <div key={ck.id} className={ck.status === "fail" ? "v2-inline-fail" : "v2-inline-warn"}>
-                        <div>{ck.label}</div>
-                        {ck.quick_choice && isClinician && (
-                          <div className="v2-composer-row">
-                            <button
-                              type="button"
-                              className={renalDose === "75" ? "v2-btn-primary" : "v2-btn-secondary"}
-                              onClick={() => setRenalDose("75")}
-                            >
-                              {ck.quick_choice.keep}
-                            </button>
-                            <button
-                              type="button"
-                              className={renalDose === "30" ? "v2-btn-primary" : "v2-btn-secondary"}
-                              onClick={() => setRenalDose("30")}
-                            >
-                              {ck.quick_choice.reduce}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-
-              {detail.suggested_cert && (
-                <div className="v2-order-row v2-order-head">
-                  <label>
-                    <input type="checkbox" checked={issueCert} onChange={(e) => setIssueCert(e.target.checked)} disabled={!isClinician} />{" "}
-                    Sick-leave certificate: {detail.suggested_cert.days_off} days from {detail.suggested_cert.start_date}
-                  </label>
-                  <span className="voice-quote">MCHK PDF</span>
-                </div>
-              )}
-
-              {isClinician && warningsNeedingReason.length > 0 && !hasRenalChoice && (
-                <input
-                  className="v2-reason-input"
-                  placeholder="Clinical reason for override (required, never pre-filled)…"
-                  value={overrideReason}
-                  onChange={(e) => setOverrideReason(e.target.value)}
-                  data-testid="override-reason-input"
-                />
-              )}
-            </div>
-          </section>
+          <OrderList
+            orders={detail.suggested_rx || []}
+            checks={checks}
+            suggestedCert={detail.suggested_cert}
+            isClinician={isClinician}
+            renalDose={renalDose}
+            issueCert={issueCert}
+            overrideReason={overrideReason}
+            onChangeRenalDose={setRenalDose}
+            onToggleCert={setIssueCert}
+            onChangeOverrideReason={setOverrideReason}
+          />
 
           {/* Section 3: What we'll tell the patient (Serif = doctor's signed words) */}
           <section className="v2-sec">
