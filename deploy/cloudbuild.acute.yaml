@@ -6,7 +6,7 @@ substitutions:
   _SERVICE: clinic-ai-harness-staging
   _CLOUDSQL_INSTANCE: ""
   _VAULT_BUCKET: ""
-  _DATABASE_URL: ""
+  _RUNTIME_SA: tmrw-acute-runtime
   _VERTEX_MODEL: gemini-2.5-flash
 
 steps:
@@ -36,14 +36,19 @@ steps:
       - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${SHORT_SHA}
       - --region=${_REGION}
       - --platform=managed
+      - --service-account=${_RUNTIME_SA}@${PROJECT_ID}.iam.gserviceaccount.com
       - --allow-unauthenticated
       - --memory=1Gi
       - --cpu=1
       - --min-instances=0
       - --max-instances=5
-      - --set-env-vars=HARNESS_ENV=staging,HARNESS_REGION=${_REGION},GCP_PROJECT_ID=${PROJECT_ID},VERTEX_REGION=${_REGION},VERTEX_MODEL=${_VERTEX_MODEL},VAULT_GCS_BUCKET=${_VAULT_BUCKET},DEMO_MODE=true,DEMO_SHOW_OTP=true
+      - --set-env-vars=HARNESS_ENV=staging,HARNESS_REGION=${_REGION},GCP_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},VERTEX_REGION=${_REGION},VERTEX_MODEL=${_VERTEX_MODEL},VAULT_GCS_BUCKET=${_VAULT_BUCKET},DEMO_MODE=true,DEMO_SHOW_OTP=true,OUTBOX_WORKER_ENABLED=true
+      - --set-secrets=DATABASE_URL=clinic-harness-db-url:latest,DATABASE_ADMIN_URL=clinic-harness-db-admin-url:latest,JWT_SECRET=clinic-harness-jwt-secret:latest,VAULT_KEK_B64=clinic-harness-vault-kek:latest,VAULT_SIGNING_SECRET=clinic-harness-vault-signing:latest
       - --add-cloudsql-instances=${_CLOUDSQL_INSTANCE}
 
 images:
   - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${SHORT_SHA}
   - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

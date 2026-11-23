@@ -400,7 +400,12 @@ class VertexAIProvider(ModelProvider):
         http_client: httpx.Client | None = None,
         timeout_s: float = 20.0,
     ) -> None:
-        self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("VERTEX_PROJECT_ID")
+        self.project_id = (
+            project_id
+            or os.environ.get("GOOGLE_CLOUD_PROJECT")
+            or os.environ.get("GCP_PROJECT_ID")
+            or os.environ.get("VERTEX_PROJECT_ID")
+        )
         self._explicit_token = access_token
         self._client = http_client
         self.timeout_s = timeout_s

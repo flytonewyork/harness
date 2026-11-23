@@ -14,16 +14,52 @@ provider "google" {
   region  = var.region
 }
 
+locals {
+  required_apis = toset([
+    "run.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "sqladmin.googleapis.com",
+    "storage.googleapis.com",
+    "aiplatform.googleapis.com",
+    "secretmanager.googleapis.com",
+    "cloudkms.googleapis.com",
+  ])
+  runtime_roles = toset([
+    "roles/cloudsql.client",
+    "roles/storage.objectAdmin",
+    "roles/aiplatform.user",
+    "roles/secretmanager.secretAccessor",
+    "roles/cloudkms.cryptoKeyEncrypterDecrypter",
+    "roles/logging.logWriter",
+  ])
+  secret_names = toset([
+    "clinic-harness-db-url",
+    "clinic-harness-db-admin-url",
+    "clinic-harness-jwt-secret",
+    "clinic-harness-vault-kek",
+    "clinic-harness-vault-signing",
+  ])
+}
+
+resource "google_project_service" "required" {
+  for_each           = local.required_apis
+  service            = each.value
+  disable_on_destroy = false
+}
+
 resource "google_artifact_registry_repository" "harness" {
   location      = var.region
   repository_id = "tmrw-harness"
   format        = "DOCKER"
   description   = "Clinic AI Harness container images (Hong Kong asia-east2)"
+  depends_on    = [google_project_service.required]
 }
 
 resource "google_kms_key_ring" "vault" {
-  name     = "tmrw-vault-keyring"
-  location = var.region
+  name       = "tmrw-vault-keyring"
+  location   = var.region
+  depends_on = [google_project_service.required]
 }
 
 resource "google_kms_crypto_key" "vault_kek" {
@@ -40,6 +76,7 @@ resource "google_storage_bucket" "vault" {
   versioning {
     enabled = true
   }
+  depends_on = [google_project_service.required]
 }
 
 resource "google_sql_database_instance" "postgres" {
@@ -58,6 +95,7 @@ resource "google_sql_database_instance" "postgres" {
       ssl_mode = "ENCRYPTED_ONLY"
     }
   }
+  depends_on = [google_project_service.required]
 }
 
 resource "google_sql_database" "clinic_harness" {
@@ -68,6 +106,26 @@ resource "google_sql_database" "clinic_harness" {
 resource "google_service_account" "runtime" {
   account_id   = "tmrw-acute-runtime"
   display_name = "Clinic AI Harness Least-Privilege Runtime"
+}
+
+resource "google_project_iam_member" "runtime_roles" {
+  for_each = local.runtime_roles
+  project  = var.project_id
+  role     = each.value
+  member   = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+resource "google_secret_manager_secret" "app_secrets" {
+  for_each  = local.secret_names
+  secret_id = each.value
+  replication {
+    user_managed {
+      replicas {
+        location = var.region
+      }
+    }
+  }
+  depends_on = [google_project_service.required]
 }
 
 resource "google_cloud_run_v2_service" "harness" {
@@ -93,8 +151,69 @@ resource "google_cloud_run_v2_service" "harness" {
         value = var.region
       }
       env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.project_id
+      }
+      env {
+        name  = "VERTEX_REGION"
+        value = var.region
+      }
+      env {
         name  = "VAULT_GCS_BUCKET"
         value = google_storage_bucket.vault.name
+      }
+      env {
+        name  = "OUTBOX_WORKER_ENABLED"
+        value = "true"
+      }
+      env {
+        name = "DATABASE_URL"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app_secrets["clinic-harness-db-url"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "DATABASE_ADMIN_URL"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app_secrets["clinic-harness-db-admin-url"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "JWT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app_secrets["clinic-harness-jwt-secret"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "VAULT_KEK_B64"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app_secrets["clinic-harness-vault-kek"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "VAULT_SIGNING_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app_secrets["clinic-harness-vault-signing"].secret_id
+            version = "latest"
+          }
+        }
       }
       volume_mounts {
         name       = "cloudsql"
@@ -102,4 +221,5 @@ resource "google_cloud_run_v2_service" "harness" {
       }
     }
   }
+  depends_on = [google_project_iam_member.runtime_roles]
 }

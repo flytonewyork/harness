@@ -12,7 +12,8 @@ SERVICE="${CLOUD_RUN_SERVICE:-clinic-ai-harness-staging}"
 REPO="tmrw-harness"
 SQL_INSTANCE="${CLOUDSQL_INSTANCE_NAME:-tmrw-acute-pg15}"
 DB_NAME="clinic_harness"
-DB_USER="clinic_app"
+DB_ADMIN_USER="clinic_admin"
+DB_APP_USER="clinic_app"
 VAULT_BUCKET="${VAULT_GCS_BUCKET:-${PROJECT_ID}-tmrw-vault-hk}"
 SA_NAME="tmrw-acute-runtime"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -29,6 +30,7 @@ gcloud services enable \
   storage.googleapis.com \
   aiplatform.googleapis.com \
   secretmanager.googleapis.com \
+  cloudkms.googleapis.com \
   --quiet
 
 echo "==> 2. Ensuring Artifact Registry repository in ${REGION}"
@@ -63,13 +65,24 @@ ensure_secret() {
   fi
 }
 
+upsert_secret_value() {
+  local name="$1"
+  local value="$2"
+  if ! gcloud secrets describe "${name}" >/dev/null 2>&1; then
+    gcloud secrets create "${name}" --replication-policy="user-managed" --locations="${REGION}" --quiet
+  fi
+  printf '%s' "${value}" | gcloud secrets versions add "${name}" --data-file=- --quiet
+}
+
 echo "==> 5. Ensuring persistent secrets in GCP Secret Manager (${REGION})"
+ensure_secret "clinic-harness-db-admin-pass" "python3 -c 'import secrets; print(secrets.token_urlsafe(24), end=\"\")'"
 ensure_secret "clinic-harness-db-pass" "python3 -c 'import secrets; print(secrets.token_urlsafe(24), end=\"\")'"
 ensure_secret "clinic-harness-jwt-secret" "python3 -c 'import secrets; print(secrets.token_hex(32), end=\"\")'"
 ensure_secret "clinic-harness-vault-kek" "python3 -c 'import os,base64; print(base64.b64encode(os.urandom(32)).decode(), end=\"\")'"
 ensure_secret "clinic-harness-vault-signing" "python3 -c 'import secrets; print(secrets.token_hex(32), end=\"\")'"
 
-DB_PASS="${CLOUDSQL_APP_PASSWORD:-$(gcloud secrets versions access latest --secret=clinic-harness-db-pass)}"
+DB_ADMIN_PASS="${CLOUDSQL_ADMIN_PASSWORD:-$(gcloud secrets versions access latest --secret=clinic-harness-db-admin-pass)}"
+DB_APP_PASS="${CLOUDSQL_APP_PASSWORD:-$(gcloud secrets versions access latest --secret=clinic-harness-db-pass)}"
 
 echo "==> 6. Ensuring Cloud SQL PostgreSQL 15 instance in ${REGION}"
 if ! gcloud sql instances describe "${SQL_INSTANCE}" >/dev/null 2>&1; then
@@ -83,14 +96,24 @@ fi
 
 gcloud sql databases describe "${DB_NAME}" --instance="${SQL_INSTANCE}" >/dev/null 2>&1 || \
   gcloud sql databases create "${DB_NAME}" --instance="${SQL_INSTANCE}" --quiet
-if gcloud sql users list --instance="${SQL_INSTANCE}" --format="value(name)" | grep -qx "${DB_USER}"; then
-  gcloud sql users set-password "${DB_USER}" --instance="${SQL_INSTANCE}" --password="${DB_PASS}" --quiet
-else
-  gcloud sql users create "${DB_USER}" --instance="${SQL_INSTANCE}" --password="${DB_PASS}" --quiet
-fi
+
+for pair in "${DB_ADMIN_USER}:${DB_ADMIN_PASS}" "${DB_APP_USER}:${DB_APP_PASS}"; do
+  u="${pair%%:*}"
+  p="${pair#*:}"
+  if gcloud sql users list --instance="${SQL_INSTANCE}" --format="value(name)" | grep -qx "${u}"; then
+    gcloud sql users set-password "${u}" --instance="${SQL_INSTANCE}" --password="${p}" --quiet
+  else
+    gcloud sql users create "${u}" --instance="${SQL_INSTANCE}" --password="${p}" --quiet
+  fi
+done
 
 CONN_NAME=$(gcloud sql instances describe "${SQL_INSTANCE}" --format="value(connectionName)")
-DATABASE_URL="postgresql+psycopg://${DB_USER}:${DB_PASS}@/${DB_NAME}?host=/cloudsql/${CONN_NAME}"
+DATABASE_ADMIN_URL="postgresql+psycopg://${DB_ADMIN_USER}:${DB_ADMIN_PASS}@/${DB_NAME}?host=/cloudsql/${CONN_NAME}"
+DATABASE_APP_URL="postgresql+psycopg://${DB_APP_USER}:${DB_APP_PASS}@/${DB_NAME}?host=/cloudsql/${CONN_NAME}"
+
+# Store DB connection strings in Secret Manager so credentials never appear in plaintext Cloud Run env vars
+upsert_secret_value "clinic-harness-db-admin-url" "${DATABASE_ADMIN_URL}"
+upsert_secret_value "clinic-harness-db-url" "${DATABASE_APP_URL}"
 
 echo "==> 7. Building container remotely via Cloud Build & deploying to Cloud Run (${REGION})"
 cd "$(dirname "$0")/.."
@@ -120,8 +143,8 @@ gcloud run deploy "${SERVICE}" \
   --memory=1Gi \
   --cpu=1 \
   --add-cloudsql-instances="${CONN_NAME}" \
-  --set-env-vars="HARNESS_ENV=staging,HARNESS_REGION=${REGION},GCP_PROJECT_ID=${PROJECT_ID},VERTEX_REGION=${REGION},VERTEX_MODEL=gemini-2.5-flash,VAULT_GCS_BUCKET=${VAULT_BUCKET},DEMO_MODE=true,DEMO_SHOW_OTP=true,OUTBOX_WORKER_ENABLED=true,DATABASE_URL=${DATABASE_URL}" \
-  --set-secrets="JWT_SECRET=clinic-harness-jwt-secret:latest,VAULT_KEK_B64=clinic-harness-vault-kek:latest,VAULT_SIGNING_SECRET=clinic-harness-vault-signing:latest" \
+  --set-env-vars="HARNESS_ENV=staging,HARNESS_REGION=${REGION},GCP_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},VERTEX_REGION=${REGION},VERTEX_MODEL=gemini-2.5-flash,VAULT_GCS_BUCKET=${VAULT_BUCKET},DEMO_MODE=true,DEMO_SHOW_OTP=true,OUTBOX_WORKER_ENABLED=true" \
+  --set-secrets="DATABASE_URL=clinic-harness-db-url:latest,DATABASE_ADMIN_URL=clinic-harness-db-admin-url:latest,JWT_SECRET=clinic-harness-jwt-secret:latest,VAULT_KEK_B64=clinic-harness-vault-kek:latest,VAULT_SIGNING_SECRET=clinic-harness-vault-signing:latest" \
   --quiet
 
 URL=$(gcloud run services describe "${SERVICE}" --region="${REGION}" --format="value(status.url)")

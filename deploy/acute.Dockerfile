@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends fonts-noto-cjk 
 COPY pyproject.toml ./
 COPY backend/ ./backend/
 COPY protocols/ ./protocols/
+COPY demo/ec-care-line/ ./demo/ec-care-line/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 RUN pip install --no-cache-dir -e "." \

@@ -85,6 +85,21 @@ export function DemoDock({ enabled, session, onSwitched, onResetComplete }: Demo
               <span className="voice-quote">{s.sub.split(" · ")[0]}</span>
             </button>
           ))}
+          <div className="v2-summary-item" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <div className="v2-sec-label">Unified Demo Surfaces</div>
+            <a className="v2-demo-item" href="/ec?walk=kwok" data-testid="link-ec-care-line">
+              <span>EC Care Line Storyboard</span>
+              <span className="voice-quote">/ec</span>
+            </a>
+            <a className="v2-demo-item" href="/wa" data-testid="link-wa-doorbell">
+              <span>WhatsApp Flu QR &amp; Sick Leave</span>
+              <span className="voice-quote">/wa</span>
+            </a>
+            <a className="v2-demo-item" href="/corp" data-testid="link-corp-portal">
+              <span>Corporate Employer Portal</span>
+              <span className="voice-quote">/corp</span>
+            </a>
+          </div>
           <div className="v2-summary-item">
             <button type="button" className="v2-btn-secondary" disabled={busy} onClick={resetDemo} data-testid="demo-reset-btn">
               Reset synthetic clinic data

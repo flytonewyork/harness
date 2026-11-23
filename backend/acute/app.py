@@ -103,6 +103,7 @@ logger = configure_structured_logger("tmrw.acute")
 logger.addFilter(PHISafeLogFilter())
 
 DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+DEMO_EC_DIR = Path(__file__).resolve().parents[2] / "demo" / "ec-care-line"
 K_ANONYMITY_THRESHOLD = 5
 
 HK_PICS_DOC = {
@@ -997,7 +998,11 @@ def create_acute_app(
     async def wa_webhook(request: Request):
         raw = await request.body()
         sig = request.headers.get("X-Hub-Signature-256", "")
-        secret = os.environ.get("WHATSAPP_APP_SECRET", "tmrw-wa-webhook-dev")
+        secret = os.environ.get("WHATSAPP_APP_SECRET")
+        if not secret:
+            if os.environ.get("HARNESS_ENV", "staging").lower() == "prod":
+                raise HTTPException(503, "WHATSAPP_APP_SECRET is not configured in production")
+            secret = "tmrw-wa-webhook-dev"
         if not wa_adapter.verify_webhook(raw, sig, secret):
             raise HTTPException(403, "Invalid WhatsApp webhook signature")
         return {"ok": True, "verified": True}
@@ -3685,6 +3690,19 @@ def create_acute_app(
                 "qr_payload_url": f"/wa?campaign={camp.code}",
             }
 
+    # ================================================================================== SERVE EC CARE LINE DEMO (STAGING/DEMO ONLY)
+    @app.get("/ec")
+    @app.get("/ec/{subpath:path}")
+    def ec_care_line_demo(subpath: str = ""):
+        if not _is_demo_mode() or not DEMO_EC_DIR.exists():
+            raise HTTPException(404, "Not found")
+        rel = subpath.strip("/") or "index.html"
+        root = DEMO_EC_DIR.resolve()
+        candidate = (root / rel).resolve()
+        if not candidate.is_relative_to(root) or not candidate.is_file():
+            raise HTTPException(404, "Not found")
+        return FileResponse(candidate)
+
     # ================================================================================== SERVE BUILT 4-SURFACE FRONTEND
     if DIST.exists():
         assets_dir = DIST / "assets"
@@ -3693,10 +3711,11 @@ def create_acute_app(
 
         @app.get("/{path:path}")
         def spa(path: str):
-            if path.startswith("api/"):
+            if path.startswith("api/") or path == "ec" or path.startswith("ec/"):
                 raise HTTPException(404, "API endpoint not found")
-            f = DIST / path
-            return FileResponse(f if path and f.is_file() else DIST / "index.html")
+            dist_root = DIST.resolve()
+            f = (dist_root / path).resolve() if path else dist_root
+            return FileResponse(f if path and f.is_relative_to(dist_root) and f.is_file() else DIST / "index.html")
 
     return app
 

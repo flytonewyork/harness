@@ -46,6 +46,8 @@ class LocalKMSProvider:
             if env_b64:
                 kek_bytes = base64.b64decode(env_b64)
             else:
+                if os.environ.get("HARNESS_ENV", "staging").lower() == "prod":
+                    raise VaultError("HARNESS_ENV=prod requires VAULT_KEK_B64 from Secret Manager (or Cloud KMS)")
                 # Deterministic dev/test KEK derived from env secret (override VAULT_KEK_B64 in staging/prod)
                 seed = os.environ.get("VAULT_KEK_SEED", "tmrw-dev-vault-kek-hk-asia-east2").encode()
                 kek_bytes = hashlib.sha256(seed).digest()
@@ -187,7 +189,11 @@ class DocumentVault:
                 backend = LocalFSBackend(os.environ.get("VAULT_LOCAL_DIR", "/tmp/tmrw-vault"))
         self.backend = backend
         self.kms = kms or LocalKMSProvider()
-        self._signing_key = (signing_secret or os.environ.get("VAULT_SIGNING_SECRET", "tmrw-vault-sign-dev-hk")).encode()
+        raw_sign = signing_secret or os.environ.get("VAULT_SIGNING_SECRET")
+        if os.environ.get("HARNESS_ENV", "staging").lower() == "prod":
+            if not raw_sign or raw_sign == "tmrw-vault-sign-dev-hk" or len(raw_sign) < 24:
+                raise VaultError("HARNESS_ENV=prod requires a strong VAULT_SIGNING_SECRET (>=24 chars) from Secret Manager")
+        self._signing_key = (raw_sign or "tmrw-vault-sign-dev-hk").encode()
 
     def health_check(self) -> dict[str, str | bool]:
         """Verify vault backend & KEK readiness for /api/v1/health/ready."""

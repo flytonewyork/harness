@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import App from "../App";
+import AcuteApp from "../acute/AcuteApp";
 import { loadSession, saveSession, v2Api } from "./api";
 import type { StoredSession } from "./api";
 import { DemoDock } from "./DemoDock";
@@ -7,11 +8,25 @@ import { PatientApp } from "./patient/PatientApp";
 import { StaffApp } from "./staff/StaffApp";
 import "./tokens.css";
 
-function getRoute(): { path: string; legacy: boolean } {
+function isAcutePortalPath(path: string): boolean {
+  return (
+    path === "/wa" ||
+    path.startsWith("/wa/") ||
+    path === "/corp" ||
+    path.startsWith("/corp/") ||
+    path === "/a" ||
+    path.startsWith("/a/") ||
+    path.startsWith("/p/magic/")
+  );
+}
+
+function getRoute(): { path: string; legacy: boolean; acutePortal: boolean } {
   const params = new URLSearchParams(window.location.search);
+  const path = window.location.pathname || "/";
   return {
-    path: window.location.pathname || "/",
+    path,
     legacy: params.get("mode") === "legacy",
+    acutePortal: params.get("mode") === "acute" || isAcutePortalPath(path),
   };
 }
 
@@ -86,6 +101,10 @@ export default function AppShell() {
 
   if (route.legacy) {
     return <App />;
+  }
+
+  if (route.acutePortal) {
+    return <AcuteApp />;
   }
 
   if (booting) {

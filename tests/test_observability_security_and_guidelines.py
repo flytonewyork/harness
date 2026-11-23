@@ -305,3 +305,51 @@ def test_probes_metrics_observability_outbox_dcr_reply_and_statutory_hold(acute_
 
     # Clean reset so subsequent tests start with fresh seed
     assert client.post("/api/v1/demo/reset").status_code == 200
+
+
+def test_gcp_prod_fail_closed_guards_and_ec_demo_mount(monkeypatch, tmp_path):
+    """Verify GCP_PROJECT_ID wiring, prod secret fail-closed guards, and /ec demo serving (blocked in prod)."""
+    from backend.gateway.gateway import VertexAIProvider
+    from backend.vault.vault import DocumentVault, LocalFSBackend, LocalKMSProvider, VaultError
+
+    # 1. VertexAIProvider reads GCP_PROJECT_ID (matching deploy_gcp_asia_east2.sh / cloudbuild.acute.yaml)
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+    monkeypatch.delenv("VERTEX_PROJECT_ID", raising=False)
+    monkeypatch.setenv("GCP_PROJECT_ID", "tmrw-hk-staging")
+    assert VertexAIProvider().project_id == "tmrw-hk-staging"
+
+    # 2. LocalKMSProvider & DocumentVault fail closed in HARNESS_ENV=prod without secrets
+    monkeypatch.setenv("HARNESS_ENV", "prod")
+    monkeypatch.delenv("VAULT_KEK_B64", raising=False)
+    monkeypatch.delenv("VAULT_SIGNING_SECRET", raising=False)
+    with pytest.raises(VaultError, match="VAULT_KEK_B64"):
+        LocalKMSProvider()
+
+    valid_kms = LocalKMSProvider(kek_bytes=b"k" * 32)
+    with pytest.raises(VaultError, match="VAULT_SIGNING_SECRET"):
+        DocumentVault(backend=LocalFSBackend(tmp_path), kms=valid_kms)
+
+    # 3. /api/v1/wa/webhook fails closed in HARNESS_ENV=prod without WHATSAPP_APP_SECRET, and /ec is blocked in prod
+    monkeypatch.delenv("WHATSAPP_APP_SECRET", raising=False)
+    monkeypatch.setenv("JWT_SECRET", "prod-test-jwt-secret-must-be-at-least-32-bytes")
+    db = Database()
+    vault = DocumentVault(backend=LocalFSBackend(tmp_path), kms=valid_kms, signing_secret="prod-test-vault-signing-secret-32b")
+    app = create_acute_app(db=db, vault=vault, seed_on_startup=False)
+    with TestClient(app) as client:
+        wh = client.post("/api/v1/wa/webhook", content=b"{}", headers={"X-Hub-Signature-256": "sha256=bad"})
+        assert wh.status_code == 503
+        assert client.get("/ec").status_code == 404
+        assert client.get("/ec/suite.html").status_code == 404
+
+    # 4. In staging/demo mode, /ec and /ec/suite.html serve the unified EC Care Line demo
+    monkeypatch.setenv("HARNESS_ENV", "staging")
+    monkeypatch.setenv("DEMO_MODE", "true")
+    with TestClient(app) as client:
+        ec = client.get("/ec")
+        assert ec.status_code == 200
+        assert "tmrw" in ec.text.lower()
+        suite = client.get("/ec/suite.html")
+        assert suite.status_code == 200
+        assert client.get("/ec/%2e%2e/README.md").status_code == 404
+        assert client.get("/ec/does-not-exist.html").status_code == 404
+
