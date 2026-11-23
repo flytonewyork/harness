@@ -79,7 +79,7 @@ export function ClinicWorkspaceApp() {
   const [showXray, setShowXray] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [preview, setPreview] = useState<Record<string, any> | null>(null);
-  const [showOriginalChat, setShowOriginalChat] = useState(false);
+  const [showPatientChat, setShowPatientChat] = useState(false);
   const [expandedTraces, setExpandedTraces] = useState<Record<string, boolean>>({});
   const [playbookQ, setPlaybookQ] = useState("How do we handle QEH Warfarin discharges?");
   const [playbookAns, setPlaybookAns] = useState<Record<string, any> | null>(null);
@@ -98,13 +98,10 @@ export function ClinicWorkspaceApp() {
     refresh();
   }, [refresh]);
 
-  // Countdown tick for active 10-second Undo bars
   useEffect(() => {
     const hasUndo = data?.cases?.some((c: any) => c.traces?.some((t: any) => t.can_undo));
     if (!hasUndo) return;
-    const t = setInterval(() => {
-      refresh();
-    }, 1500);
+    const t = setInterval(() => { refresh(); }, 1500);
     return () => clearInterval(t);
   }, [data, refresh]);
 
@@ -117,7 +114,7 @@ export function ClinicWorkspaceApp() {
     setView(caseId);
     setPreview(null);
     setInstruction("");
-    setShowOriginalChat(false);
+    setShowPatientChat(false);
     setBanner(null);
   };
 
@@ -137,15 +134,34 @@ export function ClinicWorkspaceApp() {
     }
   };
 
+  const runAsk = async (caseId: string, question: string) => {
+    const clean = question.trim();
+    if (!clean) return;
+    setBusy(true);
+    try {
+      await v2Api.workspaceAsk(caseId, clean, role === "locum" ? "Locum Dr. Sarah Wong" : "Nurse Rachel Chan (RN)");
+      setInstruction("");
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleBoxSubmit = async (caseId: string) => {
+    const clean = instruction.trim();
+    if (!clean) return;
+    if (clean.endsWith("?") || /^(did|what|when|has|is|any|how)\b/i.test(clean)) {
+      await runAsk(caseId, clean);
+    } else {
+      await runPreview(caseId, clean);
+    }
+  };
+
   const runCommit = async (caseId: string) => {
     if (!preview) return;
     setBusy(true);
     try {
-      await v2Api.workspaceCommit(
-        caseId,
-        preview.instruction_text,
-        role === "locum" ? "Locum Dr. Sarah Wong" : "Nurse Rachel Chan (RN)",
-      );
+      await v2Api.workspaceCommit(caseId, preview.instruction_text, role === "locum" ? "Locum Dr. Sarah Wong" : "Nurse Rachel Chan (RN)");
       setPreview(null);
       setInstruction("");
       await refresh();
@@ -221,23 +237,21 @@ export function ClinicWorkspaceApp() {
         verbatim_quote: "Discharge Meds: Warfarin 3mg daily",
         page_ref: "p.2",
       });
-      setBanner(`3-Point ID Gate (${res.checks.points_matched}/3): quarantined strictly to Nurse Rachel.`);
+      setBanner(`3-Point ID check (${res.checks.points_matched}/3): held for Nurse Rachel in #clinic-team.`);
       await refresh();
     } finally {
       setBusy(false);
     }
   };
 
-  const batonLabel = (b: string) => {
-    if (b === "with_nurse") return "With Nurse";
-    if (b === "with_patient") return "With Patient";
-    if (b === "syncing_emr") return "Syncing EMR";
-    if (b === "with_doctor") return "Needs Doctor";
-    return "Idle";
+  const runningSubLabel = (c: Record<string, any>) => {
+    if (c.baton === "with_nurse") return "With Nurse Rachel";
+    if (c.next_checkpoint_label) return c.next_checkpoint_label;
+    return "In progress";
   };
 
   if (!data) {
-    return <div className="ws-shell"><div className="ws-content">Loading clinic execution layer…</div></div>;
+    return <div className="ws-shell"><div className="ws-content">Loading clinic workspace…</div></div>;
   }
 
   return (
@@ -246,46 +260,29 @@ export function ClinicWorkspaceApp() {
         <div className="ws-brand">
           <span>Central Medical</span>
           <span className="ws-pill">{aiName} · Clinic Careline AI</span>
-          <span className="ws-pill ws-pill-jade">Graph {graph?.version_tag}</span>
+          <span className="ws-pill ws-pill-jade">Practice Graph {graph?.version_tag}</span>
         </div>
         <div className="ws-top-actions">
-          <button
-            type="button"
-            className={role === "locum" ? "v2-btn-primary" : "v2-btn-secondary"}
-            onClick={() => { setRole("locum"); setView("my_work"); }}
-          >
+          <button type="button" className={role === "locum" ? "v2-btn-primary" : "v2-btn-secondary"} onClick={() => { setRole("locum"); setView("my_work"); }}>
             Locum Dr. Sarah
           </button>
-          <button
-            type="button"
-            className={role === "nurse" ? "v2-btn-primary" : "v2-btn-secondary"}
-            onClick={() => { setRole("nurse"); setView("clinic_team"); }}
-          >
+          <button type="button" className={role === "nurse" ? "v2-btn-primary" : "v2-btn-secondary"} onClick={() => { setRole("nurse"); setView("clinic_team"); }}>
             Nurse Rachel
           </button>
-          <button
-            type="button"
-            className={showXray ? "v2-btn-jade" : "v2-btn-secondary"}
-            onClick={() => setShowXray((x) => !x)}
-            data-testid="toggle-architecture-xray"
-          >
+          <button type="button" className={showXray ? "v2-btn-jade" : "v2-btn-secondary"} onClick={() => setShowXray((x) => !x)} data-testid="toggle-architecture-xray">
             {showXray ? "Hide Architecture X-Ray" : "Architecture X-Ray"}
           </button>
-          <button
-            type="button"
-            className="v2-text-btn"
-            onClick={async () => { await v2Api.workspaceReset(); setPreview(null); setBanner(null); await refresh(); }}
-          >
+          <button type="button" className="v2-text-btn" onClick={async () => { await v2Api.workspaceReset(); setPreview(null); setBanner(null); await refresh(); }}>
             Reset
           </button>
         </div>
       </header>
 
       <div className={`ws-main ${showXray ? "has-xray" : ""}`}>
-        {/* SIDEBAR: Channels + Clean 4-State Queue */}
+        {/* SIDEBAR */}
         <aside className="ws-sidebar">
           <div className="ws-nav-group">
-            <div className="ws-nav-heading"><span>Workspace</span></div>
+            <div className="ws-nav-heading"><span>Channels</span></div>
             <button type="button" className={`ws-nav-btn ${view === "my_work" ? "is-active" : ""}`} onClick={() => setView("my_work")}>
               <span># my-work</span>
               <span className="ws-badge">{data.counts.needs_decision}</span>
@@ -317,14 +314,13 @@ export function ClinicWorkspaceApp() {
           </div>
 
           <div className="ws-nav-group">
-            <div className="ws-nav-heading"><span>Running</span><span>{data.counts.running}</span></div>
+            <div className="ws-nav-heading"><span>Running · Today</span><span>{data.counts.running}</span></div>
             {data.grouped.running.map((c: any) => (
               <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
                 <div style={{ minWidth: 0 }}>
                   <div>{c.patient_name} ({c.patient_age_sex})</div>
-                  <div className="ws-nav-sub">{batonLabel(c.baton)}</div>
+                  <div className="ws-nav-sub">{runningSubLabel(c)}</div>
                 </div>
-                <span className="ws-badge">{batonLabel(c.baton)}</span>
               </button>
             ))}
           </div>
@@ -355,53 +351,44 @@ export function ClinicWorkspaceApp() {
 
         {/* CENTER WORKSPACE */}
         <main className="ws-content">
-          {banner && (
-            <div className="v2-inline-warn" style={{ marginTop: 0 }}>{banner}</div>
-          )}
+          {banner && <div className="v2-inline-warn" style={{ marginTop: 0 }}>{banner}</div>}
 
           {/* # my-work */}
           {view === "my_work" && (
-            <>
+            <div style={{ maxWidth: 820, display: "flex", flexDirection: "column", gap: 14 }}>
               <h1 className="ws-ai-title"># my-work</h1>
               {data.grouped.needs_decision.length === 0 && (
                 <div className="ws-card">
                   <div style={{ fontWeight: 500 }}>All pending decisions cleared.</div>
-                  <div className="ws-lead">In-flight tasks sit in Running until complete, then move automatically to Scheduled or Closed.</div>
                 </div>
               )}
               {data.grouped.needs_decision.map((c: any) => (
                 <div key={c.id} className="ws-card">
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-                    <div>
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-3)" }}>
-                        {c.patient_name} ({c.patient_age_sex}) · {c.next_checkpoint_label}
-                      </div>
-                      <h2 className="ws-ai-title" style={{ fontSize: 18, marginTop: 3 }}>{c.ai_title}</h2>
-                    </div>
-                    <span className="ws-pill ws-pill-amber">Needs Decision</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-3)" }}>
+                      {c.patient_name} ({c.patient_age_sex}) · {c.next_checkpoint_label}
+                    </span>
+                    {c.summary?.alerts?.[0] && (
+                      <span className="ws-pill ws-pill-amber">{c.summary.alerts[0].label}</span>
+                    )}
                   </div>
-                  <p className="ws-lead">{c.lead_line}</p>
-                  <ul className="ws-bullets">
-                    {(c.summary?.bullets || []).slice(0, 4).map((b: string, i: number) => <li key={i}>{b}</li>)}
-                  </ul>
+                  <h2 className="ws-ai-title" style={{ fontSize: 18 }}>{c.ai_title}</h2>
+                  <p className="ws-lead">{c.summary?.direct_requests?.[0]?.headline || c.lead_line}</p>
                   <div>
-                    <button type="button" className="v2-btn-primary" onClick={() => openCase(c.id)}>
-                      Open &amp; Decide →
-                    </button>
+                    <button type="button" className="v2-btn-primary" onClick={() => openCase(c.id)}>Open Case →</button>
                   </div>
                 </div>
               ))}
-            </>
+            </div>
           )}
 
-          {/* # clinic-team (Selective Delegated Tasks & Nurse Quarantine ONLY) */}
+          {/* # clinic-team (Zero jargon) */}
           {view === "clinic_team" && (
-            <>
+            <div style={{ maxWidth: 820, display: "flex", flexDirection: "column", gap: 14 }}>
               <h1 className="ws-ai-title"># clinic-team</h1>
-              <p className="ws-lead">Delegated Doctor ↔ Nurse tasks and quarantined document ID checks.</p>
               {data.team_handoffs.length === 0 ? (
                 <div className="ws-card">
-                  <div>No delegated nurse tasks yet. Confirm a case in # my-work or test a 3-point ID mismatch in Architecture X-Ray.</div>
+                  <div className="ws-lead">No open team tasks. Tasks delegated between doctors and nurses appear here.</div>
                 </div>
               ) : (
                 data.team_handoffs.map((h: any) => (
@@ -409,26 +396,24 @@ export function ClinicWorkspaceApp() {
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                       <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600 }}>{h.route}</span>
                       <span className={`ws-pill ${h.status === "quarantined_nurse" ? "ws-pill-amber" : h.status === "done" ? "ws-pill-jade" : ""}`}>
-                        {h.status === "quarantined_nurse" ? "Quarantined (ID Check)" : h.status === "done" ? "Done" : "Pending Nurse"}
+                        {h.status === "quarantined_nurse" ? "ID Verification Needed" : h.status === "done" ? "Done" : "Open"}
                       </span>
                     </div>
                     <div>{h.task}</div>
                     {h.case_id && h.status === "pending_nurse" && (
                       <div>
-                        <button type="button" className="v2-btn-primary" onClick={() => runTick(h.case_id, "nurse_completed")}>
-                          Mark Nurse Task Complete →
-                        </button>
+                        <button type="button" className="v2-btn-primary" onClick={() => runTick(h.case_id, "nurse_completed")}>Mark Complete →</button>
                       </div>
                     )}
                   </div>
                 ))
               )}
-            </>
+            </div>
           )}
 
-          {/* @ Clinic Playbook + Clinic Curator */}
+          {/* @ Clinic Playbook + Curator */}
           {view === "playbook" && (
-            <>
+            <div style={{ maxWidth: 820, display: "flex", flexDirection: "column", gap: 14 }}>
               <h1 className="ws-ai-title">@ Clinic Playbook &amp; Practice Standards</h1>
               <div className="ws-card">
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -447,9 +432,9 @@ export function ClinicWorkspaceApp() {
                 {playbookAns && (
                   <div className="ws-attachment">
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-3)" }}>
-                      Traversed Practice Graph {playbookAns.graph_version_tag} ({playbookAns.graph_content_hash?.slice(0, 8)}) · Approved by {playbookAns.approved_by}
+                      Practice Graph {playbookAns.graph_version_tag} ({playbookAns.graph_content_hash?.slice(0, 8)}) · Approved by {playbookAns.approved_by}
                     </div>
-                    <ul className="ws-bullets">
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
                       {(playbookAns.answer_bullets || []).map((b: string, i: number) => <li key={i}>{b}</li>)}
                     </ul>
                   </div>
@@ -468,229 +453,328 @@ export function ClinicWorkspaceApp() {
                   <div className="ws-lead">{p.rationale}</div>
                   {p.status === "pending_lead_gp" && (
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button type="button" className="v2-btn-primary" disabled={busy} onClick={() => runCuratorDecision(p.id, "approve")}>
-                        Approve &amp; Publish to Practice Graph
-                      </button>
-                      <button type="button" className="v2-btn-secondary" disabled={busy} onClick={() => runCuratorDecision(p.id, "dismiss")}>
-                        Dismiss
-                      </button>
+                      <button type="button" className="v2-btn-primary" disabled={busy} onClick={() => runCuratorDecision(p.id, "approve")}>Approve &amp; Publish to Practice Graph</button>
+                      <button type="button" className="v2-btn-secondary" disabled={busy} onClick={() => runCuratorDecision(p.id, "dismiss")}>Dismiss</button>
                     </div>
                   )}
                 </div>
               ))}
-            </>
+            </div>
           )}
 
-          {/* Careline AI Profile Setup */}
+          {/* Careline Profile */}
           {view === "profile" && (
-            <>
-              <h1 className="ws-ai-title">Careline AI Profile &amp; Onboarding</h1>
+            <div style={{ maxWidth: 820, display: "flex", flexDirection: "column", gap: 14 }}>
+              <h1 className="ws-ai-title">Careline AI Profile</h1>
               <div className="ws-card">
                 <div style={{ fontWeight: 600 }}>Display Name ({aiName} · Clinic Careline AI)</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {["Sam", "Maya", "Central Careline"].map((nm) => (
-                    <button key={nm} type="button" className={aiName === nm ? "v2-btn-primary" : "v2-btn-secondary"} disabled={busy} onClick={() => runProfileRename(nm)}>
-                      {nm}
-                    </button>
+                    <button key={nm} type="button" className={aiName === nm ? "v2-btn-primary" : "v2-btn-secondary"} disabled={busy} onClick={() => runProfileRename(nm)}>{nm}</button>
                   ))}
-                  <button type="button" className="v2-btn-secondary" disabled={busy} onClick={() => runProfileRename("Resident Sam")}>
-                    Test Guard: Try “Resident Sam” (Blocked)
-                  </button>
+                  <button type="button" className="v2-btn-secondary" disabled={busy} onClick={() => runProfileRename("Resident Sam")}>Test Guard: Try “Resident Sam”</button>
                 </div>
                 <div className="ws-lead">{data.careline_profile?.disclosure_en}</div>
               </div>
-            </>
+            </div>
           )}
 
-          {/* ACTIVE PATIENT CASE (Zero-Slop Summary + Trend Chart + Attachment + Categorised Preview + Irreversible Commit + 10s Undo + Folded Trace) */}
+          {/* ACTIVE CASE VIEW: 2-Zone Clinical Widget Stack + Standard Right Safety/Tasks Rail */}
           {activeCase && (
-            <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                <div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-3)" }}>
-                    {activeCase.patient_name} ({activeCase.patient_age_sex}) · {activeCase.next_checkpoint_label}
+            <div className="ws-case-grid">
+              {/* LEFT/MAIN CLINICAL STREAM */}
+              <div className="ws-col">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  <div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-3)" }}>
+                      {activeCase.patient_name} ({activeCase.patient_age_sex})
+                    </div>
+                    <h1 className="ws-ai-title" style={{ marginTop: 3 }}>{activeCase.ai_title}</h1>
                   </div>
-                  <h1 className="ws-ai-title" style={{ marginTop: 4 }}>{activeCase.ai_title}</h1>
+                  <span className="ws-pill" style={{ flexShrink: 0 }}>
+                    {activeCase.state === "running" ? runningSubLabel(activeCase) : activeCase.state.replace("_", " ")}
+                  </span>
                 </div>
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  {activeCase.goal?.target && (
-                    <span className={`ws-pill ${activeCase.goal.status === "on_track" ? "ws-pill-jade" : "ws-pill-amber"}`}>
-                      Goal: {activeCase.goal.target}
-                    </span>
-                  )}
-                  <span className="ws-pill">{activeCase.state === "running" ? `Running · ${batonLabel(activeCase.baton)}` : activeCase.state.replace("_", " ")}</span>
-                </div>
-              </div>
 
-              {/* Active 10-Second Undo Bar */}
-              {activeCase.traces?.filter((t: any) => t.can_undo).map((t: any) => (
-                <div key={t.id} className="ws-undo-bar">
-                  <span>Dispatching signed instruction in {t.undo_seconds_left}s — {t.doctor_outcome_summary}</span>
-                  <button type="button" className="v2-btn-secondary" onClick={() => runUndo(activeCase.id, t.id)}>
-                    Undo
-                  </button>
-                </div>
-              ))}
-
-              {/* Summary Card (AI title above + 1-line lead + 3-4 implicit bullets + chart + attachment) */}
-              <div className="ws-card">
-                <p className="ws-lead">{activeCase.lead_line}</p>
-                <ul className="ws-bullets">
-                  {(activeCase.summary?.bullets || []).map((b: string, i: number) => <li key={i}>{b}</li>)}
-                </ul>
-
-                {activeCase.summary?.trend_chart && <TrendSvg chart={activeCase.summary.trend_chart} />}
-
-                {(activeCase.summary?.attachments || []).map((att: any) => (
-                  <div key={att.id} className="ws-attachment">
-                    <span className="ws-attachment-link">📎 {att.label}</span>
-                    <blockquote className="ws-quote">“{att.quote}”</blockquote>
+                {/* Live 10-second Undo Bar */}
+                {activeCase.traces?.filter((t: any) => t.can_undo).map((t: any) => (
+                  <div key={t.id} className="ws-undo-bar">
+                    <span>Dispatching in {t.undo_seconds_left}s — {t.doctor_outcome_summary}</span>
+                    <button type="button" className="v2-btn-secondary" onClick={() => runUndo(activeCase.id, t.id)}>Undo</button>
                   </div>
                 ))}
 
+                {/* Waiting Status Banner (e.g. LEE Ming Kit: amber dot Waiting on patient booking + Nurse to chase) */}
+                {activeCase.summary?.waiting_banner && (
+                  <div className="ws-wait-banner">
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span className="ws-amber-dot" />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13.5 }}>
+                          {activeCase.baton === "with_nurse" ? "Nurse Rachel chasing booking" : activeCase.summary.waiting_banner.label}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>{activeCase.summary.waiting_banner.sub}</div>
+                      </div>
+                    </div>
+                    {activeCase.baton !== "with_nurse" && (
+                      <button
+                        type="button"
+                        className="v2-btn-secondary"
+                        disabled={busy}
+                        onClick={() => runPreview(activeCase.id, `Assign Nurse Rachel to chase ${activeCase.patient_name} for repeat lipid blood draw booking`)}
+                      >
+                        Nurse to chase
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* WIDGET 1: DIRECT DOCTOR REQUESTS */}
+                {activeCase.summary?.direct_requests?.length > 0 && (
+                  <div className="ws-card-direct">
+                    <div className="ws-section-kicker">Direct Doctor Output Requested</div>
+                    {activeCase.summary.direct_requests.map((r: any) => (
+                      <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", background: "var(--subtle)", padding: "11px 13px", borderRadius: 8, border: "1px solid var(--line)" }}>
+                        <div>
+                          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>{r.kind}</div>
+                          <div style={{ fontWeight: 600, fontSize: 14, marginTop: 2 }}>{r.headline}</div>
+                          <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 2 }}>{r.detail}</div>
+                        </div>
+                        <button type="button" className="v2-btn-primary" disabled={busy} onClick={() => runPreview(activeCase.id, r.instruction)}>
+                          {r.action_label}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* WIDGET 2: ISSUES & ASSESSMENT (Grouped logically per issue!) */}
+                {activeCase.summary?.issues?.length > 0 && (
+                  <div className="ws-card">
+                    <div className="ws-section-kicker">Issues &amp; Assessment</div>
+                    {activeCase.summary.issues.map((iss: any, idx: number) => (
+                      <div key={idx} className="ws-issue-box">
+                        <div className="ws-issue-title">{iss.name}</div>
+                        <div><strong style={{ color: "var(--ink-2)" }}>History:</strong> {iss.subjective}</div>
+                        {iss.red_flags && <div><strong style={{ color: "var(--ink-2)" }}>Red flags:</strong> {iss.red_flags}</div>}
+                        {iss.reasoning && <div><strong style={{ color: "var(--ink-2)" }}>Clinical reasoning:</strong> {iss.reasoning}</div>}
+                        <div><strong style={{ color: "var(--ink-2)" }}>Assessment:</strong> {iss.assessment}</div>
+                        <div className="ws-issue-actions">
+                          {(iss.actions || []).map((a: any, ai: number) => (
+                            <button
+                              key={ai}
+                              type="button"
+                              className={ai === 0 && activeCase.state === "needs_decision" ? "v2-btn-primary" : "v2-btn-secondary"}
+                              disabled={busy}
+                              onClick={() => runPreview(activeCase.id, a.instruction)}
+                            >
+                              {a.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* WIDGET 3: FULL BLOOD PANEL + TREND CHART + SOURCE ATTACHMENT */}
+                {(activeCase.summary?.lab_panel || activeCase.summary?.trend_chart || activeCase.summary?.attachments?.length > 0) && (
+                  <div className="ws-card">
+                    {activeCase.summary?.lab_panel && (
+                      <>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span className="ws-section-kicker">Blood Panel</span>
+                          <span className="ws-attachment-link">📎 {activeCase.summary.lab_panel.source}</span>
+                        </div>
+                        <div className="ws-lab-grid">
+                          {activeCase.summary.lab_panel.rows.map((r: any, i: number) => (
+                            <div key={i} className={`ws-lab-cell ${r.flag !== "Normal" ? "is-abnormal" : ""}`}>
+                              <div style={{ color: "var(--ink-3)", fontSize: 11.5 }}>{r.test}</div>
+                              <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13.5, marginTop: 2 }}>
+                                {r.val} {r.flag !== "Normal" && <span className="ws-pill ws-pill-amber" style={{ marginLeft: 4 }}>{r.flag}</span>}
+                              </div>
+                              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-3)" }}>Ref {r.ref}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {activeCase.summary?.trend_chart && <TrendSvg chart={activeCase.summary.trend_chart} />}
+                    {!activeCase.summary?.lab_panel && (activeCase.summary?.attachments || []).map((att: any) => (
+                      <div key={att.id} className="ws-attachment">
+                        <span className="ws-attachment-link">📎 {att.label}</span>
+                        <blockquote className="ws-quote">“{att.quote}”</blockquote>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* WIDGET 4: TIMELINE + FOLDED TOOL TRACES */}
+                <div className="ws-card">
+                  <div className="ws-section-kicker">Timeline</div>
+                  <div className="ws-timeline">
+                    {(activeCase.timeline || []).map((item: any, idx: number) => {
+                      const matchedTrace = item.trace_id ? activeCase.traces?.find((t: any) => t.id === item.trace_id) : null;
+                      const isOpen = matchedTrace ? Boolean(expandedTraces[matchedTrace.id]) : false;
+                      return (
+                        <div key={idx} className="ws-tl-item">
+                          <div>
+                            <span className="ws-tl-date">{item.date}</span>
+                            <span>{item.label}</span>
+                          </div>
+                          {matchedTrace && (
+                            <div className="ws-trace-fold" style={{ marginTop: 6 }}>
+                              <button type="button" className="ws-trace-btn" onClick={() => setExpandedTraces((m) => ({ ...m, [matchedTrace.id]: !m[matchedTrace.id] }))}>
+                                <span>{isOpen ? "▾" : "▸"} {matchedTrace.folded_steps?.length || 0} agent steps</span>
+                                <span>{matchedTrace.status === "undo_window" ? "Undo window" : "Done"}</span>
+                              </button>
+                              {isOpen && (
+                                <div className="ws-trace-steps">
+                                  {(matchedTrace.folded_steps || []).map((st: any, j: number) => (
+                                    <div key={j}><strong>{st.tool}</strong> — {st.detail}</div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* SLACK-LIKE BACK-AND-FORTH DISCUSSION + PREVIEW / IRREVERSIBLE COMMIT DOCK */}
+                <div className="ws-card">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span className="ws-section-kicker">Discuss or Instruct {aiName}</span>
+                    <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Ask a question (end with ?) or give a task</span>
+                  </div>
+
+                  {(activeCase.summary?.agent_thread || []).map((m: any, idx: number) => (
+                    <div key={idx} className={`ws-msg-bubble ${m.who === "doctor" ? "is-doctor" : "is-agent"}`}>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, fontWeight: 600, color: "var(--ink-3)" }}>{m.actor}</div>
+                      <div style={{ marginTop: 2 }}>{m.text}</div>
+                    </div>
+                  ))}
+
+                  {preview ? (
+                    <div className={`ws-commit-card ${preview.requires_irreversible_commit ? "is-irreversible" : ""}`}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                        <strong style={{ fontSize: 14 }}>{preview.requires_irreversible_commit ? "Review & Sign Action" : "Confirm Task"}</strong>
+                        {preview.requires_irreversible_commit && <span className="ws-pill ws-pill-amber">Irreversible · {preview.undo_window_seconds}s Undo</span>}
+                      </div>
+                      {preview.categorised_plan.clinical_advice?.length > 0 && (
+                        <div className="ws-cat-block is-clinical">
+                          <div className="ws-cat-label">Clinical Advice</div>
+                          {preview.categorised_plan.clinical_advice.map((x: any, i: number) => <div key={i}>• {x.text}</div>)}
+                        </div>
+                      )}
+                      {preview.categorised_plan.lab_imaging?.length > 0 && (
+                        <div className="ws-cat-block">
+                          <div className="ws-cat-label">Lab / Imaging</div>
+                          {preview.categorised_plan.lab_imaging.map((x: any, i: number) => <div key={i}>• {x.text}</div>)}
+                        </div>
+                      )}
+                      {preview.categorised_plan.patient_task?.length > 0 && (
+                        <div className="ws-cat-block">
+                          <div className="ws-cat-label">Patient Task</div>
+                          {preview.categorised_plan.patient_task.map((x: any, i: number) => <div key={i}>• {x.text}</div>)}
+                        </div>
+                      )}
+                      {preview.categorised_plan.admin_booking?.length > 0 && (
+                        <div className="ws-cat-block">
+                          <div className="ws-cat-label">Admin / Booking</div>
+                          {preview.categorised_plan.admin_booking.map((x: any, i: number) => <div key={i}>• {x.text}</div>)}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button type="button" className="v2-btn-primary" disabled={busy} onClick={() => runCommit(activeCase.id)}>
+                          {preview.requires_irreversible_commit ? "Sign & Dispatch" : "Confirm & Run"}
+                        </button>
+                        <button type="button" className="v2-btn-secondary" onClick={() => { setPreview(null); setTimeout(() => inputRef.current?.focus(), 20); }}>
+                          Edit instruction
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {activeCase.summary?.quick_questions?.length > 0 && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {activeCase.summary.quick_questions.map((q: string, i: number) => (
+                            <button key={i} type="button" className="v2-kbd-chip" disabled={busy} onClick={() => runAsk(activeCase.id, q)}>
+                              Ask: “{q}”
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <form className="ws-input-row" onSubmit={(e) => { e.preventDefault(); handleBoxSubmit(activeCase.id); }}>
+                        <input
+                          ref={inputRef}
+                          className="ws-text-input"
+                          value={instruction}
+                          onChange={(e) => setInstruction(e.target.value)}
+                          placeholder={`Ask ${aiName} a clinical question (?) or type a task…`}
+                        />
+                        <button type="submit" className="v2-btn-primary" disabled={busy || !instruction.trim()}>Send →</button>
+                      </form>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* STANDARD RIGHT CLINICAL SIDE RAIL (Safety Alerts + Scheduled Tasks + Clear Patient Careline Chat) */}
+              <aside className="ws-col">
+                <div className="ws-card">
+                  <div className="ws-section-kicker">Safety &amp; Alerts</div>
+                  {(activeCase.summary?.alerts || []).map((a: any, i: number) => (
+                    <div key={i} className={`ws-alert-item ${a.level === "high" ? "is-high" : ""}`}>
+                      <div style={{ fontWeight: 600 }}>{a.label}</div>
+                      <div style={{ color: "var(--ink-2)", fontSize: 12.5, marginTop: 2 }}>{a.detail}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="ws-card">
+                  <div className="ws-section-kicker">Scheduled &amp; Upcoming</div>
+                  {(activeCase.summary?.scheduled_tasks || []).map((t: any, i: number) => (
+                    <div key={i} className="ws-alert-item" style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--ink-3)" }}>
+                        {t.status === "booked" ? "📅" : t.status === "waiting" ? "●" : "↻"}
+                      </span>
+                      <span>{t.label}</span>
+                    </div>
+                  ))}
+                </div>
+
                 {activeCase.summary?.original_chat?.length > 0 && (
-                  <div>
-                    <button type="button" className="v2-text-btn" style={{ paddingLeft: 0 }} onClick={() => setShowOriginalChat((s) => !s)}>
-                      {showOriginalChat ? "Hide original chat" : "See original chat"}
+                  <div className="ws-card">
+                    <button
+                      type="button"
+                      className="v2-text-btn"
+                      style={{ padding: 0, display: "flex", justifyContent: "space-between", width: "100%", fontWeight: 600 }}
+                      onClick={() => setShowPatientChat((s) => !s)}
+                    >
+                      <span>{activeCase.summary.patient_chat_label || `${activeCase.patient_name} ↔ ${aiName} Careline Chat`}</span>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{showPatientChat ? "Hide" : "Open"}</span>
                     </button>
-                    {showOriginalChat && (
-                      <div className="ws-attachment" style={{ marginTop: 6 }}>
+                    {showPatientChat && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 8, borderTop: "1px solid var(--line)" }}>
                         {activeCase.summary.original_chat.map((m: any, i: number) => (
-                          <div key={i} style={{ fontSize: 13 }}>
-                            <strong>{m.actor}</strong> <span style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: 11.5 }}>{m.time}</span>: {m.text}
+                          <div key={i} style={{ fontSize: 12.5, background: "var(--subtle)", padding: "7px 9px", borderRadius: 6 }}>
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-3)", fontWeight: 600 }}>{m.actor} · {m.time}</div>
+                            <div style={{ marginTop: 2 }}>{m.text}</div>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
                 )}
-              </div>
-
-              {/* Longitudinal Timeline + Folded Claude-Code Execution Traces */}
-              <div className="ws-card">
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, color: "var(--ink-3)" }}>TIMELINE</div>
-                <div className="ws-timeline">
-                  {(activeCase.timeline || []).map((item: any, idx: number) => {
-                    const matchedTrace = item.trace_id ? activeCase.traces?.find((t: any) => t.id === item.trace_id) : null;
-                    const isOpen = matchedTrace ? Boolean(expandedTraces[matchedTrace.id]) : false;
-                    return (
-                      <div key={idx} className="ws-tl-item">
-                        <div>
-                          <span className="ws-tl-date">{item.date}</span>
-                          <span>{item.label}</span>
-                        </div>
-                        {matchedTrace && (
-                          <div className="ws-trace-fold" style={{ marginTop: 6 }}>
-                            <button
-                              type="button"
-                              className="ws-trace-btn"
-                              onClick={() => setExpandedTraces((m) => ({ ...m, [matchedTrace.id]: !m[matchedTrace.id] }))}
-                            >
-                              <span>{isOpen ? "▾" : "▸"} {matchedTrace.folded_steps?.length || 0} agent steps</span>
-                              <span>{matchedTrace.status === "undo_window" ? "Undo window" : "Done"}</span>
-                            </button>
-                            {isOpen && (
-                              <div className="ws-trace-steps">
-                                {(matchedTrace.folded_steps || []).map((st: any, j: number) => (
-                                  <div key={j}><strong>{st.tool}</strong> — {st.detail}</div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Loop 3 Bottom Decision & Free-Text Trust Dock */}
-              {preview ? (
-                <div className={`ws-commit-card ${preview.requires_irreversible_commit ? "is-irreversible" : ""}`}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <strong style={{ fontSize: 14 }}>
-                      {preview.requires_irreversible_commit ? "Review & Sign Action" : "Confirm Tasks"}
-                    </strong>
-                    {preview.requires_irreversible_commit && (
-                      <span className="ws-pill ws-pill-amber">Irreversible · {preview.undo_window_seconds}s Undo</span>
-                    )}
-                  </div>
-
-                  {preview.categorised_plan.clinical_advice?.length > 0 && (
-                    <div className="ws-cat-block is-clinical">
-                      <div className="ws-cat-label">Clinical Advice</div>
-                      {preview.categorised_plan.clinical_advice.map((x: any, i: number) => <div key={i}>• {x.text}</div>)}
-                    </div>
-                  )}
-                  {preview.categorised_plan.lab_imaging?.length > 0 && (
-                    <div className="ws-cat-block">
-                      <div className="ws-cat-label">Lab / Imaging</div>
-                      {preview.categorised_plan.lab_imaging.map((x: any, i: number) => <div key={i}>• {x.text}</div>)}
-                    </div>
-                  )}
-                  {preview.categorised_plan.patient_task?.length > 0 && (
-                    <div className="ws-cat-block">
-                      <div className="ws-cat-label">Patient Task</div>
-                      {preview.categorised_plan.patient_task.map((x: any, i: number) => <div key={i}>• {x.text}</div>)}
-                    </div>
-                  )}
-                  {preview.categorised_plan.admin_booking?.length > 0 && (
-                    <div className="ws-cat-block">
-                      <div className="ws-cat-label">Admin / Booking</div>
-                      {preview.categorised_plan.admin_booking.map((x: any, i: number) => <div key={i}>• {x.text}</div>)}
-                    </div>
-                  )}
-
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button type="button" className="v2-btn-primary" disabled={busy} onClick={() => runCommit(activeCase.id)}>
-                      {preview.requires_irreversible_commit ? "Sign & Dispatch" : "Confirm & Run"}
-                    </button>
-                    <button
-                      type="button"
-                      className="v2-btn-secondary"
-                      onClick={() => {
-                        setPreview(null);
-                        setTimeout(() => inputRef.current?.focus(), 20);
-                      }}
-                    >
-                      Edit instruction
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="ws-card">
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {(activeCase.summary?.quick_options || []).map((opt: any, i: number) => (
-                      <button
-                        key={i}
-                        type="button"
-                        className={i === 0 && activeCase.state === "needs_decision" ? "v2-btn-primary" : "v2-btn-secondary"}
-                        disabled={busy}
-                        onClick={() => runPreview(activeCase.id, opt.instruction)}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  <form className="ws-input-row" onSubmit={(e) => { e.preventDefault(); runPreview(activeCase.id, instruction); }}>
-                    <input
-                      ref={inputRef}
-                      className="ws-text-input"
-                      value={instruction}
-                      onChange={(e) => setInstruction(e.target.value)}
-                      placeholder={`Tell ${aiName} what to do next…`}
-                    />
-                    <button type="submit" className="v2-btn-secondary" disabled={busy || !instruction.trim()}>
-                      Preview →
-                    </button>
-                  </form>
-                </div>
-              )}
-            </>
+              </aside>
+            </div>
           )}
         </main>
 
-        {/* HEAD OF AI ARCHITECTURE X-RAY DRAWER (Hidden by default for CEO!) */}
+        {/* HEAD OF AI ARCHITECTURE X-RAY DRAWER */}
         {showXray && (
           <aside className="ws-xray" data-testid="architecture-xray-drawer">
             <div className="ws-xray-card">
@@ -700,67 +784,44 @@ export function ClinicWorkspaceApp() {
               <pre className="ws-xray-pre">
                 {JSON.stringify(
                   (preview?.traversed_nodes || graph?.nodes?.slice(0, 4) || []).map((n: any) => ({
-                    id: n.id,
-                    provenance: n.provenance,
-                    safety_floor: n.safety_floor,
+                    id: n.id, provenance: n.provenance, safety_floor: n.safety_floor,
                   })),
-                  null,
-                  2,
+                  null, 2,
                 )}
               </pre>
             </div>
-
             <div className="ws-xray-card">
               <div className="ws-xray-title">2. Bounded Context Window Compiler</div>
               <pre className="ws-xray-pre">
                 {JSON.stringify(
                   preview?.context_snapshot || data.xray?.latest_context_window || {
-                    note: "Click Preview on any case to inspect exact subgraph pruning & token slots.",
-                    model_routing: { region: "asia-east2 (HK)", model: "gemini-2.5-flash", persistence: data.xray?.persistence },
+                    note: "Click any action to inspect exact pruned subgraph & token slots.",
+                    model_routing: { region: "asia-east2 (HK)", model: "gemini-2.5-flash" },
                   },
-                  null,
-                  2,
+                  null, 2,
                 )}
               </pre>
             </div>
-
             <div className="ws-xray-card">
-              <div className="ws-xray-title">3. Dual-Store: EMR SoT vs. Agent Memory</div>
+              <div className="ws-xray-title">3. Dual-Store Persistence</div>
               <div>{data.xray?.dual_store?.clinical_sot}</div>
               <div>{data.xray?.dual_store?.agent_memory_store}</div>
               <div>Additive EMR Writebacks: {data.xray?.dual_store?.emr_addenda_log?.length || 0}</div>
             </div>
-
             <div className="ws-xray-card">
               <div className="ws-xray-title">4. Live Loop 1, 2 &amp; 4 Engineering Probes</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <button type="button" className="ws-xray-btn" onClick={triggerMismatchProbe}>
-                  Test 3-Pt ID Mismatch → Quarantine
-                </button>
+                <button type="button" className="ws-xray-btn" onClick={triggerMismatchProbe}>Test 3-Pt ID Mismatch → Nurse</button>
                 {activeCase?.state === "scheduled" && activeCase.case_key === "wong" && (
-                  <button type="button" className="ws-xray-btn" onClick={() => runTick(activeCase.id, "bp_threshold_breach")}>
-                    Trigger BP 146/92 Wake
-                  </button>
+                  <button type="button" className="ws-xray-btn" onClick={() => runTick(activeCase.id, "bp_threshold_breach")}>Trigger BP 146/92 Wake</button>
                 )}
                 {activeCase?.state === "running" && (
-                  <button type="button" className="ws-xray-btn" onClick={() => runTick(activeCase.id, "stall_timeout")}>
-                    Simulate 72h Stall Timeout
-                  </button>
+                  <button type="button" className="ws-xray-btn" onClick={() => runTick(activeCase.id, "stall_timeout")}>Simulate 72h Auto-Chase → Nurse</button>
                 )}
               </div>
               <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                <input
-                  style={{ flex: 1, background: "#101115", color: "#E8E6DF", border: "1px solid #3C414D", borderRadius: 6, padding: "5px 8px", fontSize: 12 }}
-                  value={triageInput}
-                  onChange={(e) => setTriageInput(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="ws-xray-btn"
-                  onClick={async () => setTriageResult(await v2Api.workspaceTriageSim(triageInput, 24, true))}
-                >
-                  Run Loop 1
-                </button>
+                <input style={{ flex: 1, background: "#101115", color: "#E8E6DF", border: "1px solid #3C414D", borderRadius: 6, padding: "5px 8px", fontSize: 12 }} value={triageInput} onChange={(e) => setTriageInput(e.target.value)} />
+                <button type="button" className="ws-xray-btn" onClick={async () => setTriageResult(await v2Api.workspaceTriageSim(triageInput, 24, true))}>Run Loop 1</button>
               </div>
               {triageResult && <pre className="ws-xray-pre">{JSON.stringify(triageResult, null, 2)}</pre>}
             </div>

@@ -171,3 +171,17 @@ def test_loop3_loop4_loop5_end_to_end_commit_undo_ticks_and_curator(tmp_path):
     qa = client.post("/api/v1/graph/query", json={"question": "How do we handle QEH Warfarin discharges?"}).json()
     assert qa["graph_version_tag"] == "v2.5"
     assert len(qa["matched_nodes"]) >= 1
+
+    # Structured clinical widgets + registrar-style back-and-forth /ask inside case thread
+    wingyan = next(c for c in ov["cases"] if c["case_key"] == "wingyan")
+    assert wingyan["ai_title"] == "Acute URTI & Low Ferritin — Sick Leave & Iron Review"
+    assert len(wingyan["summary"]["direct_requests"]) == 1
+    assert len(wingyan["summary"]["issues"]) == 2
+    assert len(wingyan["summary"]["lab_panel"]["rows"]) >= 6
+
+    ask_res = client.post(
+        f"/api/v1/workspace/cases/{wingyan['id']}/ask",
+        json={"instruction_text": "Did she mention heavy periods or GI symptoms?"},
+    )
+    assert ask_res.status_code == 200
+    assert "GI red flags" in ask_res.json()["answer"]

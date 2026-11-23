@@ -51,6 +51,7 @@ from .emr_connector import ingest_external_document
 from .live_bus import LiveHarnessBus
 from .practice_graph import SafetyFloorViolation
 from .workspace_engine import (
+    ask_case_agent,
     build_workspace_overview,
     commit_case_instruction,
     preview_case_instruction,
@@ -1104,6 +1105,21 @@ def create_acute_app(
         try:
             return preview_case_instruction(
                 database, tenant_id=tenant_id, case_id=case_id, instruction_text=body.instruction_text
+            )
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
+
+    @app.post("/api/v1/workspace/cases/{case_id}/ask")
+    def workspace_case_ask(case_id: str, body: WorkspaceInstructionReq, request: Request):
+        """Registrar-style clinical Q&A inside the case thread grounded in linked labs, consult notes & Agent Memory."""
+        tenant_id = _workspace_tenant(request)
+        try:
+            return ask_case_agent(
+                database,
+                tenant_id=tenant_id,
+                case_id=case_id,
+                question=body.instruction_text,
+                actor_name=body.actor_name,
             )
         except ValueError as exc:
             raise HTTPException(404, str(exc))

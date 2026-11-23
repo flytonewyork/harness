@@ -330,6 +330,8 @@ export const v2Api = {
   workspaceOverview: () => req<Record<string, any>>("/api/v1/workspace/overview"),
   workspacePreview: (caseId: string, instructionText: string) =>
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/preview`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText }) }),
+  workspaceAsk: (caseId: string, question: string, actorName = "Locum Dr. Sarah Wong") =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/ask`, { method: "POST", body: JSON.stringify({ instruction_text: question, actor_name: actorName }) }),
   workspaceCommit: (caseId: string, instructionText: string, actorName = "Locum Dr. Sarah Wong") =>
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/commit`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText, actor_name: actorName }) }),
   workspaceUndo: (caseId: string, traceId: string) =>
