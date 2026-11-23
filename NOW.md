@@ -8,9 +8,9 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 23 Nov
 
 1. **EC discovery scope.** One-page scope for one EC clinic, no patient data (`docs/EC_DISCOVERY_SCOPE.md`).
    Fill the **[after Wed]** fields from the 11 Nov meeting (`docs/EC_MEETING_PREP.md`, `docs/EC_JULIE_CHEATSHEET.md`).
-2. **The EC & Head-of-AI demo.** Locked product/UI rules in `docs/PRODUCT_DECISIONS.md` and `docs/CLINICAL_UI_DESIGN_SYSTEM.md`
-   (13 canonical warm-paper widgets + 5-rule Presentation Linter). Live surfaces: `/workspace`, `/emr`, `/p/qr/pat_lam_urti_demo`,
-   `/c`, `demo/ec-care-line/index.html?walk=kwok`. PR #65 pushed; `scripts/check.sh` green.
+2. **The EC & Head-of-AI demo.** Locked specs: `docs/PRODUCT_DECISIONS.md`, `docs/CLINICAL_UI_DESIGN_SYSTEM.md`
+   (14 canonical warm-paper widgets + 5-rule Linter), and `docs/AGENT_HANDOFF.md` (overnight research workstreams A–E).
+   Live: `/workspace`, `/emr`, `/p/qr/pat_lam_urti_demo`, `/c`, `demo/ec-care-line/index.html?walk=kwok`. PR #65 pushed; CI green.
 3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. Service `com.tmrw.careline`
    stays off until Thomas restarts it.
 

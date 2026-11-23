@@ -44,9 +44,9 @@ The clinical workspace renders strictly in **calm light mode** inspired by edito
 
 ---
 
-## 3. Canonical Clinical Widget Catalog (13 Finite Primitives)
+## 3. Canonical Clinical Widget Catalog (14 Finite Primitives)
 
-Every pathway node in `backend/acute/practice_graph.py` maps deterministically to an ordered subset of these **13 canonical widgets** (9 Canvas + 4 Right Rail). The model never invents custom widget shapes.
+Every pathway node in `backend/acute/practice_graph.py` maps deterministically to an ordered subset of these **14 canonical widgets** (9 Canvas + 5 Right Rail). The model never invents custom widget shapes.
 
 ### Case Canvas (9 Primitives)
 | # | Widget ID | Trigger Condition | Deterministic Display Rule |
@@ -59,15 +59,16 @@ Every pathway node in `backend/acute/practice_graph.py` maps deterministically t
 | 6 | `ImagingPreview` | Linked ECG, X-ray, ultrasound, or echo report | Compact study preview card (`Modality · Date`, key finding, expandable full report/visual frame). |
 | 7 | `SourceClip` | Verified 3-pt ID discharge PDF, lab report, or referral | Clean attachment link + verbatim quote (expandable). Zero raw PDF filenames or `"Linked source"` prefixes. |
 | 8 | `IssueCard` | One card per atomic clinical problem | Clean title → crisp factual bullets (no `"History / Clinical reasoning / Assessment"` headers) → optional minimal inline amber cue **only when safety-critical** → calm natural `+` pills. |
-| 9 | `ManagementPlan` | Always mounted below issues | Named strictly **`Management Plan`** (not "Checkout"). **Starts empty**; populates idempotently as doctor clicks `+` pills grouped by Issue; `/` opens a **floating overlay popover** (zero page-shift jank, 2–3 placeholder hints); commits via **`Confirm & Sign Plan`** + quiet 10s Undo. |
+| 9 | `ManagementPlan` | Always anchored at bottom of main canvas | Named strictly **`Management Plan`** (not "Checkout"). **Starts empty**; populates idempotently as doctor clicks `+` pills grouped by Issue; `/` opens a **floating overlay popover** (zero page-shift jank, 2–3 placeholder hints); commits via **`Confirm & Sign Plan`** + quiet 10s Undo. |
 
-### Persistent Right Rail (4 Primitives)
+### Persistent Right Rail (5 Primitives)
 | # | Widget ID | Position | Deterministic Display Rule |
 | :--- | :--- | :--- | :--- |
 | 10 | `SafetyCard` | Pinned top-right | Hard safety alerts only: allergies, G6PD, high-risk drug conflicts. |
-| 11 | `PreventiveCard` | Right rail · middle | Always-on age/sex/risk/corporate-benefit GP prevention plan with calm `+` pills (today or deferred). |
-| 12 | `ScheduledCard` | Right rail · lower | Booked appointments, pending lab draws, and active automated follow-up loops. |
-| 13 | `UnifiedThread` | Right rail · bottom | Single scrollable thread: **Patient ↔ Sam Careline history** above → subtle **`Private · Doctor & Sam only`** divider → **Sam's unread note** (strict high-signal gate) + ephemeral reply box underneath. |
+| 11 | `PreventiveCard` | Right rail · upper-mid | Always-on age/sex/risk/corporate-benefit GP prevention plan with calm `+` pills (today or deferred). |
+| 12 | `ScheduledCard` | Right rail · middle | Booked appointments, pending lab draws, and active automated follow-up loops. |
+| 13 | `TimelineCard` | Right rail · lower-mid | Compact chronological case milestones + folded `▸ N agent steps` execution traces (never stranded below Management Plan). |
+| 14 | `UnifiedThread` | Right rail · bottom | Single scrollable thread: **Patient ↔ Sam Careline history** above → subtle **`Private · Doctor & Sam only`** divider → **Sam's unread note** (strict high-signal gate) + ephemeral reply box underneath. |
 
 ---
 

@@ -187,7 +187,7 @@ def test_loop3_loop4_loop5_end_to_end_commit_undo_ticks_and_curator(tmp_path):
     assert chan["summary"]["trend_chart"]["kind"] == "inr"
     assert len(chan["summary"]["clinical_scores"]) == 2
     assert len(chan["summary"]["imaging_studies"]) == 1
-    assert len(ov["practice_graph"]["widget_catalog"]) == 13
+    assert len(ov["practice_graph"]["widget_catalog"]) == 14
     # Strict high-signal Sam gate: routine on-target/waiting cases stay quiet
     assert wong["summary"]["sam_proactive_insight"] is None
     assert lee["summary"]["sam_proactive_insight"] is None

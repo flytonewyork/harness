@@ -325,7 +325,7 @@ PREVENTIVE_CARE_RULES: list[dict[str, Any]] = [
     {"id": "prev.hk.cardiometabolic", "title": "Annual HbA1c & Fasting Lipids", "criteria": "Hypertension or cardiometabolic risk factors", "guideline": "HK Reference Framework for HTN/DM"},
 ]
 
-# Deterministic Internal Clinical Design Guide: 13 Canonical Clinical Widgets (9 Canvas + 4 Right Rail)
+# Deterministic Internal Clinical Design Guide: 14 Canonical Clinical Widgets (9 Canvas + 5 Right Rail)
 CLINICAL_WIDGET_CATALOG: list[dict[str, str]] = [
     {"id": "VitalsExamStrip", "zone": "canvas", "title": "Vitals & Exam Strip", "trigger": "Clinic, home, or discharge vitals/exam findings present"},
     {"id": "ClinicalScoreStrip", "zone": "canvas", "title": "Clinical Risk & Score Strip", "trigger": "Deterministic Python score (CHA2DS2-VASc, HAS-BLED, HK CVD 10-yr) applies"},
@@ -335,10 +335,11 @@ CLINICAL_WIDGET_CATALOG: list[dict[str, str]] = [
     {"id": "ImagingPreview", "zone": "canvas", "title": "Imaging & Study Preview", "trigger": "Linked ECG, X-ray, ultrasound, or echo report"},
     {"id": "SourceClip", "zone": "canvas", "title": "Verified Source Attachment", "trigger": "3-pt ID verified external PDF or lab report quote"},
     {"id": "IssueCard", "zone": "canvas", "title": "Atomic Clinical Issue Card", "trigger": "One card per discrete clinical problem (no essay headers, calm + pills)"},
-    {"id": "ManagementPlan", "zone": "canvas", "title": "Management Plan", "trigger": "Always mounted empty; builds idempotently from clicked + pills & overlay / menu"},
+    {"id": "ManagementPlan", "zone": "canvas", "title": "Management Plan", "trigger": "Always anchored at bottom of canvas empty; builds idempotently from clicked + pills & overlay / menu"},
     {"id": "SafetyCard", "zone": "right_rail", "title": "Safety & Alerts", "trigger": "Allergies, G6PD, and high-risk drug conflicts pinned top-right"},
     {"id": "PreventiveCard", "zone": "right_rail", "title": "Preventive Care", "trigger": "Always-on age/sex/risk GP screening & vaccine opportunities"},
     {"id": "ScheduledCard", "zone": "right_rail", "title": "Scheduled & Upcoming", "trigger": "Booked clinic visits, lab draws, and active automated loops"},
+    {"id": "TimelineCard", "zone": "right_rail", "title": "Timeline", "trigger": "Chronological case milestones & folded agent step traces in the right rail"},
     {"id": "UnifiedThread", "zone": "right_rail", "title": "Unified Careline + Sam Thread", "trigger": "Patient history above -> Private divider -> strict high-signal Sam note & reply"},
 ]
 

@@ -865,38 +865,9 @@ export function ClinicWorkspaceApp() {
                     </button>
                   </div>
                 </div>
-
-                {/* Timeline & Folded Agent Steps */}
-                <div className="ws-card">
-                  <div className="ws-section-kicker">Timeline</div>
-                  <div className="ws-timeline">
-                    {(activeCase.timeline || []).map((item: any, idx: number) => {
-                      const matchedTrace = item.trace_id ? activeCase.traces?.find((t: any) => t.id === item.trace_id) : null;
-                      const isOpen = matchedTrace ? Boolean(expandedTraces[matchedTrace.id]) : false;
-                      return (
-                        <div key={idx} className="ws-tl-item">
-                          <div><span className="ws-tl-date">{item.date}</span><span>{item.label}</span></div>
-                          {matchedTrace && (
-                            <div className="ws-trace-fold" style={{ marginTop: 6 }}>
-                              <button type="button" className="ws-trace-btn" onClick={() => setExpandedTraces((m) => ({ ...m, [matchedTrace.id]: !m[matchedTrace.id] }))}>
-                                <span>{isOpen ? "▾" : "▸"} {matchedTrace.folded_steps?.length || 0} agent steps</span>
-                                <span>{matchedTrace.status === "undo_window" ? "Undo window" : "Synced to EMR"}</span>
-                              </button>
-                              {isOpen && (
-                                <div className="ws-trace-steps">
-                                  {(matchedTrace.folded_steps || []).map((st: any, j: number) => <div key={j}><strong>{st.tool}</strong> — {st.detail}</div>)}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
 
-              {/* FIXED RIGHT RAIL: SafetyCard + PreventiveCard + ScheduledCard + Unified Careline & Sam Thread */}
+              {/* FIXED RIGHT RAIL: SafetyCard + PreventiveCard + ScheduledCard + TimelineCard + Unified Careline & Sam Thread */}
               <aside className="ws-col">
                 <div className="ws-card">
                   <div className="ws-section-kicker">Safety &amp; Alerts</div>
@@ -947,6 +918,35 @@ export function ClinicWorkspaceApp() {
                       <span>{t.label}</span>
                     </div>
                   ))}
+                </div>
+
+                {/* Canonical Widget 13: Timeline (Right Rail — paired with Scheduled & Upcoming) */}
+                <div className="ws-card">
+                  <div className="ws-section-kicker">Timeline</div>
+                  <div className="ws-timeline">
+                    {(activeCase.timeline || []).map((item: any, idx: number) => {
+                      const matchedTrace = item.trace_id ? activeCase.traces?.find((t: any) => t.id === item.trace_id) : null;
+                      const isOpen = matchedTrace ? Boolean(expandedTraces[matchedTrace.id]) : false;
+                      return (
+                        <div key={idx} className="ws-tl-item">
+                          <div><span className="ws-tl-date">{item.date}</span><span>{item.label}</span></div>
+                          {matchedTrace && (
+                            <div className="ws-trace-fold" style={{ marginTop: 6 }}>
+                              <button type="button" className="ws-trace-btn" onClick={() => setExpandedTraces((m) => ({ ...m, [matchedTrace.id]: !m[matchedTrace.id] }))}>
+                                <span>{isOpen ? "▾" : "▸"} {matchedTrace.folded_steps?.length || 0} agent steps</span>
+                                <span>{matchedTrace.status === "undo_window" ? "Undo window" : "Synced to EMR"}</span>
+                              </button>
+                              {isOpen && (
+                                <div className="ws-trace-steps">
+                                  {(matchedTrace.folded_steps || []).map((st: any, j: number) => <div key={j}><strong>{st.tool}</strong> — {st.detail}</div>)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Canonical Widget 13: Unified Careline + Sam Thread */}
