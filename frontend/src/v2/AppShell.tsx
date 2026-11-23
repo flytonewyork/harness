@@ -4,6 +4,7 @@ import AcuteApp from "../acute/AcuteApp";
 import { loadSession, saveSession, v2Api } from "./api";
 import type { StoredSession } from "./api";
 import { DemoDock } from "./DemoDock";
+import { EmrHarnessApp } from "./emr/EmrHarnessApp";
 import { PatientApp } from "./patient/PatientApp";
 import { StaffApp } from "./staff/StaffApp";
 import "./tokens.css";
@@ -20,13 +21,20 @@ function isAcutePortalPath(path: string): boolean {
   );
 }
 
-function getRoute(): { path: string; legacy: boolean; acutePortal: boolean } {
+function extractQrPatientId(path: string): string | null {
+  const m = /^\/p\/qr\/([A-Za-z0-9_-]+)/.exec(path);
+  return m ? m[1] : null;
+}
+
+function getRoute(): { path: string; legacy: boolean; acutePortal: boolean; emrApp: boolean; qrPatientId: string | null } {
   const params = new URLSearchParams(window.location.search);
   const path = window.location.pathname || "/";
   return {
     path,
     legacy: params.get("mode") === "legacy",
     acutePortal: params.get("mode") === "acute" || isAcutePortalPath(path),
+    emrApp: path === "/emr" || path.startsWith("/emr/"),
+    qrPatientId: extractQrPatientId(path),
   };
 }
 
@@ -43,6 +51,21 @@ export default function AppShell() {
   };
 
   const autoLoginForPath = async (path: string) => {
+    const qrPid = extractQrPatientId(path);
+    if (qrPid) {
+      const res = await v2Api.qrCheckin(qrPid);
+      const next: StoredSession = {
+        token: res.token,
+        role: "patient",
+        userId: res.subject_id,
+        nameEn: res.name_en,
+        nameZh: res.name_zh,
+      };
+      saveSession(next);
+      setSession(next);
+      return;
+    }
+
     const persona =
       path.startsWith("/p")
         ? "patient:pat_ho_htn_drift"
@@ -77,8 +100,19 @@ export default function AppShell() {
         if (!active) return;
         setDemoEnabled(allowDemo);
 
-        const cur = loadSession();
         const path = window.location.pathname || "/";
+        if (path === "/emr" || path.startsWith("/emr/")) {
+          // Separate Simulated Clinic EMR + Agent Harness UI App boots directly
+          return;
+        }
+
+        const qrPid = extractQrPatientId(path);
+        if (qrPid && allowDemo) {
+          await autoLoginForPath(path);
+          return;
+        }
+
+        const cur = loadSession();
         const needsPatient = path.startsWith("/p");
         const needsSettings = path.startsWith("/c/settings");
         const roleMismatch =
@@ -105,6 +139,10 @@ export default function AppShell() {
 
   if (route.acutePortal) {
     return <AcuteApp />;
+  }
+
+  if (route.emrApp) {
+    return <EmrHarnessApp />;
   }
 
   if (booting) {
@@ -135,19 +173,22 @@ export default function AppShell() {
         </div>
       )}
 
-      <DemoDock
-        enabled={demoEnabled}
-        session={session}
-        onSwitched={(next, targetPath) => {
-          saveSession(next);
-          setSession(next);
-          navigate(targetPath);
-        }}
-        onResetComplete={async () => {
-          await autoLoginForPath(window.location.pathname || "/c");
-          window.location.reload();
-        }}
-      />
+      {/* Hide Staging Dock on QR-scanned mobile views so real phone screens stay pure & native */}
+      {!route.qrPatientId && (
+        <DemoDock
+          enabled={demoEnabled}
+          session={session}
+          onSwitched={(next, targetPath) => {
+            saveSession(next);
+            setSession(next);
+            navigate(targetPath);
+          }}
+          onResetComplete={async () => {
+            await autoLoginForPath(window.location.pathname || "/c");
+            window.location.reload();
+          }}
+        />
+      )}
     </>
   );
 }

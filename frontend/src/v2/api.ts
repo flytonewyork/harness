@@ -124,6 +124,14 @@ export interface CompanionHome {
   now: Record<string, any> | null;
   goal_line: { label_en: string; label_zh: string; current: string; source_quote: string } | null;
   protocol_nudges: Array<{ id: string; because_en: string; because_zh: string; action_en: string; action_zh: string; source_quote: string; source_doc: string }>;
+  rich_cards?: Array<Record<string, any>>;
+  available_slots?: Array<Record<string, any>>;
+  agent_state?: {
+    workflow_stage?: string;
+    phone_connected?: boolean;
+    flu_vax_deferred?: boolean;
+    tool_call_count?: number;
+  };
   review_sla: { doctor_name: string; due_at: string; label_en: string; label_zh: string; status: string };
   timeline: Array<{ id: string; direction: string; voice: "doctor" | "patient" | "assistant"; sender_label: string; body: string; created_at: string }>;
   episodes: Array<{ id: string; title: string; encounter_type: string; status: string; date: string; summary: string; source_text: string }>;
@@ -138,6 +146,87 @@ export interface CompanionHome {
   };
   crisis_hotlines: Array<{ name_en: string; name_zh: string; tel: string; display: string }>;
   runtime_toggles?: Record<string, any>;
+}
+
+export interface ToolCallRecord {
+  id: string;
+  timestamp: string;
+  agent: string;
+  tool: string;
+  authority: "READ" | "MEMORY" | "CDS" | "DRAFT" | "BLOCKED" | "SIGNED_WRITE";
+  args: Record<string, any>;
+  result: Record<string, any>;
+  duration_ms: number;
+  emr_target?: string | null;
+}
+
+export interface EmrPatient {
+  id: string;
+  source: "hero_live" | "clinic_live" | "loopbench_sim";
+  badge: string;
+  name_en: string;
+  name_zh: string;
+  sex: string;
+  dob: string;
+  age?: number | null;
+  hkid_masked: string;
+  phone_masked: string;
+  employer: string;
+  g6pd_deficient: boolean;
+  allergies: string[];
+  current_meds: string[];
+  egfr?: number | null;
+  weight_kg?: number | null;
+  flu_vax_status: string;
+  booked_slot?: Record<string, any> | null;
+  phone_connected: boolean;
+  workflow_stage: string;
+  open_loops: Array<{ id: string; family: string; status: string; urgency: number; title: string; source: string; quote?: string }>;
+  documents: Array<{ id: string; kind: string; lab_name: string; date: string; title: string; status: string; highlight_quote: string; text: string }>;
+  observations: Array<{ id: string; loinc: string; display: string; value: string; recorded_at: string; quote?: string }>;
+  encounters: Array<{ id: string; type: string; status: string; icd10: string; icpc2: string; chief_complaint: string; clinical_note: string; created_at: string }>;
+  prescriptions: Array<{ id: string; items: Array<Record<string, any>>; mchk_reg_no: string; fulfilment_mode: string; fulfilment_status: string; signed_at: string }>;
+  certificates: Array<{ id: string; days_off: number; start_date: string; end_date: string; mchk_reg_no: string; diagnosis_icd10?: string; verification_hash?: string; signed_at: string }>;
+  immunizations: Array<{ id: string; vaccine: string; status: string; scheduled_at: string }>;
+}
+
+export interface EmrOverview {
+  clinic: {
+    name: string;
+    emr_profile: string;
+    doctor_on_duty: string;
+    nurse_on_duty: string;
+    region: string;
+    ai_enabled: boolean;
+  };
+  engine: { live: boolean; provider: string; model: string; label: string };
+  hero_patient_id: string;
+  patients: EmrPatient[];
+  feeds: Array<Record<string, any>>;
+  protocols: Array<{ id: string; name: string; rules: string[] }>;
+  tool_schemas: Array<{ name: string; authority: string; description: string; parameters: Record<string, any> }>;
+  available_slots: Array<Record<string, any>>;
+  agent_state: {
+    patient_id: string;
+    phone_connected: boolean;
+    phone_connected_at?: string | null;
+    workflow_stage: string;
+    engine_mode: string;
+    active_agent?: string | null;
+    memory: {
+      emr_memory: Record<string, any>;
+      episodic_memory: Array<{ key: string; value: string; verbatim_quote: string; source: string; verified: boolean; updated_at?: string }>;
+      protocol_memory: Array<{ id: string; name: string; rules: string[] }>;
+    };
+    context_window: Record<string, any> | null;
+    tool_calls: ToolCallRecord[];
+    booked_slot?: Record<string, any> | null;
+    flu_vax_deferred?: boolean;
+    active_proposal_id?: string | null;
+    last_emr_highlight?: { target: string; authority: string; tool: string; timestamp: string } | null;
+  };
+  recent_events: Array<{ seq: number; id: string; type: string; patient_id?: string | null; timestamp: string; data: Record<string, any> }>;
+  audit_log: Array<{ id: string; action: string; actor_role: string; actor_id: string; resource_type: string; resource_id: string; created_at: string; metadata: Record<string, any> }>;
 }
 
 const TOKEN_KEY = "tmrw_v2_session";
@@ -182,6 +271,16 @@ export const v2Api = {
   demoPersonas: () => req<Record<string, any>>("/api/v1/demo/personas"),
   demoLoginAs: (persona: string) => req<Record<string, any>>("/api/v1/demo/login-as", { method: "POST", body: JSON.stringify({ persona }) }),
   demoReset: () => req<Record<string, any>>("/api/v1/demo/reset", { method: "POST" }),
+  qrCheckin: (patientId: string, lang = "en") =>
+    req<Record<string, any>>(`/api/v1/demo/qr-checkin/${encodeURIComponent(patientId)}?lang=${encodeURIComponent(lang)}`, { method: "POST" }),
+  emrOverview: (patientId?: string) =>
+    req<EmrOverview>(patientId ? `/api/v1/emr/overview?patient_id=${encodeURIComponent(patientId)}` : "/api/v1/emr/overview"),
+  emrResetUrti: (patientId: string) =>
+    req<Record<string, any>>(`/api/v1/emr/patient/${encodeURIComponent(patientId)}/reset-urti`, { method: "POST" }),
+  emrSimulateAuthorityProbe: (patientId: string) =>
+    req<Record<string, any>>(`/api/v1/emr/simulate-authority-probe?patient_id=${encodeURIComponent(patientId)}`, { method: "POST" }),
+  patientAgentTurn: (body: { action: "message" | "book_flu_slot" | "submit_urti_intake" | "ack_info_pack"; message?: string; payload?: Record<string, any>; lang?: string }, tok: string) =>
+    req<Record<string, any>>("/api/v1/patient/agent/turn", { method: "POST", body: JSON.stringify(body) }, tok),
   staffQueue: (tok: string) => req<{ items: StaffQueueItem[]; kill_switch_active: boolean; viewer_role: "clinician" | "nurse" }>("/api/v1/clinician/queue", {}, tok),
   proposalDetail: (id: string, tok: string) => req<ProposalDetail>(`/api/v1/clinician/proposals/${id}`, {}, tok),
   nurseReady: (id: string, prepNote: string, tok: string) =>

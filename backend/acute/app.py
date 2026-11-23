@@ -13,6 +13,7 @@ Security, HK PDPO (Cap. 486) & MCHK invariants enforced on every request:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import secrets
@@ -24,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text as sql_text
@@ -38,7 +39,9 @@ from .adapters import (
     PharmacyFulfilmentAdapter,
     WhatsAppDoorbellAdapter,
 )
+from .agent_harness import HERO_URTI_PATIENT_ID, MultiAgentHarness, available_clinic_slots
 from .certificates import issue_encrypted_certificate
+from .live_bus import LiveHarnessBus
 from .db import (
     TENANT_SCOPED_TABLES,
     AgentRun,
@@ -390,6 +393,13 @@ class CompanionReadingReq(BaseModel):
     note: str = ""
 
 
+class AgentTurnReq(BaseModel):
+    action: str = Field(default="message", pattern="^(message|book_flu_slot|submit_urti_intake|ack_info_pack)$")
+    message: str = Field(default="", max_length=2000)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    lang: str = Field(default="en", max_length=12)
+
+
 class AvailabilityReq(BaseModel):
     availability: list[dict[str, Any]] | None = None
     slots: list[dict[str, Any]] | None = None
@@ -515,6 +525,8 @@ def create_acute_app(
     workflows = DurableWorkflowEngine()
     workflows.register_default_handlers(whatsapp_adapter=wa_adapter)
     limiter = SlidingRateLimiter(max_requests=300, window_seconds=60)
+    live_bus = LiveHarnessBus()
+    multi_agent = MultiAgentHarness(live_bus)
 
     database.init_schema()
     if seed_on_startup:
@@ -595,6 +607,8 @@ def create_acute_app(
     app.state.workflows = workflows
     app.state.telemetry = telemetry
     app.state.outbox_worker_state = outbox_worker_state
+    app.state.live_bus = live_bus
+    app.state.multi_agent = multi_agent
 
     # --- OWASP ASVS L2 Security Headers, Request Tracing, Telemetry & Rate Limiting Middleware ---
     @app.middleware("http")
@@ -606,7 +620,7 @@ def create_acute_app(
         client_ip = client_ip_from_request(request)
 
         try:
-            if path.startswith("/api/") and path != "/api/v1/health/live":
+            if path.startswith("/api/") and path not in ("/api/v1/health/live", "/api/v1/live/stream"):
                 parts = path.split("/")
                 bucket = parts[3] if len(parts) > 3 else "api"
                 limiter.check(f"{client_ip}:{bucket}")
@@ -869,7 +883,146 @@ def create_acute_app(
         if not _is_demo_mode():
             raise HTTPException(404, "Demo endpoints disabled in production")
         res = reset_and_seed(database, doc_vault, runtime=harness_rt)
+        live_bus.reset_all()
         return {"ok": True, **res}
+
+    # ================================================================================== LIVE PHONE SYNC, SIMULATED EMR & MULTI-AGENT HARNESS
+    @app.get("/api/v1/live/stream")
+    async def live_event_stream(request: Request, patient_id: str | None = Query(default=None)):
+        """Real-time Server-Sent Events (SSE) stream syncing Phone (/p), Staff (/c), and Simulated EMR (/emr)."""
+        if not _is_demo_mode():
+            extract_claims(request, allowed_roles=("clinician", "nurse", "clinic_admin", "patient"))
+        loop = asyncio.get_running_loop()
+        q = live_bus.subscribe(loop, patient_id=patient_id)
+
+        async def _gen():
+            try:
+                hello = {
+                    "type": "stream.connected",
+                    "patient_id": patient_id,
+                    "timestamp": utcnow().isoformat(),
+                    "recent_count": len(live_bus.recent_events(patient_id=patient_id, limit=20)),
+                }
+                yield f"event: stream.connected\ndata: {json.dumps(hello, ensure_ascii=False)}\n\n"
+                while True:
+                    if await request.is_disconnected():
+                        break
+                    try:
+                        ev = await asyncio.wait_for(q.get(), timeout=15.0)
+                        yield f"event: {ev['type']}\ndata: {json.dumps(ev, ensure_ascii=False)}\n\n"
+                    except asyncio.TimeoutError:
+                        yield ": keepalive\n\n"
+            finally:
+                live_bus.unsubscribe(q)
+
+        return StreamingResponse(
+            _gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @app.post("/api/v1/demo/qr-checkin/{patient_id}")
+    def demo_qr_checkin(patient_id: str, lang: str = Query(default="en")):
+        """Zero-friction QR check-in for real-phone demos (staging/demo mode only); triggers LoopWatcher & CareAgent."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        with database.tenant_session(DEMO_TENANT_1) as s:
+            pat = s.get(Patient, patient_id)
+            if not pat:
+                raise HTTPException(404, f"Patient '{patient_id}' not found")
+            tok = mint_jwt(subject_id=pat.id, role="patient", tenant_id=pat.tenant_id, step_up_verified=True)
+            hydration = multi_agent.run_qr_checkin(s, pat.tenant_id, pat, lang=lang)
+            rich_cards = multi_agent.build_patient_rich_cards(s, pat)
+            return {
+                "ok": True,
+                "token": tok,
+                "role": "patient",
+                "tenant_id": pat.tenant_id,
+                "subject_id": pat.id,
+                "user_id": pat.id,
+                "name_en": pat.name_en,
+                "name_zh": pat.name_zh,
+                "hydration": hydration,
+                "rich_cards": rich_cards,
+            }
+
+    @app.get("/api/v1/emr/overview")
+    def emr_overview(request: Request, patient_id: str | None = Query(default=None)):
+        """LoopBench-backed Simulated Clinic EMR snapshot + Live Multi-Agent Harness Inspector state."""
+        tenant_id = DEMO_TENANT_1
+        if not _is_demo_mode():
+            claims = extract_claims(request, allowed_roles=("clinician", "nurse", "clinic_admin"))
+            tenant_id = claims["tid"]
+        return multi_agent.build_emr_overview(database, tenant_id, selected_patient_id=patient_id)
+
+    @app.post("/api/v1/emr/patient/{patient_id}/reset-urti")
+    def emr_reset_urti_patient(patient_id: str):
+        """Reset a single patient's live URTI phone-demo state back to clean pre-QR check-in without wiping other stories."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        with database.tenant_session(DEMO_TENANT_1) as s:
+            pat = s.get(Patient, patient_id)
+            if not pat:
+                raise HTTPException(404, "Patient not found")
+            # Delete in strict FK child-before-parent order with flushes
+            for msg in s.scalars(select(Message).where(Message.patient_id == patient_id)).all():
+                s.delete(msg)
+            for imm in s.scalars(select(Immunization).where(Immunization.patient_id == patient_id)).all():
+                s.delete(imm)
+            for cert in s.scalars(select(Certificate).where(Certificate.patient_id == patient_id)).all():
+                s.delete(cert)
+            for rx in s.scalars(select(Prescription).where(Prescription.patient_id == patient_id)).all():
+                s.delete(rx)
+            s.flush()
+            props = s.scalars(select(Proposal).where(Proposal.patient_id == patient_id)).all()
+            for prop in props:
+                for rd in s.scalars(select(ReviewDecision).where(ReviewDecision.proposal_id == prop.id)).all():
+                    s.delete(rd)
+            s.flush()
+            for prop in props:
+                s.delete(prop)
+            s.flush()
+            encs = s.scalars(select(Encounter).where(Encounter.patient_id == patient_id, Encounter.id != "enc_lam_checkup_20261110")).all()
+            for enc in encs:
+                for ob in s.scalars(select(Observation).where(Observation.encounter_id == enc.id)).all():
+                    s.delete(ob)
+            s.flush()
+            for enc in encs:
+                s.delete(enc)
+            s.flush()
+        live_bus.reset_patient(patient_id)
+        return {"ok": True, "patient_id": patient_id, "reset": True}
+
+    @app.post("/api/v1/emr/simulate-authority-probe")
+    def emr_simulate_authority_probe(patient_id: str = Query(default=HERO_URTI_PATIENT_ID)):
+        """Demonstrate live Asymmetric Authority guardrail: an AI agent attempting emr.write_signed_orders is blocked."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        with database.tenant_session(DEMO_TENANT_1) as s:
+            pat = s.get(Patient, patient_id)
+            if not pat:
+                raise HTTPException(404, "Patient not found")
+            res = multi_agent.probe_authority_boundary(s, pat.tenant_id, pat)
+            return {"ok": True, "probe": res}
+
+    @app.post("/api/v1/patient/agent/turn")
+    def patient_agent_turn(body: AgentTurnReq, request: Request):
+        """Full Multi-Agent Harness patient turn (chat, flu slot booking, structured URTI & sick-leave pop-up)."""
+        claims = extract_claims(request, allowed_roles=("patient",))
+        tenant_id, pat_id = claims["tid"], claims["sub"]
+        with database.tenant_session(tenant_id) as s:
+            pat = s.get(Patient, pat_id)
+            if not pat:
+                raise HTTPException(404, "Patient not found")
+            return multi_agent.run_patient_turn(
+                s=s,
+                tenant_id=tenant_id,
+                patient=pat,
+                action=body.action,
+                message=body.message,
+                payload=body.payload,
+                lang=body.lang or pat.preferred_lang,
+            )
 
     # ================================================================================== REAL AUTH
     @app.post("/api/v1/auth/login")
@@ -2620,7 +2773,7 @@ def create_acute_app(
                     "dispatch_id": dispatch_id,
                 },
             )
-            return {
+            decision_resp = {
                 "ok": True,
                 "decision_id": rd.id,
                 "status": rd.decision,
@@ -2632,6 +2785,21 @@ def create_acute_app(
                 "prescription": rx_out,
                 "encounter": {"id": enc.id, "status": enc.status, "icd10_code": enc.icd10_code, "icpc2_code": enc.icpc2_code},
             }
+            notify_meta = (pat.id, prop.id, doc.name_en, doc.mchk_reg_no or "M14829", cert_out, rx_out, enc.id)
+
+        if body.decision in ("approved", "edited"):
+            multi_agent.notify_doctor_signed(
+                patient_id=notify_meta[0],
+                proposal_id=notify_meta[1],
+                doctor_name=notify_meta[2],
+                mchk_reg_no=notify_meta[3],
+                cert_out=notify_meta[4],
+                rx_out=notify_meta[5],
+                encounter_id=notify_meta[6],
+            )
+        else:
+            live_bus.publish("staff.queue_updated", patient_id=notify_meta[0], data={"proposal_id": notify_meta[1], "stage": body.decision})
+        return decision_resp
 
     @app.post("/api/v1/staff/proposals/{proposal_id}/ready-for-doctor")
     def staff_nurse_ready(proposal_id: str, body: NurseReadyReq, request: Request):
@@ -2659,7 +2827,12 @@ def create_acute_app(
                 action="proposal.nurse_ready", resource_type="Proposal", resource_id=prop.id,
                 metadata={"prep_note": body.prep_note[:160]},
             )
-            return {"ok": True, "proposal_id": prop.id, "nurse_ready": True, "nurse_ready_by": payload["nurse_ready_by"]}
+            nurse_pat_id = prop.patient_id
+            nurse_prop_id = prop.id
+            nurse_by = payload["nurse_ready_by"]
+            nurse_note_str = payload.get("nurse_prep_note") or ""
+        multi_agent.notify_nurse_ready(nurse_pat_id, nurse_prop_id, nurse_by, nurse_note_str)
+        return {"ok": True, "proposal_id": nurse_prop_id, "nurse_ready": True, "nurse_ready_by": nurse_by}
 
     @app.post("/api/v1/clinician/proposals/{proposal_id}/resolve-conflict")
     def clinician_resolve_conflict(proposal_id: str, body: ResolveConflictReq, request: Request):
@@ -2735,7 +2908,12 @@ def create_acute_app(
                 action="proposal.dispatch_undone", resource_type="Proposal", resource_id=prop.id,
                 metadata={"dispatch_id": ev.id},
             )
-            return {"ok": True, "undone": True, "proposal_id": prop.id, "status": prop.status}
+            undo_pat_id = prop.patient_id
+            undo_prop_id = prop.id
+            undo_status = prop.status
+        live_bus.update_patient_state(undo_pat_id, workflow_stage="nurse_ready")
+        live_bus.publish("staff.queue_updated", patient_id=undo_pat_id, data={"proposal_id": undo_prop_id, "stage": "undone"})
+        return {"ok": True, "undone": True, "proposal_id": undo_prop_id, "status": undo_status}
 
     @app.get("/api/v1/patient/companion")
     def patient_companion_home(request: Request):
@@ -2826,6 +3004,8 @@ def create_acute_app(
                 }
                 for e in encs
             ]
+            rich_cards = multi_agent.build_patient_rich_cards(s, pat)
+            agent_state = live_bus.get_patient_state(pat_id)
 
             return {
                 "clinic_name": "Central & Mid-Levels Family Medical",
@@ -2841,6 +3021,14 @@ def create_acute_app(
                 "now": now_item,
                 "goal_line": goal_line,
                 "protocol_nudges": protocol_nudges,
+                "rich_cards": rich_cards,
+                "available_slots": available_clinic_slots(),
+                "agent_state": {
+                    "workflow_stage": agent_state.get("workflow_stage"),
+                    "phone_connected": agent_state.get("phone_connected"),
+                    "flu_vax_deferred": agent_state.get("flu_vax_deferred"),
+                    "tool_call_count": len(agent_state.get("tool_calls") or []),
+                },
                 "review_sla": sla,
                 "timeline": [
                     {
@@ -3824,7 +4012,7 @@ def create_acute_app(
         if assets_dir.exists():
             app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-        @app.get("/{path:path}")
+        @app.api_route("/{path:path}", methods=["GET", "HEAD"])
         def spa(path: str):
             if path.startswith("api/") or path == "ec" or path.startswith("ec/"):
                 raise HTTPException(404, "API endpoint not found")
