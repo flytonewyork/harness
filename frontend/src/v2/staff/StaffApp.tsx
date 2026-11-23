@@ -236,6 +236,14 @@ export function StaffApp({ session, initialView = "review" }: StaffAppProps) {
           onSign={handleSign}
           onUndo={handleUndo}
           onNurseReady={handleNurseReady}
+          onOpenCertPdf={async (certId) => {
+            try {
+              const tok = await v2Api.certDownloadToken(certId, session.token);
+              await v2Api.downloadVaultPdf(tok.download_url, session.token, `HK_Medical_Certificate_${certId}.pdf`);
+            } catch (e: any) {
+              setBannerMsg(e?.message || "Could not open signed MCHK PDF.");
+            }
+          }}
         />
       ) : (
         <div className="v2-queue-wrap voice-assistant">Loading review workspace…</div>

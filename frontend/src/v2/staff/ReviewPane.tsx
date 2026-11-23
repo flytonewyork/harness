@@ -14,6 +14,7 @@ interface ReviewPaneProps {
   onSign: (opts: { reply: string; overrideReason: string; renalDose: "75" | "30"; issueCert: boolean }) => void;
   onUndo: () => void;
   onNurseReady: (prepNote: string) => void;
+  onOpenCertPdf?: (certId: string) => void;
 }
 
 export function ReviewPane({
@@ -24,6 +25,7 @@ export function ReviewPane({
   onSign,
   onUndo,
   onNurseReady,
+  onOpenCertPdf,
 }: ReviewPaneProps) {
   const [focusedQuote, setFocusedQuote] = useState<string | null>(null);
   const [verifyOpen, setVerifyOpen] = useState(false);
@@ -225,6 +227,16 @@ export function ReviewPane({
         <VerifyLine checks={checks} summary={csum} open={verifyOpen} onToggle={() => setVerifyOpen((o) => !o)} />
 
         <div className="v2-staff-top-right">
+          {detail.issued_certificates && detail.issued_certificates.length > 0 && onOpenCertPdf && (
+            <button
+              type="button"
+              className="v2-btn-secondary"
+              onClick={() => onOpenCertPdf(detail.issued_certificates![0].id)}
+              data-testid="clinician-cert-pdf-btn"
+            >
+              MCHK Sick Leave PDF ({detail.issued_certificates[0].days_off}d) ↗
+            </button>
+          )}
           {undoState ? (
             <button type="button" className="v2-btn-secondary" onClick={onUndo} data-testid="undo-send-btn">
               Sending to {undoState.patientName} in {undoState.secondsLeft}s · Undo Z
