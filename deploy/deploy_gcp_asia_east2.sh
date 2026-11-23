@@ -12,8 +12,8 @@ SERVICE="${CLOUD_RUN_SERVICE:-clinic-ai-harness-staging}"
 REPO="tmrw-harness"
 SQL_INSTANCE="${CLOUDSQL_INSTANCE_NAME:-tmrw-acute-pg15}"
 DB_NAME="clinic_harness"
-DB_ADMIN_USER="clinic_admin"
 DB_APP_USER="clinic_app"
+DB_ADMIN_USER="${CLOUDSQL_ADMIN_USER:-${DB_APP_USER}}"
 VAULT_BUCKET="${VAULT_GCS_BUCKET:-${PROJECT_ID}-tmrw-vault-hk}"
 SA_NAME="tmrw-acute-runtime"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -81,8 +81,12 @@ ensure_secret "clinic-harness-jwt-secret" "python3 -c 'import secrets; print(sec
 ensure_secret "clinic-harness-vault-kek" "python3 -c 'import os,base64; print(base64.b64encode(os.urandom(32)).decode(), end=\"\")'"
 ensure_secret "clinic-harness-vault-signing" "python3 -c 'import secrets; print(secrets.token_hex(32), end=\"\")'"
 
-DB_ADMIN_PASS="${CLOUDSQL_ADMIN_PASSWORD:-$(gcloud secrets versions access latest --secret=clinic-harness-db-admin-pass)}"
 DB_APP_PASS="${CLOUDSQL_APP_PASSWORD:-$(gcloud secrets versions access latest --secret=clinic-harness-db-pass)}"
+if [ "${DB_ADMIN_USER}" = "${DB_APP_USER}" ]; then
+  DB_ADMIN_PASS="${DB_APP_PASS}"
+else
+  DB_ADMIN_PASS="${CLOUDSQL_ADMIN_PASSWORD:-$(gcloud secrets versions access latest --secret=clinic-harness-db-admin-pass)}"
+fi
 
 echo "==> 6. Ensuring Cloud SQL PostgreSQL 15 instance in ${REGION}"
 if ! gcloud sql instances describe "${SQL_INSTANCE}" >/dev/null 2>&1; then
@@ -97,15 +101,20 @@ fi
 gcloud sql databases describe "${DB_NAME}" --instance="${SQL_INSTANCE}" >/dev/null 2>&1 || \
   gcloud sql databases create "${DB_NAME}" --instance="${SQL_INSTANCE}" --quiet
 
-for pair in "${DB_ADMIN_USER}:${DB_ADMIN_PASS}" "${DB_APP_USER}:${DB_APP_PASS}"; do
-  u="${pair%%:*}"
-  p="${pair#*:}"
+ensure_sql_user() {
+  local u="$1"
+  local p="$2"
   if gcloud sql users list --instance="${SQL_INSTANCE}" --format="value(name)" | grep -qx "${u}"; then
     gcloud sql users set-password "${u}" --instance="${SQL_INSTANCE}" --password="${p}" --quiet
   else
     gcloud sql users create "${u}" --instance="${SQL_INSTANCE}" --password="${p}" --quiet
   fi
-done
+}
+
+ensure_sql_user "${DB_APP_USER}" "${DB_APP_PASS}"
+if [ "${DB_ADMIN_USER}" != "${DB_APP_USER}" ]; then
+  ensure_sql_user "${DB_ADMIN_USER}" "${DB_ADMIN_PASS}"
+fi
 
 CONN_NAME=$(gcloud sql instances describe "${SQL_INSTANCE}" --format="value(connectionName)")
 DATABASE_ADMIN_URL="postgresql+psycopg://${DB_ADMIN_USER}:${DB_ADMIN_PASS}@/${DB_NAME}?host=/cloudsql/${CONN_NAME}"
