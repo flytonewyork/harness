@@ -87,6 +87,10 @@ export function DemoDock({ enabled, session, onSwitched, onResetComplete }: Demo
           ))}
           <div className="v2-summary-item" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <div className="v2-sec-label">Unified Demo Surfaces</div>
+            <a className="v2-demo-item" href="/demo" data-testid="link-resident-demo">
+              <span>★ Sam · 3-Act Resident Agent Demo</span>
+              <span className="voice-quote">/demo</span>
+            </a>
             <a className="v2-demo-item" href="/ec?walk=kwok" data-testid="link-ec-care-line">
               <span>EC Care Line Storyboard (K+ 6.6)</span>
               <span className="voice-quote">/ec</span>

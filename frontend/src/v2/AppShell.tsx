@@ -4,6 +4,7 @@ import AcuteApp from "../acute/AcuteApp";
 import { loadSession, saveSession, v2Api } from "./api";
 import type { StoredSession } from "./api";
 import { DemoDock } from "./DemoDock";
+import { ResidentAgentDemo } from "./demo/ResidentAgentDemo";
 import { PatientApp } from "./patient/PatientApp";
 import { StaffApp } from "./staff/StaffApp";
 import "./tokens.css";
@@ -20,13 +21,14 @@ function isAcutePortalPath(path: string): boolean {
   );
 }
 
-function getRoute(): { path: string; legacy: boolean; acutePortal: boolean } {
+function getRoute(): { path: string; legacy: boolean; acutePortal: boolean; residentDemo: boolean } {
   const params = new URLSearchParams(window.location.search);
   const path = window.location.pathname || "/";
   return {
     path,
     legacy: params.get("mode") === "legacy",
     acutePortal: params.get("mode") === "acute" || isAcutePortalPath(path),
+    residentDemo: path === "/demo" || path.startsWith("/demo/"),
   };
 }
 
@@ -101,6 +103,10 @@ export default function AppShell() {
 
   if (route.legacy) {
     return <App />;
+  }
+
+  if (route.residentDemo) {
+    return <ResidentAgentDemo />;
   }
 
   if (route.acutePortal) {
