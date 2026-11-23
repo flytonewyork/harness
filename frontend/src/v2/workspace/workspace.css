@@ -1,0 +1,420 @@
+/* Zero-Slop Executive Clinic Execution Layer + Hidden Head-of-AI Architecture X-Ray */
+
+.ws-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--staff-bg);
+  color: var(--ink);
+}
+
+.ws-topbar {
+  height: 54px;
+  padding: 0 20px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.ws-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 14.5px;
+}
+
+.ws-pill {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--subtle);
+  color: var(--ink-2);
+}
+
+.ws-pill-jade {
+  background: var(--jade-soft);
+  border-color: #B7DCD2;
+  color: var(--jade);
+  font-weight: 600;
+}
+
+.ws-pill-amber {
+  background: var(--amber-bg);
+  border-color: var(--amber-line);
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.ws-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ws-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  min-height: calc(100vh - 54px);
+}
+
+.ws-main.has-xray {
+  grid-template-columns: 250px minmax(0, 1.05fr) minmax(360px, 0.85fr);
+}
+
+@media (max-width: 1100px) {
+  .ws-main,
+  .ws-main.has-xray {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ws-sidebar {
+  background: var(--subtle);
+  border-right: 1px solid var(--line);
+  padding: 14px 12px 70px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ws-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ws-nav-heading {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 0 8px 4px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.ws-nav-btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 7px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 13.5px;
+}
+
+.ws-nav-btn:hover {
+  background: var(--paper);
+  border-color: var(--line);
+}
+
+.ws-nav-btn.is-active {
+  background: var(--ink);
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+.ws-nav-sub {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ws-nav-btn.is-active .ws-nav-sub {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.ws-badge {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  flex-shrink: 0;
+}
+
+.ws-nav-btn.is-active .ws-badge {
+  background: #FFFFFF;
+  color: var(--ink);
+  border-color: #FFFFFF;
+}
+
+.ws-content {
+  padding: 22px 26px 90px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 860px;
+}
+
+.ws-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ws-ai-title {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.28;
+  margin: 0;
+}
+
+.ws-lead {
+  font-size: 14px;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+.ws-bullets {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13.5px;
+}
+
+.ws-attachment {
+  background: var(--subtle);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ws-attachment-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--jade);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ws-quote {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--ink);
+  background: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.ws-timeline {
+  border-left: 2px solid var(--line-strong);
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ws-tl-item {
+  font-size: 13px;
+}
+
+.ws-tl-date {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  margin-right: 6px;
+}
+
+/* Categorised Preview & Distinct Irreversible Commit Card */
+.ws-commit-card {
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1.5px solid var(--line-strong);
+  background: var(--paper);
+}
+
+.ws-commit-card.is-irreversible {
+  border-color: var(--amber);
+  background: var(--amber-bg);
+}
+
+.ws-cat-block {
+  border-radius: 7px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 13px;
+}
+
+.ws-cat-block.is-clinical {
+  border-left: 3px solid var(--amber);
+  background: #FFFDF7;
+}
+
+.ws-cat-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  margin-bottom: 4px;
+}
+
+.ws-cat-block.is-clinical .ws-cat-label {
+  color: var(--amber);
+}
+
+.ws-undo-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: #FFFFFF;
+  font-size: 13px;
+}
+
+.ws-trace-fold {
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: var(--subtle);
+  overflow: hidden;
+}
+
+.ws-trace-btn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  display: flex;
+  justify-content: space-between;
+}
+
+.ws-trace-steps {
+  border-top: 1px solid var(--line);
+  padding: 10px 12px;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.ws-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ws-text-input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+  font-size: 13.5px;
+}
+
+.ws-text-input:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+/* Head of AI Architecture & X-Ray Drawer */
+.ws-xray {
+  background: #141518;
+  color: #E8E6DF;
+  border-left: 1px solid #2A2C32;
+  padding: 18px 18px 80px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 12.5px;
+}
+
+.ws-xray-card {
+  background: #1C1E24;
+  border: 1px solid #2D3038;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ws-xray-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8FD3C4;
+  font-weight: 700;
+}
+
+.ws-xray-pre {
+  margin: 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: #101115;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: #D4D2CA;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.ws-xray-btn {
+  border: 1px solid #3C414D;
+  background: #252831;
+  color: #E8E6DF;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.ws-xray-btn:hover {
+  border-color: #8FD3C4;
+}

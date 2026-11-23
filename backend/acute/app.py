@@ -41,7 +41,24 @@ from .adapters import (
 )
 from .agent_harness import HERO_URTI_PATIENT_ID, MultiAgentHarness, available_clinic_slots
 from .certificates import issue_encrypted_certificate
+from .curator import (
+    decide_curator_proposal,
+    get_effective_practice_graph,
+    mould_practice_graph,
+    query_practice_playbook,
+)
+from .emr_connector import ingest_external_document
 from .live_bus import LiveHarnessBus
+from .practice_graph import SafetyFloorViolation
+from .workspace_engine import (
+    build_workspace_overview,
+    commit_case_instruction,
+    preview_case_instruction,
+    reset_workspace,
+    simulate_loop_progression,
+    simulate_patient_triage_turn,
+    undo_case_execution,
+)
 from .db import (
     TENANT_SCOPED_TABLES,
     AgentRun,
@@ -398,6 +415,49 @@ class AgentTurnReq(BaseModel):
     message: str = Field(default="", max_length=2000)
     payload: dict[str, Any] = Field(default_factory=dict)
     lang: str = Field(default="en", max_length=12)
+
+
+class WorkspaceInstructionReq(BaseModel):
+    instruction_text: str = Field(min_length=2, max_length=2000)
+    actor_name: str = Field(default="Locum Dr. Sarah Wong", max_length=160)
+
+
+class WorkspaceDocIngestReq(BaseModel):
+    external_doc_ref: str = Field(min_length=2, max_length=96)
+    doc_kind: str = Field(default="discharge_summary", max_length=48)
+    source_org: str = Field(default="Queen Elizabeth Hospital", max_length=160)
+    claimed_mrn_or_hkid: str = Field(min_length=2, max_length=64)
+    claimed_name: str = Field(min_length=2, max_length=160)
+    claimed_dob: str = Field(min_length=4, max_length=32)
+    verbatim_quote: str = Field(min_length=4, max_length=2000)
+    page_ref: str = Field(default="p.1", max_length=32)
+
+
+class LoopProgressionReq(BaseModel):
+    event_kind: str = Field(pattern="^(nurse_completed|patient_confirmed|bp_threshold_breach|stall_timeout|close_loop)$")
+
+
+class TriageSimReq(BaseModel):
+    message_text: str = Field(min_length=1, max_length=2000)
+    hours_since_last_visit: float | None = Field(default=24.0)
+    patient_g6pd: bool = Field(default=True)
+
+
+class GraphOnboardReq(BaseModel):
+    approved_by: str = Field(default="Dr. Kenneth Lam (Lead GP)", max_length=120)
+    careline_profile_patch: dict[str, Any] | None = None
+    overlay_patch: dict[str, Any] | None = None
+    change_summary: str = Field(default="Updated clinic practice overlay", max_length=300)
+
+
+class GraphQueryReq(BaseModel):
+    question: str = Field(min_length=2, max_length=500)
+
+
+class CuratorDecisionReq(BaseModel):
+    decision: str = Field(pattern="^(approve|dismiss)$")
+    decided_by: str = Field(default="Dr. Kenneth Lam (Lead GP)", max_length=120)
+    edited_patch: dict[str, Any] | None = None
 
 
 class AvailabilityReq(BaseModel):
@@ -1023,6 +1083,174 @@ def create_acute_app(
                 payload=body.payload,
                 lang=body.lang or pat.preferred_lang,
             )
+
+    # ================================================================================== EXECUTION LAYER & PRACTICE GRAPH (LOOPS 1–5)
+    def _workspace_tenant(request: Request) -> str:
+        if not _is_demo_mode():
+            claims = extract_claims(request, allowed_roles=("clinician", "nurse", "clinic_admin"))
+            return claims["tid"]
+        return DEMO_TENANT_1
+
+    @app.get("/api/v1/workspace/overview")
+    def workspace_overview(request: Request):
+        """Executive Clinic Workspace + 4-State Case Loops + Head-of-AI Architecture X-Ray."""
+        tenant_id = _workspace_tenant(request)
+        return build_workspace_overview(database, tenant_id)
+
+    @app.post("/api/v1/workspace/cases/{case_id}/preview")
+    def workspace_case_preview(case_id: str, body: WorkspaceInstructionReq, request: Request):
+        """Loop 3 Preview: traverse Practice Graph & compile categorised plan + bounded Context Window."""
+        tenant_id = _workspace_tenant(request)
+        try:
+            return preview_case_instruction(
+                database, tenant_id=tenant_id, case_id=case_id, instruction_text=body.instruction_text
+            )
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
+
+    @app.post("/api/v1/workspace/cases/{case_id}/commit")
+    def workspace_case_commit(case_id: str, body: WorkspaceInstructionReq, request: Request):
+        """Loop 3 Commit: 10s Undo irreversible commit, folded tool trace, additive EMR addendum & Curator diff."""
+        tenant_id = _workspace_tenant(request)
+        try:
+            res = commit_case_instruction(
+                database,
+                tenant_id=tenant_id,
+                case_id=case_id,
+                instruction_text=body.instruction_text,
+                actor_name=body.actor_name,
+            )
+            live_bus.publish("workspace.committed", data={"tenant_id": tenant_id, "case_id": case_id, "state": res["case_state"], "baton": res["case_baton"]})
+            return res
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
+
+    @app.post("/api/v1/workspace/cases/{case_id}/undo/{trace_id}")
+    def workspace_case_undo(case_id: str, trace_id: str, request: Request):
+        """Cancel irreversible execution inside the 10-second Undo safety window."""
+        tenant_id = _workspace_tenant(request)
+        try:
+            res = undo_case_execution(database, tenant_id=tenant_id, case_id=case_id, trace_id=trace_id)
+            live_bus.publish("workspace.undone", data={"tenant_id": tenant_id, "case_id": case_id, "trace_id": trace_id})
+            return res
+        except ValueError as exc:
+            raise HTTPException(409, str(exc))
+
+    @app.post("/api/v1/workspace/cases/{case_id}/simulate-tick")
+    def workspace_simulate_tick(case_id: str, body: LoopProgressionReq, request: Request):
+        """Demo trigger for Loop 4 automated transitions (nurse done, BP threshold wake, stall timeout)."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        tenant_id = _workspace_tenant(request)
+        try:
+            res = simulate_loop_progression(database, tenant_id=tenant_id, case_id=case_id, event_kind=body.event_kind)
+            live_bus.publish("workspace.loop_tick", data={"tenant_id": tenant_id, **res})
+            return res
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.post("/api/v1/workspace/triage/simulate")
+    def workspace_triage_simulate(body: TriageSimReq, request: Request):
+        """Loop 1 deterministic Practice Graph inbound triage evaluator."""
+        tenant_id = _workspace_tenant(request)
+        return simulate_patient_triage_turn(
+            database,
+            tenant_id=tenant_id,
+            message_text=body.message_text,
+            hours_since_last_visit=body.hours_since_last_visit,
+            patient_g6pd=body.patient_g6pd,
+        )
+
+    @app.post("/api/v1/workspace/documents/ingest")
+    def workspace_ingest_document(body: WorkspaceDocIngestReq, request: Request):
+        """Loop 2 Fail-Closed 3-Point ID Document Gate (quarantines mismatches strictly to Nurse Rachel)."""
+        tenant_id = _workspace_tenant(request)
+        with database.tenant_session(tenant_id) as s:
+            row = ingest_external_document(
+                s,
+                tenant_id=tenant_id,
+                external_doc_ref=body.external_doc_ref,
+                doc_kind=body.doc_kind,
+                source_org=body.source_org,
+                claimed_mrn_or_hkid=body.claimed_mrn_or_hkid,
+                claimed_name=body.claimed_name,
+                claimed_dob=body.claimed_dob,
+                verbatim_quote=body.verbatim_quote,
+                page_ref=body.page_ref,
+            )
+            s.flush()
+            res = {
+                "id": row.id,
+                "external_doc_ref": row.external_doc_ref,
+                "match_status": row.match_status,
+                "matched_patient_id": row.matched_patient_id,
+                "checks": row.match_checks_json,
+            }
+        live_bus.publish("document.ingested", data={"tenant_id": tenant_id, **res})
+        return res
+
+    @app.get("/api/v1/graph/current")
+    def graph_current(request: Request):
+        """Return active versioned 3-Layer Clinical Practice Knowledge Graph."""
+        tenant_id = _workspace_tenant(request)
+        with database.tenant_session(tenant_id) as s:
+            return get_effective_practice_graph(s, tenant_id)
+
+    @app.post("/api/v1/graph/onboard")
+    def graph_onboard(body: GraphOnboardReq, request: Request):
+        """Phase 5A: Mould Practice Graph during clinic onboarding/settings (validates Immutable Safety Floor)."""
+        tenant_id = _workspace_tenant(request)
+        try:
+            with database.tenant_session(tenant_id) as s:
+                graph = mould_practice_graph(
+                    s,
+                    tenant_id=tenant_id,
+                    approved_by=body.approved_by,
+                    careline_profile_patch=body.careline_profile_patch,
+                    overlay_patch=body.overlay_patch,
+                    change_summary=body.change_summary,
+                )
+            live_bus.publish("practice_graph.published", data={"tenant_id": tenant_id, "version_tag": graph["version_tag"]})
+            return graph
+        except SafetyFloorViolation as exc:
+            raise HTTPException(422, str(exc))
+
+    @app.post("/api/v1/graph/query")
+    def graph_query(body: GraphQueryReq, request: Request):
+        """Graph-grounded @ Clinic Playbook Q&A for covering locum doctors and nurses."""
+        tenant_id = _workspace_tenant(request)
+        with database.tenant_session(tenant_id) as s:
+            graph = get_effective_practice_graph(s, tenant_id)
+        return query_practice_playbook(graph, body.question)
+
+    @app.post("/api/v1/curator/proposals/{proposal_id}/decide")
+    def curator_proposal_decide(proposal_id: str, body: CuratorDecisionReq, request: Request):
+        """Phase 5B: Lead GP approves or dismisses a Clinic Curator Proposed Standard -> publishes Practice Graph vNext."""
+        tenant_id = _workspace_tenant(request)
+        try:
+            with database.tenant_session(tenant_id) as s:
+                res = decide_curator_proposal(
+                    s,
+                    tenant_id=tenant_id,
+                    proposal_id=proposal_id,
+                    decision=body.decision,
+                    decided_by=body.decided_by,
+                    edited_patch=body.edited_patch,
+                )
+            live_bus.publish("curator.decided", data={"tenant_id": tenant_id, "proposal_id": proposal_id, "status": res["status"]})
+            return res
+        except SafetyFloorViolation as exc:
+            raise HTTPException(422, str(exc))
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
+
+    @app.post("/api/v1/workspace/reset")
+    def workspace_reset(request: Request):
+        """Reset Clinical Execution Layer demo cases cleanly."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        tenant_id = _workspace_tenant(request)
+        return reset_workspace(database, tenant_id)
 
     # ================================================================================== REAL AUTH
     @app.post("/api/v1/auth/login")

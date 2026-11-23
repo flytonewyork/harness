@@ -23,12 +23,15 @@ from sqlalchemy.orm import Session
 
 from .adapters import WhatsAppDoorbellAdapter
 from .contracts import AdapterError
-from .db import Database, OutboxEvent, Proposal, new_id, record_audit, utcnow
+from .db import CaseLoop, Database, ExecutionTrace, OutboxEvent, Proposal, new_id, record_audit, utcnow
 from .security import HKT
 
 EVENT_BOOKING_REMINDER = "booking.reminder"
 EVENT_FOLLOWUP_48H = "consult.followup_48h"
 EVENT_PROPOSAL_SLA_ESCALATE = "proposal.sla_escalate"
+EVENT_LOOP_CHECKPOINT_WAKE = "loop.checkpoint_wake"
+EVENT_LOOP_NUDGE_RETRY = "loop.nudge_retry"
+EVENT_ACTION_COMMIT_DISPATCH = "action.commit_dispatch"
 
 HandlerFn = Callable[..., Any]
 
@@ -399,6 +402,71 @@ class DurableWorkflowEngine:
                 },
             )
 
+        def _handle_loop_checkpoint_wake(session: Session, event: OutboxEvent) -> None:
+            case_id = event.payload_json.get("case_loop_id") or event.aggregate_id
+            case = session.execute(select(CaseLoop).where(CaseLoop.id == case_id)).scalar_one_or_none()
+            if case is None or case.state != "scheduled":
+                return
+            case.state = "running"
+            case.baton = "with_patient"
+            case.updated_at = utcnow()
+            record_audit(
+                session,
+                tenant_id=event.tenant_id,
+                actor_role="system_workflow",
+                actor_id="durable_outbox",
+                action="loop.checkpoint_woke",
+                resource_type="case_loop",
+                resource_id=case.id,
+                metadata={"event_id": event.id, "checkpoint": case.next_checkpoint_label},
+            )
+
+        def _handle_loop_nudge_retry(session: Session, event: OutboxEvent) -> None:
+            case_id = event.payload_json.get("case_loop_id") or event.aggregate_id
+            retry_cap = int(event.payload_json.get("retry_cap", 2))
+            case = session.execute(select(CaseLoop).where(CaseLoop.id == case_id)).scalar_one_or_none()
+            if case is None or case.state != "running":
+                return
+            case.retry_count += 1
+            if case.retry_count >= retry_cap:
+                if case.risk_tier == "high":
+                    case.state = "needs_decision"
+                    case.baton = "with_doctor"
+                else:
+                    case.state = "running"
+                    case.baton = "with_nurse"
+            case.updated_at = utcnow()
+            record_audit(
+                session,
+                tenant_id=event.tenant_id,
+                actor_role="system_workflow",
+                actor_id="durable_outbox",
+                action="loop.nudge_retry_processed",
+                resource_type="case_loop",
+                resource_id=case.id,
+                metadata={"retry_count": case.retry_count, "new_state": case.state, "new_baton": case.baton},
+            )
+
+        def _handle_action_commit_dispatch(session: Session, event: OutboxEvent) -> None:
+            trace_id = event.payload_json.get("trace_id") or event.aggregate_id
+            trace = session.execute(select(ExecutionTrace).where(ExecutionTrace.id == trace_id)).scalar_one_or_none()
+            if trace is None or trace.status != "undo_window":
+                return
+            trace.status = "dispatched"
+            record_audit(
+                session,
+                tenant_id=event.tenant_id,
+                actor_role="system_workflow",
+                actor_id="durable_outbox",
+                action="action.commit_dispatched",
+                resource_type="execution_trace",
+                resource_id=trace.id,
+                metadata={"case_loop_id": trace.case_loop_id},
+            )
+
         self.register_handler(EVENT_BOOKING_REMINDER, _handle_booking_reminder)
         self.register_handler(EVENT_FOLLOWUP_48H, _handle_followup_48h)
         self.register_handler(EVENT_PROPOSAL_SLA_ESCALATE, _handle_proposal_sla_escalate)
+        self.register_handler(EVENT_LOOP_CHECKPOINT_WAKE, _handle_loop_checkpoint_wake)
+        self.register_handler(EVENT_LOOP_NUDGE_RETRY, _handle_loop_nudge_retry)
+        self.register_handler(EVENT_ACTION_COMMIT_DISPATCH, _handle_action_commit_dispatch)

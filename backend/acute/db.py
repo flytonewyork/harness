@@ -421,12 +421,129 @@ class AuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 
+class PracticeGraphVersion(Base):
+    """Immutable versioned 3-Layer Standards-of-Care Practice Knowledge Graph (EBM Core + Practice Overlay)."""
+    __tablename__ = "practice_graph_versions"
+    id: Mapped[str] = mapped_column(String(48), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(48), ForeignKey("tenants.id"), index=True, nullable=False)
+    version_tag: Mapped[str] = mapped_column(String(32), index=True, nullable=False)  # e.g. v2.4
+    ebm_base_version: Mapped[str] = mapped_column(String(32), default="ebm-hk-gp-v1.0", nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="active", nullable=False)  # draft | active | superseded
+    careline_profile_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    overlay_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    approved_by: Mapped[str] = mapped_column(String(120), default="Dr. Kenneth Lam (Lead GP)", nullable=False)
+    change_summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class CuratorProposal(Base):
+    """Clinic Curator proposal generated from repeated doctor override diffs, gated by Lead GP sign-off."""
+    __tablename__ = "curator_proposals"
+    id: Mapped[str] = mapped_column(String(48), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(48), ForeignKey("tenants.id"), index=True, nullable=False)
+    target_node_id: Mapped[str] = mapped_column(String(96), index=True, nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    observed_count: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    proposed_patch_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    ebm_safety_check_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    evidence_case_ids_json: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="pending_lead_gp", nullable=False)  # pending_lead_gp | approved | dismissed
+    decided_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    published_graph_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AgentMemoryEntry(Base):
+    """Compliance-gated 'EMR for Agents' longitudinal store — separate from sole clinical EMR SoT."""
+    __tablename__ = "agent_memory_entries"
+    id: Mapped[str] = mapped_column(String(48), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(48), ForeignKey("tenants.id"), index=True, nullable=False)
+    patient_id: Mapped[str] = mapped_column(String(48), index=True, nullable=False)
+    tier: Mapped[str] = mapped_column(String(32), nullable=False)  # episodic | longitudinal | preference | override_diff
+    topic: Mapped[str] = mapped_column(String(96), index=True, nullable=False)
+    summary_text: Mapped[str] = mapped_column(Text, nullable=False)
+    source_doc_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_quote: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    consent_scope: Mapped[str] = mapped_column(String(48), default="ai_assisted_intake", nullable=False)
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class DocumentIngestion(Base):
+    """Fail-closed deterministic 3-point ID document ingestion ledger (quarantines mismatches to Nurse)."""
+    __tablename__ = "document_ingestions"
+    id: Mapped[str] = mapped_column(String(48), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(48), ForeignKey("tenants.id"), index=True, nullable=False)
+    external_doc_ref: Mapped[str] = mapped_column(String(96), index=True, nullable=False)
+    doc_kind: Mapped[str] = mapped_column(String(48), nullable=False)  # discharge_summary | lab_report | imaging_report
+    source_org: Mapped[str] = mapped_column(String(160), nullable=False)
+    matched_patient_id: Mapped[str | None] = mapped_column(String(48), index=True, nullable=True)
+    match_status: Mapped[str] = mapped_column(String(32), nullable=False)  # exact_3pt_match | quarantined_nurse
+    match_checks_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    verbatim_quote: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    page_ref: Mapped[str] = mapped_column(String(32), default="p.1", nullable=False)
+    parsed_diff_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class CaseLoop(Base):
+    """4-State Clinic Execution Loop: needs_decision | running | scheduled | closed."""
+    __tablename__ = "case_loops"
+    id: Mapped[str] = mapped_column(String(48), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(48), ForeignKey("tenants.id"), index=True, nullable=False)
+    patient_id: Mapped[str] = mapped_column(String(48), index=True, nullable=False)
+    patient_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    patient_age_sex: Mapped[str] = mapped_column(String(24), nullable=False)
+    case_key: Mapped[str] = mapped_column(String(48), index=True, nullable=False)  # chan | wingyan | wong | lee
+    pathway_node_id: Mapped[str] = mapped_column(String(96), nullable=False)
+    graph_version_tag: Mapped[str] = mapped_column(String(32), default="v2.4", nullable=False)
+    state: Mapped[str] = mapped_column(String(24), index=True, nullable=False)  # needs_decision | running | scheduled | closed
+    baton: Mapped[str] = mapped_column(String(32), default="with_doctor", nullable=False)  # with_doctor | with_patient | with_nurse | syncing_emr | idle
+    risk_tier: Mapped[str] = mapped_column(String(16), default="standard", nullable=False)  # high | standard | low
+    ai_title: Mapped[str] = mapped_column(String(220), nullable=False)
+    lead_line: Mapped[str] = mapped_column(Text, nullable=False)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    next_checkpoint_label: Mapped[str] = mapped_column(String(160), default="", nullable=False)
+    next_checkpoint_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    summary_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    timeline_json: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    goal_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class ExecutionTrace(Base):
+    """Doctor instruction commit, 10s Undo window, folded tool stack trace, and additive EMR writeback record."""
+    __tablename__ = "execution_traces"
+    id: Mapped[str] = mapped_column(String(48), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(48), ForeignKey("tenants.id"), index=True, nullable=False)
+    case_loop_id: Mapped[str] = mapped_column(String(48), ForeignKey("case_loops.id"), index=True, nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    instruction_text: Mapped[str] = mapped_column(Text, nullable=False)
+    graph_version_tag: Mapped[str] = mapped_column(String(32), nullable=False)
+    traversed_nodes_json: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    categorised_plan_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    requires_irreversible_commit: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="undo_window", nullable=False)  # undo_window | dispatched | undone
+    undo_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    doctor_outcome_summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    folded_steps_json: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    emr_addendum_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    context_snapshot_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
 # -------------------------------------------------------------------------------------- RLS & Triggers
 TENANT_SCOPED_TABLES = (
     "corporates", "campaigns", "practitioners", "patients", "magic_links", "otp_challenges",
     "consents", "encounters", "observations", "agent_runs", "proposals", "review_decisions",
     "certificates", "prescriptions", "immunizations", "messages", "whatsapp_outbox",
     "data_requests", "protocol_versions", "outbox_events", "audit_events",
+    "practice_graph_versions", "curator_proposals", "agent_memory_entries",
+    "document_ingestions", "case_loops", "execution_traces",
 )
 
 IMMUTABLE_TABLES = ("audit_events", "consents")

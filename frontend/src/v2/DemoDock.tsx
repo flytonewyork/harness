@@ -91,6 +91,10 @@ export function DemoDock({ enabled, session, onSwitched, onResetComplete }: Demo
           ))}
           <div className="v2-summary-item" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <div className="v2-sec-label">Unified Demo Surfaces</div>
+            <a className="v2-demo-item" href="/workspace" target="_blank" rel="noopener noreferrer" data-testid="link-workspace">
+              <span>Clinic Execution Layer + Practice Graph</span>
+              <span className="voice-quote">/workspace</span>
+            </a>
             <a className="v2-demo-item" href="/emr" target="_blank" rel="noopener noreferrer" data-testid="link-sim-emr">
               <span>Simulated Clinic EMR + Agent X-Ray</span>
               <span className="voice-quote">/emr</span>

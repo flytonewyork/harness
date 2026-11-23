@@ -7,6 +7,7 @@ import { DemoDock } from "./DemoDock";
 import { EmrHarnessApp } from "./emr/EmrHarnessApp";
 import { PatientApp } from "./patient/PatientApp";
 import { StaffApp } from "./staff/StaffApp";
+import { ClinicWorkspaceApp } from "./workspace/ClinicWorkspaceApp";
 import "./tokens.css";
 
 function isAcutePortalPath(path: string): boolean {
@@ -26,7 +27,7 @@ function extractQrPatientId(path: string): string | null {
   return m ? m[1] : null;
 }
 
-function getRoute(): { path: string; legacy: boolean; acutePortal: boolean; emrApp: boolean; qrPatientId: string | null } {
+function getRoute(): { path: string; legacy: boolean; acutePortal: boolean; emrApp: boolean; workspaceApp: boolean; qrPatientId: string | null } {
   const params = new URLSearchParams(window.location.search);
   const path = window.location.pathname || "/";
   return {
@@ -34,6 +35,7 @@ function getRoute(): { path: string; legacy: boolean; acutePortal: boolean; emrA
     legacy: params.get("mode") === "legacy",
     acutePortal: params.get("mode") === "acute" || isAcutePortalPath(path),
     emrApp: path === "/emr" || path.startsWith("/emr/"),
+    workspaceApp: path === "/workspace" || path.startsWith("/workspace/"),
     qrPatientId: extractQrPatientId(path),
   };
 }
@@ -101,8 +103,8 @@ export default function AppShell() {
         setDemoEnabled(allowDemo);
 
         const path = window.location.pathname || "/";
-        if (path === "/emr" || path.startsWith("/emr/")) {
-          // Separate Simulated Clinic EMR + Agent Harness UI App boots directly
+        if (path === "/emr" || path.startsWith("/emr/") || path === "/workspace" || path.startsWith("/workspace/")) {
+          // Separate Simulated Clinic EMR & Executive Workspace UI boot directly
           return;
         }
 
@@ -143,6 +145,10 @@ export default function AppShell() {
 
   if (route.emrApp) {
     return <EmrHarnessApp />;
+  }
+
+  if (route.workspaceApp) {
+    return <ClinicWorkspaceApp />;
   }
 
   if (booting) {

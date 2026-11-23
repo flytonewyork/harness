@@ -325,4 +325,29 @@ export const v2Api = {
   adminDataRequests: (tok: string) => req<{ requests: Array<Record<string, any>> }>("/api/v1/admin/data-requests", {}, tok),
   adminResolveDataReq: (id: string, tok: string) =>
     req<Record<string, any>>(`/api/v1/admin/data-requests/${id}/resolve`, { method: "POST", body: JSON.stringify({ status: "completed", resolution_note: "Resolved via clinic settings" }) }, tok),
+
+  // Execution Layer & 3-Layer Practice Knowledge Graph (Loops 1–5)
+  workspaceOverview: () => req<Record<string, any>>("/api/v1/workspace/overview"),
+  workspacePreview: (caseId: string, instructionText: string) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/preview`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText }) }),
+  workspaceCommit: (caseId: string, instructionText: string, actorName = "Locum Dr. Sarah Wong") =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/commit`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText, actor_name: actorName }) }),
+  workspaceUndo: (caseId: string, traceId: string) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/undo/${traceId}`, { method: "POST" }),
+  workspaceTick: (caseId: string, eventKind: string) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/simulate-tick`, { method: "POST", body: JSON.stringify({ event_kind: eventKind }) }),
+  workspaceTriageSim: (messageText: string, hoursSinceLastVisit = 24, patientG6pd = true) =>
+    req<Record<string, any>>("/api/v1/workspace/triage/simulate", {
+      method: "POST",
+      body: JSON.stringify({ message_text: messageText, hours_since_last_visit: hoursSinceLastVisit, patient_g6pd: patientG6pd }),
+    }),
+  workspaceIngestDoc: (body: Record<string, any>) =>
+    req<Record<string, any>>("/api/v1/workspace/documents/ingest", { method: "POST", body: JSON.stringify(body) }),
+  workspaceReset: () => req<Record<string, any>>("/api/v1/workspace/reset", { method: "POST" }),
+  graphOnboard: (body: Record<string, any>) =>
+    req<Record<string, any>>("/api/v1/graph/onboard", { method: "POST", body: JSON.stringify(body) }),
+  graphQuery: (question: string) =>
+    req<Record<string, any>>("/api/v1/graph/query", { method: "POST", body: JSON.stringify({ question }) }),
+  curatorDecide: (proposalId: string, decision: "approve" | "dismiss", decidedBy = "Dr. Kenneth Lam (Lead GP)") =>
+    req<Record<string, any>>(`/api/v1/curator/proposals/${proposalId}/decide`, { method: "POST", body: JSON.stringify({ decision, decided_by: decidedBy }) }),
 };
