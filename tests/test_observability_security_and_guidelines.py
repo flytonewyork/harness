@@ -350,6 +350,19 @@ def test_gcp_prod_fail_closed_guards_and_ec_demo_mount(monkeypatch, tmp_path):
         assert "tmrw" in ec.text.lower()
         suite = client.get("/ec/suite.html")
         assert suite.status_code == 200
+        assert "font-src 'self' data:" in suite.headers.get("Content-Security-Policy", "")
         assert client.get("/ec/%2e%2e/README.md").status_code == 404
         assert client.get("/ec/does-not-exist.html").status_code == 404
+        # Live legacy LoopBench follow-up API works in demo mode (Mr Chan K+ 6.6 open)
+        src = client.get("/api/source")
+        assert src.status_code == 200 and src.json()["clinic_name"] == "Harbourview Family Clinic"
+        items = client.get("/api/items").json()
+        assert items["count"] >= 6
+        assert any("6.6" in it["reason"] for it in items["items"])
+
+    # In prod mode, legacy demo endpoints are hard-blocked (404)
+    monkeypatch.setenv("HARNESS_ENV", "prod")
+    with TestClient(app) as client:
+        assert client.get("/api/source").status_code == 404
+        assert client.get("/api/items").status_code == 404
 

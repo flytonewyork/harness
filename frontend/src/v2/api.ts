@@ -91,6 +91,15 @@ export interface ProposalDetail extends StaffQueueItem {
   observations: Array<{ id: string; display: string; value_text: string; recorded_at: string }>;
   messages: Array<{ id: string; direction: string; sender_role: string; body_text: string; created_at: string }>;
   suggested_cert?: { days_off: number; start_date: string } | null;
+  issued_certificates?: Array<{
+    id: string;
+    days_off: number;
+    start_date: string;
+    end_date: string;
+    mchk_reg_no: string;
+    verification_hash?: string;
+    signed_at: string;
+  }>;
   suggested_rx: Array<Record<string, any>>;
   runtime_toggles?: Record<string, any>;
 }
@@ -192,6 +201,25 @@ export const v2Api = {
     req<Record<string, any>>(`/api/v1/patient/prescriptions/${rxId}/fulfilment`, { method: "POST", body: JSON.stringify({ mode, delivery_address: address }) }, tok),
   certDownloadToken: (certId: string, tok: string) =>
     req<{ download_url: string }>(`/api/v1/patient/certificates/${certId}/download-token`, { method: "POST" }, tok),
+  downloadVaultPdf: async (downloadUrl: string, tok: string, filename = "HK_Medical_Certificate.pdf") => {
+    const res = await fetch(downloadUrl, { headers: { Authorization: `Bearer ${tok}` } });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Vault download failed (HTTP ${res.status})`);
+    }
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+    const popup = window.open(objUrl, "_blank", "noopener");
+    if (!popup) {
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
+  },
   adminOverview: (tok: string) => req<Record<string, any>>("/api/v1/admin/overview", {}, tok),
   adminKillSwitch: (aiEnabled: boolean, reason: string, tok: string) =>
     req<Record<string, any>>("/api/v1/admin/kill-switch", { method: "POST", body: JSON.stringify({ ai_enabled: aiEnabled, reason }) }, tok),

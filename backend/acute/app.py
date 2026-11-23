@@ -481,7 +481,7 @@ def _apply_security_headers(response: Response, *, request_id: str, latency_ms: 
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
+        "default-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; "
         "script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'"
     )
     response.headers["X-Request-ID"] = request_id
@@ -2206,6 +2206,11 @@ def create_acute_app(
                 s, tenant_id=tenant_id, actor_role=claims["role"], actor_id=doc_id,
                 action="proposal.viewed", resource_type="Proposal", resource_id=p.id,
             )
+            certs = s.scalars(
+                select(Certificate)
+                .where(Certificate.encounter_id == p.encounter_id)
+                .order_by(Certificate.signed_at.desc())
+            ).all()
             return {
                 "id": p.id,
                 "patient_id": p.patient_id,
@@ -2270,6 +2275,18 @@ def create_acute_app(
                     for m in msgs
                 ],
                 "suggested_cert": suggested_cert,
+                "issued_certificates": [
+                    {
+                        "id": c.id,
+                        "days_off": c.days_off,
+                        "start_date": c.start_date,
+                        "end_date": c.end_date,
+                        "mchk_reg_no": c.mchk_reg_no,
+                        "verification_hash": c.verification_hash,
+                        "signed_at": (c.signed_at or utcnow()).isoformat(),
+                    }
+                    for c in certs
+                ],
                 "suggested_rx": suggested_rx,
                 "rx_safety_preview": rx_preview,
                 "hk_diagnoses": HK_DIAGNOSES,
@@ -3689,6 +3706,104 @@ def create_acute_app(
                 },
                 "qr_payload_url": f"/wa?campaign={camp.code}",
             }
+
+    # ================================================================================== LIVE LEGACY FOLLOW-UP API (DEMO ONLY)
+    from .legacy_feed import build_legacy_demo_store
+
+    _legacy_store_holder: list[Any] = [None]
+
+    def _legacy_store():
+        if not _is_demo_mode():
+            raise HTTPException(404, "Not found")
+        if _legacy_store_holder[0] is None:
+            _legacy_store_holder[0] = build_legacy_demo_store()
+        if _legacy_store_holder[0] is None:
+            raise HTTPException(404, "Legacy demo feed unavailable")
+        return _legacy_store_holder[0]
+
+    def _legacy_when(st, as_of: str | None) -> datetime:
+        return datetime.fromisoformat(as_of) if as_of else st.default_as_of()
+
+    @app.get("/api/health")
+    def legacy_health():
+        st = _legacy_store()
+        return {"ok": True, "items": len(st.items)}
+
+    @app.get("/api/source")
+    def legacy_source():
+        st = _legacy_store()
+        return {**st.source, "clock": st.clock(), "staff": list(st.staff.values())}
+
+    @app.get("/api/items")
+    def legacy_items(
+        as_of: str | None = None,
+        status: str = Query("open", pattern="^(open|all)$"),
+        owner: str | None = None,
+        patient: str | None = None,
+    ):
+        st = _legacy_store()
+        t = _legacy_when(st, as_of)
+        rows = st.list_items(t, status, owner, patient)
+        return {"as_of": t.isoformat(timespec="minutes"), "count": len(rows), "items": rows}
+
+    @app.get("/api/items/{iid}")
+    def legacy_item(iid: str, as_of: str | None = None):
+        st = _legacy_store()
+        try:
+            return st.item(iid, _legacy_when(st, as_of))
+        except KeyError as exc:
+            raise HTTPException(404, "no such item at that time") from exc
+
+    @app.get("/api/documents/{did}")
+    def legacy_document(did: str):
+        st = _legacy_store()
+        if did not in st.documents:
+            raise HTTPException(404, "no such document")
+        return st.document(did)
+
+    @app.get("/api/feeds")
+    def legacy_feeds(as_of: str | None = None):
+        st = _legacy_store()
+        t = _legacy_when(st, as_of)
+        down = st.feed_status(t)
+        return {"as_of": t.isoformat(timespec="minutes"), "down": down, "all_clear_allowed": not down}
+
+    @app.get("/api/alarms")
+    def legacy_alarms():
+        st = _legacy_store()
+        return st.feeds
+
+    @app.get("/api/patients/{pid}")
+    def legacy_patient(pid: str, as_of: str | None = None):
+        st = _legacy_store()
+        if pid not in st.patients:
+            raise HTTPException(404, "no such patient")
+        return st.patient(pid, _legacy_when(st, as_of))
+
+    @app.get("/api/evaluation")
+    def legacy_evaluation():
+        st = _legacy_store()
+        return st.evaluation
+
+    @app.post("/api/doctor/items/{iid}/close")
+    def legacy_doctor_close(iid: str, body: dict[str, Any], request: Request, as_of: str | None = None):
+        if request.headers.get("X-Role") != "doctor":
+            raise HTTPException(403, "doctor only")
+        st = _legacy_store()
+        try:
+            return st.doctor_close(
+                iid,
+                str(body.get("resolution", "acted")),
+                request.headers.get("X-Doctor") or "Dr CHAN Siu Ming",
+                str(body.get("note", "")),
+                _legacy_when(st, as_of),
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.get("/api/audit")
+    def legacy_audit():
+        return _legacy_store().audit
 
     # ================================================================================== SERVE EC CARE LINE DEMO (STAGING/DEMO ONLY)
     @app.get("/ec")

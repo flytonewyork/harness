@@ -14,7 +14,7 @@ interface RecordSheetProps {
 export function RecordSheet({ open, isZh, home, token, onClose, onUpdated }: RecordSheetProps) {
   const openCertPdf = async (certId: string) => {
     const res = await v2Api.certDownloadToken(certId, token);
-    window.open(res.download_url, "_blank", "noopener");
+    await v2Api.downloadVaultPdf(res.download_url, token, `HK_Medical_Certificate_${certId}.pdf`);
   };
 
   return (
