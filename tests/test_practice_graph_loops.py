@@ -176,14 +176,25 @@ def test_loop3_loop4_loop5_end_to_end_commit_undo_ticks_and_curator(tmp_path):
     assert qa["graph_version_tag"] == "v2.5"
     assert len(qa["matched_nodes"]) >= 1
 
-    # Structured clinical widgets + Preventive Care + Proactive Ephemeral Registrar /ask
+    # Structured clinical widgets + Preventive Care + Presentation Linter (5/5) + Unified Thread /ask
     wingyan = next(c for c in ov["cases"] if c["case_key"] == "wingyan")
-    assert wingyan["ai_title"] == "Acute URTI & Low Ferritin — Sick Leave & Iron Review"
+    assert wingyan["ai_title"] == "Acute Viral URTI & Non-Anaemic Iron Deficiency"
     assert len(wingyan["summary"]["issues"]) == 2
+    assert len(chan["summary"]["issues"]) == 2  # AFib/Warfarin and Dyslipidaemia/Statin cleanly split
     assert len(wingyan["summary"]["preventive_care"]) == 2
     assert len(wingyan["summary"]["lab_panel"]["rows"]) >= 6
     assert len(chan["summary"]["lab_panel"]["rows"]) >= 4
     assert chan["summary"]["trend_chart"]["kind"] == "inr"
+    assert len(chan["summary"]["clinical_scores"]) == 2
+    assert len(chan["summary"]["imaging_studies"]) == 1
+    assert len(ov["practice_graph"]["widget_catalog"]) == 13
+    # Strict high-signal Sam gate: routine on-target/waiting cases stay quiet
+    assert wong["summary"]["sam_proactive_insight"] is None
+    assert lee["summary"]["sam_proactive_insight"] is None
+    # Every seeded case must pass all 5 Clinical UI Design Guide linter invariants
+    for c in ov["cases"]:
+        assert c["lint_report"]["passed"] is True, f"{c['case_key']} failed presentation lint: {c['lint_report']['violations']}"
+        assert c["lint_report"]["rules_passed"] == 5
 
     ask_res = client.post(
         f"/api/v1/workspace/cases/{wingyan['id']}/ask",
@@ -191,3 +202,35 @@ def test_loop3_loop4_loop5_end_to_end_commit_undo_ticks_and_curator(tmp_path):
     )
     assert ask_res.status_code == 200
     assert "GI red flags" in ask_res.json()["answer"]
+
+
+def test_clinical_presentation_linter_rejects_slop_regressions():
+    """Verify the Deterministic Clinical Presentation Linter catches all 5 slop failure modes."""
+    from backend.acute.practice_graph import validate_case_presentation
+
+    sloppy_case = {
+        "trend_chart": {"points": [{"label": "14 Sep", "v": 2.9}, {"label": "21 Nov", "v": 2.4}]},
+        "lab_panel": {"rows": [{"test": "eGFR", "val": "71 mL/min"}]},
+        "issues": [
+            {
+                "name": "1. Post-Discharge Anticoagulation & Lipid Reconciliation (AFib)",
+                "reasoning": "Clinic INR was 2.9 on Warfarin 5mg; QEH reduced to 3mg achieving INR 2.4 (eGFR 71).",
+                "assessment": "Reconcile EMR active list, confirm home pillbox in Cantonese.",
+                "bullets": ["Clinic INR 2.9 fell to 2.4 with eGFR 71."],
+                "suggested_orders": [
+                    {"id": "bad_rx", "type": "rx", "drug": "Warfarin 3mg + Atorvastatin 20mg"},
+                    {"id": "bad_kind", "type": "freeform_prose", "text": "Do something"},
+                ],
+            }
+        ],
+        "sam_proactive_insight": "Pulled his Sep clinic INR and also spotted a few things to look at.",
+    }
+    res = validate_case_presentation(sloppy_case)
+    assert res["passed"] is False
+    violated_rules = {v["rule"] for v in res["violations"]}
+    assert "R1_NO_WIDGET_DUPLICATION" in violated_rules
+    assert "R2_ATOMIC_ISSUES_AND_ORDERS" in violated_rules
+    assert "R3_NO_SLOP_OR_SCAFFOLDING" in violated_rules
+    assert "R4_CANONICAL_ACTION_ONTOLOGY" in violated_rules
+    assert "R5_HIGH_SIGNAL_SAM_GATE" in violated_rules
+

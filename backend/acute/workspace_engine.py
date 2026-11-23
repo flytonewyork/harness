@@ -42,7 +42,15 @@ from .emr_connector import (
     list_quarantined_documents,
     write_additive_emr_addendum,
 )
-from .practice_graph import classify_inbound_triage, compile_instruction_plan
+from .practice_graph import (
+    PATHWAY_WIDGET_STACKS,
+    classify_inbound_triage,
+    compile_instruction_plan,
+    compute_cha2ds2_vasc,
+    compute_cvd_10yr_tier,
+    compute_has_bled,
+    validate_case_presentation,
+)
 from .workflows import EVENT_ACTION_COMMIT_DISPATCH
 
 
@@ -131,7 +139,7 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
     for m in memories:
         session.add(m)
 
-    # 3. 4-State Case Loops (Graph-driven context_widgets + Always-On Preventive Care + Polymorphic Checkout Primitives)
+    # 3. 4-State Case Loops (Compiled strictly against docs/CLINICAL_UI_DESIGN_SYSTEM.md)
     cases = [
         CaseLoop(
             id=new_id("case"), tenant_id=tenant_id,
@@ -139,17 +147,43 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
             case_key="chan", pathway_node_id="ebm.pathway.post_discharge_anticoag",
             graph_version_tag=graph["version_tag"],
             state="needs_decision", baton="with_doctor", risk_tier="high",
-            ai_title="Post-QEH AFib Discharge — Warfarin & Statin Reconciliation",
-            lead_line="QEH reduced Warfarin 5mg → 3mg (INR 2.4) and switched Simvastatin → Atorvastatin 20mg.",
+            ai_title="Post-QEH AFib Discharge — Medication Review",
+            lead_line="QEH discharge adjusted Warfarin and switched statin therapy ahead of today's 11:30 follow-up.",
             next_checkpoint_label="Today 11:30 visit",
             next_checkpoint_at=now + timedelta(hours=2),
             summary_json={
-                "med_diff": {
-                    "qeh": ["Warfarin 3mg PO daily (reduced from 5mg)", "Atorvastatin 20mg PO nocte"],
-                    "clinic": ["Warfarin 5mg PO daily (outdated)", "Simvastatin 20mg PO nocte (duplicate)"],
+                "vitals_exam": {
+                    "source": "QEH Discharge · 22 Nov",
+                    "items": [
+                        {"label": "BP", "val": "128/76 mmHg"},
+                        {"label": "HR", "val": "72 bpm (irregular)"},
+                        {"label": "SpO₂", "val": "98% RA"},
+                        {"label": "Exam", "val": "Chest clear · No peripheral oedema"},
+                    ],
                 },
+                "clinical_scores": [
+                    compute_cha2ds2_vasc(age=62, sex="M", hypertension=True, diabetes=True, vascular_disease=True),
+                    compute_has_bled(labile_inr=True),
+                ],
+                "med_diff": {
+                    "rows": [
+                        {"drug": "Warfarin", "qeh": "3 mg PO daily", "clinic": "5 mg PO daily", "tag": "Dose reduced"},
+                        {"drug": "Statin", "qeh": "Atorvastatin 20 mg PO nocte", "clinic": "Simvastatin 20 mg PO nocte", "tag": "Switched · Duplicate risk"},
+                    ],
+                    "qeh": ["Warfarin 3mg PO daily (reduced from 5mg)", "Atorvastatin 20mg PO nocte"],
+                    "clinic": ["Warfarin 5mg PO daily (prior dose)", "Simvastatin 20mg PO nocte (prior statin)"],
+                },
+                "imaging_studies": [
+                    {
+                        "id": "img_chan_ecg",
+                        "modality": "12-Lead ECG",
+                        "date": "21 Nov 2026 · QEH",
+                        "summary": "Atrial fibrillation, rate-controlled (ventricular rate 72 bpm). No acute ST-T ischaemic changes.",
+                        "status": "Reviewed at QEH",
+                    }
+                ],
                 "alerts": [
-                    {"level": "high", "label": "Warfarin Reduced (5mg → 3mg)", "detail": "QEH discharge 22 Nov (INR 2.4); clinic EMR still shows 5mg"},
+                    {"level": "high", "label": "Warfarin Reduced (5mg → 3mg)", "detail": "QEH discharge 22 Nov; Clinic EMR still lists 5mg daily"},
                     {"level": "high", "label": "Duplicate Statin Risk", "detail": "QEH switched Simvastatin 20mg → Atorvastatin 20mg"},
                 ],
                 "preventive_care": [
@@ -157,7 +191,7 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                         "id": "prev_fit",
                         "title": "HK Colorectal FIT Screening",
                         "badge": "Overdue 18m",
-                        "detail": "Age 50–75 HK subsidy eligible · Queue kit after Warfarin stabilizes",
+                        "detail": "Age 50–75 HK subsidy eligible · Queue kit after INR stabilizes",
                         "order": {"id": "ord_prev_fit", "type": "lab", "issue": "Preventive Care", "testName": "HK Colorectal FIT Kit", "lab": "Clinic / Govt Programme", "fasting": False, "when": "After INR stable (Dec)"},
                     },
                     {
@@ -169,24 +203,38 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                     },
                 ],
                 "scheduled_tasks": [
-                    {"status": "booked", "label": "Today 11:30 · Post-QEH clinic visit (bringing pill bags)"},
+                    {"status": "booked", "label": "Today 11:30 · Post-QEH clinic visit (bringing hospital med bags)"},
                 ],
                 "issues": [
                     {
                         "id": "iss_afib",
-                        "name": "1. Post-Discharge Anticoagulation & Lipid Reconciliation (AFib)",
-                        "subjective": "Discharged from QEH yesterday following AFib rate-control admission. No bleeding, bruising, or palpitations.",
-                        "reasoning": "Clinic INR was 2.9 on Warfarin 5mg (14 Sep); QEH reduced to 3mg daily achieving therapeutic INR 2.4 on 21 Nov (eGFR 71 mL/min) and switched Simvastatin → Atorvastatin 20mg. No clinic refills dispensed since admission.",
-                        "assessment": "High-risk medication discrepancy surfaced ahead of 11:30 visit. Reconcile EMR active list, confirm home pillbox in Cantonese, and repeat INR at 7 days.",
-                        "suggested_orders": [
-                            {"id": "ch_rx_warf", "type": "rx", "issue": "1. Post-Discharge Reconciliation", "drug": "Warfarin 3mg OD + Atorvastatin 20mg ON", "freq": "Stop Simvastatin 20mg", "days": "30d", "note": "Matches QEH Discharge p.2"},
-                            {"id": "ch_lab_inr", "type": "lab", "issue": "1. Post-Discharge Reconciliation", "testName": "Repeat INR (7 days post-change)", "lab": "KingMed", "fasting": False, "when": "Sun 29 Nov 2026"},
-                            {"id": "ch_nurse_call", "type": "nurse", "issue": "1. Post-Discharge Reconciliation", "assignee": "Nurse Rachel", "task": "Cantonese pillbox verification call", "due": "Today before 16:00"},
+                        "name": "1. AFib — Warfarin dose reduction",
+                        "bullets": [
+                            "Discharged from QEH yesterday after AFib rate-control admission; no clinic refill dispensed since admission.",
+                            "Discharge plan reduced daily Warfarin dose with a 7-day repeat check (see Med Diff & INR Trend).",
                         ],
-                    }
+                        "safety_gap": "Confirm current home Warfarin tablet strength and screen for bleeding or bruising at 11:30.",
+                        "suggested_orders": [
+                            {"id": "ch_rx_warf", "type": "rx", "action": "update", "issue": "1. AFib — Warfarin dose reduction", "drug": "Warfarin 3mg", "freq": "PO daily", "days": "30d", "note": "Matches QEH discharge p.2"},
+                            {"id": "ch_lab_inr", "type": "lab", "issue": "1. AFib — Warfarin dose reduction", "testName": "Repeat INR (7 days)", "lab": "KingMed", "fasting": False, "when": "Sun 29 Nov 2026"},
+                            {"id": "ch_nurse_call", "type": "nurse", "issue": "1. AFib — Warfarin dose reduction", "assignee": "Nurse Rachel", "task": "Medication adherence check (Cantonese)", "due": "Today before 16:00"},
+                        ],
+                    },
+                    {
+                        "id": "iss_lipids",
+                        "name": "2. Dyslipidaemia — Statin switch",
+                        "bullets": [
+                            "Hospital transitioned statin therapy on discharge; Clinic EMR still lists prior agent (see Med Diff).",
+                        ],
+                        "safety_gap": "Confirm prior Simvastatin supply is removed at home to prevent duplicate statin dosing.",
+                        "suggested_orders": [
+                            {"id": "ch_rx_stop_simva", "type": "rx", "action": "stop", "issue": "2. Dyslipidaemia — Statin switch", "drug": "Simvastatin 20mg", "freq": "Discontinue", "days": "—", "note": "Replaced by Atorvastatin"},
+                            {"id": "ch_rx_atorva", "type": "rx", "action": "start", "issue": "2. Dyslipidaemia — Statin switch", "drug": "Atorvastatin 20mg", "freq": "PO nocte", "days": "30d", "note": "Matches QEH discharge p.2"},
+                        ],
+                    },
                 ],
                 "lab_panel": {
-                    "source": "Combined INR & Renal Panel · QEH 21 Nov / Clinic 14 Sep",
+                    "source": "INR & Renal Baseline · QEH 21 Nov / Clinic 14 Sep",
                     "rows": [
                         {"test": "INR (QEH 21 Nov)", "val": "2.4", "ref": "2.0–3.0", "flag": "Normal"},
                         {"test": "INR (Clinic 14 Sep)", "val": "2.9", "ref": "2.0–3.0", "flag": "Normal"},
@@ -209,16 +257,16 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                         "verified_3pt": True,
                     }
                 ],
-                "sam_proactive_insight": "Pulled his Sep clinic INR (2.9) and eGFR (71) beside QEH's 21 Nov INR (2.4). Also spotted his HK Colorectal FIT screen is 18m overdue — safe to queue once his Warfarin is steady.",
+                "sam_proactive_insight": "CHA₂DS₂-VASc 3 · HAS-BLED 1 (NICE NG196) — ongoing anticoagulation indicated with 7-day repeat INR after dose change. HK Colorectal FIT screening is 18m overdue (eligible to queue once INR is steady).",
                 "agent_thread": [],
-                "patient_chat_label": "Mr. Chan ↔ Sam Careline Chat (1 message)",
+                "patient_chat_label": "Mr. Chan ↔ Sam Careline Chat",
                 "original_chat": [
                     {"actor": "Sam", "time": "08:30", "text": "Welcome home from QEH, Mr. Chan. Reminder of your follow-up visit today at 11:30 — please bring your hospital medication bags."}
                 ],
             },
             timeline_json=[
-                {"date": "22 Nov", "label": "Discharged from QEH (AFib) — Warfarin 5mg → 3mg, switched to Atorvastatin."},
-                {"date": "Today 08:30", "label": "Discharge summary matched (3-pt ID); INR & renal panel compiled ahead of 11:30 visit."},
+                {"date": "22 Nov", "label": "Discharged from QEH (AFib) — Warfarin reduced to 3mg; statin switched to Atorvastatin."},
+                {"date": "Today 08:30", "label": "Discharge summary matched (3-pt ID); labs, ECG, and med comparison prepared for 11:30 visit."},
             ],
             goal_json={},
         ),
@@ -228,11 +276,19 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
             case_key="wingyan", pathway_node_id="ebm.pathway.low_ferritin_normal_hb",
             graph_version_tag=graph["version_tag"],
             state="needs_decision", baton="with_doctor", risk_tier="standard",
-            ai_title="Acute URTI & Low Ferritin — Sick Leave & Iron Review",
-            lead_line="Uncomplicated viral URTI (RAT neg, 2-day sick leave request) and declining Ferritin (14 ng/mL, normal Hb).",
+            ai_title="Acute Viral URTI & Non-Anaemic Iron Deficiency",
+            lead_line="1-day viral URTI requesting 2-day sick leave alongside declining annual Ferritin with normal haemoglobin.",
             next_checkpoint_label="Today 14:30 teleconsult",
             next_checkpoint_at=now + timedelta(hours=5),
             summary_json={
+                "vitals_exam": {
+                    "source": "Patient Intake · Today 09:12",
+                    "items": [
+                        {"label": "Temp (home)", "val": "38.2 °C"},
+                        {"label": "COVID / Flu RAT", "val": "Negative"},
+                        {"label": "Red flags", "val": "Denies SOB, chest pain, or neck stiffness"},
+                    ],
+                },
                 "alerts": [
                     {"level": "high", "label": "G6PD Deficient", "detail": "Avoid Aspirin, NSAIDs, sulfonamides, nitrofurantoin"},
                     {"level": "high", "label": "Penicillin Allergy", "detail": "Urticarial rash — avoid Amoxicillin / Augmentin"},
@@ -249,7 +305,7 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                         "id": "prev_cerv",
                         "title": "Cervical Screening (HPV / Pap)",
                         "badge": "Due Q2 2027",
-                        "detail": "Age 25–64 HK guideline · Sam can send reminder & pre-visit info",
+                        "detail": "Age 25–64 HK guideline · Reminder & pre-visit guidance",
                         "order": {"id": "ord_prev_cerv", "type": "book", "issue": "Preventive Care", "visitType": "Cervical Screening Recall", "when": "Apr 2027"},
                     },
                 ],
@@ -259,24 +315,29 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                 "issues": [
                     {
                         "id": "iss_urti",
-                        "name": "1. Acute Viral URTI",
-                        "subjective": "1-day sore throat, dry cough, fever 38.2°C. Home COVID/Flu RAT negative. Requesting 2-day sick leave.",
-                        "red_flags": "Denies shortness of breath, chest pain, odynophagia, or neck stiffness.",
-                        "assessment": "Uncomplicated viral URTI. No antibiotic indication.",
+                        "name": "1. Acute viral URTI",
+                        "bullets": [
+                            "1-day sore throat and dry cough; requesting 2-day sick leave certificate.",
+                            "No clinical antibiotic indication; G6PD and Penicillin safety blocks active.",
+                        ],
+                        "safety_gap": None,
                         "suggested_orders": [
-                            {"id": "wy_cert", "type": "cert", "issue": "1. Acute Viral URTI", "daysOff": 2, "dates": "23–24 Nov 2026", "omitDx": True},
-                            {"id": "wy_rx_urti", "type": "rx", "issue": "1. Acute Viral URTI", "drug": "Paracetamol 500mg + Cetirizine 10mg", "freq": "Para QDS PRN · Cet OD", "days": "5d", "note": "G6PD & Penicillin safe"},
+                            {"id": "wy_cert", "type": "cert", "issue": "1. Acute viral URTI", "daysOff": 2, "dates": "23–24 Nov 2026", "omitDx": True},
+                            {"id": "wy_rx_para", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Paracetamol 500mg", "freq": "QDS PRN", "days": "5d", "note": "G6PD-safe analgesic"},
+                            {"id": "wy_rx_cet", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Cetirizine 10mg", "freq": "OD PRN", "days": "5d", "note": "Non-sedating antihistamine"},
                         ],
                     },
                     {
                         "id": "iss_ferr",
-                        "name": "2. Non-Anaemic Iron Deficiency (Ferritin 14 ng/mL)",
-                        "subjective": "Asymptomatic on annual panel; asking whether to start oral iron or monitor.",
-                        "reasoning": "Ferritin declined steadily over 2 years (32 → 21 → 14 ng/mL) while Hb remains normal (12.1 g/dL). 10 Nov note documented regular periods and no GI bleeding symptoms.",
-                        "assessment": "Early iron depletion without anaemia. Alternate-day oral iron + 3-month repeat ferritin appropriate.",
+                        "name": "2. Non-anaemic iron deficiency",
+                        "bullets": [
+                            "Steady decline in ferritin across annual panels with preserved haemoglobin (see Trend & Labs).",
+                            "Prior 10 Nov note documented regular periods and no GI bleeding; patient asking whether to start oral iron.",
+                        ],
+                        "safety_gap": None,
                         "suggested_orders": [
-                            {"id": "wy_rx_iron", "type": "rx", "issue": "2. Non-Anaemic Iron Deficiency", "drug": "Ferrous bisglycinate 25mg (gentle iron)", "freq": "Alternate days", "days": "90d", "note": "Minimizes GI side effects"},
-                            {"id": "wy_lab_ferr", "type": "lab", "issue": "2. Non-Anaemic Iron Deficiency", "testName": "Repeat Serum Ferritin + FBC", "lab": "KingMed", "fasting": False, "when": "Tue 9 Feb 2027 (08:30 Nurse)"},
+                            {"id": "wy_rx_iron", "type": "rx", "action": "start", "issue": "2. Non-anaemic iron deficiency", "drug": "Ferrous bisglycinate 25mg", "freq": "Alternate days", "days": "90d", "note": "Gentle oral iron · minimizes GI intolerance"},
+                            {"id": "wy_lab_ferr", "type": "lab", "issue": "2. Non-anaemic iron deficiency", "testName": "Repeat Serum Ferritin + FBC", "lab": "KingMed", "fasting": False, "when": "Tue 9 Feb 2027 (08:30 Nurse)"},
                         ],
                     },
                 ],
@@ -307,9 +368,9 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                         "verified_3pt": True,
                     }
                 ],
-                "sam_proactive_insight": "Ferritin fell 32 → 21 → 14 over 24m with normal Hb (12.1) and no GI symptoms on her 10 Nov note. She also avoided taking analgesia today until G6PD safety was checked.",
+                "sam_proactive_insight": "BSG Iron Deficiency Guideline: Ferritin < 15 ng/mL with normal Hb meets non-anaemic iron deficiency threshold (alternate-day gentle oral iron + 3-month repeat). G6PD & Penicillin formulary blocks active; Harbour FinTech $0 flu shot eligible after 14d recovery.",
                 "agent_thread": [],
-                "patient_chat_label": "Wing-Yan ↔ Sam Careline Chat (3 messages)",
+                "patient_chat_label": "Wing-Yan ↔ Sam Careline Chat",
                 "original_chat": [
                     {"actor": "LAM Wing-Yan", "time": "09:12", "text": "Woke up with sore throat & 38.2°C fever — can I start iron for Ferritin 14 too, and get a 2-day sick note?"},
                     {"actor": "Sam", "time": "09:12", "text": "Reminder from your file: avoid Aspirin (G6PD). Here are open teleconsult and clinic slots with Dr. Sarah Wong today so both can be reviewed together."},
@@ -328,13 +389,22 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
             case_key="wong", pathway_node_id="ebm.pathway.chronic_htn_home_bp",
             graph_version_tag=graph["version_tag"],
             state="scheduled", baton="idle", risk_tier="low",
-            ai_title="Hypertension, Amlodipine — Routine Follow-Up 21 Dec",
-            lead_line="7-day home BP averaged 129/79 mmHg on Amlodipine 5mg OD (within <135/85 target).",
+            ai_title="Essential Hypertension — Routine Review 21 Dec",
+            lead_line="7-day home BP log is on target on Amlodipine 5mg OD; routine GP review booked 21 Dec.",
             next_checkpoint_label="21 Dec review",
             next_checkpoint_at=now + timedelta(days=21),
             summary_json={
+                "vitals_exam": {
+                    "source": "7-Day Home BP Log · Today",
+                    "items": [
+                        {"label": "7-Day Home Avg", "val": "129/79 mmHg"},
+                        {"label": "Range", "val": "124/76 – 134/82"},
+                        {"label": "Adherence", "val": "7/7 days logged"},
+                        {"label": "Side effects", "val": "No dizziness or ankle oedema"},
+                    ],
+                },
                 "alerts": [
-                    {"level": "info", "label": "BP Goal: < 135/85 mmHg", "detail": "7-day home average 129/79 (7/7 logged · On target)"},
+                    {"level": "info", "label": "BP Target: < 135/85 mmHg", "detail": "On target · Routine review remains scheduled 21 Dec"},
                 ],
                 "preventive_care": [
                     {
@@ -359,13 +429,15 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                 "issues": [
                     {
                         "id": "iss_htn",
-                        "name": "1. Essential Hypertension on Amlodipine 5mg OD",
-                        "subjective": "Asymptomatic, 100% logged adherence, denies dizziness or ankle swelling.",
-                        "reasoning": "BP improved steadily across 3 months: 152/94 (Sep clinic) → 138/86 (Oct home avg) → 129/79 (Nov 7-day avg; range 124/76–134/82). Baseline renal function normal (eGFR 89, K+ 4.2).",
-                        "assessment": "Well controlled on Amlodipine 5mg OD within target. Continue regimen; optional target adjustment or pre-visit renal panel.",
+                        "name": "1. Essential hypertension — on target",
+                        "bullets": [
+                            "Asymptomatic and well controlled on Amlodipine 5mg OD within home target (see BP Trajectory & Baseline Renal Panel).",
+                            "Routine GP review remains scheduled for 21 Dec; optional target adjustment or pre-visit renal bloods.",
+                        ],
+                        "safety_gap": None,
                         "suggested_orders": [
-                            {"id": "wg_goal", "type": "goal", "issue": "1. Essential Hypertension", "metric": "Blood Pressure", "targetSys": 135, "targetDia": 85},
-                            {"id": "wg_lab_ren", "type": "lab", "issue": "1. Essential Hypertension", "testName": "Renal Function & Electrolytes (U&E)", "lab": "KingMed", "fasting": False, "when": "1 week before 21 Dec review"},
+                            {"id": "wg_goal", "type": "goal", "issue": "1. Essential hypertension — on target", "metric": "Blood Pressure", "targetSys": 135, "targetDia": 85},
+                            {"id": "wg_lab_ren", "type": "lab", "issue": "1. Essential hypertension — on target", "testName": "Renal Function & Electrolytes (U&E)", "lab": "KingMed", "fasting": False, "when": "1 week before 21 Dec review"},
                         ],
                     }
                 ],
@@ -398,9 +470,9 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                         "verified_3pt": True,
                     }
                 ],
-                "sam_proactive_insight": "BP is steady at 129/79 across 7/7 mornings with zero spikes >140. Drag the BP Goal slider in the Checkout if you want to tighten her target to <130/80 — her biennial mammogram is also due in Dec.",
+                "sam_proactive_insight": None,
                 "agent_thread": [],
-                "patient_chat_label": "Ms. Wong ↔ Sam Careline Chat (3 messages)",
+                "patient_chat_label": "Ms. Wong ↔ Sam Careline Chat",
                 "original_chat": [
                     {"actor": "Sam", "time": "08:15", "text": "Good morning Ms Wong — Day 7 of your home BP check. What was this morning's reading?"},
                     {"actor": "WONG Mei Ling", "time": "08:22", "text": "128 / 78, feeling great."},
@@ -420,7 +492,7 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
             case_key="lee", pathway_node_id="ebm.pathway.borderline_ldl",
             graph_version_tag=graph["version_tag"],
             state="scheduled", baton="idle", risk_tier="low",
-            ai_title="Borderline Hyperlipidaemia (LDL 3.6) — Repeat Lipid Booking",
+            ai_title="Borderline Hyperlipidaemia — Repeat Lipid Booking",
             lead_line="From 2 Nov checkup · Fasting lipid draw invite sent 2 days ago · Waiting on patient booking.",
             next_checkpoint_label="Pending booking · 2d",
             next_checkpoint_at=now + timedelta(days=1),
@@ -430,15 +502,18 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                     "why": "Waiting on patient booking · Fasting lipid draw invite sent 2 days ago",
                     "chase": "Auto-chase in 24h (3-day rule)",
                 },
+                "clinical_scores": [
+                    compute_cvd_10yr_tier(age=36, smoker=False, systolic_bp=118, ldl_mmol_l=3.6),
+                ],
                 "alerts": [
-                    {"level": "info", "label": "10-Yr CV Risk: < 2% (Low)", "detail": "36M non-smoker · BP 118/74 · Fasting glucose 5.0"},
+                    {"level": "info", "label": "No Drug Allergies", "detail": "Non-smoker · Lifestyle trial active (no statin)"},
                 ],
                 "preventive_care": [
                     {
                         "id": "prev_lee_flu",
                         "title": "Seasonal Influenza Vaccine",
                         "badge": "Eligible",
-                        "detail": "Bundle with his 10-min morning nurse lipid blood draw",
+                        "detail": "Bundle with morning nurse lipid blood draw",
                         "order": {"id": "ord_lee_flu", "type": "book", "issue": "Preventive Care", "visitType": "Bundle Flu Shot with Lipid Draw", "when": "Feb 2027"},
                     }
                 ],
@@ -449,13 +524,15 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                 "issues": [
                     {
                         "id": "iss_ldl",
-                        "name": "1. Borderline LDL Cholesterol (3.6 mmol/L)",
-                        "subjective": "Asymptomatic executive checkup (2 Nov). Lifestyle trial advised for 3 months.",
-                        "reasoning": "LDL 3.6 mmol/L (ref < 3.4) with normal HDL (1.5), triglycerides (1.4), and calculated 10-year CV risk < 2% (low). Statin not indicated; repeat fasting lipid panel due Feb 2027.",
-                        "assessment": "Low cardiovascular risk; await 3-month repeat fasting lipids. No doctor input needed unless unbooked after chase.",
+                        "name": "1. Borderline LDL cholesterol",
+                        "bullets": [
+                            "Asymptomatic executive checkup (2 Nov); 3-month lifestyle trial advised given low 10-year CVD risk (see Score & Lipid Panel).",
+                            "Statin therapy not indicated; awaiting confirmation for February fasting blood draw.",
+                        ],
+                        "safety_gap": None,
                         "suggested_orders": [
-                            {"id": "lee_chase", "type": "nurse", "issue": "1. Borderline LDL", "assignee": "Nurse Rachel", "task": "Phone chase to confirm Feb fasting lipid slot", "due": "This week"},
-                            {"id": "lee_rev", "type": "book", "issue": "1. Borderline LDL", "visitType": "10-min GP Results Review", "when": "1 week post-blood draw"},
+                            {"id": "lee_chase", "type": "nurse", "issue": "1. Borderline LDL cholesterol", "assignee": "Nurse Rachel", "task": "Booking follow-up call (fasting lipid slot)", "due": "This week"},
+                            {"id": "lee_rev", "type": "book", "issue": "1. Borderline LDL cholesterol", "visitType": "10-min GP Results Review", "when": "1 week post-blood draw"},
                         ],
                     }
                 ],
@@ -466,7 +543,6 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                         {"test": "HDL-C", "val": "1.5 mmol/L", "ref": "> 1.0", "flag": "Normal"},
                         {"test": "Triglycerides", "val": "1.4 mmol/L", "ref": "< 1.7", "flag": "Normal"},
                         {"test": "Fasting Glucose", "val": "5.0 mmol/L", "ref": "3.9–5.5", "flag": "Normal"},
-                        {"test": "10-Yr CV Risk", "val": "< 2%", "ref": "Low < 10%", "flag": "Normal"},
                     ],
                 },
                 "attachments": [
@@ -477,9 +553,9 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
                         "verified_3pt": True,
                     }
                 ],
-                "sam_proactive_insight": "Calculated his 10-year CV risk upfront (< 2%, non-smoker, BP 118/74, glucose 5.0) — confirms lifestyle + repeat check rather than statin. Kept him in Scheduled / Waiting since his booking invite is still within the 3-day window.",
+                "sam_proactive_insight": None,
                 "agent_thread": [],
-                "patient_chat_label": "Mr. Lee ↔ Sam Careline Chat (1 message)",
+                "patient_chat_label": "Mr. Lee ↔ Sam Careline Chat",
                 "original_chat": [
                     {"actor": "Sam", "time": "2 days ago", "text": "Hi Mr. Lee — ready to book your 3-month fasting lipid blood draw? Tap to confirm Fri 12 Feb at 08:00 (10-min nurse visit)."}
                 ],
@@ -540,6 +616,8 @@ def _serialize_case(c: CaseLoop, traces: list[ExecutionTrace]) -> dict[str, Any]
         "retry_count": c.retry_count,
         "next_checkpoint_label": c.next_checkpoint_label,
         "summary": c.summary_json,
+        "widget_stack": PATHWAY_WIDGET_STACKS.get(c.pathway_node_id, []),
+        "lint_report": validate_case_presentation(c.summary_json or {}),
         "timeline": c.timeline_json,
         "goal": c.goal_json,
         "traces": [_serialize_trace(t) for t in traces],

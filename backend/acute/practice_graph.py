@@ -325,6 +325,302 @@ PREVENTIVE_CARE_RULES: list[dict[str, Any]] = [
     {"id": "prev.hk.cardiometabolic", "title": "Annual HbA1c & Fasting Lipids", "criteria": "Hypertension or cardiometabolic risk factors", "guideline": "HK Reference Framework for HTN/DM"},
 ]
 
+# Deterministic Internal Clinical Design Guide: 13 Canonical Clinical Widgets (9 Canvas + 4 Right Rail)
+CLINICAL_WIDGET_CATALOG: list[dict[str, str]] = [
+    {"id": "VitalsExamStrip", "zone": "canvas", "title": "Vitals & Exam Strip", "trigger": "Clinic, home, or discharge vitals/exam findings present"},
+    {"id": "ClinicalScoreStrip", "zone": "canvas", "title": "Clinical Risk & Score Strip", "trigger": "Deterministic Python score (CHA2DS2-VASc, HAS-BLED, HK CVD 10-yr) applies"},
+    {"id": "MedDiff", "zone": "canvas", "title": "Medication Comparison", "trigger": "External discharge or specialist medications differ from Clinic EMR"},
+    {"id": "TrendGraph", "zone": "canvas", "title": "Longitudinal Trend Graph", "trigger": ">= 2 longitudinal numeric points (INR, BP, Ferritin, HbA1c, LDL)"},
+    {"id": "ResultTable", "zone": "canvas", "title": "Structured Result Panel", "trigger": "Abnormal or clinically paired baseline investigation results"},
+    {"id": "ImagingPreview", "zone": "canvas", "title": "Imaging & Study Preview", "trigger": "Linked ECG, X-ray, ultrasound, or echo report"},
+    {"id": "SourceClip", "zone": "canvas", "title": "Verified Source Attachment", "trigger": "3-pt ID verified external PDF or lab report quote"},
+    {"id": "IssueCard", "zone": "canvas", "title": "Atomic Clinical Issue Card", "trigger": "One card per discrete clinical problem (no essay headers, calm + pills)"},
+    {"id": "ManagementPlan", "zone": "canvas", "title": "Management Plan", "trigger": "Always mounted empty; builds idempotently from clicked + pills & overlay / menu"},
+    {"id": "SafetyCard", "zone": "right_rail", "title": "Safety & Alerts", "trigger": "Allergies, G6PD, and high-risk drug conflicts pinned top-right"},
+    {"id": "PreventiveCard", "zone": "right_rail", "title": "Preventive Care", "trigger": "Always-on age/sex/risk GP screening & vaccine opportunities"},
+    {"id": "ScheduledCard", "zone": "right_rail", "title": "Scheduled & Upcoming", "trigger": "Booked clinic visits, lab draws, and active automated loops"},
+    {"id": "UnifiedThread", "zone": "right_rail", "title": "Unified Careline + Sam Thread", "trigger": "Patient history above -> Private divider -> strict high-signal Sam note & reply"},
+]
+
+PATHWAY_WIDGET_STACKS: dict[str, list[str]] = {
+    "ebm.pathway.post_discharge_anticoag": [
+        "VitalsExamStrip", "ClinicalScoreStrip", "MedDiff", "IssueCard", "TrendGraph", "ResultTable", "ImagingPreview", "SourceClip", "ManagementPlan",
+    ],
+    "ebm.pathway.low_ferritin_normal_hb": [
+        "VitalsExamStrip", "IssueCard", "ResultTable", "TrendGraph", "SourceClip", "ManagementPlan",
+    ],
+    "ebm.pathway.chronic_htn_home_bp": [
+        "VitalsExamStrip", "IssueCard", "TrendGraph", "ResultTable", "SourceClip", "ManagementPlan",
+    ],
+    "ebm.pathway.borderline_ldl": [
+        "ClinicalScoreStrip", "IssueCard", "ResultTable", "SourceClip", "ManagementPlan",
+    ],
+}
+
+CANONICAL_ORDER_TYPES: frozenset[str] = frozenset(p["type"] for p in ORDER_CATALOG_PRIMITIVES)
+CANONICAL_RX_VERBS: frozenset[str] = frozenset({"start", "update", "stop", "continue"})
+
+BANNED_SLOP_PHRASES: tuple[str, ...] = (
+    "reconcile emr active list",
+    "high-risk medication discrepancy surfaced",
+    "history:",
+    "clinical reasoning:",
+    "assessment:",
+    "management plan checkout",
+    "adopt qeh regimen",
+    "pulled his",
+    "pulled her",
+    "also spotted",
+    "drag the ",
+    "kept him in scheduled",
+    "working memory",
+    "tacit knowledge",
+    "linked source",
+)
+
+OBJECTIVE_SAM_MARKERS: tuple[str, ...] = (
+    "cha₂ds₂-vasc",
+    "cha2ds2-vasc",
+    "has-bled",
+    "cvd",
+    "qrisk",
+    "nice",
+    "bsg",
+    "hk ",
+    "guideline",
+    "threshold",
+    "ng196",
+    "ng136",
+    "g6pd",
+    "curb-65",
+    "fit",
+    "screening",
+)
+
+
+# -------------------------------------------------------------------------------------- Deterministic Clinical Score Calculators
+def compute_cha2ds2_vasc(
+    *,
+    age: int,
+    sex: str,
+    chf: bool = False,
+    hypertension: bool = False,
+    stroke_tia: bool = False,
+    vascular_disease: bool = False,
+    diabetes: bool = False,
+) -> dict[str, Any]:
+    """Deterministic NICE NG196 / ESC CHA2DS2-VASc score (never LLM-estimated)."""
+    score = 0
+    factors: list[str] = []
+    if chf:
+        score += 1
+        factors.append("CHF (+1)")
+    if hypertension:
+        score += 1
+        factors.append("HTN (+1)")
+    if age >= 75:
+        score += 2
+        factors.append("Age ≥75 (+2)")
+    elif age >= 65:
+        score += 1
+        factors.append("Age 65–74 (+1)")
+    if diabetes:
+        score += 1
+        factors.append("DM (+1)")
+    if stroke_tia:
+        score += 2
+        factors.append("Stroke/TIA (+2)")
+    if vascular_disease:
+        score += 1
+        factors.append("Vascular (+1)")
+    if sex.upper() == "F":
+        score += 1
+        factors.append("Female (+1)")
+    band = "High · Anticoag indicated" if (score >= 2 if sex.upper() == "M" else score >= 3) else ("Consider anticoag" if score >= 1 else "Low")
+    return {
+        "id": "cha2ds2_vasc",
+        "label": "CHA₂DS₂-VASc",
+        "value": str(score),
+        "band": band,
+        "detail": ", ".join(factors) if factors else "No risk factors",
+        "guideline": "NICE NG196",
+    }
+
+
+def compute_has_bled(
+    *,
+    uncontrolled_htn: bool = False,
+    abnormal_renal_or_liver: bool = False,
+    stroke: bool = False,
+    bleeding_history: bool = False,
+    labile_inr: bool = False,
+    age_over_65: bool = False,
+    antiplatelet_nsaid_or_alcohol: bool = False,
+) -> dict[str, Any]:
+    """Deterministic HAS-BLED bleeding risk score for anticoagulated AFib patients."""
+    flags = [
+        ("HTN", uncontrolled_htn),
+        ("Renal/Liver", abnormal_renal_or_liver),
+        ("Stroke", stroke),
+        ("Bleed hx", bleeding_history),
+        ("Labile INR", labile_inr),
+        ("Age >65", age_over_65),
+        ("Drugs/EtOH", antiplatelet_nsaid_or_alcohol),
+    ]
+    active = [name for name, on in flags if on]
+    score = len(active)
+    band = "High bleeding vigilance" if score >= 3 else "Moderate" if score == 2 else "Low"
+    return {
+        "id": "has_bled",
+        "label": "HAS-BLED",
+        "value": str(score),
+        "band": band,
+        "detail": ", ".join(active) if active else "No modifiable bleed flags",
+        "guideline": "NICE NG196",
+    }
+
+
+def compute_cvd_10yr_tier(*, age: int, smoker: bool, systolic_bp: int, ldl_mmol_l: float, diabetes: bool = False) -> dict[str, Any]:
+    """Deterministic HK Primary Care 10-year cardiovascular risk tier."""
+    if diabetes or systolic_bp >= 160 or ldl_mmol_l >= 4.9 or (age >= 60 and smoker):
+        val, band = "≥ 10%", "Moderate–High"
+    elif age >= 50 and (systolic_bp >= 140 or ldl_mmol_l >= 4.1 or smoker):
+        val, band = "5–10%", "Borderline"
+    else:
+        val, band = "< 2%" if age < 40 else "< 5%", "Low risk"
+    return {
+        "id": "hk_cvd_10yr",
+        "label": "10-Yr CVD Risk",
+        "value": val,
+        "band": band,
+        "detail": f"{'Smoker' if smoker else 'Non-smoker'} · BP {systolic_bp} · LDL {ldl_mmol_l}",
+        "guideline": "HK Primary Care CVD",
+    }
+
+
+# -------------------------------------------------------------------------------------- Deterministic Clinical Presentation Linter
+def validate_case_presentation(summary: dict[str, Any]) -> dict[str, Any]:
+    """Enforce the 5 semantic anti-slop invariants from docs/CLINICAL_UI_DESIGN_SYSTEM.md before rendering."""
+    violations: list[dict[str, str]] = []
+    issues = summary.get("issues") or []
+    trend_chart = summary.get("trend_chart") or {}
+    lab_panel = summary.get("lab_panel") or {}
+    sam_note = summary.get("sam_proactive_insight")
+
+    # Collect numeric values already mounted in TrendGraph / ResultTable for R1
+    mounted_nums: set[str] = set()
+    for pt in trend_chart.get("points") or []:
+        if "v" in pt and pt["v"] is not None:
+            mounted_nums.add(str(pt["v"]))
+        if "sys" in pt and "dia" in pt:
+            mounted_nums.add(f"{pt['sys']}/{pt['dia']}")
+    for row in lab_panel.get("rows") or []:
+        m = re.search(r"\d+(?:\.\d+)?(?:/\d+)?", str(row.get("val", "")))
+        if m:
+            mounted_nums.add(m.group(0))
+
+    # R1: Zero Widget-Prose Duplication
+    if mounted_nums:
+        for iss in issues:
+            prose = " ".join(
+                [str(b) for b in (iss.get("bullets") or [])]
+                + [str(iss.get(k) or "") for k in ("subjective", "reasoning", "assessment")]
+            )
+            hits = [n for n in mounted_nums if re.search(rf"(?<!\d){re.escape(n)}(?!\d)", prose)]
+            if len(hits) >= 2:
+                violations.append({
+                    "rule": "R1_NO_WIDGET_DUPLICATION",
+                    "issue": str(iss.get("name", "")),
+                    "detail": f"Prose repeats {len(hits)} numeric values already displayed in mounted widgets: {', '.join(sorted(hits))}",
+                })
+
+    # R2: Problem & Order Atomicity
+    for iss in issues:
+        title = str(iss.get("name", ""))
+        title_low = title.lower()
+        if ("anticoag" in title_low or "warfarin" in title_low or "afib" in title_low) and ("lipid" in title_low or "statin" in title_low):
+            violations.append({
+                "rule": "R2_ATOMIC_ISSUES_AND_ORDERS",
+                "issue": title,
+                "detail": "Mixed unrelated clinical domains (Anticoagulation and Lipids) in a single IssueCard.",
+            })
+        for ord_item in iss.get("suggested_orders") or []:
+            if ord_item.get("type") == "rx":
+                drug_str = str(ord_item.get("drug", ""))
+                if "+" in drug_str or " and " in drug_str.lower():
+                    violations.append({
+                        "rule": "R2_ATOMIC_ISSUES_AND_ORDERS",
+                        "issue": title,
+                        "detail": f"Medication order bundles multiple drugs in one primitive: '{drug_str}'",
+                    })
+
+    # R3: No Essay Scaffolding or Slop Phrases
+    all_prose_blobs: list[tuple[str, str]] = []
+    for iss in issues:
+        if any(iss.get(k) for k in ("subjective", "reasoning", "assessment")):
+            violations.append({
+                "rule": "R3_NO_SLOP_OR_SCAFFOLDING",
+                "issue": str(iss.get("name", "")),
+                "detail": "Legacy essay fields (subjective/reasoning/assessment) must be replaced with clean scannable bullets.",
+            })
+        blob = " ".join([str(iss.get("name", ""))] + [str(b) for b in (iss.get("bullets") or [])] + [str(iss.get("safety_gap") or "")])
+        all_prose_blobs.append((str(iss.get("name", "")), blob))
+    if sam_note:
+        all_prose_blobs.append(("sam_proactive_insight", str(sam_note)))
+    for scope, blob in all_prose_blobs:
+        low = blob.lower()
+        for bad in BANNED_SLOP_PHRASES:
+            if bad in low:
+                violations.append({
+                    "rule": "R3_NO_SLOP_OR_SCAFFOLDING",
+                    "issue": scope,
+                    "detail": f"Contains banned slop/scaffolding phrase: '{bad}'",
+                })
+
+    # R4: Closed Canonical Action Ontology
+    for iss in issues:
+        for ord_item in iss.get("suggested_orders") or []:
+            otype = ord_item.get("type")
+            if otype not in CANONICAL_ORDER_TYPES:
+                violations.append({
+                    "rule": "R4_CANONICAL_ACTION_ONTOLOGY",
+                    "issue": str(iss.get("name", "")),
+                    "detail": f"Non-canonical order type: '{otype}'",
+                })
+            if otype == "rx":
+                verb = str(ord_item.get("action") or "").lower()
+                if verb not in CANONICAL_RX_VERBS:
+                    violations.append({
+                        "rule": "R4_CANONICAL_ACTION_ONTOLOGY",
+                        "issue": str(iss.get("name", "")),
+                        "detail": f"Rx primitive '{ord_item.get('drug')}' must specify canonical action verb (start|update|stop|continue).",
+                    })
+
+    # R5: Strict High-Signal Sam Gate
+    if sam_note:
+        low_sam = str(sam_note).lower()
+        if not any(marker in low_sam for marker in OBJECTIVE_SAM_MARKERS):
+            violations.append({
+                "rule": "R5_HIGH_SIGNAL_SAM_GATE",
+                "issue": "UnifiedThread",
+                "detail": "Sam proactive unread note lacks an objective clinical score, guideline reference, or safety threshold.",
+            })
+
+    rules_checked = [
+        "R1_NO_WIDGET_DUPLICATION",
+        "R2_ATOMIC_ISSUES_AND_ORDERS",
+        "R3_NO_SLOP_OR_SCAFFOLDING",
+        "R4_CANONICAL_ACTION_ONTOLOGY",
+        "R5_HIGH_SIGNAL_SAM_GATE",
+    ]
+    failed_rules = {v["rule"] for v in violations}
+    return {
+        "passed": len(violations) == 0,
+        "rules_passed": len(rules_checked) - len(failed_rules),
+        "rules_total": len(rules_checked),
+        "violations": violations,
+    }
+
 
 def compute_graph_hash(overlay: dict[str, Any], profile: dict[str, Any]) -> str:
     canonical = json.dumps(
@@ -416,12 +712,15 @@ def build_effective_graph(
         "edges": [asdict(e) for e in EBM_BASE_EDGES],
         "order_catalog": copy.deepcopy(ORDER_CATALOG_PRIMITIVES),
         "preventive_rules": copy.deepcopy(PREVENTIVE_CARE_RULES),
+        "widget_catalog": copy.deepcopy(CLINICAL_WIDGET_CATALOG),
+        "pathway_widget_stacks": copy.deepcopy(PATHWAY_WIDGET_STACKS),
         "stats": {
             "total_nodes": len(nodes_out),
             "safety_floor_nodes": sum(1 for n in nodes_out if n["safety_floor"]),
             "practice_customized_nodes": sum(1 for n in nodes_out if n["practice_customized"]),
             "order_primitives": len(ORDER_CATALOG_PRIMITIVES),
             "preventive_rules": len(PREVENTIVE_CARE_RULES),
+            "canonical_widgets": len(CLINICAL_WIDGET_CATALOG),
         },
     }
 
@@ -536,32 +835,40 @@ def compile_instruction_plan(
             categorised["admin_booking"].append({"text": "Keep QEH medication excerpt ready for 11:30 visit", "irreversible": False})
             folded_steps.append({"tool": "workspace.pin_visit_brief", "detail": "Attached QEH Page 2 excerpt to today's 11:30 appointment context"})
         else:
-            categorised["clinical_advice"].append({
-                "text": "Adopt QEH regimen: Warfarin 3mg daily + Atorvastatin 20mg nocte; stop Simvastatin 20mg",
-                "irreversible": True,
-                "highlight": True,
-            })
-            emr_addendum_lines.append("Reconciled QEH discharge (22 Nov): adopt Warfarin 3mg OD + Atorvastatin 20mg ON; stop Simvastatin 20mg.")
+            if "warfarin" in low or "3mg" in low or "adopt" in low or not any(k in low for k in ("statin", "inr", "nurse")):
+                categorised["clinical_advice"].append({
+                    "text": "Update Warfarin 3mg OD (reduced from 5mg per QEH discharge)",
+                    "irreversible": True,
+                    "highlight": True,
+                })
+                emr_addendum_lines.append("Updated Warfarin to 3mg PO daily (per QEH discharge 22 Nov).")
+            if "atorvastatin" in low or "simvastatin" in low or "statin" in low or "adopt" in low:
+                categorised["clinical_advice"].append({
+                    "text": "Stop Simvastatin 20mg ON · Start Atorvastatin 20mg ON",
+                    "irreversible": True,
+                    "highlight": True,
+                })
+                emr_addendum_lines.append("Stopped Simvastatin 20mg ON; started Atorvastatin 20mg ON.")
             categorised["patient_task"].append({
-                "text": f"Send doctor-confirmed Warfarin 3mg + Atorvastatin plan to {patient_name}",
+                "text": f"Send doctor-confirmed medication plan to {patient_name}",
                 "irreversible": True,
             })
             if "inr" in low or "29" in low or "7 day" in low or "adopt" in low:
-                categorised["lab_imaging"].append({"text": "Order & schedule repeat INR blood test (29 Nov · 10-min nurse visit)", "irreversible": False})
+                categorised["lab_imaging"].append({"text": "Order Repeat INR (29 Nov · 10-min nurse blood draw)", "irreversible": False})
                 emr_addendum_lines.append("Repeat INR scheduled 29 Nov 2026.")
-            if "nurse" in low or "rachel" in low or "call" in low or "cantonese" in low or "adopt" in low:
-                categorised["admin_booking"].append({"text": f"Assign {nurse_name}: Cantonese pillbox verification call today", "irreversible": False})
+            if "nurse" in low or "rachel" in low or "call" in low or "cantonese" in low or "adherence" in low or "adopt" in low:
+                categorised["admin_booking"].append({"text": f"Delegate {nurse_name}: Medication adherence check (Cantonese)", "irreversible": False})
                 nurse_handoff = {
-                    "title": f"{patient_name} — Cantonese pillbox check (Warfarin 3mg)",
-                    "detail": "Doctor adopted QEH Warfarin 3mg + Atorvastatin and stopped Simvastatin. Confirm home pillbox today and 29 Nov INR slot.",
+                    "title": f"{patient_name} — Medication adherence check (Cantonese)",
+                    "detail": "Doctor confirmed Warfarin 3mg OD and Atorvastatin 20mg ON (Simvastatin stopped). Confirm home supply and 29 Nov INR slot.",
                 }
             folded_steps.extend([
-                {"tool": "emr.write_additive_addendum", "detail": "Wrote compact reconciliation addendum linked to QEH-DC-1122 (no chart duplication)"},
+                {"tool": "emr.write_additive_addendum", "detail": "Wrote compact medication update addendum to Clinic EMR"},
                 {"tool": "careline.dispatch_confirmed_plan", "detail": f"{ai_name} sent doctor-signed medication update to {patient_name}"},
-                {"tool": "team.delegate_nurse_task", "detail": f"Posted selective pillbox call task to #clinic-team ({nurse_name})"},
-                {"tool": "calendar.schedule_lab_recall", "detail": "Created 29 Nov INR nurse blood-draw recall & outbox wake timer"},
+                {"tool": "team.delegate_nurse_task", "detail": f"Delegated medication adherence check to #clinic-team ({nurse_name})"},
+                {"tool": "calendar.schedule_lab_recall", "detail": "Scheduled 29 Nov INR nurse blood-draw recall & outbox wake timer"},
             ])
-            if not any(k in low for k in ("adopt", "3mg", "qeh")):
+            if not any(k in low for k in ("adopt", "3mg", "warfarin", "atorvastatin", "qeh")):
                 override_detected = True
 
     elif case_key == "wingyan":
