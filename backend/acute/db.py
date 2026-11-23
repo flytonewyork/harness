@@ -447,9 +447,11 @@ class Database:
         """Create tables, grant privileges to clinic_app, enforce FORCE RLS, and install immutability triggers."""
         Base.metadata.create_all(self.admin_engine)
         with self.admin_engine.begin() as conn:
-            # Ensure non-superuser app role has table permissions (skip gracefully if running on Cloud SQL single role)
+            # Ensure non-superuser app role has table permissions when schema is owned by a separate admin role
+            cur_user = conn.execute(text("SELECT current_user")).scalar()
             has_role = conn.execute(text("SELECT 1 FROM pg_roles WHERE rolname = 'clinic_app'")).fetchone()
-            if has_role:
+            if has_role and cur_user != "clinic_app":
+                conn.execute(text("GRANT USAGE ON SCHEMA public TO clinic_app"))
                 conn.execute(text("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO clinic_app"))
                 conn.execute(text("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO clinic_app"))
 
