@@ -12,6 +12,8 @@ from datetime import datetime
 from types import MappingProxyType
 from typing import Any, Mapping
 
+from .quote import QuoteError
+
 PROVENANCE = ("gp", "in_group", "ha_sopc", "private_hospital", "ehealth", "patient")
 CLINICAL_KINDS = (
     "medication", "dose_change", "referral", "admission", "discharge",
@@ -38,6 +40,31 @@ _DROP = {
     "tablet", "tablets", "capsule", "capsules", "oral", "mg", "mcg", "ml",
     "daily", "nocte", "bd", "tds", "od", "mane",
 }
+# Bilingual Hong Kong brand / Cantonese alias table so CJK names never collapse to ""
+_DRUG_ALIASES: dict[str, str] = {
+    "marevan": "warfarin", "coumadin": "warfarin", "華法林": "warfarin", "薄血丸": "warfarin",
+    "lipitor": "atorvastatin", "立普妥": "atorvastatin", "阿托伐他汀": "atorvastatin",
+    "zocor": "simvastatin", "舒降之": "simvastatin", "辛伐他汀": "simvastatin",
+    "crestor": "rosuvastatin", "冠脂妥": "rosuvastatin", "瑞舒伐他汀": "rosuvastatin",
+    "norvasc": "amlodipine", "脈優": "amlodipine", "氨氯地平": "amlodipine",
+    "glucophage": "metformin", "二甲雙胍": "metformin", "甲福明": "metformin",
+    "tamiflu": "oseltamivir", "特敏福": "oseltamivir", "奧司他韋": "oseltamivir",
+    "panadol": "paracetamol", "必理痛": "paracetamol", "撲熱息痛": "paracetamol", "acetaminophen": "paracetamol",
+    "brufen": "ibuprofen", "nurofen": "ibuprofen", "布洛芬": "ibuprofen",
+    "augmentin": "amoxicillin clavulanate", "安滅菌": "amoxicillin clavulanate",
+    "amoxil": "amoxicillin", "阿莫西林": "amoxicillin",
+    "eliquis": "apixaban", "阿哌沙班": "apixaban",
+    "xarelto": "rivaroxaban", "利伐沙班": "rivaroxaban",
+    "pradaxa": "dabigatran", "達比加群": "dabigatran",
+    "plavix": "clopidogrel", "氯吡格雷": "clopidogrel",
+    "cozaar": "losartan", "氯沙坦": "losartan",
+    "coversyl": "perindopril", "培哚普利": "perindopril",
+    "zestril": "lisinopril", "賴諾普利": "lisinopril",
+    "jardiance": "empagliflozin", "恩格列淨": "empagliflozin",
+    "forxiga": "dapagliflozin", "達格列淨": "dapagliflozin",
+    "synthroid": "levothyroxine", "eltroxin": "levothyroxine", "甲狀腺素": "levothyroxine",
+    "aspirin": "aspirin", "阿士匹靈": "aspirin",
+}
 _FREQ = {
     "nocte": "nocte", "nocturnal": "nocte", "at night": "nocte", "night": "nocte",
     "daily": "daily", "od": "daily", "once daily": "daily", "every day": "daily",
@@ -57,10 +84,22 @@ class AuthorityError(CaseError):
 
 
 def drug_key(name: str) -> str:
-    """Fold salts and dose words so 'Warfarin Sodium' and 'warfarin' are one drug."""
-    tokens = re.findall(r"[a-z]+", str(name).lower())
+    """Fold salts, brands, and Traditional Chinese names so 'Marevan'/'華法林'/'Warfarin Sodium' are one drug."""
+    raw = str(name or "").strip()
+    low = raw.lower()
+    for alias, canon in _DRUG_ALIASES.items():
+        if alias in low or alias in raw:
+            return canon
+    tokens = re.findall(r"[a-z]+", low)
     kept = [t for t in tokens if t not in _DROP]
-    return " ".join(kept) if kept else " ".join(tokens)
+    if kept:
+        joined = " ".join(kept)
+        return _DRUG_ALIASES.get(joined, joined)
+    if tokens:
+        return " ".join(tokens)
+    # Preserve non-ASCII CJK drug tokens rather than collapsing unrelated drugs to ""
+    cjk = re.findall(r"[\u4e00-\u9fff]+", raw)
+    return "".join(cjk) if cjk else low
 
 
 def dose_key(dose: str) -> str:

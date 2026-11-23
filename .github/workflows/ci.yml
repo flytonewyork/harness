@@ -13,12 +13,43 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: clinic_harness
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d clinic_harness"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev]"
+      - name: Install Noto CJK fonts for Traditional Chinese MCHK sick-leave PDFs
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+      - run: pip install -e ".[dev,acute]"
+      - name: Provision non-superuser clinic_app role for FORCE RLS tests
+        run: |
+          python -c "
+          import psycopg
+          with psycopg.connect('postgresql://postgres@127.0.0.1:5432/clinic_harness', autocommit=True) as conn:
+              conn.execute(\"\"\"
+                  DO \$\$ BEGIN
+                      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'clinic_app') THEN
+                          CREATE ROLE clinic_app LOGIN PASSWORD 'clinic_app_dev' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+                      END IF;
+                  END \$\$;
+              \"\"\")
+              conn.execute('GRANT USAGE ON SCHEMA public TO clinic_app')
+          "
       - run: python -m pytest -q
 
   screen:

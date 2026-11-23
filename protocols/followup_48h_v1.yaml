@@ -1,0 +1,115 @@
+protocol_id: followup_48h_v1
+version: "1.0.0"
+autonomy_level: L1
+scope:
+  domain: hk_acute_flu_48h_followup
+  jurisdiction: Hong Kong SAR
+  regulations:
+    - HK PDPO (Cap. 486)
+    - MCHK Telemedicine Guidelines
+  description: >
+    48-hour post-consult safety check-in for Hong Kong acute flu-season patients. Screens
+    for worsening symptoms, persistent high fever, secondary bacterial infection signs,
+    medication adverse reactions, or new red flags. Strictly L1; routes any deterioration
+    to clinician review or 999 / A&E.
+  tools_allowed: false
+
+inputs:
+  required:
+    - message_text
+    - encounter_id
+  optional:
+    - lang
+    - vitals
+    - prior_diagnosis_icd10
+    - prescribed_medications
+    - tenant_id
+
+red_flag_rules:
+  union_only: true
+  rules_floor_module: backend.precare.safety
+  emergency_urgency: 4
+  deterioration_triggers:
+    - new_or_worsening_dyspnoea
+    - spo2_below_94
+    - persistent_fever_gt_72h_or_rebound_fever
+    - chest_pain_or_pressure
+    - confusion_or_excessive_drowsiness
+    - inability_to_keep_fluids_down
+    - drug_rash_or_allergic_swelling
+
+thresholds:
+  followup_window_hours: 48
+  persistent_fever_escalate_cel: 38.5
+  spo2_emergency_lt_pct: 94.0
+  max_unanswered_reminders: 2
+
+escalation_rules:
+  urgency_4_emergency:
+    action: immediate_999_ae_banner_and_clinician_alert
+    bypass_llm_reply: true
+  urgency_3_deteriorating:
+    action: urgent_same_day_clinician_callback
+  urgency_2_no_improvement:
+    action: clinician_review_queue_for_reassessment
+  urgency_1_improving:
+    action: log_recovery_status_for_clinician_closure
+
+banned_claims:
+  - "all clear"
+  - "fully recovered"
+  - "nothing to worry"
+  - "don't worry"
+  - "stop your medicine"
+  - "double your dose"
+  - "正常"
+  - "唔使擔心"
+  - "冇事"
+  - "已經康復"
+
+output_schema:
+  type: object
+  required:
+    - recovery_trajectory
+    - urgency
+    - red_flags
+    - adverse_reaction_reported
+    - evidence_quotes
+    - recommended_action
+  properties:
+    recovery_trajectory:
+      type: string
+      enum: ["improving", "unchanged", "worsening", "emergency"]
+    urgency:
+      type: integer
+      minimum: 1
+      maximum: 4
+    red_flags:
+      type: array
+      items:
+        type: string
+    adverse_reaction_reported:
+      type: boolean
+    evidence_quotes:
+      type: array
+      items:
+        type: string
+    recommended_action:
+      type: string
+      enum: ["emergency_999_ae", "urgent_clinician_callback", "clinician_review", "log_for_closure"]
+
+patient_message_style:
+  languages: ["en", "zh-HK"]
+  automated_label_en: "Care team (automated)"
+  automated_label_zh: "護理團隊（自動回覆）"
+  whatsapp_zero_clinical_leakage: true
+  must_include_safety_net: true
+
+instructions: |
+  You are screening a 48-hour post-consult follow-up reply from an acute flu patient at L1.
+  1. Run union-only red-flag screening first. Any emergency triggers immediate fixed bilingual
+     999 / A&E escalation.
+  2. Classify recovery trajectory (improving, unchanged, worsening, emergency) and detect any
+     reported medication side effects or allergic reactions using verbatim quotes only.
+  3. Never tell a patient they are "all clear", never advise changing or stopping prescribed
+     medicines, and never leak clinical content on WhatsApp notifications.
