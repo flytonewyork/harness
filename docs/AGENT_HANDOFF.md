@@ -1,31 +1,45 @@
-# Multi-Agent Handoff & 4-Track Deep Research / Build Plan
+# Multi-Agent Handoff & 4-Track Overnight Execution Plan
 
-*Last updated: 23 Nov 2026 · Branch: `feat/live-emr-agent-phone-demo` (PR #65)*
-*Canonical orientation for parallel Antigravity / `/teamwork` sessions.*
+*Last updated: 23 Nov 2026 · Base Branch: `feat/live-emr-agent-phone-demo` (PR #65)*
+*Canonical orientation for parallel Antigravity / `/teamwork` sessions executing Phase 1 (Research + Schema Sync) and Phase 2 (Implementation + Live Demo Wiring + Founder Grading Eval Suite).*
 
 ---
 
 ## 1. Operating Mandate & Required Reading
 
-**Directive:** **STOP building net-new speculative features or personas.** Hone the existing working live demo (`/workspace`, `/emr`, `/p/qr/pat_lam_urti_demo`) into a production-grade, model-backed, deterministically governed clinical system with an interactive founder grading suite.
+**Directive:** **STOP building net-new speculative features or personas.** Converge and wire the ~350 KB of existing `backend/acute/` clinical engines into the working live demo (`/workspace`, `/emr`, `/p/qr/pat_lam_urti_demo`) and generate a 20-case Founder Grading Eval Sheet.
 
-Read these 3 files before doing any work:
-1. **`docs/PRODUCT_DECISIONS.md`** — Locked product/architecture decisions, non-goals (DO NOT re-litigate), and open research questions.
-2. **`docs/CLINICAL_UI_DESIGN_SYSTEM.md`** — Warm Editorial Paper (Light Mode) spec, **14 finite clinical widgets** (9 Canvas + 5 Right Rail including `TimelineCard`), **8 canonical order primitives**, and **5-rule Presentation Linter**.
-3. **`NOW.md`** — Active priority queue (**strictly `< 2 KB`**).
+Read these 3 files first:
+1. **`docs/PRODUCT_DECISIONS.md`** — Locked product/architecture decisions, non-goals (DO NOT re-litigate), and Track 1–4 overview.
+2. **`docs/CLINICAL_UI_DESIGN_SYSTEM.md`** — Warm Editorial Paper (Light Mode) spec, **14 finite widgets** (9 Canvas + 5 Right Rail including `TimelineCard`), **8 canonical order primitives**, and **5-rule Presentation Linter**.
+3. **`NOW.md`** — Active queue (**strictly keep `< 2 KB`**).
 
 ---
 
-## 2. Non-Negotiable Engineering & Safety Invariants
+## 2. Existing Production Clinical Infrastructure — WIRE, DO NOT REBUILD!
 
-- **Git discipline:** Never commit to `main`. Branch from `feat/live-emr-agent-phone-demo` (or commit cleanly on it if coordinated); Thomas merges.
+Before writing any new backend module, inspect and reuse what already exists & passes 459 pytest tests in `backend/acute/`:
+- **`agent_harness.py` (105 KB):** Hybrid live LLM tool-calling loop (`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` + seamless deterministic fallback) with `READ / MEMORY / CDS / DRAFT / SIGNED_WRITE` tools.
+- **`triage.py` (88 KB):** Bilingual EN + Cantonese + code-switched union-only red-flag triage (clause-scoped negation & Cantonese hyperbole safe), verbatim symptom extraction, and prompt-injection neutralization.
+- **`rx_rules.py` (48 KB):** Deterministic HK formulary safety engine (Cap. 134 hard blocks, G6PD, allergy cross-reactivity, major Warfarin/Statin/NSAID DDIs, renal eGFR & pediatric weight ceilings).
+- **`adapters.py` (33 KB):** `WhatsAppDoorbellAdapter` (with `WhatsAppLeakageGuard`), `BookingAdapter`, `PharmacyFulfilmentAdapter`, `FluVaxAdapter`, `CorporateBillingAdapter`.
+- **`certificates.py` (16 KB):** MCHK-compliant encrypted PDF sick-leave generator (`^[ML]\d{5}$`, 1–7d, dual ICD-10/ICPC-2, SHA-256 hash, `DocumentVault`).
+- **`terminology.py` (15 KB):** Official HK SNOMED CT, ICD-10, ICPC-2, RxNorm, ATC, LOINC, UCUM, CVX coding validators.
+- **`verification.py` (14 KB):** Bilingual OCR-safe `verify_quote_span`, `doc_identifiers` multi-page ID collision check, cross-site `DoseConflict`, elderly unknown-eGFR checks.
+- **`live_bus.py` (8 KB) & `workflows.py` (18 KB):** Real-time event bus & PostgreSQL `outbox_events` durable wake/undo loop engine.
+
+---
+
+## 3. Non-Negotiable Engineering & Safety Invariants
+
+- **Branching:** Create a clean working branch off `feat/live-emr-agent-phone-demo` (e.g. `feat/live-demo-convergence`); NEVER commit to `main`; Thomas merges.
 - **Strict Repo Boundary (`tests/test_engine.py`):** `harness/backend/` **NEVER** imports `loopbench`.
-- **Sole Clinical SoT:** Clinic EMR is the sole legal clinical record via additive-only writebacks. Never duplicate charting or write ephemeral Sam chat to the EMR.
-- **FORCE RLS (`tests/test_observability_security_and_guidelines.py`):** All tenant-scoped tables in `backend/acute/db.py` (currently **27**) must be in `TENANT_SCOPED_TABLES` with `ENABLE` + `FORCE ROW LEVEL SECURITY` (`clinic_app NOBYPASSRLS`).
-- **Zero Slop & Light Mode Only:** Every rendered clinical case must pass `validate_case_presentation` (`5/5` rules) — no essay headers (`History:`, `Clinical reasoning:`, `Assessment:`), no prose repeating widget numbers, no bundled multi-drug Rx lines, empty-by-default **`Management Plan`**, natural-font calm `+` pills (zero monospace buttons), floating overlay `/` popover, right-rail `Timeline`, strict high-signal `Sam` gate, and zero forbidden clinician titles (`Resident`, `Doctor`).
-- **Synthetic data only** — zero real PHI.
+- **Sole Clinical SoT:** Clinic EMR stays sole clinical record via additive-only writebacks. Never write ephemeral Sam chat to the legal EMR.
+- **FORCE RLS (`tests/test_observability_security_and_guidelines.py`):** Every tenant table in `db.py` (currently **27**) must be registered in `TENANT_SCOPED_TABLES` with `ENABLE` + `FORCE ROW LEVEL SECURITY` (`clinic_app NOBYPASSRLS`).
+- **Zero Slop & Light Mode Only:** Every rendered case passes `validate_case_presentation` (`5/5` rules) — warm editorial paper light mode, no monospace buttons, empty-by-default **`Management Plan`**, floating overlay `/` popover, right-rail `Timeline`, strict high-signal `Sam` gate, minimal amber safety-gap cues only, zero essay headers, zero forbidden clinician titles (`Resident`, `Doctor`).
+- **Keep `NOW.md` strictly `< 2 KB`** and use **synthetic data only** (zero real PHI).
 
-### Verification Commands
+### Verification Gate (Must Pass Before Finishing)
 ```bash
 python3 -m pytest tests/test_practice_graph_loops.py tests/test_engine.py -v   # fast backend (~10s)
 npm --prefix frontend run build                                                # frontend tsc + vite (~2s)
@@ -34,56 +48,54 @@ bash scripts/check.sh                                                          #
 
 ---
 
-## 3. Shared Cross-Track Interface Contracts (Prevent Parallel Drift)
+## 4. Mandatory 3-Stage Execution Protocol (Zero Drift)
 
-To run all 4 tracks concurrently without incompatible schemas or merge collisions, every track respects **3 frozen contract seams**:
-
-1. **Seam A (`Track 1 → Track 3`): Graph & Clinical Rules Contract**
-   - `GraphNode`, `ORDER_CATALOG_PRIMITIVES` (8 canonical types + atomic `rx` verbs `start|update|stop|continue`), `PREVENTIVE_CARE_RULES`, deterministic score outputs (`id`, `label`, `value`, `band`, `detail`, `guideline`), and `SafetyFloorViolation` (HTTP 422) in `backend/acute/practice_graph.py`.
-2. **Seam B (`Track 2 → Track 3`): Canonical Presentation & Linter Contract**
-   - `CLINICAL_WIDGET_CATALOG` (14 finite widgets), `PATHWAY_WIDGET_STACKS`, typed `CaseSummaryPayload` (`vitals_exam`, `clinical_scores`, `med_diff`, `imaging_studies`, `issues[].{id, name, bullets, safety_gap, suggested_orders}`, `lab_panel`, `trend_chart`, `attachments`, `alerts`, `preventive_care`, `scheduled_tasks`, `sam_proactive_insight`, `original_chat`), and `validate_case_presentation(summary)` (`5/5` invariants).
-3. **Seam C (`Track 3 → Track 4`): Runtime API, EMR Writeback & Eval Export Contract**
-   - Workspace endpoints (`/api/v1/workspace/*`, `/api/v1/graph/*`, `/api/v1/curator/*`), additive EMR addendum schema (`emr_connector.py`), `ExecutionTrace` + `ContextSnapshot` JSON, and eval JSONL output format consumed by the Founder Grading Eval Suite in `loopbench/`.
+1. **Phase 1 — Parallel Deep Research & Spec (All 4 Tracks Concurrent):**
+   - Each track writes its concrete architecture/implementation spec to its isolated `docs/research/track{1..4}_*.md` file.
+2. **Mandatory Schema Sync Barrier (Before Any Phase 2 Code):**
+   - Orchestrator reconciles **Seams A, B, and C** into one unified JSON schema (eliminating minor camelCase/snake_case drift such as `testName`/`daysOff` vs `safety_gap`/`lab_panel` while keeping backward compatibility for existing UI/tests):
+     - **Seam A (`Track 1 → Track 3`):** `GraphNode`, 8 `ORDER_CATALOG_PRIMITIVES` + atomic `rx` verbs (`start|update|stop|continue`), `PREVENTIVE_CARE_RULES`, Python score outputs, `SafetyFloorViolation` (HTTP 422).
+     - **Seam B (`Track 2 → Track 3`):** 14 widgets (`CLINICAL_WIDGET_CATALOG`), `CaseSummaryPayload`, and `validate_case_presentation` (`R1`–`R5`).
+     - **Seam C (`Track 3 → Track 4`):** `/api/v1/workspace/*` contract, live additive EMR addendum payload, `ExecutionTrace` + `ContextSnapshot`, and eval JSONL schema.
+3. **Phase 2 — Disjoint Implementation, Live Demo Wiring & Eval Run:**
+   - Each track implements ONLY inside its assigned file boundary, followed by full `npm --prefix frontend run build` + `bash scripts/check.sh` (`== all green`) and generating the **Founder Grading Eval Report**.
 
 ---
 
-## 4. The 4 Parallel Deep-Research & Build Subagent Tracks
-
-Execute **Phase 1 (Deep Research & Exact Spec)** into isolated `docs/research/track*.md` files first, validate seams A–C, then execute **Phase 2 (Implementation & Live Demo Integration)** in disjoint file boundaries.
+## 5. The 4 Parallel Tracks
 
 ### Track 1 · Canonical Clinical Knowledge Graph
-- **Research Output:** `docs/research/track1_clinical_knowledge_graph.md`
-- **Code Ownership (Phase 2):** `backend/acute/practice_graph.py`, `backend/acute/curator.py`, `backend/acute/rx_rules.py`
-- **Subtasks:**
-  1. **Top-15 HK Primary Care Pathways:** Formalise node/edge trees grounded in HK Primary Care Reference Frameworks (HTN, DM, Lipids, AFib/Anticoag, Non-Anaemic Iron Deficiency, URTI/Antibiotic Stewardship, Thyroid, Gout, Asthma, GERD, UTI, Mental Health PHQ-9/GAD-7, Post-Discharge MedRec, Preventive Screening, Abnormal Labs) with explicit Immutable Safety Floor guards.
-  2. **HK Formulary, Dosing & Certificate Ontology:** Structured drug safety & renal/G6PD/allergy dosing rules + formalised MCHK sick-leave/fitness/referral certificate schemas tied directly to the 8 canonical `/slash` order primitives.
-  3. **Deterministic Clinical Score Library:** Exact Python spec for validated GP calculators (`CHA₂DS₂-VASc`, `HAS-BLED`, `HK 10-Yr CVD`, `CURB-65`, `PHQ-9`, `eGFR/CrCl dosing`).
-  4. **Always-On Preventive Care Engine:** Age/sex/risk/corporate-benefit rule table (HK CHP vaccines, CRC FIT, Cervical, Mammogram, Cardiometabolic) distinguishing *add today* vs *defer to future booking*.
-  5. **Onboarding Moulding & Multi-Doctor Curator Governance:** 45-min Lead GP onboarding interview script + override clustering thresholds, inter-doctor divergence handling, rollback semantics, and bilingual HK PDPO (DPP1/DPP3/DPP6) consent & retention rules for `AgentMemoryEntry`.
+- **Phase 1 Spec:** `docs/research/track1_clinical_knowledge_graph.md`
+- **Phase 2 Files:** `backend/acute/practice_graph.py`, `backend/acute/curator.py`, `backend/acute/rx_rules.py`, `backend/acute/terminology.py`, `backend/acute/certificates.py`
+- **Deliverables:**
+  1. **8 Deep Executable HK GP Pathways:** 5 live-demo pathways (Post-Discharge AFib/Warfarin + Statin, Acute URTI + G6PD/Allergy, Non-Anaemic Iron Deficiency, Chronic HTN Home BP, Borderline LDL) + 3 high-frequency HK GP expansions (**Type 2 DM / HbA1c**, **Thyroid / Fatigue**, **Acute UTI / Antibiotic Stewardship**) grounded in HK Primary Care Reference Frameworks with Immutable Safety Floor guards.
+  2. **Live Bindings to Existing Engines:** Bind every `/prescribe` order to `rx_rules.py` deterministic CDS, every `/cert` order to `certificates.py` (real MCHK PDF generation), and coded diagnoses/labs/vaccines to `terminology.py` (ICD-10/ICPC-2/SNOMED/RxNorm/LOINC/CVX).
+  3. **Deterministic Python Clinical Score Library & Always-On Preventive Rules:** Complete `CHA₂DS₂-VASc`, `HAS-BLED`, `HK 10-Yr CVD`, `CURB-65`, `PHQ-9`, and `eGFR/CrCl` dosing calculators + HK age/sex/risk preventive rules.
+  4. **Onboarding Moulding, Multi-Doctor Curator Governance & Concise HK PDPO:** 45-min Lead GP onboarding interview protocol, override clustering/conflict/rollback rules, and concise bilingual (EN + 繁體中文) HK PDPO DPP1/DPP3/DPP6 consent & retention spec for `AgentMemoryEntry`.
 
-### Track 2 · Design, UX & Canonical Clinical Widget Catalog
-- **Research Output:** `docs/research/track2_design_ux_widget_catalog.md`
-- **Code Ownership (Phase 2):** `docs/CLINICAL_UI_DESIGN_SYSTEM.md`, `frontend/src/v2/workspace/ClinicWorkspaceApp.tsx`, `frontend/src/v2/workspace/workspace.css`
-- **Subtasks:**
-  1. **14-Widget Formal Component Spec:** Exact JSON prop schemas, empty/error/overflow states, responsive rules, and clinical typography/color tokens for every widget (`VitalsExamStrip`, `ClinicalScoreStrip`, `MedDiff`, `TrendGraph`, `ResultTable`, `ImagingPreview`, `SourceClip`, `IssueCard`, `ManagementPlan`, `SafetyCard`, `PreventiveCard`, `ScheduledCard`, `TimelineCard`, `UnifiedThread`).
-  2. **Deterministic Pathway → Widget Composition Matrix:** Exact deterministic rules deciding which widgets mount per clinical scenario (max above-the-fold density, zero clutter) and exact `Management Plan` polymorphic inline form specs for all 8 `/slash` commands.
-  3. **Edge-Case Clinical UX (Thin Intake, Cantonese/Code-Switching, Family Proxies):** Minimalist UX for incomplete/contradictory intakes (when to show subtle amber `safety_gap` vs explicit `Insufficient intake` + 1-click pre-visit intake form via Sam), zero fake SLAs, and clear visual separation between patient-visible Careline messages and private Doctor ↔ Sam notes.
-  4. **Anti-Slop Linter Spec Refinement:** Tighten semantic rules `R1`–`R5` (and any new high-leverage deterministic checks) without brittle word-count handcuffs, including exact positive/negative golden examples.
+### Track 2 · Design, UX & Canonical 14-Widget Catalog
+- **Phase 1 Spec:** `docs/research/track2_design_ux_widget_catalog.md`
+- **Phase 2 Files:** `docs/CLINICAL_UI_DESIGN_SYSTEM.md`, `frontend/src/v2/workspace/ClinicWorkspaceApp.tsx`, `frontend/src/v2/workspace/workspace.css`
+- **Deliverables:**
+  1. **Formal 14-Widget Component Contract:** Exact JSON prop schemas, empty/loading/overflow states, and narrow-screen behavior for all 9 Canvas + 5 Right Rail widgets (keeping Warm Editorial Paper Light Mode, right-rail `Timeline`, empty `Management Plan`, and floating `/` overlay strictly intact).
+  2. **Complete All 8 Polymorphic `/slash` Order Editors:** Build clean calm light-mode inline editors for `imaging`, `refer`, `nurse`, and `book` (matching the existing `rx`, `cert`, `lab`, `goal` editors — zero coding fonts).
+  3. **Messy/Ambiguous Intake UX:** Exact minimalist UI patterns for thin intakes (`Insufficient intake` cue + 1-click pre-visit questionnaire trigger via Sam), Cantonese/code-switched threads, and family proxy clarity.
+  4. **Hardened Semantic Anti-Slop Linter Spec (`R1`–`R5`+):** Expand deterministic linter rules (e.g., cross-issue duplicate drugs, quote fidelity) with golden pass/fail test fixtures and zero brittle word-count limits.
 
 ### Track 3 · Agentic Harness Layer (Live Model Calls + Graph + Widgets)
-- **Research Output:** `docs/research/track3_agentic_harness_runtime.md`
-- **Code Ownership (Phase 2):** `backend/acute/workspace_engine.py`, `backend/acute/workflows.py`, `backend/acute/llm/` (or model adapter modules)
-- **Subtasks:**
-  1. **Exact Agent Topology & Model Call Architecture:** Map every live agent loop (Loop 1 Inbound Triage, Loop 2 Doc Ingestion & Structured Diff, Loop 3 Dynamic Case Presentation Compiler & Plan Instruction Compiler, Loop 4 Multi-Day Loop Wake/Stall Router, Private Doctor ↔ Sam Ephemeral Registrar) to exact Vertex AI `asia-east2` (`gemini-2.5-flash`, `temperature=0.1`) structured JSON / tool-calling contracts + deterministic fallback when offline/demo.
-  2. **5-Slot Bounded Context Compiler (`< 4,096` tokens):** Exact prompt templates, subgraph pruning algorithm (2–4 active nodes), compliance-gated Agent Memory retrieval (`agent_memory_entries`), and verbatim source quote verification.
-  3. **Linter-in-the-Loop Self-Repair Pipeline:** Wire `validate_case_presentation` directly after LLM slot-fill: if any invariant (`R1`–`R5`) fails, feed exact violation diagnostics back into a bounded 1-retry repair call (or fail closed to deterministic template) and record telemetry — guaranteeing ~100% zero-slop UI outputs in production.
-  4. **Durable Execution, Undo & Grace-Window Calibration:** Harden PostgreSQL `outbox_events` handlers (`EVENT_ACTION_COMMIT_DISPATCH`, `EVENT_LOOP_CHECKPOINT_WAKE`, `EVENT_LOOP_NUDGE_RETRY`), 10-second Undo atomicity, and 48h vs 72h grace-window / retry-cap execution semantics.
+- **Phase 1 Spec:** `docs/research/track3_agentic_harness_runtime.md`
+- **Phase 2 Files:** `backend/acute/workspace_engine.py`, `backend/acute/agent_harness.py`, `backend/acute/triage.py`, `backend/acute/verification.py`, `backend/acute/workflows.py`
+- **Deliverables:**
+  1. **Unified Hybrid Model Runtime (Zero Parallel `llm/` Duplication):** Extend `agent_harness.py` to support GCP Vertex AI `asia-east2` (`gemini-2.5-flash`, `temperature=0.1`) alongside `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` and seamless deterministic offline fallback.
+  2. **Wire Real Clinical Pre-Gates:** Loop 1 inbound triage calls `triage.py` (`screen_acute_message`, `extract_intake`); Loop 2 doc ingestion calls `verification.py` (`verify_quote_span`, `doc_identifiers`) + `emr_connector.py` (`verify_three_point_id`).
+  3. **Model-Backed Presentation Compiler + 1-Retry Linter Self-Repair Loop:** Bounded 5-slot `< 4,096`-token context compiler → structured JSON slot-fill → `validate_case_presentation` (`5/5`) → bounded 1-retry diagnostic repair on violation → deterministic safe fallback with telemetry logged to `ExecutionTrace`.
+  4. **Live Private Sam Assistant & Durable Outbox Execution:** Wire `ask_case_agent` and `compile_instruction_plan` cleanly to the unified harness + harden `workflows.py` `outbox_events` wake/undo handlers & 48h/72h grace-window semantics.
 
-### Track 4 · End-to-End Demo Integration, EMR Connector & Founder Grading Eval Suite
-- **Research Output:** `docs/research/track4_demo_emr_and_eval_suite.md`
-- **Code Ownership (Phase 2):** `backend/acute/emr_connector.py`, `backend/acute/app.py`, `tests/test_practice_graph_loops.py`, and `../loopbench/` eval pack (keeping `harness/backend/` strictly isolated from `loopbench`!)
-- **Subtasks:**
-  1. **HK EMR Additive Connector Blueprint & Live Demo Wiring:** Research practical read + additive writeback paths for **EC Healthcare stack**, **ClinicSolution X**, and **Apricot/VITA** (FHIR/HL7, encounter addendum APIs, PDF attachment drops, calendar hooks, Phase-1 bridge fallback) AND wire live end-to-end sync between `/workspace` `Confirm & Sign Plan` → additive addendum visible immediately in `/emr` + patient updates in `/p/qr/...`.
-  2. **Deterministic Practice Graph Management & Live Demo Polish:** Wire clean end-to-end flows for `@ Clinic Playbook` Q&A, Clinic Curator approval (`v2.4 → v2.5`), 3-pt ID quarantine → Nurse Rachel `# clinic-team` resolution, and live `Architecture X-Ray` inspection (real compiled Context Window tokens, traversed nodes, live 5/5 linter badge).
-  3. **Founder Grading Eval Suite (Built for Human Review):** Build a reproducible synthetic evaluation set (~15–20 realistic HK primary care cases spanning post-discharge medrec, URTI/G6PD, iron deficiency, HTN, lipids, messy Cantonese/code-switched messages, family proxies, thin intakes, red-flag 999 traps, and 2/3 ID mismatches) producing both automated pass/fail scores (Safety Floor, 3-pt ID, Linter `R1`–`R5`, zero made-up quotes) AND a **clean side-by-side HTML/Markdown Grading Sheet** so the founder can quickly grade clinical judgment, UI clarity, and slop-freeness on every single output!
-  4. **CEO Commercial ROI Proof Points:** Compact, grounded ROI sheet linking live demo workflows to clinic metrics (doctor/nurse minutes saved, recovered follow-up/preventive bookings, Day-1 locum parity) aligned with `docs/EC_DISCOVERY_SCOPE.md`.
+### Track 4 · End-to-End Live Demo Wiring, EMR Connector & Founder Grading Eval Suite
+- **Phase 1 Spec:** `docs/research/track4_demo_emr_and_eval_suite.md`
+- **Phase 2 Files:** `backend/acute/emr_connector.py`, `backend/acute/adapters.py`, `backend/acute/app.py`, `tests/test_practice_graph_loops.py`, and `../loopbench/` eval pack *(strictly decoupled from `harness/backend/`)*
+- **Deliverables:**
+  1. **True End-to-End Live Demo Closure (`/workspace` ↔ `/emr` ↔ `/p/qr/...`):** Clicking **`Confirm & Sign Plan`** in `/workspace` runs real `rx_rules.py` CDS, mints a real encrypted PDF via `certificates.py` (when `/cert` is included), writes the compact additive addendum visible immediately in `/emr`, invokes `adapters.py` booking/WhatsApp doorbell stubs, and pushes real-time updates to `/p/qr/pat_lam_urti_demo` via `live_bus.py`.
+  2. **Deterministic Practice Graph Management & Live X-Ray Polish:** End-to-end `@ Clinic Playbook` Q&A, Curator approval (`v2.4 → v2.5`), 3-pt ID quarantine → Nurse resolution in `# clinic-team`, and live `Architecture X-Ray` metrics (real token counts, traversed nodes, live `5/5` linter status).
+  3. **HK EMR Additive Integration Blueprint:** Concrete read + additive writeback capability matrix for **EC Healthcare stack**, **ClinicSolution X**, and **Apricot/VITA** + Phase-1 zero-friction bridge mapped directly to `emr_connector.py` & `adapters.py`.
+  4. **20-Case Founder Grading Eval Suite:** Reproducible synthetic eval pack in `../loopbench/` (calling `harness` via clean test client / HTTP boundary — zero `harness`→`loopbench` imports!) spanning all 8 pathways, Cantonese/code-switching, family proxies, thin intakes, 999 traps, prompt injections, and 2/3 ID mismatches — generating both automated pass/fail metrics AND a clean interactive **HTML + Markdown Founder Grading Sheet** (`docs/research/founder_grading_report.html` & `.md`) ready to review and score in the morning.

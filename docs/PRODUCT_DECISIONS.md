@@ -31,18 +31,20 @@
 ---
 
 ## 4. Open Questions Research Must Answer
-1. **Knowledge Graph Depth & Onboarding:** Exact schema for top-15 HK GP pathways, HK formulary/G6PD/renal CDS, MCHK cert rules, and a 30–60 min guided Lead GP onboarding moulding protocol.
+1. **Knowledge Graph Depth & Onboarding:** Executable schemas for **8 deep HK GP pathways** (5 live-demo + T2DM/HbA1c, Thyroid/Fatigue, Acute UTI) wired directly into existing `rx_rules.py` / `terminology.py` / `certificates.py`, plus a 45-min guided Lead GP onboarding script.
 2. **Messy Intake & Compiler Robustness:** How the 14-widget compiler + linter handles thin/vague intakes, colloquial HK Cantonese/code-switching, and family proxies without slop or false certainty.
-3. **Live Model-Backed Agentic Reliability:** Exact prompts, tool declarations, structured output decoding, linter retry/fallback behavior, and latency/token budgets on Vertex AI `asia-east2` (`gemini-2.5-flash`).
-4. **EMR Integration & Curator/PDPO Governance:** Practical additive writeback paths for HK EMRs (EC Healthcare stack, ClinicSolution X, Apricot/VITA + Phase-1 bridge), multi-doctor Curator conflict rules, and bilingual HK PDPO (DPP1/DPP3) consent.
-5. **Founder Grading Eval Suite:** Scoring rubric and interactive grading report so the founder can grade real end-to-end case outputs (clinical safety, zero-slop UI compliance, triage/commercial discipline) before demoing.
+3. **Live Model-Backed Agentic Reliability:** Unifying `/workspace` with existing `agent_harness.py` + `triage.py` + `verification.py`, adding Vertex AI `asia-east2` (`gemini-2.5-flash`) with deterministic fallback, bounded `< 4,096`-token context compilation, and 1-retry linter self-repair.
+4. **EMR Integration & Curator/PDPO Governance:** Practical additive writeback paths for HK EMRs (EC Healthcare stack, ClinicSolution X, Apricot/VITA + Phase-1 bridge), live `/workspace` → `/emr` → `/p/qr/...` sync, multi-doctor Curator conflict rules, and bilingual HK PDPO consent.
+5. **Founder Grading Eval Suite:** 20-case synthetic HK GP benchmark producing automated safety/linter scores plus an interactive HTML/Markdown grading sheet for founder review.
 
 ---
 
 ## 5. Parallel Deep-Research & Build Subagent Tracks (See `docs/AGENT_HANDOFF.md`)
-| Track | Scope & Ownership | Isolated Output / Code Boundary |
+*Protocol: Phase 1 specs (`docs/research/track*.md`) → Mandatory Schema Sync Barrier (Seams A/B/C) → Phase 2 disjoint coding, live demo wiring & Founder Grading Report on a branch off `feat/live-emr-agent-phone-demo`.*
+
+| Track | Scope (Converge & Wire — Zero Re-Invention) | Existing Modules & Isolated Boundaries |
 | :--- | :--- | :--- |
-| **1. Canonical Clinical Knowledge Graph** | Top-15 HK GP pathways, HK formulary/G6PD/renal CDS, MCHK certs, always-on preventive rules, onboarding moulding & Curator/PDPO governance | `docs/research/track1_clinical_knowledge_graph.md` → `backend/acute/practice_graph.py`, `curator.py` |
-| **2. Design, UX & Canonical Widget Catalog** | Harden 14 warm-paper widgets, pathway→widget bindings, `/slash` order editors, thin/Cantonese/proxy intake UX & anti-slop linter spec | `docs/research/track2_design_ux_widget_catalog.md` → `docs/CLINICAL_UI_DESIGN_SYSTEM.md`, `frontend/src/v2/workspace/*` |
-| **3. Agentic Harness Layer (Live Models + Graph + Widgets)** | Exact agent specs, Vertex AI `asia-east2` structured calls, 5-slot context compiler, pre-LLM safety gates, post-LLM linter retry loop & durable outbox | `docs/research/track3_agentic_harness_runtime.md` → `backend/acute/workspace_engine.py`, `workflows.py`, `llm/` |
-| **4. End-to-End Demo Integration, EMR & Founder Eval Suite** | Wire Tracks 1–3 into working live demo (`/workspace`, `/emr`, `/p`), additive HK EMR connector, graph management UI & founder-gradable eval suite | `docs/research/track4_demo_emr_and_eval_suite.md` → `backend/acute/emr_connector.py`, `app.py`, `loopbench/` eval pack |
+| **1. Canonical Clinical Knowledge Graph** | 8 deep executable HK GP pathways, bind `/slash` primitives to `rx_rules.py` + `terminology.py` + `certificates.py`, Python calculators, preventive rules, 45-min onboarding, Curator governance & concise HK PDPO consent | `docs/research/track1_clinical_knowledge_graph.md` → `practice_graph.py`, `curator.py`, `rx_rules.py`, `terminology.py`, `certificates.py` |
+| **2. Design, UX & 14-Widget Catalog** | Formal prop/empty/overflow specs for all 14 warm-paper widgets, inline editors for all 8 `/slash` orders, thin/Cantonese/proxy intake UX & hardened semantic linter `R1`–`R5` | `docs/research/track2_design_ux_widget_catalog.md` → `docs/CLINICAL_UI_DESIGN_SYSTEM.md`, `frontend/src/v2/workspace/*` |
+| **3. Agentic Harness Layer (Live Models + Graph + Widgets)** | Unify `/workspace` with existing `agent_harness.py` (add Vertex AI `asia-east2` + fallback), wire Loop 1 → `triage.py` & Loop 2 → `verification.py`, 5-slot Presentation Compiler + 1-retry linter self-repair & durable `outbox_events` | `docs/research/track3_agentic_harness_runtime.md` → `workspace_engine.py`, `agent_harness.py`, `triage.py`, `verification.py`, `workflows.py` |
+| **4. Demo Wiring, EMR Connector & Founder Eval Suite** | Wire live `/workspace` **`Confirm & Sign Plan`** → `rx_rules` + `certificates.py` PDF + `/emr` addendum + `/p/qr/...` live push, HK EMR blueprint, graph management UI & 20-case Founder Grading Eval Sheet | `docs/research/track4_demo_emr_and_eval_suite.md` → `emr_connector.py`, `adapters.py`, `app.py`, `tests/`, `../loopbench/` eval pack *(strictly decoupled)* |
