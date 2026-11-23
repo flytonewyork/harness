@@ -537,3 +537,106 @@
 .ws-xray-btn:hover {
   border-color: #8FD3C4;
 }
+
+/* v10 Polymorphic Management Plan Checkout + / Slash Menu + Bottom-Right Ephemeral Registrar */
+.ws-checkout-card {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 11px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ws-order-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--subtle);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.ws-order-item.is-checked {
+  border-color: var(--ink);
+  background: var(--paper);
+}
+
+.ws-order-item.is-dim {
+  border-style: dashed;
+  opacity: 0.78;
+}
+
+.ws-slash-menu {
+  margin-top: 6px;
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 10px 28px rgba(24, 24, 27, 0.14);
+  overflow: hidden;
+}
+
+.ws-slash-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
+}
+
+.ws-slash-item:last-child {
+  border-bottom: none;
+}
+
+.ws-slash-item:hover {
+  background: var(--subtle);
+}
+
+.ws-med-diff {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.ws-sam-dock {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 45;
+  width: 370px;
+  max-width: calc(100vw - 32px);
+}
+
+.ws-sam-panel {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(24, 24, 27, 0.18);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ws-sam-pill-btn {
+  background: var(--ink);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(24, 24, 27, 0.2);
+}
+

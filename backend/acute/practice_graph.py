@@ -247,6 +247,84 @@ DEFAULT_PRACTICE_OVERLAY: dict[str, Any] = {
     },
 }
 
+# Canonical Polymorphic Order Catalog (drives /slash autofill & typed Checkout widgets across the Knowledge Graph)
+ORDER_CATALOG_PRIMITIVES: list[dict[str, Any]] = [
+    {
+        "cmd": "/prescribe",
+        "type": "rx",
+        "label": "Prescription (HK Formulary)",
+        "desc": "Drug, dose, frequency, duration · G6PD, allergy & renal verified",
+        "fields": ["drug", "freq", "days", "note"],
+        "requires_sign": True,
+    },
+    {
+        "cmd": "/cert",
+        "type": "cert",
+        "label": "Medical Certificate",
+        "desc": "Bilingual MCHK sick leave PDF · days, dates, employer diagnosis privacy toggle",
+        "fields": ["days_off", "dates", "omit_dx"],
+        "requires_sign": True,
+    },
+    {
+        "cmd": "/order",
+        "type": "lab",
+        "label": "Lab Investigation",
+        "desc": "Blood/urine/stool test · partner lab, fasting flag, timing",
+        "fields": ["test_name", "lab", "fasting", "when"],
+        "requires_sign": False,
+    },
+    {
+        "cmd": "/imaging",
+        "type": "imaging",
+        "label": "Imaging Request",
+        "desc": "CXR, Ultrasound, Mammogram · indication & priority",
+        "fields": ["modality", "indication", "priority"],
+        "requires_sign": False,
+    },
+    {
+        "cmd": "/refer",
+        "type": "refer",
+        "label": "Specialist Referral",
+        "desc": "Specialty letter with attached clinical summary & lab reports",
+        "fields": ["specialty", "reason", "attach_labs"],
+        "requires_sign": True,
+    },
+    {
+        "cmd": "/goal",
+        "type": "goal",
+        "label": "Chronic Treatment Goal",
+        "desc": "Adjustable numeric target widget synced to longitudinal patient monitoring",
+        "fields": ["metric", "target_sys", "target_dia"],
+        "requires_sign": False,
+    },
+    {
+        "cmd": "/nurse",
+        "type": "nurse",
+        "label": "Nurse Task",
+        "desc": "Delegate phone check, chase, or nurse clinic prep to Nurse Rachel",
+        "fields": ["assignee", "task", "due"],
+        "requires_sign": False,
+    },
+    {
+        "cmd": "/book",
+        "type": "book",
+        "label": "Follow-Up / Preventive Session",
+        "desc": "Schedule separate nurse visit, review, or preventive screening session",
+        "fields": ["visit_type", "when"],
+        "requires_sign": False,
+    },
+]
+
+# Always-On Age & Risk-Specific Preventive Care Layer (HK Primary Care Reference Frameworks)
+PREVENTIVE_CARE_RULES: list[dict[str, Any]] = [
+    {"id": "prev.hk.flu_annual", "title": "Seasonal Influenza Vaccine", "criteria": "All adults annually (inactivated G6PD-safe)", "guideline": "HK CHP SCVPD"},
+    {"id": "prev.hk.cervical_25_64", "title": "Cervical Screening (HPV / Pap)", "criteria": "Females age 25–64 every 3–5 years", "guideline": "HK Dept of Health CSP"},
+    {"id": "prev.hk.colorectal_fit_50_75", "title": "HK Colorectal FIT Screening", "criteria": "Adults age 50–75 every 2 years (Govt subsidized)", "guideline": "HK CRC Screening Programme"},
+    {"id": "prev.hk.mammogram_44_69", "title": "Biennial Screening Mammogram", "criteria": "Females age 44–69 biennial risk-stratified", "guideline": "HK CEWG Breast Cancer"},
+    {"id": "prev.hk.pcv20_60plus", "title": "Pneumococcal Vaccine (PCV20)", "criteria": "Adults age 60+ or chronic cardiopulmonary disease", "guideline": "HK CHP SCVPD"},
+    {"id": "prev.hk.cardiometabolic", "title": "Annual HbA1c & Fasting Lipids", "criteria": "Hypertension or cardiometabolic risk factors", "guideline": "HK Reference Framework for HTN/DM"},
+]
+
 
 def compute_graph_hash(overlay: dict[str, Any], profile: dict[str, Any]) -> str:
     canonical = json.dumps(
@@ -336,10 +414,14 @@ def build_effective_graph(
         "clinic_standards": eff_overlay["clinic_standards"],
         "nodes": nodes_out,
         "edges": [asdict(e) for e in EBM_BASE_EDGES],
+        "order_catalog": copy.deepcopy(ORDER_CATALOG_PRIMITIVES),
+        "preventive_rules": copy.deepcopy(PREVENTIVE_CARE_RULES),
         "stats": {
             "total_nodes": len(nodes_out),
             "safety_floor_nodes": sum(1 for n in nodes_out if n["safety_floor"]),
             "practice_customized_nodes": sum(1 for n in nodes_out if n["practice_customized"]),
+            "order_primitives": len(ORDER_CATALOG_PRIMITIVES),
+            "preventive_rules": len(PREVENTIVE_CARE_RULES),
         },
     }
 

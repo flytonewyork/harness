@@ -128,7 +128,11 @@ def test_loop3_loop4_loop5_end_to_end_commit_undo_ticks_and_curator(tmp_path):
     lee = next(c for c in ov["cases"] if c["case_key"] == "lee")
     assert chan["state"] == "needs_decision"
     assert wong["state"] == "scheduled"
-    assert lee["state"] == "running" and lee["baton"] == "with_patient"
+    # Quiet multi-day waiting cases sit in Scheduled / Waiting (NOT cluttering Running · Today)
+    assert lee["state"] == "scheduled"
+    assert "2 Nov" in lee["summary"]["origin_strip"]["from"]
+    assert len(ov["practice_graph"]["order_catalog"]) == 8
+    assert len(ov["practice_graph"]["preventive_rules"]) >= 5
 
     # Loop 3 Preview (categorised + irreversible flag + bounded context window)
     instr = "Adopt QEH Warfarin 3mg and Atorvastatin, stop Simvastatin, ask Nurse Rachel for Cantonese pillbox call, and book INR on 29 Nov"
@@ -172,12 +176,14 @@ def test_loop3_loop4_loop5_end_to_end_commit_undo_ticks_and_curator(tmp_path):
     assert qa["graph_version_tag"] == "v2.5"
     assert len(qa["matched_nodes"]) >= 1
 
-    # Structured clinical widgets + registrar-style back-and-forth /ask inside case thread
+    # Structured clinical widgets + Preventive Care + Proactive Ephemeral Registrar /ask
     wingyan = next(c for c in ov["cases"] if c["case_key"] == "wingyan")
     assert wingyan["ai_title"] == "Acute URTI & Low Ferritin — Sick Leave & Iron Review"
-    assert len(wingyan["summary"]["direct_requests"]) == 1
     assert len(wingyan["summary"]["issues"]) == 2
+    assert len(wingyan["summary"]["preventive_care"]) == 2
     assert len(wingyan["summary"]["lab_panel"]["rows"]) >= 6
+    assert len(chan["summary"]["lab_panel"]["rows"]) >= 4
+    assert chan["summary"]["trend_chart"]["kind"] == "inr"
 
     ask_res = client.post(
         f"/api/v1/workspace/cases/{wingyan['id']}/ask",
