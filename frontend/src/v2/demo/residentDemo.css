@@ -1,0 +1,608 @@
+/* Resident Agent ("Sam") 3-Act End-to-End Demo UX
+ * Built on v2/tokens.css editorial clinical system:
+ * warm stone ground, white paper cards, botanical jade for Sam, serif for doctor's signed words,
+ * monospace for verbatim quotes & immutable audit entries.
+ */
+
+.sam-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--staff-bg);
+  color: var(--ink);
+}
+
+.sam-topbar {
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  padding: 10px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sam-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.sam-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--jade);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.sam-brand-title {
+  font-weight: 600;
+  font-size: 14.5px;
+  line-height: 1.2;
+}
+
+.sam-brand-sub {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+/* 3-Act Stepper */
+.sam-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--subtle);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.sam-step-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.sam-step-btn:hover {
+  background: rgba(24, 24, 27, 0.05);
+  color: var(--ink);
+}
+
+.sam-step-btn.active {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.sam-step-btn.done:not(.active) {
+  background: var(--jade-soft);
+  color: var(--jade);
+}
+
+.sam-step-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid currentColor;
+}
+
+.sam-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sam-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sam-link-btn:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  background: var(--subtle);
+}
+
+/* Main 2-column stage */
+.sam-main {
+  flex: 1;
+  max-width: 1380px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 22px 24px 48px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.48fr) minmax(330px, 0.92fr);
+  gap: 22px;
+  align-items: start;
+}
+
+@media (max-width: 1020px) {
+  .sam-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sam-stage-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(24, 24, 27, 0.04);
+}
+
+.sam-stage-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--patient-bg);
+}
+
+.sam-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--jade);
+  margin-bottom: 3px;
+}
+
+.sam-stage-title {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.sam-stage-sub {
+  font-size: 13px;
+  color: var(--ink-2);
+  margin: 4px 0 0;
+}
+
+.sam-stage-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Chat / Message Thread */
+.sam-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--staff-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.sam-msg {
+  max-width: 90%;
+  padding: 12px 15px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.52;
+  border: 1px solid var(--line);
+}
+
+.sam-msg.sam {
+  align-self: flex-start;
+  background: var(--paper);
+  border-left: 3px solid var(--jade);
+}
+
+.sam-msg.user {
+  align-self: flex-end;
+  background: var(--jade-soft);
+  border-color: #b7dbd2;
+}
+
+.sam-msg.doctor {
+  align-self: flex-end;
+  background: #f8f7f3;
+  border-left: 3px solid var(--ink);
+}
+
+.sam-msg.crisis {
+  align-self: stretch;
+  max-width: 100%;
+  background: var(--red-bg);
+  border: 1px solid var(--red-line);
+  border-left: 4px solid var(--red);
+  color: #7f1d1d;
+}
+
+.sam-msg-who {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  margin-bottom: 5px;
+}
+
+.sam-cap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sam-cap-tile {
+  background: var(--subtle);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 12.5px;
+}
+
+.sam-cap-tile strong {
+  display: block;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.sam-boundary {
+  margin-top: 10px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: var(--amber-bg);
+  border: 1px solid var(--amber-line);
+  color: #78350f;
+  font-size: 12.5px;
+}
+
+/* Composer & Quick Pills */
+.sam-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sam-pill-btn {
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.sam-pill-btn:hover {
+  border-color: var(--jade);
+  background: var(--jade-soft);
+  color: var(--jade);
+}
+
+.sam-pill-btn.danger {
+  border-color: var(--red-line);
+  color: var(--red);
+  background: var(--red-bg);
+}
+
+.sam-pill-btn.danger:hover {
+  border-color: var(--red);
+}
+
+.sam-composer {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.sam-input {
+  flex: 1;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 10px 13px;
+  background: var(--paper);
+  font-size: 14px;
+}
+
+.sam-input:focus {
+  outline: 2px solid var(--jade);
+  outline-offset: 1px;
+}
+
+.sam-primary-btn {
+  border: none;
+  border-radius: 9px;
+  background: var(--ink);
+  color: #ffffff;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.sam-primary-btn:hover:not(:disabled) {
+  background: #2c2c31;
+}
+
+.sam-primary-btn.jade {
+  background: var(--jade);
+}
+
+.sam-primary-btn.jade:hover:not(:disabled) {
+  background: #115349;
+}
+
+.sam-primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sam-sec-btn {
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sam-sec-btn:hover:not(:disabled) {
+  background: var(--subtle);
+}
+
+/* Checklist & Decision Cards */
+.sam-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sam-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--subtle);
+  font-size: 13.5px;
+}
+
+.sam-check-row input[type="checkbox"] {
+  margin-top: 3px;
+  accent-color: var(--jade);
+  width: 16px;
+  height: 16px;
+}
+
+.sam-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sam-badge.jade { background: var(--jade-soft); color: var(--jade); }
+.sam-badge.amber { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-line); }
+.sam-badge.red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-line); }
+.sam-badge.muted { background: var(--subtle); color: var(--ink-2); border: 1px solid var(--line); }
+
+.sam-inbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.sam-inbox-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--subtle);
+  font-size: 13px;
+}
+
+.sam-inbox-row.focus {
+  background: var(--paper);
+  border-color: var(--jade);
+  box-shadow: 0 0 0 1px var(--jade);
+}
+
+.sam-decision-box {
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--patient-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sam-quote-chip {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: var(--mark);
+  border: 1px solid #ebd97a;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  margin: 2px 6px 2px 0;
+}
+
+.sam-receipt-card {
+  border: 1px solid #b7dbd2;
+  border-left: 4px solid var(--jade);
+  border-radius: 12px;
+  background: var(--jade-soft);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sam-receipt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+/* Right Column: Persistent Sam Memory */
+.sam-memory {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sam-mem-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 15px 16px;
+}
+
+.sam-mem-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.sam-ladder {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+
+.sam-lvl {
+  padding: 6px 5px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--subtle);
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+.sam-lvl strong {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-2);
+}
+
+.sam-lvl.on {
+  background: var(--jade-soft);
+  border-color: var(--jade);
+  color: var(--jade);
+}
+
+.sam-lvl.on strong {
+  color: var(--jade);
+}
+
+.sam-handoff-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--subtle);
+  font-size: 12.5px;
+}
+
+.sam-handoff-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.sam-audit-row {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--subtle);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink-2);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sam-audit-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.sam-footer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}

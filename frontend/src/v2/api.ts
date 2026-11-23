@@ -197,8 +197,14 @@ export const v2Api = {
     req<{ ok: boolean; crisis: CrisisPayload | null; message?: Record<string, any> }>("/api/v1/patient/companion/turn", { method: "POST", body: JSON.stringify({ message, lang }) }, tok),
   companionReading: (body: Record<string, any>, tok: string) =>
     req<{ ok: boolean; crisis: CrisisPayload | null; observation: Record<string, any>; review_sla: Record<string, any> }>("/api/v1/patient/companion/reading", { method: "POST", body: JSON.stringify(body) }, tok),
-  chooseFulfilment: (rxId: string, mode: "delivery" | "pickup", address: string, tok: string) =>
-    req<Record<string, any>>(`/api/v1/patient/prescriptions/${rxId}/fulfilment`, { method: "POST", body: JSON.stringify({ mode, delivery_address: address }) }, tok),
+  chooseFulfilment: (rxId: string, mode: "delivery" | "pickup", address: string, tok: string) => {
+    const dest = address.trim() || (mode === "pickup" ? "Central & Mid-Levels Clinic Reception" : "Central, Hong Kong");
+    return req<Record<string, any>>(
+      `/api/v1/patient/prescriptions/${rxId}/fulfilment`,
+      { method: "POST", body: JSON.stringify({ mode, address: dest, address_or_branch: dest }) },
+      tok,
+    );
+  },
   certDownloadToken: (certId: string, tok: string) =>
     req<{ download_url: string }>(`/api/v1/patient/certificates/${certId}/download-token`, { method: "POST" }, tok),
   downloadVaultPdf: async (downloadUrl: string, tok: string, filename = "HK_Medical_Certificate.pdf") => {
