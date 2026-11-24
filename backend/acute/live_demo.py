@@ -38,6 +38,7 @@ from .agent_harness import (
     detect_live_llm_engine,
     invoke_clinical_qa,
     invoke_structured_json,
+    resolve_fast_chat_model,
 )
 
 logger = logging.getLogger(__name__)
@@ -2377,277 +2378,283 @@ def handle_live_chat_turn(
             current_cp=case.next_checkpoint_label or "Patient messaging Sam",
         )
 
-        # 4. Live Autonomous AI Registrar (Vertex AI / Gemini 4 Hydrogen with structured JSON -> drives harness routing, vitals extraction, admin handoffs & reasoning trace!)
-        reply = fallback_reply
-        live_reply_used = False
-        llm_provider_used = str(engine.get("provider") or "deterministic")
-        llm_model_used = str(engine.get("model") or "clinic-harness-tool-engine-v1")
-        llm_region_used = str(engine.get("region") or "local")
-        llm_latency_ms = 0
-        llm_attempts = 0
-        llm_error: str | None = None
-        dynamic_suggested_replies: list[str] = []
+        chart_facts = (
+            f"G6PD={bool(pat.g6pd_deficient)}, Allergies={list(pat.allergies_json or [])}, "
+            f"Meds={list(pat.current_meds_json or [])}, eGFR={pat.egfr}"
+            if (pat is not None and j_key != "wingyan")
+            else "New/minimal intake (no prior chart alerts)"
+        )
+        case_id = case.id
+        session.flush()
 
-        if engine.get("live"):
-            lang_directive = "Write patient_reply warmly and concisely in natural Hong Kong Traditional Chinese / Cantonese (繁體中文)." if is_zh else "Write patient_reply warmly and concisely in clear, natural English."
-            recent_turns = "\n".join(
-                f"- {m.get('actor', 'User')} ({m.get('time', '')}): {str(m.get('text') or '')[:260]}"
-                for m in chat[-10:]
+    # 4. Live Autonomous AI Registrar (outside DB transaction so Postgres locks are never held during LLM HTTP wait).
+    # Routes to ultra-low-latency `gemini-3.5-flash-lite` (`thinkingLevel: MINIMAL`) with compact JSON budget for sub-second replies.
+    reply = fallback_reply
+    live_reply_used = False
+    llm_provider_used = str(engine.get("provider") or "deterministic")
+    llm_model_used = str(engine.get("model") or "clinic-harness-tool-engine-v1")
+    llm_region_used = str(engine.get("region") or "local")
+    llm_latency_ms = 0
+    llm_attempts = 0
+    llm_error: str | None = None
+    dynamic_suggested_replies: list[str] = []
+
+    if engine.get("live"):
+        lang_directive = (
+            "Write patient_reply warmly in natural HK Traditional Chinese/Cantonese (繁體中文)."
+            if is_zh
+            else "Write patient_reply warmly in clear, natural English."
+        )
+        recent_turns = "\n".join(
+            f"- {m.get('actor', 'User')}: {str(m.get('text') or '')[:180]}"
+            for m in chat[-6:]
+        )
+        if has_day3:
+            phase_desc = (
+                "PHASE 4 (Day+3 post-sign): Doctor already signed 3d ago. "
+                "escalate_to_doctor for worsening/new symptoms or sick-leave/Rx changes (doctor-only); "
+                "route_to_admin ONLY for non-clinical booking/vaccine; close_quietly if recovered."
             )
-            if has_day3:
-                phase_desc = (
-                    "PHASE 4 · DAY +3 AUTONOMOUS POST-VISIT CHECK-IN: The doctor ALREADY reviewed and signed the patient's plan 3 days ago. "
-                    "Use registrar_action='escalate_to_doctor' if the patient reports worsening/new symptoms OR asks to extend/amend a sick-leave certificate or prescription (only an MCHK doctor can amend certificates/Rx). "
-                    "Use 'route_to_admin' ONLY for non-clinical bookings, vaccines, or clinic logistics; use 'close_quietly' if recovered."
-                )
-            elif has_signed:
-                signed_summary = ""
-                if signed:
-                    rx_s = "; ".join(signed.get("rx_lines") or [])
-                    cert_s = f"{len(signed.get('certificates') or [])} sick-leave cert(s)" if signed.get("certificates") else ""
-                    signed_summary = f" Already signed: {', '.join(x for x in (rx_s, cert_s) if x)}."
-                phase_desc = (
-                    f"PHASE 3 · POST-SIGN CARE ACTIVE: Dr. Sarah Wong ALREADY reviewed and signed the patient's plan.{signed_summary} "
-                    "CRITICAL MCHK AUTHORITY RULE: If the patient asks for extra sick-leave days, a certificate change, a prescription change, or reports new/worsening symptoms, "
-                    "you MUST choose registrar_action='escalate_to_doctor' and explain clearly that only Dr. Sarah Wong can approve extra sick-leave days or Rx changes (NEVER route sick-leave extensions to admin and NEVER say 'Glad to hear you're feeling better' unless they explicitly said they feel better). "
-                    "Use 'route_to_admin' ONLY for non-clinical bookings/vaccines/logistics, or 'close_quietly' for simple dosing/recovery questions."
-                )
-            elif new_state == "needs_decision":
-                phase_desc = (
-                    "PHASE 2 · CLINICAL SUMMARY STAGED FOR DOCTOR: Sufficient history has been gathered for Dr. Sarah Wong. "
-                    "Use 'escalate_to_doctor' if the patient added clinical updates or needs a doctor decision, or 'keep_in_patient_loop' if critical intake details are still missing."
-                )
+        elif has_signed:
+            signed_summary = ""
+            if signed:
+                rx_s = "; ".join(signed.get("rx_lines") or [])
+                cert_s = f"{len(signed.get('certificates') or [])} cert(s)" if signed.get("certificates") else ""
+                signed_summary = f" Signed: {', '.join(x for x in (rx_s, cert_s) if x)}."
+            phase_desc = (
+                f"PHASE 3 (Post-sign active): Dr. Sarah Wong already signed.{signed_summary} "
+                "MCHK RULE: extra sick-leave days, cert/Rx changes, or worsening symptoms MUST use escalate_to_doctor "
+                "(only Dr. Sarah Wong can approve; NEVER route sick-leave extensions to admin; NEVER say 'feeling better' unless they said so). "
+                "route_to_admin ONLY for non-clinical booking/logistics; close_quietly for simple dosing/recovery Qs."
+            )
+        elif new_state == "needs_decision":
+            phase_desc = (
+                "PHASE 2 (Staged for doctor): escalate_to_doctor if patient added clinical updates/needs doctor decision; "
+                "keep_in_patient_loop if critical intake details are still missing."
+            )
+        else:
+            phase_desc = (
+                "PHASE 1 (Intake loop, doctor not yet interrupted): keep_in_patient_loop while gathering missing onset/fever/red-flags/visit intent "
+                "(never re-ask stated facts); route_to_admin for pure scheduling/vaccines; escalate_to_doctor once ready for Dr. Sarah Wong."
+            )
+
+        sys_prompt = (
+            "You are Sam, Clinic Careline AI Registrar at Central & Mid-Levels Family Medical (HK). "
+            "Strict Asymmetric Authority: gather history, extract vitals, route admin tasks, or stage briefs for Dr. Sarah Wong; "
+            "NEVER prescribe, issue/extend sick-leave, sign, diagnose definitively, or promise reply SLAs.\n"
+            "Return STRICT JSON ONLY:\n"
+            '{"patient_reply":str,"clinical_reasoning":str,"registrar_action":"keep_in_patient_loop"|"escalate_to_doctor"|"route_to_admin"|"close_quietly",'
+            '"extracted_vitals":[{"label":str,"val":str}],"issue_summary_update":str,"admin_task":str,"suggested_patient_replies":[str,str]}\n'
+            "Rules:\n"
+            "- patient_reply: 1-2 crisp, warm, colloquial sentences answering what they JUST wrote for the current phase; "
+            "never re-ask already stated facts; if confused ('whaat?'), apologize & clarify; never say 'feeling better' unless stated; "
+            "NEVER mention internal alerts/jargon (G6PD, haemolysis, nitrofurantoin, drug-class mechanisms) to patient (keep in clinical_reasoning); "
+            "never claim to be a doctor or repeat a prior reply.\n"
+            "- clinical_reasoning: 1 terse line (<=20 words) for doctor (phase, safety, why action).\n"
+            "- issue_summary_update: <=15 words (or \"\" if unchanged); admin_task: \"\" unless route_to_admin.\n"
+            "- suggested_patient_replies: 1-2 short calm chips (<=65 chars, same language) replying ONLY to topics explicitly mentioned in patient_reply.\n"
+            f"{lang_directive}"
+        )
+        user_prompt = (
+            f"Phase: {phase_desc}\n"
+            f"Patient: {j['patient_name']} ({j['age_sex']})\n"
+            f"Chart (clinician-only): {chart_facts}\n"
+            f"CDS (clinician-only): {cds_warnings or 'None'}\n"
+            f"Chat:\n{recent_turns}\n\n"
+            f"Latest: {text}"
+        )
+        chat_engine = dict(engine)
+        if chat_engine.get("provider") in ("gemini", "vertex"):
+            chat_engine["model"] = resolve_fast_chat_model(chat_engine)
+        llm_call = invoke_structured_json(
+            system_prompt=sys_prompt,
+            user_prompt=user_prompt,
+            temperature=0.25,
+            max_output_tokens=420,
+            patient_names_for_scrub=[j["patient_name"]],
+            engine_override=chat_engine,
+            timeout_seconds=12.0,
+            thinking_level="MINIMAL",
+        )
+        llm_provider_used = llm_call.provider
+        llm_model_used = llm_call.model
+        llm_region_used = llm_call.region
+        llm_latency_ms = llm_call.latency_ms
+        llm_attempts = llm_call.attempts_tried
+        if llm_call.ok and isinstance(llm_call.json_payload, dict) and llm_call.json_payload.get("patient_reply"):
+            obj = llm_call.json_payload
+            parsed_reply = str(obj["patient_reply"]).strip()
+            parsed_reasoning = str(obj.get("clinical_reasoning") or "").strip()
+            reg_action = str(obj.get("registrar_action") or "").strip().lower()
+            extracted_vitals: list[dict[str, str]] = []
+            if isinstance(obj.get("extracted_vitals"), list):
+                extracted_vitals = [
+                    {"label": str(v.get("label", "")).strip(), "val": str(v.get("val", "")).strip()}
+                    for v in obj["extracted_vitals"]
+                    if isinstance(v, dict) and v.get("label") and v.get("val")
+                ][:4]
+            issue_update = str(obj.get("issue_summary_update") or "").strip()
+            admin_task = str(obj.get("admin_task") or "").strip()
+
+            if isinstance(obj.get("suggested_patient_replies"), list):
+                already_sent = {
+                    str(m.get("text") or "").strip().lower()
+                    for m in chat
+                    if m.get("actor") not in ("Sam", "Assistant", "Clinic")
+                }
+                seen_sug: set[str] = set()
+                for raw_s in obj["suggested_patient_replies"]:
+                    if not isinstance(raw_s, str):
+                        continue
+                    cand_s = _plain_chat_text(raw_s).strip()
+                    low_s = cand_s.lower()
+                    if not cand_s or len(cand_s) > 140 or low_s in already_sent or low_s in seen_sug:
+                        continue
+                    if j_key != "lau_chest" and screen_acute_message(cand_s).kind is not None:
+                        continue
+                    seen_sug.add(low_s)
+                    dynamic_suggested_replies.append(cand_s)
+                    if len(dynamic_suggested_replies) >= 2:
+                        break
+
+            screened = screen_agent_output(parsed_reply, channel="patient_careline")
+            if screened.passed and parsed_reply:
+                reply = parsed_reply
+                live_reply_used = True
             else:
-                phase_desc = (
-                    "PHASE 1 · AUTONOMOUS REGISTRAR INTAKE (PATIENT LOOP): Doctor has NOT been interrupted yet. "
-                    "Use 'keep_in_patient_loop' while gathering symptom onset (do NOT re-ask onset if they already said 'woke up' / 'this morning' / etc.), peak fever, red flags, or visit/sick-note intent. "
-                    "Use 'route_to_admin' for pure scheduling/logistics/vaccines (keep doctor out of the loop). "
-                    "Use 'escalate_to_doctor' ONLY once you have enough clinical history for Dr. Sarah Wong to make a clean decision."
-                )
+                llm_error = f"output_screen_blocked:{[v.get('code') for v in screened.violations]}"
+                logger.warning("Live registrar reply blocked by output screen (%s); using fallback", llm_error)
 
-            chart_facts = (
-                f"G6PD deficient={bool(pat.g6pd_deficient)}, "
-                f"Allergies={list(pat.allergies_json or [])}, "
-                f"Current Meds={list(pat.current_meds_json or [])}, "
-                f"eGFR={pat.egfr}"
-                if (pat is not None and j_key != "wingyan")
-                else "New / minimal intake (no prior chart alerts loaded)"
-            )
-            sys_prompt = (
-                "You are Sam, the autonomous Clinic Careline AI Registrar at Central & Mid-Levels Family Medical (Hong Kong). "
-                "You drive the clinic harness autonomously within strict Asymmetric Authority (you gather history, screen red flags, extract home vitals, route non-clinical admin tasks to #clinic-team, or package clean briefs for Dr. Sarah Wong; you NEVER prescribe, issue/extend sick-leave certificates, sign, diagnose definitively, or promise reply SLAs). "
-                "Respond ONLY in valid JSON with keys:\n"
-                "{\n"
-                '  "patient_reply": string,\n'
-                '  "clinical_reasoning": string,\n'
-                '  "registrar_action": "keep_in_patient_loop" | "escalate_to_doctor" | "route_to_admin" | "close_quietly",\n'
-                '  "extracted_vitals": [{"label": string, "val": string}],\n'
-                '  "issue_summary_update": string,\n'
-                '  "admin_task": string,\n'
-                '  "suggested_patient_replies": [string, string]\n'
-                "}\n"
-                "Rules for patient_reply: 100% warm, natural, colloquial patient language (1–3 concise sentences); answer DIRECTLY what the patient JUST wrote and respect the CURRENT LIFECYCLE PHASE; "
-                "do NOT re-ask facts the patient already told you (e.g. if they said 'woke up with', don't ask when it started); "
-                "if the patient expresses confusion ('whaat?', 'what?'), apologize warmly and clarify directly; "
-                "NEVER congratulate the patient on 'feeling better' unless they actually said they feel better; "
-                "NEVER mention internal medical alerts or technical jargon (such as G6PD, haemolysis, nitrofurantoin, or drug-class mechanisms) to the patient — keep those strictly in clinical_reasoning for the doctor; "
-                "NEVER claim to be a doctor or repeat any prior Sam message verbatim. "
-                "Rules for clinical_reasoning: 1–2 concise sentences for the doctor summarizing your registrar thinking steps (phase, red-flag screen, home vitals/history check, safety checks, and why you chose registrar_action). "
-                "Rules for suggested_patient_replies: 1–2 short, realistic next messages (<=90 chars each, same language as patient_reply) that the patient could tap to reply DIRECTLY to YOUR patient_reply above. "
-                "ONLY answer questions or reference topics you ACTUALLY mentioned in patient_reply — NEVER invent unrelated topics (for example, do NOT mention pregnancy, bruising, or appointment slots unless you explicitly asked about them in patient_reply). Keep them calm and non-emergency. "
-                f"{lang_directive}"
-            )
-            user_prompt = (
-                f"Current Lifecycle Phase: {phase_desc}\n"
-                f"Patient: {j['patient_name']} ({j['age_sex']})\n"
-                f"Clinician-side chart context (do NOT dump to patient): {chart_facts}\n"
-                f"Deterministic CDS findings (clinician-side only): {cds_warnings or 'None'}\n"
-                f"Recent conversation:\n{recent_turns}\n\n"
-                f"Patient's latest message: {text}"
-            )
-            chat_engine = dict(engine)
-            if chat_engine.get("provider") in ("gemini", "vertex") and chat_engine.get("model") == "gemini-4-neon":
-                chat_engine["model"] = "gemini-4-hydrogen"
-            llm_call = invoke_structured_json(
-                system_prompt=sys_prompt,
-                user_prompt=user_prompt,
-                temperature=0.25,
-                max_output_tokens=760,
-                patient_names_for_scrub=[j["patient_name"]],
-                engine_override=chat_engine,
-                timeout_seconds=20.0,
-                thinking_level="LOW",
-            )
-            llm_provider_used = llm_call.provider
-            llm_model_used = llm_call.model
-            llm_region_used = llm_call.region
-            llm_latency_ms = llm_call.latency_ms
-            llm_attempts = llm_call.attempts_tried
-            if llm_call.ok and isinstance(llm_call.json_payload, dict) and llm_call.json_payload.get("patient_reply"):
-                obj = llm_call.json_payload
-                parsed_reply = str(obj["patient_reply"]).strip()
-                parsed_reasoning = str(obj.get("clinical_reasoning") or "").strip()
-                reg_action = str(obj.get("registrar_action") or "").strip().lower()
-                extracted_vitals: list[dict[str, str]] = []
-                if isinstance(obj.get("extracted_vitals"), list):
-                    extracted_vitals = [
-                        {"label": str(v.get("label", "")).strip(), "val": str(v.get("val", "")).strip()}
-                        for v in obj["extracted_vitals"]
-                        if isinstance(v, dict) and v.get("label") and v.get("val")
-                    ][:4]
-                issue_update = str(obj.get("issue_summary_update") or "").strip()
-                admin_task = str(obj.get("admin_task") or "").strip()
+            if dynamic_suggested_replies and live_reply_used:
+                updated_summary["_dynamic_suggested_replies"] = {
+                    "lang": "zh-HK" if is_zh else "en",
+                    "replies": dynamic_suggested_replies,
+                }
+            elif live_reply_used:
+                updated_summary.pop("_dynamic_suggested_replies", None)
 
-                if isinstance(obj.get("suggested_patient_replies"), list):
-                    already_sent = {
-                        str(m.get("text") or "").strip().lower()
-                        for m in chat
-                        if m.get("actor") not in ("Sam", "Assistant", "Clinic")
-                    }
-                    seen_sug: set[str] = set()
-                    for raw_s in obj["suggested_patient_replies"]:
-                        if not isinstance(raw_s, str):
-                            continue
-                        cand_s = _plain_chat_text(raw_s).strip()
-                        low_s = cand_s.lower()
-                        if not cand_s or len(cand_s) > 140 or low_s in already_sent or low_s in seen_sug:
-                            continue
-                        if j_key != "lau_chest" and screen_acute_message(cand_s).kind is not None:
-                            continue
-                        seen_sug.add(low_s)
-                        dynamic_suggested_replies.append(cand_s)
-                        if len(dynamic_suggested_replies) >= 2:
-                            break
+            # Execute the live registrar's chosen harness action (never weakening CDS safety blocks or MCHK doctor escalation!)
+            if reg_action in ("keep_in_patient_loop", "escalate_to_doctor", "route_to_admin", "close_quietly"):
+                if reg_action == "keep_in_patient_loop" and not cds_blocked and not has_signed:
+                    new_state = "running"
+                    new_baton = "with_patient"
+                    next_cp = "Registrar intake"
+                elif reg_action == "escalate_to_doctor":
+                    new_state = "needs_decision"
+                    new_baton = "with_doctor"
+                    next_cp = "Ready for doctor review"
+                elif reg_action == "route_to_admin" and not cds_blocked and new_state != "needs_decision":
+                    new_state = "scheduled"
+                    new_baton = "idle"
+                    next_cp = "Admin / Nurse handoff"
+                    ah_list = list(updated_summary.get("admin_handoffs") or [])
+                    task_desc = admin_task or f"Autonomous request from {j['patient_name']}: “{text.strip()}” — coordinate with Clinic Admin / Nurse (doctor kept out of loop)."
+                    if not any(task_desc[:40] in str(x.get("task", "")) for x in ah_list):
+                        ah_list.append({
+                            "id": new_id("adm"),
+                            "route": f"Sam ({llm_model_used} Registrar) → Clinic Admin / Nurse Rachel",
+                            "task": task_desc,
+                            "status": "pending_admin",
+                            "created_at": utcnow().isoformat(),
+                        })
+                        updated_summary["admin_handoffs"] = ah_list
+                elif reg_action == "close_quietly" and not cds_blocked and new_state != "needs_decision":
+                    new_state = "scheduled"
+                    new_baton = "idle"
+                    next_cp = "Quiet monitoring"
 
-                screened = screen_agent_output(parsed_reply, channel="patient_careline")
-                if screened.passed and parsed_reply:
-                    reply = parsed_reply
-                    live_reply_used = True
-                else:
-                    llm_error = f"output_screen_blocked:{[v.get('code') for v in screened.violations]}"
-                    logger.warning("Live registrar reply blocked by output screen (%s); using fallback", llm_error)
-
-                if dynamic_suggested_replies and live_reply_used:
-                    updated_summary["_dynamic_suggested_replies"] = {
-                        "lang": "zh-HK" if is_zh else "en",
-                        "replies": dynamic_suggested_replies,
-                    }
-                elif live_reply_used:
-                    updated_summary.pop("_dynamic_suggested_replies", None)
-
-                # Execute the live registrar's chosen harness action (never weakening CDS safety blocks or MCHK doctor escalation!)
-                if reg_action in ("keep_in_patient_loop", "escalate_to_doctor", "route_to_admin", "close_quietly"):
-                    if reg_action == "keep_in_patient_loop" and not cds_blocked and not has_signed:
-                        new_state = "running"
-                        new_baton = "with_patient"
-                        next_cp = "Registrar intake"
-                    elif reg_action == "escalate_to_doctor":
-                        new_state = "needs_decision"
-                        new_baton = "with_doctor"
-                        next_cp = "Ready for doctor review"
-                    elif reg_action == "route_to_admin" and not cds_blocked and new_state != "needs_decision":
-                        new_state = "scheduled"
-                        new_baton = "idle"
-                        next_cp = "Admin / Nurse handoff"
-                        ah_list = list(updated_summary.get("admin_handoffs") or [])
-                        task_desc = admin_task or f"Autonomous request from {j['patient_name']}: “{text.strip()}” — coordinate with Clinic Admin / Nurse (doctor kept out of loop)."
-                        if not any(task_desc[:40] in str(x.get("task", "")) for x in ah_list):
-                            ah_list.append({
-                                "id": new_id("adm"),
-                                "route": f"Sam ({llm_model_used} Registrar) → Clinic Admin / Nurse Rachel",
-                                "task": task_desc,
-                                "status": "pending_admin",
-                                "created_at": utcnow().isoformat(),
-                            })
-                            updated_summary["admin_handoffs"] = ah_list
-                    elif reg_action == "close_quietly" and not cds_blocked and new_state != "needs_decision":
-                        new_state = "scheduled"
-                        new_baton = "idle"
-                        next_cp = "Quiet monitoring"
-
-                    live_bus.append_tool_call(
-                        pid,
-                        {
-                            "agent": "CareAgent",
-                            "tool": f"registrar.{reg_action}",
-                            "authority": "DRAFT",
-                            "emr_target": "clinic_team" if reg_action == "route_to_admin" else "workspace",
-                            "summary": f"{llm_model_used} ({llm_provider_used}/{llm_region_used}) chose {reg_action}" + (f" · {len(extracted_vitals)} vitals" if extracted_vitals else ""),
-                        },
-                    )
-                    agent_steps.append(f"RegistrarAgent ({llm_model_used}) · Executed {reg_action}")
-
-                # Merge dynamically extracted home vitals into Physical Exam & Vitals card
-                if extracted_vitals:
-                    ve = dict(updated_summary.get("vitals_exam") or {})
-                    ve["source"] = f"Patient Careline · Today {hhmm}"
-                    ve.setdefault("encounter_context", "Post-Care Follow-Up" if has_signed else "Inbound Remote · Self-Measured")
-                    existing_items = [it for it in (ve.get("items") or []) if isinstance(it, dict)]
-                    existing_labels = {str(it.get("label", "")).lower() for it in existing_items}
-                    for ev in extracted_vitals:
-                        if ev["label"].lower() not in existing_labels:
-                            existing_items.insert(0, ev)
-                        else:
-                            for idx_it, it in enumerate(existing_items):
-                                if str(it.get("label", "")).lower() == ev["label"].lower():
-                                    existing_items[idx_it] = ev
-                    ve["items"] = existing_items[:5]
-                    updated_summary["vitals_exam"] = ve
-
-                # Update lead line / issue summary with live registrar synthesis
-                if issue_update:
-                    lead_line = issue_update[:220]
-
-                if parsed_reasoning:
-                    at = list(updated_summary.get("agent_thread") or [])
-                    at.append({
-                        "actor": f"Sam · {llm_model_used} Registrar",
-                        "time": hhmm,
-                        "text": parsed_reasoning,
-                    })
-                    updated_summary["agent_thread"] = at[-5:]
-            else:
-                llm_error = llm_call.error or "missing_patient_reply"
-                logger.warning(
-                    "Live LLM fallback on journey=%s provider=%s region=%s model=%s error=%s",
-                    j_key,
-                    llm_call.provider,
-                    llm_call.region,
-                    llm_call.model,
-                    llm_error,
-                )
                 live_bus.append_tool_call(
                     pid,
                     {
                         "agent": "CareAgent",
-                        "tool": "llm.fallback",
-                        "authority": "READ",
-                        "emr_target": "diagnostics",
-                        "summary": f"Live LLM failed ({llm_call.provider}/{llm_call.region}/{llm_call.model}: {llm_error[:140]}) -> deterministic registrar used",
+                        "tool": f"registrar.{reg_action}",
+                        "authority": "DRAFT",
+                        "emr_target": "clinic_team" if reg_action == "route_to_admin" else "workspace",
+                        "summary": f"{llm_model_used} ({llm_provider_used}/{llm_region_used}) chose {reg_action}" + (f" · {len(extracted_vitals)} vitals" if extracted_vitals else ""),
                     },
                 )
+                agent_steps.append(f"RegistrarAgent ({llm_model_used}) · Executed {reg_action}")
 
-        # Anti-repetition guard: never repeat any of the last 4 Sam replies verbatim
-        recent_sam_texts = [
-            str(m.get("text") or "").strip().lower()
-            for m in reversed(chat)
-            if m.get("actor") in ("Sam", "Assistant") and m.get("text")
-        ][:4]
-        if _plain_chat_text(reply).strip().lower() in recent_sam_texts:
-            reply = (
-                "收到你嘅補充——我已經記錄落去。如果你係想調整病假紙、問用藥，或者想預約覆診，直接話我知我即刻幫你處理。"
-                if is_zh
-                else "Got it — I've noted that update. If you'd like to request a sick-leave extension, ask about your medications, or arrange a follow-up, just let me know and I'll handle or route it right away."
+            # Merge dynamically extracted home vitals into Physical Exam & Vitals card
+            if extracted_vitals:
+                ve = dict(updated_summary.get("vitals_exam") or {})
+                ve["source"] = f"Patient Careline · Today {hhmm}"
+                ve.setdefault("encounter_context", "Post-Care Follow-Up" if has_signed else "Inbound Remote · Self-Measured")
+                existing_items = [it for it in (ve.get("items") or []) if isinstance(it, dict)]
+                existing_labels = {str(it.get("label", "")).lower() for it in existing_items}
+                for ev in extracted_vitals:
+                    if ev["label"].lower() not in existing_labels:
+                        existing_items.insert(0, ev)
+                    else:
+                        for idx_it, it in enumerate(existing_items):
+                            if str(it.get("label", "")).lower() == ev["label"].lower():
+                                existing_items[idx_it] = ev
+                ve["items"] = existing_items[:5]
+                updated_summary["vitals_exam"] = ve
+
+            # Update lead line / issue summary with live registrar synthesis
+            if issue_update:
+                lead_line = issue_update[:220]
+
+            if parsed_reasoning:
+                at = list(updated_summary.get("agent_thread") or [])
+                at.append({
+                    "actor": f"Sam · {llm_model_used} Registrar",
+                    "time": hhmm,
+                    "text": parsed_reasoning,
+                })
+                updated_summary["agent_thread"] = at[-5:]
+        else:
+            llm_error = llm_call.error or "missing_patient_reply"
+            logger.warning(
+                "Live LLM fallback on journey=%s provider=%s region=%s model=%s error=%s",
+                j_key,
+                llm_call.provider,
+                llm_call.region,
+                llm_call.model,
+                llm_error,
+            )
+            live_bus.append_tool_call(
+                pid,
+                {
+                    "agent": "CareAgent",
+                    "tool": "llm.fallback",
+                    "authority": "READ",
+                    "emr_target": "diagnostics",
+                    "summary": f"Live LLM failed ({llm_call.provider}/{llm_call.region}/{llm_call.model}: {llm_error[:140]}) -> deterministic registrar used",
+                },
             )
 
-        chat = list(updated_summary.get("original_chat") or [])
-        chat.append({"actor": "Sam", "time": hhmm, "text": _plain_chat_text(reply), "lang": "zh-HK" if is_zh else "en"})
-        updated_summary["original_chat"] = chat
-        updated_summary.pop("_active_crisis", None)
+    # Anti-repetition guard: never repeat any of the last 4 Sam replies verbatim
+    recent_sam_texts = [
+        str(m.get("text") or "").strip().lower()
+        for m in reversed(chat)
+        if m.get("actor") in ("Sam", "Assistant") and m.get("text")
+    ][:4]
+    if _plain_chat_text(reply).strip().lower() in recent_sam_texts:
+        reply = (
+            "收到你嘅補充——我已經記錄落去。如果你係想調整病假紙、問用藥，或者想預約覆診，直接話我知我即刻幫你處理。"
+            if is_zh
+            else "Got it — I've noted that update. If you'd like to request a sick-leave extension, ask about your medications, or arrange a follow-up, just let me know and I'll handle or route it right away."
+        )
 
-        lint = validate_case_presentation(updated_summary)
-        for st_label in agent_steps:
-            timeline.append({"date": f"Today {hhmm}", "label": st_label, "agent": st_label.split("·")[0].strip()})
+    chat = list(updated_summary.get("original_chat") or [])
+    chat.append({"actor": "Sam", "time": hhmm, "text": _plain_chat_text(reply), "lang": "zh-HK" if is_zh else "en"})
+    updated_summary["original_chat"] = chat
+    updated_summary.pop("_active_crisis", None)
+
+    lint = validate_case_presentation(updated_summary)
+    for st_label in agent_steps:
+        timeline.append({"date": f"Today {hhmm}", "label": st_label, "agent": st_label.split("·")[0].strip()})
+
+    with db.tenant_session(tenant_id) as session:
+        case = session.get(CaseLoop, case_id)
+        if case is None:
+            case = session.scalar(
+                select(CaseLoop).where(CaseLoop.tenant_id == tenant_id, CaseLoop.case_key == j_key)
+            )
+        if case is None:
+            raise ValueError(f"Case for journey '{j_key}' not found")
 
         case.state = new_state
         case.baton = new_baton

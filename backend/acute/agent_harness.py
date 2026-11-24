@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from backend.agentic.transports import (
+    DEFAULT_GEMINI_CHAT_MODEL,
     DEFAULT_GEMINI_FAST_MODEL,
     DEFAULT_GEMINI_REASONING_MODEL,
     acquire_vertex_adc_token,
@@ -36,8 +37,10 @@ from backend.agentic.transports import (
     detect_adc_quota_project,
     detect_provider_chain,
     extract_gemini_visible_text,
+    get_shared_llm_http_client,
     is_gemini_4_model,
     normalize_gemini_model,
+    reset_adc_cache,
 )
 
 from .companion import HK_MENTAL_HEALTH_HOTLINES, classify_crisis, next_clinic_review_sla
@@ -446,8 +449,9 @@ _WARMUP_STATE: dict[str, Any] = {
 
 
 def reset_llm_target_cache() -> None:
-    """Clear cached failed LLM targets & warmup state (for tests or manual re-probe)."""
+    """Clear cached failed LLM targets, ADC cache & warmup state (for tests or manual re-probe)."""
     _FAILED_LLM_TARGETS.clear()
+    reset_adc_cache()
     _WARMUP_STATE.update({
         "warmed": False,
         "in_progress": False,
@@ -460,6 +464,18 @@ def reset_llm_target_cache() -> None:
         "error": None,
         "warmed_at": None,
     })
+
+
+def resolve_fast_chat_model(engine: dict[str, Any]) -> str:
+    """Resolve ultra-low-latency interactive chat model (`gemini-3.5-flash-lite` w/ MINIMAL thinking by default)."""
+    explicit_chat = (os.environ.get("AGENT_CHAT_MODEL") or "").strip()
+    if explicit_chat:
+        return normalize_gemini_model(explicit_chat, default=DEFAULT_GEMINI_CHAT_MODEL)
+    provider = str(engine.get("provider") or "")
+    model = str(engine.get("model") or "")
+    if provider in ("vertex", "gemini") and model in ("", DEFAULT_GEMINI_REASONING_MODEL, DEFAULT_GEMINI_FAST_MODEL):
+        return DEFAULT_GEMINI_CHAT_MODEL
+    return model or DEFAULT_GEMINI_CHAT_MODEL
 
 
 def get_llm_warmup_state() -> dict[str, Any]:
@@ -476,13 +492,8 @@ def get_llm_warmup_state() -> dict[str, Any]:
 
 
 def _get_shared_llm_client() -> httpx.Client:
-    """Reuse a keep-alive httpx.Client across live LLM turns to eliminate per-turn TLS cold handshakes."""
-    global _SHARED_LLM_CLIENT
-    if _SHARED_LLM_CLIENT is None or _SHARED_LLM_CLIENT.is_closed:
-        _SHARED_LLM_CLIENT = httpx.Client(
-            limits=httpx.Limits(max_connections=16, max_keepalive_connections=8, keepalive_expiry=120.0),
-        )
-    return _SHARED_LLM_CLIENT
+    """Reuse the shared keep-alive httpx.Client across live LLM turns to eliminate per-turn TLS handshakes."""
+    return get_shared_llm_http_client()
 
 
 def _is_target_cached_failed(key: tuple[str, str, str]) -> bool:
@@ -611,10 +622,21 @@ def _invoke_live_provider(
             _add_attempt("vertex", "global", model, engine.get("project"))
             if model == DEFAULT_GEMINI_REASONING_MODEL:
                 _add_attempt("vertex", "global", DEFAULT_GEMINI_FAST_MODEL, engine.get("project"))
-        if region.strip().lower() != "global" and model != "gemini-2.5-flash":
-            _add_attempt("vertex", region, "gemini-2.5-flash", engine.get("project"))
-    elif provider == "gemini" and model == DEFAULT_GEMINI_REASONING_MODEL:
-        _add_attempt("gemini", region, DEFAULT_GEMINI_FAST_MODEL, None)
+        if model == DEFAULT_GEMINI_CHAT_MODEL:
+            _add_attempt("vertex", region, DEFAULT_GEMINI_FAST_MODEL, engine.get("project"))
+            if region.strip().lower() != "global":
+                _add_attempt("vertex", "global", DEFAULT_GEMINI_FAST_MODEL, engine.get("project"))
+        elif model != DEFAULT_GEMINI_CHAT_MODEL:
+            _add_attempt("vertex", region, DEFAULT_GEMINI_CHAT_MODEL, engine.get("project"))
+            if region.strip().lower() != "global":
+                _add_attempt("vertex", "global", DEFAULT_GEMINI_CHAT_MODEL, engine.get("project"))
+    elif provider == "gemini":
+        if model == DEFAULT_GEMINI_REASONING_MODEL:
+            _add_attempt("gemini", region, DEFAULT_GEMINI_FAST_MODEL, None)
+        elif model == DEFAULT_GEMINI_CHAT_MODEL:
+            _add_attempt("gemini", region, DEFAULT_GEMINI_FAST_MODEL, None)
+        else:
+            _add_attempt("gemini", region, DEFAULT_GEMINI_CHAT_MODEL, None)
 
     forced_provider = (os.environ.get("AGENT_LLM_PROVIDER") or "").strip().lower()
     if not forced_provider:
@@ -627,7 +649,7 @@ def _invoke_live_provider(
             if alt_prov == "gemini":
                 alt_mdl = normalize_gemini_model(model if is_gemini_4_model(model) else alt_mdl)
             _add_attempt(alt_prov, alt_reg, alt_mdl, alt.get("project"))
-            if alt_prov == "gemini" and alt_mdl == DEFAULT_GEMINI_REASONING_MODEL:
+            if alt_prov == "gemini" and alt_mdl != DEFAULT_GEMINI_FAST_MODEL:
                 _add_attempt("gemini", alt_reg, DEFAULT_GEMINI_FAST_MODEL, None)
 
     # Skip targets recently proven broken (400/403/404) so subsequent turns hit the working model on Attempt 1
@@ -892,8 +914,8 @@ def warmup_live_llm(*, force: bool = False) -> dict[str, Any]:
     _WARMUP_STATE["in_progress"] = True
     try:
         warm_engine = dict(engine)
-        if warm_engine.get("provider") in ("gemini", "vertex") and warm_engine.get("model") == DEFAULT_GEMINI_REASONING_MODEL:
-            warm_engine["model"] = DEFAULT_GEMINI_FAST_MODEL
+        if warm_engine.get("provider") in ("gemini", "vertex"):
+            warm_engine["model"] = resolve_fast_chat_model(warm_engine)
         res = invoke_structured_json(
             system_prompt='Reply ONLY with JSON: {"status":"ready"}',
             user_prompt="ping",
@@ -901,7 +923,7 @@ def warmup_live_llm(*, force: bool = False) -> dict[str, Any]:
             max_output_tokens=64,
             engine_override=warm_engine,
             timeout_seconds=12.0,
-            thinking_level="LOW",
+            thinking_level="MINIMAL",
         )
         _WARMUP_STATE.update({
             "warmed": bool(res.ok),
@@ -1896,140 +1918,142 @@ class MultiAgentHarness:
             user_payload, _ = PHIScrubber.scrub(user_payload, extra_names=extra_names)
         name_map = {t["name"].replace(".", "_"): t["name"] for t in TOOL_SCHEMAS}
         try:
-            with httpx.Client(timeout=15.0) as client:
-                if provider in ("vertex", "gemini"):
-                    model = normalize_gemini_model(model)
-                    candidate_models = [model]
-                    if model == DEFAULT_GEMINI_REASONING_MODEL:
-                        candidate_models.append(DEFAULT_GEMINI_FAST_MODEL)
+            client = _get_shared_llm_client()
+            if provider in ("vertex", "gemini"):
+                model = normalize_gemini_model(model)
+                candidate_models = [model]
+                if model == DEFAULT_GEMINI_REASONING_MODEL:
+                    candidate_models.append(DEFAULT_GEMINI_FAST_MODEL)
 
-                    active_model = candidate_models[0]
+                active_model = candidate_models[0]
 
-                    def _endpoint_for(mdl: str) -> tuple[str, dict[str, str], dict[str, str]]:
-                        if provider == "vertex":
-                            token, project = self._vertex_adc_token(engine.get("project"))
-                            return (
-                                build_vertex_generate_content_url(region=region, project=project, model=mdl),
-                                {
-                                    "Authorization": f"Bearer {token}",
-                                    "x-goog-user-project": project,
-                                    "Content-Type": "application/json",
-                                    "X-Vertex-Zero-Data-Retention": "true",
-                                    "X-No-Training": "true",
-                                },
-                                {},
-                            )
+                def _endpoint_for(mdl: str) -> tuple[str, dict[str, str], dict[str, str]]:
+                    if provider == "vertex":
+                        token, project = self._vertex_adc_token(engine.get("project"))
                         return (
-                            f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent",
-                            {"Content-Type": "application/json"},
-                            {"key": os.environ["GEMINI_API_KEY"]},
+                            build_vertex_generate_content_url(region=region, project=project, model=mdl),
+                            {
+                                "Authorization": f"Bearer {token}",
+                                "x-goog-user-project": project,
+                                "Content-Type": "application/json",
+                                "X-Vertex-Zero-Data-Retention": "true",
+                                "X-No-Training": "true",
+                            },
+                            {},
                         )
+                    return (
+                        f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent",
+                        {"Content-Type": "application/json"},
+                        {"key": os.environ["GEMINI_API_KEY"]},
+                    )
 
-                    contents: list[dict[str, Any]] = [{"role": "user", "parts": [{"text": user_payload}]}]
-                    tools_spec = self._gemini_tool_declarations() if (s is not None and tenant_id is not None) else None
-                    for _round in range(3):
+                contents: list[dict[str, Any]] = [{"role": "user", "parts": [{"text": user_payload}]}]
+                tools_spec = self._gemini_tool_declarations() if (s is not None and tenant_id is not None) else None
+                for _round in range(3):
+                    url, headers, params = _endpoint_for(active_model)
+                    gen_cfg = build_gemini_generation_config(
+                        active_model,
+                        temperature=0.1,
+                        max_output_tokens=1024,
+                        expect_json=False,
+                        thinking_level=engine.get("thinking_level"),
+                    )
+                    req_body: dict[str, Any] = {
+                        "systemInstruction": {"parts": [{"text": system_prompt_eff}]},
+                        "contents": contents,
+                        "generationConfig": gen_cfg,
+                    }
+                    if provider == "vertex":
+                        req_body["labels"] = {"zero_retention": "true", "no_training": "true", "pdpo_dpp3": "enforced"}
+                    if tools_spec:
+                        req_body["tools"] = tools_spec
+                    r = client.post(url, headers=headers, params=params, json=req_body, timeout=15.0)
+                    if r.status_code in (403, 404) and active_model != candidate_models[-1]:
+                        active_model = candidate_models[-1]
                         url, headers, params = _endpoint_for(active_model)
-                        gen_cfg = build_gemini_generation_config(
+                        req_body["generationConfig"] = build_gemini_generation_config(
                             active_model,
                             temperature=0.1,
                             max_output_tokens=1024,
                             expect_json=False,
                             thinking_level=engine.get("thinking_level"),
                         )
-                        req_body: dict[str, Any] = {
-                            "systemInstruction": {"parts": [{"text": system_prompt_eff}]},
-                            "contents": contents,
-                            "generationConfig": gen_cfg,
-                        }
-                        if provider == "vertex":
-                            req_body["labels"] = {"zero_retention": "true", "no_training": "true", "pdpo_dpp3": "enforced"}
-                        if tools_spec:
-                            req_body["tools"] = tools_spec
-                        r = client.post(url, headers=headers, params=params, json=req_body)
-                        if r.status_code in (403, 404) and active_model != candidate_models[-1]:
-                            active_model = candidate_models[-1]
-                            url, headers, params = _endpoint_for(active_model)
-                            req_body["generationConfig"] = build_gemini_generation_config(
-                                active_model,
-                                temperature=0.1,
-                                max_output_tokens=1024,
-                                expect_json=False,
-                                thinking_level=engine.get("thinking_level"),
-                            )
-                            r = client.post(url, headers=headers, params=params, json=req_body)
-                        if r.status_code != 200:
-                            return None
-                        cand = (r.json().get("candidates") or [{}])[0]
-                        parts = ((cand.get("content") or {}).get("parts") or [])
-                        fn_calls = [p["functionCall"] for p in parts if "functionCall" in p]
-                        if fn_calls and s is not None and tenant_id is not None:
-                            contents.append({"role": "model", "parts": parts})
-                            fn_responses = []
-                            for fc in fn_calls:
-                                raw_fn = str(fc.get("name") or "")
-                                tool_name = name_map.get(raw_fn, raw_fn)
-                                fn_args = dict(fc.get("args") or {})
-                                fn_args.setdefault("patient_id", patient.id)
-                                tool_res = self._exec_tool(
-                                    s=s,
-                                    tenant_id=tenant_id,
-                                    patient=patient,
-                                    agent=f"CareAgent ({active_model})",
-                                    tool_name=tool_name,
-                                    args=fn_args,
-                                    source_texts=source_texts,
-                                )
-                                fr_body: dict[str, Any] = {"name": raw_fn, "response": {"result": tool_res}}
-                                if fc.get("id"):
-                                    fr_body["id"] = fc["id"]
-                                fn_responses.append({"functionResponse": fr_body})
-                            contents.append({"role": "user", "parts": fn_responses})
-                            continue
-                        txt = extract_gemini_visible_text(parts)
-                        if txt:
-                            return txt
+                        r = client.post(url, headers=headers, params=params, json=req_body, timeout=15.0)
+                    if r.status_code != 200:
                         return None
+                    cand = (r.json().get("candidates") or [{}])[0]
+                    parts = ((cand.get("content") or {}).get("parts") or [])
+                    fn_calls = [p["functionCall"] for p in parts if "functionCall" in p]
+                    if fn_calls and s is not None and tenant_id is not None:
+                        contents.append({"role": "model", "parts": parts})
+                        fn_responses = []
+                        for fc in fn_calls:
+                            raw_fn = str(fc.get("name") or "")
+                            tool_name = name_map.get(raw_fn, raw_fn)
+                            fn_args = dict(fc.get("args") or {})
+                            fn_args.setdefault("patient_id", patient.id)
+                            tool_res = self._exec_tool(
+                                s=s,
+                                tenant_id=tenant_id,
+                                patient=patient,
+                                agent=f"CareAgent ({active_model})",
+                                tool_name=tool_name,
+                                args=fn_args,
+                                source_texts=source_texts,
+                            )
+                            fr_body: dict[str, Any] = {"name": raw_fn, "response": {"result": tool_res}}
+                            if fc.get("id"):
+                                fr_body["id"] = fc["id"]
+                            fn_responses.append({"functionResponse": fr_body})
+                        contents.append({"role": "user", "parts": fn_responses})
+                        continue
+                    txt = extract_gemini_visible_text(parts)
+                    if txt:
+                        return txt
+                    return None
 
-                elif provider == "anthropic":
-                    r = client.post(
-                        "https://api.anthropic.com/v1/messages",
-                        headers={
-                            "x-api-key": os.environ["ANTHROPIC_API_KEY"],
-                            "anthropic-version": "2023-06-01",
-                            "content-type": "application/json",
-                        },
-                        json={
-                            "model": model,
-                            "max_tokens": 300,
-                            "system": ctx["system_prompt"],
-                            "messages": [{"role": "user", "content": user_payload}],
-                        },
-                    )
-                    if r.status_code == 200:
-                        blocks = r.json().get("content") or []
-                        txt = " ".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
-                        if txt:
-                            return txt
+            elif provider == "anthropic":
+                r = client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": os.environ["ANTHROPIC_API_KEY"],
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "max_tokens": 300,
+                        "system": ctx["system_prompt"],
+                        "messages": [{"role": "user", "content": user_payload}],
+                    },
+                    timeout=15.0,
+                )
+                if r.status_code == 200:
+                    blocks = r.json().get("content") or []
+                    txt = " ".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
+                    if txt:
+                        return txt
 
-                elif provider == "openai":
-                    r = client.post(
-                        "https://api.openai.com/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}", "Content-Type": "application/json"},
-                        json={
-                            "model": model,
-                            "max_tokens": 300,
-                            "temperature": 0.2,
-                            "store": False,
-                            "messages": [
-                                {"role": "system", "content": ctx["system_prompt"]},
-                                {"role": "user", "content": user_payload},
-                            ],
-                        },
-                    )
-                    if r.status_code == 200:
-                        txt = ((r.json().get("choices") or [{}])[0].get("message") or {}).get("content", "").strip()
-                        if txt:
-                            return txt
+            elif provider == "openai":
+                r = client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}", "Content-Type": "application/json"},
+                    json={
+                        "model": model,
+                        "max_tokens": 300,
+                        "temperature": 0.2,
+                        "store": False,
+                        "messages": [
+                            {"role": "system", "content": ctx["system_prompt"]},
+                            {"role": "user", "content": user_payload},
+                        ],
+                    },
+                    timeout=15.0,
+                )
+                if r.status_code == 200:
+                    txt = ((r.json().get("choices") or [{}])[0].get("message") or {}).get("content", "").strip()
+                    if txt:
+                        return txt
         except Exception:
             return None
         return None
