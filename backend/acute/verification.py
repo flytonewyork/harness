@@ -92,10 +92,17 @@ def runtime_toggles() -> dict[str, Any]:
         "INFRA_MODE",
         "gcp_hk" if os.environ.get("VAULT_GCS_BUCKET") else "lite",
     ).strip().lower()
-    ai_mode = os.environ.get(
-        "AI_INFERENCE_MODE",
-        "vertex_hk" if (env == "prod" and os.environ.get("VERTEX_PROJECT_ID")) else "deterministic_rich",
-    ).strip().lower()
+    ai_mode = (os.environ.get("AI_INFERENCE_MODE") or "").strip().lower()
+    if not ai_mode:
+        try:
+            from .agent_harness import detect_live_llm_engine
+            eng = detect_live_llm_engine()
+            if eng.get("live"):
+                ai_mode = "vertex_hk" if eng.get("provider") == "vertex" else f"{eng.get('provider')}_live"
+            else:
+                ai_mode = "deterministic_rich"
+        except Exception:
+            ai_mode = "deterministic_rich"
     try:
         undo_sec = max(0, min(60, int(os.environ.get("DISPATCH_UNDO_SECONDS", "10"))))
     except ValueError:
