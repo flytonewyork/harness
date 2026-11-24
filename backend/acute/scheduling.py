@@ -143,30 +143,28 @@ _JOURNEY_BOOKING_PROFILE: dict[str, dict[str, Any]] = {
     "wingyan": {
         "preferred_doctors": ["doc_dr_lam", "doc_dr_wong", "doc_dr_cheung"],
         "preferred_times": ["11:00", "11:30", "11:15", "14:00"],
-        "visit_type_en": "Async Doctor Review · Instant Opinion",
-        "visit_type_zh": "非同步醫生審閱・即時意見",
+        "visit_type_en": "Same-Day GP Consult & Sick Note",
+        "visit_type_zh": "即日醫生診症及病假證明",
         "duration_min": 15,
-        "modality": "async_message",
-        "allow_async_message": True,
+        "modality": "teleconsult",
         "allow_teleconsult": True,
-        "prep_note_en": "No clinic visit needed — Dr. Kenneth Lam reviews your symptoms and home vitals asynchronously and sends your e-Rx and sick note right here.",
-        "prep_note_zh": "無需親臨診所——林啟賢醫生會非同步審閱你的症狀同家居讀數，並直接喺呢度發送電子處方同病假紙。",
-        "reason_en": "No red flags and stable home vitals — async messaging is fastest; you can also switch to Teleconsult or In-Clinic anytime",
-        "reason_zh": "冇紅旗警號且家居讀數穩定——訊息即時審閱最快；你亦可以隨時改選視像診症或親臨診所",
+        "prep_note_en": "Teleconsult link is sent 10 minutes before; switch to In-Clinic anytime if you prefer to come in",
+        "prep_note_zh": "視像連結會於診症前 10 分鐘發送；如需親臨診所亦可隨時切換",
+        "reason_en": "Earliest open same-day slot with {doctor} after checking all 3 doctors' calendars",
+        "reason_zh": "已查閱 3 位醫生時間表，為你挑選{doctor}今日最早空檔",
     },
     "tang_uti": {
         "preferred_doctors": ["doc_dr_cheung", "doc_dr_wong", "doc_dr_lam"],
         "preferred_times": ["11:15", "11:30", "14:30"],
-        "visit_type_en": "Async Doctor Review · Instant Opinion",
-        "visit_type_zh": "非同步醫生審閱・即時意見",
+        "visit_type_en": "Same-Day Acute Consult",
+        "visit_type_zh": "即日急症診症",
         "duration_min": 15,
-        "modality": "async_message",
-        "allow_async_message": True,
+        "modality": "teleconsult",
         "allow_teleconsult": True,
-        "prep_note_en": "No clinic visit needed — Dr. Wing-Yan Cheung reviews your symptoms and chart safety checks asynchronously and sends your e-Rx right here.",
-        "prep_note_zh": "無需親臨診所——張詠欣醫生會非同步審閱你的症狀同用藥安全核對，並直接喺呢度發送電子處方。",
-        "reason_en": "Afebrile and no kidney red flags — async messaging is fastest; you can also switch to Teleconsult or In-Clinic anytime",
-        "reason_zh": "冇發燒亦冇腎炎警號——訊息即時審閱最快；你亦可以隨時改選視像診症或親臨診所",
+        "prep_note_en": "Teleconsult link is sent 10 minutes before; quick urine dipstick is available if you choose In-Clinic",
+        "prep_note_zh": "視像連結會於診症前 10 分鐘發送；如選親臨診所可即時安排小便試紙檢查",
+        "reason_en": "Earliest open slot with {doctor} (Acute & Women's Care) today",
+        "reason_zh": "{doctor}（急症及婦女健康）今日最早空檔",
     },
     "lau_chest": {
         "preferred_doctors": ["doc_dr_wong", "doc_dr_lam", "doc_dr_cheung"],
@@ -401,7 +399,7 @@ def should_attach_booking_offer(
         for m in existing_chat
     )
 
-    if j_key == "wingyan" and new_state == "running":
+    if j_key in ("wingyan", "tang_uti") and new_state == "running":
         # Wait until Sam finishes red-flag & home-vitals history taking before offering a booking slot
         return False
 
@@ -416,16 +414,10 @@ def should_attach_booking_offer(
                 return False
         return True
 
-    # Proactively offer on the first clinical turn that needs a doctor visit/review (and not yet offered or signed)
+    # Proactively offer on the first clinical turn that genuinely requires a scheduled visit (chan & lau_chest).
+    # Cases 1 (wingyan) and 2 (tang_uti) proceed naturally via chat review unless the patient asks to book.
     if not already_offered and not has_signed and new_state == "needs_decision":
-        if j_key == "tang_uti":
-            # Wait until pyelonephritis red flags & pregnancy status are confirmed before offering a slot
-            issues = existing_summary.get("issues") or []
-            gap = str((issues[0] or {}).get("safety_gap") or "").lower() if issues and isinstance(issues[0], dict) else ""
-            if "pregnancy" in gap or "pyelonephritis" in gap or "flank pain" in gap:
-                return False
-            return True
-        if j_key in ("chan", "wingyan", "lau_chest"):
+        if j_key in ("chan", "lau_chest"):
             return True
 
     return False

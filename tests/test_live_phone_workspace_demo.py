@@ -673,12 +673,10 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     ).json()
     assert t1_4["case_state"] == "needs_decision"
     assert "!" not in t1_4["reply"]
+    assert "async" not in t1_4["reply"].lower()
     assert t1_4["llm_meta"]["mode"] == "deterministic_preset"
-    assert t1_4["booking_offer"] is not None
-    assert t1_4["booking_offer"]["modality"] == "async_message"
-    assert t1_4["booking_offer"]["allow_async_message"] is True
-    assert t1_4["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_lam"
-    assert t1_4["booking_offer"]["recommended"]["time"] == "11:00"
+    assert t1_4["booking_offer"] is None
+    assert "booking" in t1_4["reply"].lower()
     assert len(t1_4["suggested_replies"]) == 1
     assert "watch out" in t1_4["suggested_replies"][0].lower()
     st1 = client.get("/api/v1/demo/live/chat/state/wingyan?lang=en").json()
@@ -797,22 +795,44 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert any("pregnancy" in a["label"].lower() for a in tang_case_1["summary"]["alerts"])
     assert tang_case_1["summary"]["issues"][0]["safety_gap"] is not None
 
-    # Turn 2: Patient clicks Turn-2 preset -> pregnancy alert & safety_gap clear + Dr. Wing-Yan Cheung async Message (Fastest) offer appears!
+    # Turn 2: Patient clears red flags & pregnancy -> Sam asks for home temperature & haematuria (still running, no booking card!)
     t2_2 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "tang_uti", "message": t2_1["suggested_replies"][0], "lang": "en", "is_preset": True},
     ).json()
-    assert t2_2["case_state"] == "needs_decision"
-    assert t2_2["lint_report"]["passed"] is True
-    assert t2_2["booking_offer"] is not None
-    assert t2_2["booking_offer"]["modality"] == "async_message"
-    assert t2_2["booking_offer"]["allow_async_message"] is True
-    assert t2_2["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_cheung"
-    assert t2_2["booking_offer"]["recommended"]["time"] == "11:15"
+    assert t2_2["case_state"] == "running"
+    assert "temperature" in t2_2["reply"].lower() or "thermometer" in t2_2["reply"].lower()
+    assert "async" not in t2_2["reply"].lower()
+    assert t2_2["booking_offer"] is None
+    assert len(t2_2["suggested_replies"]) == 1
+    assert "36.8" in t2_2["suggested_replies"][0]
+
+    # Turn 3: Patient shares home temp (36.8°C) & no blood -> escalates to doctor via chat (NO unrequested booking card, ZERO 'async'!)
+    t2_3 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "tang_uti", "message": t2_2["suggested_replies"][0], "lang": "en", "is_preset": True},
+    ).json()
+    assert t2_3["case_state"] == "needs_decision"
+    assert t2_3["lint_report"]["passed"] is True
+    assert "async" not in t2_3["reply"].lower()
+    assert "booking" in t2_3["reply"].lower()
+    assert t2_3["booking_offer"] is None
+
+    # Optional Turn 4: If patient explicitly asks to book because of wait, THEN Sam attaches Teleconsult/In-Clinic booking card!
+    t2_4 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "tang_uti", "message": t2_3["suggested_replies"][0], "lang": "en", "is_preset": True},
+    ).json()
+    assert t2_4["booking_offer"] is not None
+    assert t2_4["booking_offer"]["modality"] == "teleconsult"
+    assert t2_4["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_cheung"
+    assert t2_4["booking_offer"]["recommended"]["time"] == "11:15"
+
     ov2_2 = client.get("/api/v1/workspace/overview?mode=live").json()
     tang_case_2 = next(c for c in ov2_2["cases"] if c["case_key"] == "tang_uti")
     assert not any("pregnancy" in a["label"].lower() for a in tang_case_2["summary"]["alerts"])
     assert tang_case_2["summary"]["issues"][0]["safety_gap"] is None
+    assert "36.8" in str(tang_case_2["summary"].get("vitals_exam") or "")
     assert not any(o["type"] == "book" for o in tang_case_2["summary"]["issues"][0]["suggested_orders"])
     tang_blob = str(tang_case_2["summary"]).lower()
     assert "fosfomycin" not in tang_blob

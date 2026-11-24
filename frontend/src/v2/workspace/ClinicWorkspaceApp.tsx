@@ -1484,10 +1484,14 @@ export function ClinicWorkspaceApp() {
             <div style={{ maxWidth: 820, display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                 <h1 className="ws-ai-title"># my-work</h1>
-                <span className="ws-pill ws-pill-jade" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <span className="ws-live-dot" />
-                  <span>{cases.length} live patient {cases.length === 1 ? "thread" : "threads"}</span>
-                </span>
+                {data.grouped.needs_decision.length > 0 && (
+                  <span className="ws-pill ws-pill-jade" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span className="ws-live-dot" />
+                    <span>
+                      {data.grouped.needs_decision.length} {data.grouped.needs_decision.length === 1 ? "case" : "cases"} needing decision
+                    </span>
+                  </span>
+                )}
               </div>
 
               {/* Compact Post-Sign Confirmation Toast (auto-dismisses after returning to #my-work) */}
@@ -1520,55 +1524,42 @@ export function ClinicWorkspaceApp() {
                 </div>
               )}
 
-              {data.grouped.needs_decision.map((c: any) => {
-                const latestPatMsg = [...(c.summary?.original_chat || [])]
-                  .reverse()
-                  .find((m: any) => m.actor !== "Sam" && m.role !== "doctor" && m.role !== "system");
-                return (
-                  <div key={c.id} className="ws-card" data-testid={`my-work-case-${c.case_key}`}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                      <span className="ws-num" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--ws-ink-3)" }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0f766e", display: "inline-block" }} />
-                        <span>{c.patient_name} ({c.patient_age_sex}) · {c.next_checkpoint_label}</span>
-                      </span>
-                      {c.summary?.alerts?.[0] && (
-                        <span className={`ws-pill ${c.summary.alerts[0].level === "high" ? "ws-pill-red" : "ws-pill-amber"}`}>
-                          {c.summary.alerts[0].label}
-                        </span>
-                      )}
-                    </div>
-                    <h2 className="ws-ai-title" style={{ fontSize: 17.5 }}>{c.ai_title}</h2>
-                    <p className="ws-lead">{c.lead_line}</p>
-                    {latestPatMsg && (
-                      <div style={{ fontSize: 13, color: "var(--ws-ink)", padding: "8px 11px", background: "#eef8f5", borderRadius: 8, border: "1px solid #cce6de" }}>
-                        <strong style={{ color: "var(--ws-jade-dark)" }}>{latestPatMsg.actor} ({latestPatMsg.time}):</strong> “{latestPatMsg.text}”
-                      </div>
-                    )}
-                    <div><button type="button" className="ws-btn-primary" onClick={() => openCase(c.id)}>Open Case →</button></div>
-                  </div>
-                );
-              })}
-
-              {data.grouped.running.length > 0 && (
-                <>
-                  <div className="ws-section-kicker" style={{ marginTop: 4 }}>Live Careline Intake · In Progress</div>
-                  {data.grouped.running.map((c: any) => (
-                    <div key={c.id} className="ws-card" data-testid={`running-case-${c.case_key}`}>
+              {[...data.grouped.needs_decision]
+                .sort((a: any, b: any) => {
+                  const score = (c: any) =>
+                    (c.risk_tier === "high" ? 2 : 0) + (c.summary?.alerts?.[0]?.level === "high" ? 1 : 0);
+                  return score(b) - score(a);
+                })
+                .map((c: any) => {
+                  const latestPatMsg = [...(c.summary?.original_chat || [])]
+                    .reverse()
+                    .find((m: any) => m.actor !== "Sam" && m.role !== "doctor" && m.role !== "system");
+                  return (
+                    <div key={c.id} className="ws-card" data-testid={`my-work-case-${c.case_key}`}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 600 }}>
-                          <span className="ws-live-dot" />
-                          <span>{c.patient_name} ({c.patient_age_sex})</span>
+                        <span className="ws-num" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--ws-ink-3)" }}>
+                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0f766e", display: "inline-block" }} />
+                          <span>{c.patient_name} ({c.patient_age_sex}) · {c.next_checkpoint_label}</span>
                         </span>
-                        <span className="ws-pill ws-pill-jade">Gathering history</span>
+                        {c.summary?.alerts?.[0] && (
+                          <span className={`ws-pill ${c.summary.alerts[0].level === "high" ? "ws-pill-red" : "ws-pill-amber"}`}>
+                            {c.summary.alerts[0].label}
+                          </span>
+                        )}
                       </div>
+                      <h2 className="ws-ai-title" style={{ fontSize: 17.5 }}>{c.ai_title}</h2>
                       <p className="ws-lead">{c.lead_line}</p>
-                      <div><button type="button" className="ws-btn" onClick={() => openCase(c.id)}>Open Thread →</button></div>
+                      {latestPatMsg && (
+                        <div style={{ fontSize: 13, color: "var(--ws-ink)", padding: "8px 11px", background: "#eef8f5", borderRadius: 8, border: "1px solid #cce6de" }}>
+                          <strong style={{ color: "var(--ws-jade-dark)" }}>{latestPatMsg.actor} ({latestPatMsg.time}):</strong> “{latestPatMsg.text}”
+                        </div>
+                      )}
+                      <div><button type="button" className="ws-btn-primary" onClick={() => openCase(c.id)}>Open Case →</button></div>
                     </div>
-                  ))}
-                </>
-              )}
+                  );
+                })}
 
-              {data.grouped.needs_decision.length === 0 && data.grouped.running.length === 0 && (
+              {data.grouped.needs_decision.length === 0 && (
                 <div className="ws-card">
                   <div className="ws-lead">
                     Inbox clear — no patients waiting for your decision.

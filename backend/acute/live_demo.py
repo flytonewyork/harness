@@ -374,6 +374,15 @@ def _suggested_replies_for(
             if case_state == "running":
                 return [static_list[1]]
             return [static_list[4]]
+        if j.get("key") == "tang_uti" and len(static_list) >= 4:
+            stage = (summary or {}).get("_tang_stage") if isinstance(summary, dict) else None
+            if stage == "awaiting_red_flags":
+                return [static_list[1]]
+            if stage == "awaiting_vitals":
+                return [static_list[2]]
+            if case_state == "running":
+                return [static_list[1]]
+            return [static_list[3]]
         return static_list[1:]
     return static_list[:1]
 
@@ -2003,7 +2012,17 @@ def _compile_journey_turn_update(
         steps.append("PracticeGraph · Compiled single-issue async Acute URTI summary with home vitals for doctor review")
         steps.append("PresentationCompiler · Compiled clean 1-issue workspace brief (5/5 linter pass)")
 
-        if asked_watch_out:
+        asked_to_book = any(
+            k in low
+            for k in ("book", "appointment", "teleconsult", "slot", "schedule", "come in", "visit", "預約", "視像", "睇醫生")
+        )
+        if asked_to_book and already_sent_summary:
+            reply = (
+                "冇問題——我查閱咗今日診所時間表，林啟賢醫生今日 11:00 有最早空檔，你可以喺下方一鍵預約視像診症或親臨診所，或者揀其他醫生時間。"
+                if is_zh
+                else "Of course — I checked today's clinic schedule and Dr. Kenneth Lam has our earliest open slot at 11:00 below. You can confirm Teleconsult or In-Clinic, or pick another doctor."
+            )
+        elif asked_watch_out:
             reply = (
                 "好問題——記得多飲溫水同多休息。如果高燒超過 39 度、超過 3 日未退燒，或者出現呼吸困難、心口痛、吞嚥劇痛或出疹，請即刻通知我哋或去急症室。醫生審閱後就會直接喺呢度發送紓緩藥物處方同病假紙。"
                 if is_zh
@@ -2017,16 +2036,16 @@ def _compile_journey_turn_update(
             )
         else:
             reply = (
-                f"多謝你確認警號同提供家居讀數（{vitals_inline}，冇氣促、心口痛、吞嚥劇痛或出疹）。由於冇紅旗警號，你可以直接用「訊息審閱（最快）」由醫生非同步審閱並發送處方同 {days_off} 日病假紙，唔使專登出門——或者喺下方改選視像診症／親臨診所。"
+                f"多謝你確認警號同提供家居讀數（{vitals_inline}，冇氣促、心口痛、吞嚥劇痛或出疹）。我已經將你嘅摘要同 {days_off} 日病假紙申請直接交畀林啟賢醫生審閱，簽署後處方同病假紙會直接喺呢度發送畀你。如果你想預約視像診症或親臨診所，隨時話我知。"
                 if is_zh
-                else f"Thank you for checking those red flags and sharing your home readings ({vitals_inline}, no breathing trouble, chest pain, dysphagia, or rash). Since there are no red flags, you don't need an in-clinic visit — I've queued your summary and {days_off}-day sick-leave request for async Message review (Fastest) with Dr. Kenneth Lam below, or you can switch to Teleconsult or In-Clinic if you prefer."
+                else f"Thank you for checking those red flags and sharing your home readings ({vitals_inline}, no breathing trouble, chest pain, dysphagia, or rash). I've sent your summary and {days_off}-day sick-leave request straight to Dr. Kenneth Lam for review — your prescription and certificate will appear right here once signed. If you would like to make a booking instead, just let me know."
             )
 
         return (
             "needs_decision",
             "with_doctor",
-            "Acute Viral URTI — Async Instant Opinion",
-            f"Sore throat & fever ({vitals_inline}), red flags clear; async doctor review for symptomatic relief and {days_off}-day sick leave.",
+            "Acute Viral URTI — Doctor Review",
+            f"Sore throat & fever ({vitals_inline}), red flags clear; doctor review for symptomatic relief and {days_off}-day sick leave.",
             "Ready for sign-off",
             summary,
             reply,

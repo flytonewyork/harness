@@ -42,10 +42,14 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "suggested_replies_en": [
             "I've had burning when I pee and going to the toilet frequently since yesterday evening.",
             "No fever, chills, or lower back pain, and no chance of pregnancy. Can the doctor review this and send a prescription?",
+            "Temperature is 36.8°C, urine looks clear, and I've been drinking plenty of water.",
+            "If the wait is long, could I book a teleconsult or clinic visit instead?",
         ],
         "suggested_replies_zh": [
             "琴晚開始小便刺痛同成日急尿，請問醫生可以點幫我？",
             "冇發燒、冇發冷亦冇腰背痛，亦冇機會懷孕。醫生可唔可以直接審閱同開藥？",
+            "量咗體溫 36.8 度，小便顏色清澈正常，亦都有多飲水。",
+            "如果等得比較耐，可唔可以幫我預約視像診症或親臨診所？",
         ],
     },
     {
@@ -459,14 +463,32 @@ def compile_extra_journey_turn(
                 "afebrile", "none of those", "no red flags", "冇發燒", "冇腰痛", "冇背痛", "冇發冷", "冇作嘔",
             )
         )
+        temp_m = re.search(r"(\d{2}(?:\.\d)?)\s*(?:°?\s*[cC]|度)", all_text)
+        has_temp = bool(temp_m)
+        temp_val = f"{temp_m.group(1)} °C" if temp_m else None
+        confirmed_no_blood = any(
+            k in all_low or k in all_text
+            for k in ("no blood", "not seeing blood", "clear urine", "urine looks clear", "小便冇血", "冇血尿", "冇血", "小便顏色清澈", "清澈正常")
+        )
+        asked_to_book = any(
+            k in low
+            for k in ("book", "appointment", "teleconsult", "slot", "schedule", "come in", "visit", "預約", "視像")
+        )
+
+        vitals_rows: list[dict[str, str]] = [
+            {"label": "Symptoms", "val": "Dysuria & frequency (<24h)"},
+            {"label": "Red flags", "val": "Afebrile · No flank pain, chills, or vomiting" if confirmed_no_red_flags else "Pending red-flag screen (fever / chills / flank pain / vomiting)"},
+            {"label": "Pregnancy", "val": ("Pregnant — confirm trimester" if confirmed_preg else ("Denies pregnancy" if confirmed_no_preg else "Pending confirmation"))},
+        ]
+        if temp_val:
+            vitals_rows.insert(1, {"label": "Temp (home)", "val": temp_val})
+        if confirmed_no_blood:
+            vitals_rows.append({"label": "Haematuria", "val": "Denies visible blood in urine"})
+
         summary["vitals_exam"] = {
             "source": f"Patient Careline · Today {hhmm}",
-            "encounter_context": "Inbound Remote · Self-Reported",
-            "items": [
-                {"label": "Symptoms", "val": "Dysuria & frequency (<24h)"},
-                {"label": "Red flags", "val": "Afebrile · No flank pain, chills, or vomiting" if confirmed_no_red_flags else "Pending red-flag screen (fever / chills / flank pain / vomiting)"},
-                {"label": "Pregnancy", "val": ("Pregnant — confirm trimester" if confirmed_preg else ("Denies pregnancy" if confirmed_no_preg else "Pending confirmation"))},
-            ],
+            "encounter_context": "Inbound Remote · Self-Measured" if temp_val else "Inbound Remote · Self-Reported",
+            "items": vitals_rows,
         }
         uti_alerts: list[dict[str, str]] = [
             {
@@ -505,7 +527,7 @@ def compile_extra_journey_turn(
             "name": "1. Acute uncomplicated cystitis",
             "bullets": [
                 (
-                    "Acute burning on urination and urinary frequency since yesterday evening; denies fever, chills, flank pain, or vomiting."
+                    f"Acute burning on urination and urinary frequency since yesterday evening{f' (home temp {temp_val})' if temp_val else ''}; denies fever, chills, flank pain, or vomiting."
                     if confirmed_no_red_flags
                     else "Acute burning on urination and urinary frequency since yesterday evening; screening for fever, chills, flank pain, and vomiting."
                 ),
@@ -548,7 +570,7 @@ def compile_extra_journey_turn(
         )
         rf_note = "pyelonephritis red flags denied (afebrile, no flank pain/chills/vomiting)" if confirmed_no_red_flags else "screening pyelonephritis red flags"
         uti_reason = (
-            f"UTI intake: {rf_note}; {preg_note}. Cross-checked G6PD deficiency (Nitrofurantoin & Co-trimoxazole blocked) and NKDA → staged Augmentin 375 mg TDS × 5 days (Cefuroxime 250 mg BD × 5 days alternative)."
+            f"UTI intake: {rf_note}; {preg_note}{f'; home temp {temp_val}' if temp_val else ''}. Cross-checked G6PD deficiency (Nitrofurantoin & Co-trimoxazole blocked) and NKDA → staged Augmentin 375 mg TDS × 5 days (Cefuroxime 250 mg BD × 5 days alternative)."
         )
         agent_thread = [x for x in agent_thread if not str(x.get("text", "")).startswith("UTI intake:")]
         agent_thread.append({"actor": "Sam", "time": hhmm, "text": uti_reason})
@@ -557,18 +579,21 @@ def compile_extra_journey_turn(
         steps.append("PresentationCompiler · Staged Augmentin 375mg TDS x5d + UTI leaflet (5/5 linter pass)")
 
         if is_simple_ack and is_followup_turn:
+            summary["_tang_stage"] = "ready"
             reply = (
-                "唔使客氣，黃醫生審閱同確認處方之後就會喺呢度通知你，記得多飲清水。"
+                "唔使客氣，醫生審閱同確認處方之後就會喺呢度通知你，記得多飲清水。如果你想預約視像或親臨診所，隨時話我知。"
                 if is_zh
-                else "You are welcome. As soon as Dr. Wong reviews and confirms your prescription, it will appear right here. Keep drinking plenty of water in the meantime."
+                else "You are welcome. As soon as the doctor reviews and confirms your prescription, it will appear right here. Keep drinking plenty of water, and if you would like to make a booking, just let me know."
             )
         elif confirmed_preg:
+            summary["_tang_stage"] = "ready"
             reply = (
                 "多謝你話我知可能懷孕。我已經即時通知黃醫生，等醫生確認懷孕週數同埋安排適合孕婦使用嘅安全治療及小便化驗。期間記得多飲清水，如果出現發燒、發冷或腰背痛，請即刻通知我哋。"
                 if is_zh
                 else "Thank you for letting me know you may be pregnant. I have flagged this straight to Dr. Wong so she can review your gestational stage, arrange a urine test, and select a pregnancy-safe antibiotic. Please keep up your fluids and let us know straight away if you develop fever, chills, vomiting, or lower back pain."
             )
         elif not preg_answered or not confirmed_no_red_flags:
+            summary["_tang_stage"] = "awaiting_red_flags"
             reply = (
                 "明白，小便刺痛同尿頻真係好唔舒服。幫醫生整理資料前，想確認兩件事：有冇發燒、發冷、腰背痛或者作嘔？另外有冇機會懷孕？"
                 if is_zh
@@ -584,17 +609,44 @@ def compile_extra_journey_turn(
                 reply,
                 steps,
             )
-        else:
+        elif not has_temp and not confirmed_no_blood and not asked_to_book:
+            summary["_tang_stage"] = "awaiting_vitals"
             reply = (
-                "多謝你確認。由於冇發燒亦冇腎炎警號，你可以直接用「訊息審閱（最快）」由張詠欣醫生非同步審閱並發送安全處方，唔使專登出門——或者喺下方改選視像診症／親臨診所。記得多飲清水，如有發燒或腰背痛請即刻通知我哋。"
+                "冇發燒亦冇腰背痛就放心啲。如果屋企有探熱針，方便量一量體溫，順便話我知小便有冇見到血絲嗎？"
                 if is_zh
-                else "Thank you for confirming. Since you have no fever or flank pain, you don't need an in-clinic visit — I've queued your summary and chart safety checks for async Message review (Fastest) with Dr. Wing-Yan Cheung below, or you can switch to Teleconsult or In-Clinic. Keep drinking plenty of water, and let us know straight away if fever or back pain develops."
+                else "Glad to hear there is no fever or back pain. If you have a thermometer at home, could you check your temperature and let me know if you have noticed any blood in your urine?"
+            )
+            return (
+                "running",
+                "with_patient",
+                "Acute UTI — Collecting Home Vitals",
+                "Red flags & pregnancy clear; AI Resident is checking home temperature and haematuria before briefing doctor.",
+                "Collecting home vitals",
+                summary,
+                reply,
+                steps,
+            )
+        elif asked_to_book:
+            summary["_tang_stage"] = "ready"
+            reply = (
+                "冇問題——我查閱咗今日診所時間表，張詠欣醫生（急症及婦女健康）今日 11:15 有空檔，你可以喺下方一鍵預約視像診症或親臨診所，或者揀其他醫生時間。"
+                if is_zh
+                else "Of course — I checked today's clinic schedule and Dr. Wing-Yan Cheung (Acute & Women's Care) has an open 11:15 slot below. You can confirm Teleconsult or In-Clinic, or pick another doctor."
+            )
+        else:
+            summary["_tang_stage"] = "ready"
+            temp_note = f"（體溫 {temp_val}）" if temp_val else ""
+            temp_note_en = f" ({temp_val})" if temp_val else ""
+            reply = (
+                f"多謝你量體溫同確認{temp_note}。我已經將你嘅症狀同用藥安全核對結果直接交畀張詠欣醫生審閱，簽署後處方會直接喺呢度發送畀你。期間記得多飲清水；如果你想預約視像或親臨診所，隨時話我知。"
+                if is_zh
+                else f"Thanks for checking{temp_note_en} — no fever or warning signs is reassuring. I've sent your summary and chart safety checks straight to Dr. Wing-Yan Cheung for review, and your prescription will appear right here once signed. Keep drinking plenty of water, and if you would like to make a booking, just let me know."
             )
         return (
             "needs_decision",
             "with_doctor",
-            "Acute Uncomplicated UTI — Async Review",
-            "Burning urination & frequency (<24h), red flags & pregnancy clear; G6PD-safe Augmentin 375mg TDS x5d staged for async sign-off.",
+            "Acute Uncomplicated UTI — Doctor Review",
+            f"Burning urination & frequency (<24h){f', home temp {temp_val}' if temp_val else ''}, red flags & pregnancy clear; G6PD-safe Augmentin 375mg TDS x5d staged.",
             "Ready for sign-off",
             summary,
             reply,
