@@ -34,13 +34,10 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "小便刺痛及尿頻",
         "subtitle": "Uncomplicated dysuria · G6PD deficient on file",
         "welcome_en": (
-            "Hi Ka-Yan, welcome to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant — I can gather your symptoms, check your clinic file, and arrange a quick review with Dr. Sarah Wong.\n\n"
-            "How can we help you today?"
+            "Hi Ka-Yan, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. What's bothering you today?"
         ),
         "welcome_zh": (
-            "嘉欣你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，可以幫你整理症狀、核對病歷，並安排黃莎拉醫生跟進。\n\n"
-            "你今日身體有咩唔舒服？"
+            "嘉欣你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日身體有咩唔舒服？"
         ),
         "suggested_replies_en": [
             "I've had burning when I pee and going to the toilet frequently since yesterday evening. No fever or back pain — can I get Nitrofurantoin?",
@@ -63,11 +60,10 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "琴日起覺得唔係好舒服",
         "subtitle": "Brief message asking for medicine · clarifies symptoms safely",
         "welcome_en": (
-            "Hi Chun-Hin, welcome to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant. Tell me a bit about what's going on today and I'll help line up the right care with our doctors."
+            "Hi Chun-Hin, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. Tell me a bit about what's going on today and I'll help line up the right care."
         ),
         "welcome_zh": (
-            "俊軒你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，你可以講吓今日邊度唔舒服，我幫你安排醫生跟進。"
+            "俊軒你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你講吓今日邊度唔舒服，我幫你安排醫生跟進。"
         ),
         "suggested_replies_en": [
             "Not feeling well since yesterday, super busy with work — can the doctor just send me some antibiotics?",
@@ -90,11 +86,10 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "心口翳悶不適",
         "subtitle": "On Perindopril & Rosuvastatin · urgent symptom screening",
         "welcome_en": (
-            "Hello Ms. Lau, this is Sam from Central & Mid-Levels Family Medical. "
-            "I'm here to help coordinate with Dr. Sarah Wong and our clinic team. How are you feeling today?"
+            "Hello Ms. Lau, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you feeling today?"
         ),
         "welcome_zh": (
-            "劉女士你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。有咩可以幫到你？你今日覺得點樣？"
+            "劉女士你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日覺得點樣？"
         ),
         "suggested_replies_en": [
             "I suddenly have crushing chest pain spreading to my left arm, short of breath and breaking out in a cold sweat.",
@@ -118,14 +113,10 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "持續疲倦及甲狀腺驗血報告",
         "subtitle": "TSH 11.4, Free T4 8.2 · already taking daily oral iron",
         "welcome_en": (
-            "Hi Siu-Fong, welcome to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant — I can help with symptoms, medications, lab results, or booking a review.\n\n"
-            "How have you been feeling, and how can I help today?"
+            "Hi Siu-Fong, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How have you been feeling, and how can I help today?"
         ),
         "welcome_zh": (
-            "小芳你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，"
-            "可以幫你跟進症狀、用藥、驗血報告或者預約覆診。\n\n"
-            "你最近身體覺得點樣？今日有咩可以幫到你？"
+            "小芳你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你最近身體覺得點樣，有咩可以幫到你？"
         ),
         "suggested_replies_en": [
             "Still feeling exhausted and cold all the time, and yes I take my iron tablet every morning with breakfast. Do I need thyroid medicine?",
@@ -149,13 +140,10 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "代年長父親查詢頭暈（家屬代訊）",
         "subtitle": "Messaged by daughter Joyce & helper · on Amlodipine + Losartan",
         "welcome_en": (
-            "Hello — welcome to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant helping with Mr. Kwok Wing-Keung's care. "
-            "Just to keep his chart clear, could you let me know who I'm speaking with and how Mr. Kwok is doing today?"
+            "Hello, I'm Sam, the care assistant at Central & Mid-Levels Family Medical, helping with Mr. Kwok Wing-Keung's care. Could you let me know who I'm speaking with and how he's doing today?"
         ),
         "welcome_zh": (
-            "你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，負責跟進郭永強先生嘅病歷。"
-            "為咗確保記錄清晰，請問你係邊位家人？郭先生今日感覺點樣？"
+            "你好，我係中環及半山家庭醫務中心嘅護理助手 Sam，負責跟進郭永強先生嘅護理。請問你係邊位家人，郭先生今日感覺點樣？"
         ),
         "suggested_replies_en": [
             "Hi Sam, this is Joyce (his daughter) — our helper Maria said Dad felt slightly lightheaded standing up after his morning BP pills (118/72). Should we stop his Losartan?",
@@ -178,11 +166,10 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "外間診所驗血報告跟進",
         "subtitle": "Faxed lab PDF received · routine identity check before chart link",
         "welcome_en": (
-            "Hello Mr. Ng, welcome to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant. How can we help you today?"
+            "Hello Mr. Ng, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How can I help you today?"
         ),
         "welcome_zh": (
-            "吳先生你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，今日有咩可以幫到你？"
+            "吳先生你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。今日有咩可以幫到你？"
         ),
         "suggested_replies_en": [
             "Hi Sam, I had a blood test done at a private centre in Tsim Sha Tsui yesterday and they faxed the report over — did Dr. Wong receive it yet?",
@@ -195,6 +182,7 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "chui_cough",
+        "default_lang": "zh-HK",
         "category": "family",
         "patient_id": "pat_chui_cough",
         "patient_name": "CHUI Ka-Ming",
@@ -205,11 +193,10 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "持續乾咳想配止咳水",
         "subtitle": "Requesting strong cough medicine · doctor consult & safety review",
         "welcome_en": (
-            "Hi Ka-Ming, welcome to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant — I can gather your symptoms and line up a visit with Dr. Sarah Wong. What's been bothering you today?"
+            "Hi Ka-Ming, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. What's been bothering you today?"
         ),
         "welcome_zh": (
-            "家明你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，可以幫你整理症狀並安排黃莎拉醫生診症。你今日有咩唔舒服？"
+            "家明你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日有咩唔舒服？"
         ),
         "suggested_replies_en": [
             "I've had a dry tickly cough keeping me up at night for 4 days. Can you just send me the strong codeine cough syrup I had last year?",
@@ -473,10 +460,10 @@ def compile_extra_journey_turn(
             )
         elif asked_nitro:
             reply = (
-                "先提醒一下：你嘅診所病歷記錄咗你有**蠶豆症（G6PD 缺乏症）**，所以**唔可以食 Nitrofurantoin**（有機會引致溶血反應）。\n\n"
+                "先提醒一下：你嘅診所病歷記錄咗你有蠶豆症（G6PD 缺乏症），所以唔可以食 Nitrofurantoin（有機會引致溶血反應）。\n\n"
                 "好消息係冇發燒同冇腰痛嘅單純性尿道炎有對蠶豆症安全嘅選擇（例如單次劑量 Fosfomycin）。我已經將你嘅症狀同 G6PD 提示放上黃莎拉醫生嘅工作台——請問你有冇機會懷孕？"
                 if is_zh
-                else "Important heads-up from your clinic record: because you have **G6PD deficiency**, we must **avoid Nitrofurantoin** (it can trigger haemolysis).\n\nThe good news is there are G6PD-safe options for uncomplicated UTI (such as single-dose Fosfomycin). I've flagged your symptoms and G6PD status for Dr. Sarah Wong right now — just to help her review safely, is there any chance you could be pregnant?"
+                else "Important heads-up from your clinic record: because you have G6PD deficiency, we must avoid Nitrofurantoin (it can trigger haemolysis).\n\nThe good news is there are G6PD-safe options for uncomplicated UTI (such as single-dose Fosfomycin). I've flagged your symptoms and G6PD status for Dr. Sarah Wong right now — just to help her review safely, is there any chance you could be pregnant?"
             )
         else:
             reply = (
@@ -613,9 +600,9 @@ def compile_extra_journey_turn(
         else:
             reply = (
                 "聽到你成日好攰又怕凍辛苦晒。你嘅金域驗血報告顯示甲狀腺功能偏低（TSH 11.4、Free T4 8.2），黃莎拉醫生好可能會同你傾開始低劑量甲狀腺素補充。\n\n"
-                "有個好重要嘅用藥貼士我已經標註咗畀醫生：因為你每日朝早有食**鐵丸**，鐵質會阻礙甲狀腺藥吸收，所以如果醫生開藥，兩隻藥需要**相隔至少 4 小時**（例如朝早空肚食甲狀腺藥，中午先食鐵丸）。"
+                "有個好重要嘅用藥貼士我已經標註咗畀醫生：因為你每日朝早有食鐵丸，鐵質會阻礙甲狀腺藥吸收，所以如果醫生開藥，兩隻藥需要相隔至少 4 小時（例如朝早空肚食甲狀腺藥，中午先食鐵丸）。"
                 if is_zh
-                else "I'm sorry you've been feeling so drained and cold. Your KingMed panel shows an underactive thyroid (TSH 11.4, Free T4 8.2), so Dr. Sarah Wong will review starting gentle thyroid replacement with you.\n\nOne key detail I've flagged for Dr. Wong: because you take **oral iron** each morning, iron blocks thyroid hormone absorption — so if she prescribes Levothyroxine, you'll want to take it on an empty stomach first thing and **space your iron tablet at least 4 hours later** (such as at lunch)."
+                else "I'm sorry you've been feeling so drained and cold. Your KingMed panel shows an underactive thyroid (TSH 11.4, Free T4 8.2), so Dr. Sarah Wong will review starting gentle thyroid replacement with you.\n\nOne key detail I've flagged for Dr. Wong: because you take oral iron each morning, iron blocks thyroid hormone absorption — so if she prescribes Levothyroxine, you'll want to take it on an empty stomach first thing and space your iron tablet at least 4 hours later (such as at lunch)."
             )
         return (
             "needs_decision",
@@ -673,10 +660,10 @@ def compile_extra_journey_turn(
             )
         else:
             reply = (
-                "多謝你話我知 Joyce（同埋 Maria）。請先**唔好自行停服 Losartan 或血壓藥**，先畀郭先生飲足夠清水，起身時慢慢坐起停一停先站立。\n\n"
+                "多謝你話我知 Joyce（同埋 Maria）。請先唔好自行停服 Losartan 或血壓藥，先畀郭先生飲足夠清水，起身時慢慢坐起停一停先站立。\n\n"
                 "我已經清楚記錄係由你代爸爸匯報（血壓 118/72、冇跌倒冇心口痛），並即時交畀黃莎拉醫生審閱——亦留意到郭先生超過 18 個月未覆驗腎功能，醫生可以一併安排抽血同量度坐立血壓。如果佢出現昏厥、心口痛或者嚴重無力，請即刻致電 999。"
                 if is_zh
-                else "Thank you for letting us know, Joyce (and Maria). Please **don't stop his Losartan or BP tablets unilaterally** just yet — encourage Mr. Kwok to stay hydrated and rise slowly from sitting to standing.\n\nI've logged this clearly as a family update on Mr. Kwok's chart (BP 118/72, no fall or chest pain) for Dr. Sarah Wong to review today, and also noted he hasn't had a kidney blood test (eGFR) in over 18 months so she can check that alongside sitting/standing BP. If he feels faint, falls, or has chest pain, please call 999 immediately."
+                else "Thank you for letting us know, Joyce (and Maria). Please don't stop his Losartan or BP tablets unilaterally just yet — encourage Mr. Kwok to stay hydrated and rise slowly from sitting to standing.\n\nI've logged this clearly as a family update on Mr. Kwok's chart (BP 118/72, no fall or chest pain) for Dr. Sarah Wong to review today, and also noted he hasn't had a kidney blood test (eGFR) in over 18 months so she can check that alongside sitting/standing BP. If he feels faint, falls, or has chest pain, please call 999 immediately."
             )
         return (
             "needs_decision",
@@ -727,9 +714,9 @@ def compile_extra_journey_turn(
             steps.append(f"3-Point ID Gate · {q_doc.external_doc_ref} matched 2/3 (DOB mismatch) -> Quarantined to Nurse Rachel in #clinic-team")
             reply = (
                 "我哋確實收到尖沙咀化驗所傳真過嚟嘅報告，不過系統嘅三點身份核對發現報告上嘅出生日期同你診所病歷相差幾日（懷疑係化驗所打錯字）。\n\n"
-                "為咗保障病人安全，系統已經暫時將份報告交咗畀**陳護士（Nurse Rachel）**人手核實，核對清楚就會立即放入你嘅病歷畀黃醫生覆核——方便確認一下你嘅出生日期嗎？"
+                "為咗保障病人安全，系統已經暫時將份報告交咗畀陳護士（Nurse Rachel）人手核實，核對清楚就會立即放入你嘅病歷畀黃醫生覆核——方便確認一下你嘅出生日期嗎？"
                 if is_zh
-                else "We did receive a faxed report from Tsim Sha Tsui Private Diagnostics, but our safety check spotted a small date-of-birth discrepancy on the lab cover sheet compared with your clinic record (likely a typo at the lab).\n\nTo make sure results never land on the wrong chart, I've routed it straight to **Nurse Rachel** to verify before linking it for Dr. Sarah Wong — could you quickly confirm your date of birth for us?"
+                else "We did receive a faxed report from Tsim Sha Tsui Private Diagnostics, but our safety check spotted a small date-of-birth discrepancy on the lab cover sheet compared with your clinic record (likely a typo at the lab).\n\nTo make sure results never land on the wrong chart, I've routed it straight to Nurse Rachel to verify before linking it for Dr. Sarah Wong — could you quickly confirm your date of birth for us?"
             )
             return (
                 "running",
@@ -809,16 +796,16 @@ def compile_extra_journey_turn(
 
     if asked_codeine:
         reply = (
-            "明白晚晚乾咳真係好難瞓。不過按香港《危險藥物條例》（第 134 章），含**可待因（Codeine）**嘅止咳藥屬於受管制危險藥物，診所唔可以透過對話直接配發，亦需要由醫生親身診斷評估。\n\n"
+            "明白晚晚乾咳真係好難瞓。不過按香港《危險藥物條例》（第 134 章），含可待因（Codeine）嘅止咳藥屬於受管制危險藥物，診所唔可以透過對話直接配發，亦需要由醫生親身診斷評估。\n\n"
             "我已經幫你整理好症狀交畀黃莎拉醫生，今日下午 3:30 有親身診症時段，醫生可以幫你聽肺並安排安全有效嘅非鴉片類止咳方案。請問你有冇發燒或者氣促？"
             if is_zh
-            else "I hear you — a dry cough keeping you awake for four nights is exhausting. Under Hong Kong's Dangerous Drugs Ordinance (Cap. 134), **codeine-containing cough syrups** are strictly controlled medicines that can never be issued over chat or without an in-person doctor assessment.\n\nI've prepared your notes for Dr. Sarah Wong and we have a 15:30 in-clinic slot today so she can listen to your chest and arrange safe, effective non-opioid relief. Just to check first — do you have any fever or shortness of breath?"
+            else "I hear you — a dry cough keeping you awake for four nights is exhausting. Under Hong Kong's Dangerous Drugs Ordinance (Cap. 134), codeine-containing cough syrups are strictly controlled medicines that can never be issued over chat or without an in-person doctor assessment.\n\nI've prepared your notes for Dr. Sarah Wong and we have a 15:30 in-clinic slot today so she can listen to your chest and arrange safe, effective non-opioid relief. Just to check first — do you have any fever or shortness of breath?"
         )
     else:
         reply = (
             "收到，冇發燒亦冇氣促就安心啲。我已經幫你預留今日下午 3:30 親身見黃莎拉醫生，並準備好相關病歷資料。"
             if is_zh
-            else "Got it — glad you have no fever or shortness of breath. I've held the **15:30 in-clinic slot** today with Dr. Sarah Wong so she can check your chest and get you sorted with safe relief."
+            else "Got it — glad you have no fever or shortness of breath. I've held the 15:30 in-clinic slot today with Dr. Sarah Wong so she can check your chest and get you sorted with safe relief."
         )
     return (
         "needs_decision",

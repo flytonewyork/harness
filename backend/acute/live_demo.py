@@ -111,15 +111,10 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "喉嚨痛、發燒及病假紙",
         "subtitle": "Recent KingMed blood panel on file · G6PD & penicillin alert",
         "welcome_en": (
-            "Hi Wing-Yan, welcome to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant — I can help with symptoms, medications, bookings, or follow-ups "
-            "(our doctors always review and sign off on any prescriptions or certificates).\n\n"
-            "How are you feeling today, and how can I help?"
+            "Hi Wing-Yan, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you feeling today, and how can I help?"
         ),
         "welcome_zh": (
-            "詠欣你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，"
-            "可以幫你處理症狀查詢、用藥、預約或覆診安排（所有處方同病假紙都會由醫生親自審閱及簽發）。\n\n"
-            "你今日身體點樣？有咩可以幫到你？"
+            "詠欣你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日身體點樣，有咩可以幫到你？"
         ),
         "suggested_replies_en": [
             "Woke up with a sore throat and 38.2°C fever — can I take aspirin? Also need a 2-day sick note and wanted to ask about my recent blood test.",
@@ -143,14 +138,10 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "伊利沙伯醫院出院覆診・藥物核對",
         "subtitle": "Discharged from QEH yesterday · 11:30 follow-up today",
         "welcome_en": (
-            "Hi Mr. Chan, welcome to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant — I help our doctors and nurses with your visits, medications, and follow-ups.\n\n"
-            "How are you doing today, and how can I help?"
+            "Hi Mr. Chan, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you doing today, and how can I help?"
         ),
         "welcome_zh": (
-            "陳先生你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，"
-            "負責協助醫生同護士跟進你嘅預約、用藥同覆診安排。\n\n"
-            "你今日覺得點樣？有咩可以幫到你？"
+            "陳先生你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日覺得點樣，有咩可以幫到你？"
         ),
         "suggested_replies_en": [
             "I just got discharged from QEH yesterday — they gave me Warfarin 3mg and Atorvastatin, but I still have 5mg Warfarin and Simvastatin at home. Which should I take?",
@@ -173,14 +164,10 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "高血壓第 7 日家居血壓追蹤",
         "subtitle": "Amlodipine 5mg daily · routine check-in ahead of Dec visit",
         "welcome_en": (
-            "Hi Ms. Wong, welcome to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant — I can help log home readings, answer clinic questions, or coordinate with your doctor.\n\n"
-            "How are you feeling today, and what can I help you with?"
+            "Hi Ms. Wong, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you feeling today, and what can I help with?"
         ),
         "welcome_zh": (
-            "黃女士你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，"
-            "可以幫你記錄家居血壓、查詢診所事宜或者聯絡醫生跟進。\n\n"
-            "你今日身體點樣？有咩可以幫到你？"
+            "黃女士你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日身體點樣，有咩可以幫到你？"
         ),
         "suggested_replies_en": [
             "Checking in with my home blood pressure — today's reading is 128/78 and I'm feeling fine.",
@@ -203,14 +190,10 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "年度驗身・輕微高膽固醇跟進",
         "subtitle": "LDL 3.6 mmol/L · fasting blood draw & seasonal flu shot",
         "welcome_en": (
-            "Hi Ming Kit, welcome to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant — I can help with appointments, lab follow-ups, or new symptoms.\n\n"
-            "How can I help you today?"
+            "Hi Ming Kit, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How can I help you today?"
         ),
         "welcome_zh": (
-            "明傑你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，"
-            "可以幫你安排預約、覆檢跟進或者了解身體狀況。\n\n"
-            "今日有咩可以幫到你？"
+            "明傑你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。今日有咩可以幫到你？"
         ),
         "suggested_replies_en": [
             "I'd like to confirm Friday 12 Feb at 08:00 for my fasting cholesterol blood test — can I bundle my flu shot too?",
@@ -223,6 +206,7 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "cheung",
+        "default_lang": "zh-HK",
         "category": "chronic",
         "patient_id": "pat_cheung_t2dm",
         "patient_name": "CHEUNG Kwok-Wai",
@@ -233,14 +217,10 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "糖尿病覆檢報告及持續咳嗽",
         "subtitle": "HbA1c 7.8% on Metformin · pre-review check-in",
         "welcome_en": (
-            "Hi Mr. Cheung, welcome to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant — I can help with symptoms, medications, lab results, or booking a review.\n\n"
-            "How are you feeling today, and how can I help?"
+            "Hi Mr. Cheung, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you feeling today, and how can I help?"
         ),
         "welcome_zh": (
-            "張先生你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，"
-            "可以幫你跟進症狀、用藥、驗身報告或者預約覆診。\n\n"
-            "你今日身體點樣？有咩可以幫到你？"
+            "張先生你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日身體點樣，有咩可以幫到你？"
         ),
         "suggested_replies_en": [
             "呢兩日咳到想死，但係完全冇氣促、冇心口痛、亦都冇發燒，想約醫生覆診順便睇吓血糖報告。",
@@ -805,6 +785,7 @@ def get_live_journeys_status(db: Database, tenant_id: str, live_bus: LiveHarness
                 "patient_name": j["patient_name"],
                 "patient_name_zh": j["patient_name_zh"],
                 "age_sex": j["age_sex"],
+                "default_lang": j.get("default_lang", "en"),
                 "title": j["title"],
                 "title_zh": j["title_zh"],
                 "subtitle": j["subtitle"],
@@ -1056,6 +1037,7 @@ def start_live_journey(
             "patient_name": j["patient_name"],
             "patient_name_zh": j["patient_name_zh"],
             "age_sex": j["age_sex"],
+            "default_lang": j.get("default_lang", "en"),
             "title": j["title"],
             "title_zh": j["title_zh"],
             "subtitle": j["subtitle"],
@@ -1389,17 +1371,17 @@ def _compile_journey_turn_update(
         else:
             if "aspirin" in cds_blocked_drugs:
                 parts_en.append(
-                    "First — please do **not** take aspirin. Your clinic record notes G6PD deficiency, so aspirin and NSAIDs should be avoided (paracetamol is generally the safer option your doctor can confirm)."
+                    "First — please do not take aspirin. Your clinic record notes G6PD deficiency, so aspirin and NSAIDs should be avoided (paracetamol is generally the safer option your doctor can confirm)."
                 )
                 parts_zh.append(
-                    "首先請**唔好食阿士匹靈**——你嘅診所病歷記錄咗你有蠶豆症（G6PD 缺乏症），需要避免阿士匹靈及消炎止痛藥（一般會由醫生考慮較安全嘅撲熱息痛）。"
+                    "首先請唔好食阿士匹靈——你嘅診所病歷記錄咗你有蠶豆症（G6PD 缺乏症），需要避免阿士匹靈及消炎止痛藥（一般會由醫生考慮較安全嘅撲熱息痛）。"
                 )
             if asked_penicillin:
                 parts_en.append(
-                    "Also flagging from your allergy record: please avoid **amoxicillin / penicillin antibiotics** (documented urticarial rash). Viral URTI typically doesn't need antibiotics anyway, and Dr. Wong will confirm safe symptom relief."
+                    "Also flagging from your allergy record: please avoid amoxicillin / penicillin antibiotics (documented urticarial rash). Viral URTI typically doesn't need antibiotics anyway, and Dr. Wong will confirm safe symptom relief."
                 )
                 parts_zh.append(
-                    "另外按你嘅過敏記錄提醒：請避免服食**盤尼西林類抗生素（如 Amoxicillin / Augmentin）**。一般病毒性上呼吸道感染亦毋須抗生素，黃醫生會為你安排安全嘅紓緩方案。"
+                    "另外按你嘅過敏記錄提醒：請避免服食盤尼西林類抗生素（如 Amoxicillin / Augmentin）。一般病毒性上呼吸道感染亦毋須抗生素，黃醫生會為你安排安全嘅紓緩方案。"
                 )
             if asked_para:
                 parts_en.append(
@@ -1410,10 +1392,10 @@ def _compile_journey_turn_update(
                 )
             if rat_neg_now or (is_followup_turn and mentions_teleconsult and not mentions_urti):
                 parts_en.append(
-                    "Thank you for confirming — glad your home RAT is negative and your breathing is comfortable. I've updated Dr. Sarah Wong's chart and held the **14:30 teleconsult** slot today; once she reviews and signs your plan, your e-script and MCHK sick-leave PDF will land right here."
+                    "Thank you for confirming — glad your home RAT is negative and your breathing is comfortable. I've updated Dr. Sarah Wong's chart and held the 14:30 teleconsult slot today; once she reviews and signs your plan, your e-script and MCHK sick-leave PDF will land right here."
                 )
                 parts_zh.append(
-                    "多謝你確認——快測陰性同呼吸暢順就好放心。我已經更新咗黃莎拉醫生嘅病歷並為你預留今日 **14:30 視像覆診**；醫生一審閱簽署，電子處方同病假紙就會直接送返嚟呢度。"
+                    "多謝你確認——快測陰性同呼吸暢順就好放心。我已經更新咗黃莎拉醫生嘅病歷並為你預留今日 14:30 視像覆診；醫生一審閱簽署，電子處方同病假紙就會直接送返嚟呢度。"
                 )
             elif mentions_urti:
                 parts_en.append(
@@ -1485,9 +1467,9 @@ def _compile_journey_turn_update(
         if asked_appt and not (asked_nsaid or asked_meds):
             steps.append("CareAgent · Confirmed 11:30 post-discharge follow-up details")
             reply = (
-                "你嘅覆診安排喺今日上午 **11:30**，由黃莎拉醫生同陳護士跟進。麻煩記得帶齊你屋企所有醫院新藥袋同舊藥過嚟核對！"
+                "你嘅覆診安排喺今日上午 11:30，由黃莎拉醫生同陳護士跟進。麻煩記得帶齊你屋企所有醫院新藥袋同舊藥過嚟核對！"
                 if is_zh
-                else "Your follow-up is booked for **today at 11:30** with Locum Dr. Sarah Wong and Nurse Rachel. Please bring all of your current medicine bags with you so we can review them together."
+                else "Your follow-up is booked for today at 11:30 with Dr. Sarah Wong and Nurse Rachel. Please bring all of your current medicine bags with you so we can review them together."
             )
             return (current_state, current_baton, current_title or "Post-QEH Discharge Check-In", current_lead, current_cp, summary, reply, steps)
 
@@ -1528,11 +1510,11 @@ def _compile_journey_turn_update(
 
         if asked_nsaid:
             reply_en = (
-                "Please avoid **ibuprofen** (and other NSAIDs) while taking Warfarin — combining them significantly raises bleeding risk. "
+                "Please avoid ibuprofen (and other NSAIDs) while taking Warfarin — combining them significantly raises bleeding risk. "
                 "I've flagged this for Dr. Sarah Wong ahead of your 11:30 visit today so she can confirm a safe pain-relief option and reconcile your medication bags with you."
             )
             reply_zh = (
-                "服食薄血丸（Warfarin）期間請**避免服食布洛芬（Ibuprofen）**或其他消炎止痛藥，因為會大幅增加出血風險。"
+                "服食薄血丸（Warfarin）期間請避免服食布洛芬（Ibuprofen）或其他消炎止痛藥，因為會大幅增加出血風險。"
                 "我已經通知咗黃莎拉醫生，等陣 11:30 覆診時會同你逐一核對藥袋同安排安全嘅止痛選擇。"
             )
         elif mentioned_no_bleed and not asked_meds:
@@ -1545,12 +1527,12 @@ def _compile_journey_turn_update(
             )
         else:
             reply_en = (
-                "Thank you for checking before taking anything — please do **not** take both statins together, and bring **all** of your hospital and old clinic medicine bags to your 11:30 appointment today.\n\n"
+                "Thank you for checking before taking anything — please do not take both statins together, and bring all of your hospital and old clinic medicine bags to your 11:30 appointment today.\n\n"
                 "Your QEH discharge summary lists Warfarin 3mg daily (reduced from 5mg) and Atorvastatin 20mg replacing Simvastatin. "
                 "I've flagged this exact comparison in Dr. Sarah Wong's workspace so she can confirm your updated regimen, order your 7-day INR, and have Nurse Rachel walk through your pillbox in Cantonese. Have you noticed any unusual bruising or bleeding?"
             )
             reply_zh = (
-                "好多謝你食藥前先問清楚——請千祈唔好同時食兩隻降膽固醇藥，並帶齊**所有**醫院新藥袋同屋企舊藥嚟今日 11:30 覆診。\n\n"
+                "好多謝你食藥前先問清楚——請千祈唔好同時食兩隻降膽固醇藥，並帶齊所有醫院新藥袋同屋企舊藥嚟今日 11:30 覆診。\n\n"
                 "伊利沙伯醫院出院紙寫明薄血丸改為每日 3mg（由 5mg 減量），同埋轉用 Atorvastatin 20mg 代替舊嘅 Simvastatin。"
                 "我已經將完整對照放咗喺黃莎拉醫生嘅工作台，陣間會幫你核對藥單、安排 7 日後覆驗 INR，並由陳護士用廣東話幫你執好藥盒。你最近有冇發現容易瘀傷或者流牙血？"
             )
@@ -1715,11 +1697,11 @@ def _compile_journey_turn_update(
             summary["sam_proactive_insight"] = None
             steps.append("BookingAdapter · Confirmed Fri 12 Feb 08:00 fasting lipid slot -> Case stays quiet in Scheduled")
             reply_en = (
-                "All set! I've booked your fasting lipid blood draw for **Fri 12 Feb at 08:00** with Nurse Rachel and bundled your seasonal flu shot into the same 10-minute morning visit. "
+                "All set! I've booked your fasting lipid blood draw for Fri 12 Feb at 08:00 with Nurse Rachel and bundled your seasonal flu shot into the same 10-minute morning visit. "
                 "Please fast (water only) for 8–10 hours beforehand — I'll send a reminder the evening before."
             )
             reply_zh = (
-                "已經幫你預約好！**2 月 12 日（星期五）上午 8:00** 由陳護士為你安排空腹血脂抽血，並一併接種季節性流感疫苗。"
+                "已經幫你預約好！2 月 12 日（星期五）上午 8:00 由陳護士為你安排空腹血脂抽血，並一併接種季節性流感疫苗。"
                 "請於抽血前空腹 8 至 10 小時（可飲清水）——我會喺前一晚再提醒你。"
             )
             return (
@@ -1877,6 +1859,14 @@ def _compile_journey_turn_update(
     )
 
 
+_MD_EMPHASIS_RE = re.compile(r"\*\*(.+?)\*\*|__(.+?)__", re.S)
+
+
+def _plain_chat_text(text: str) -> str:
+    """Patient bubbles are plain-text (WhatsApp style): strip markdown emphasis that live models may emit."""
+    return _MD_EMPHASIS_RE.sub(lambda m: m.group(1) or m.group(2) or "", text or "")
+
+
 def handle_live_chat_turn(
     db: Database,
     *,
@@ -1977,7 +1967,7 @@ def handle_live_chat_turn(
                 ),
             }
             reply = crisis_payload["body_zh"] if is_zh else crisis_payload["body_en"]
-            chat.append({"actor": "Sam", "time": hhmm, "text": reply, "lang": "zh-HK" if is_zh else "en", "is_crisis": True})
+            chat.append({"actor": "Sam", "time": hhmm, "text": _plain_chat_text(reply), "lang": "zh-HK" if is_zh else "en", "is_crisis": True})
             summary["original_chat"] = chat
             summary["_active_crisis"] = crisis_payload
             alerts = list(summary.get("alerts") or [])
@@ -2022,7 +2012,7 @@ def handle_live_chat_turn(
                 if is_zh
                 else "I'm Sam, the clinic's care assistant — I can't bypass clinic safety rules, prescribe medications, issue certificates, or modify the EMR without a doctor's sign-off. If you're feeling unwell, tell me your symptoms and I'll prepare a clean summary for Dr. Sarah Wong."
             )
-            chat.append({"actor": "Sam", "time": hhmm, "text": reply, "lang": "zh-HK" if is_zh else "en"})
+            chat.append({"actor": "Sam", "time": hhmm, "text": _plain_chat_text(reply), "lang": "zh-HK" if is_zh else "en"})
             summary["original_chat"] = chat
             timeline.append({"date": f"Today {hhmm}", "label": f"SecurityGuard · Prompt injection neutralized ({', '.join(inj_signals[:3])}) — zero tools exposed.", "agent": "SecurityGuard"})
             case.summary_json = summary
@@ -2162,7 +2152,7 @@ def handle_live_chat_turn(
                     reply = llm_call.text.strip()
 
         chat = list(updated_summary.get("original_chat") or [])
-        chat.append({"actor": "Sam", "time": hhmm, "text": reply, "lang": "zh-HK" if is_zh else "en"})
+        chat.append({"actor": "Sam", "time": hhmm, "text": _plain_chat_text(reply), "lang": "zh-HK" if is_zh else "en"})
         updated_summary["original_chat"] = chat
         updated_summary.pop("_active_crisis", None)
 

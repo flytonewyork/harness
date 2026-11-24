@@ -32,6 +32,7 @@ interface JourneyMeta {
   patient_name: string;
   patient_name_zh: string;
   age_sex: string;
+  default_lang?: "en" | "zh-HK";
   title: string;
   title_zh: string;
   subtitle: string;
@@ -50,14 +51,9 @@ interface PatientChatAppProps {
   initialJourney?: string;
 }
 
+// Patient bubbles are plain text (WhatsApp style): strip any markdown emphasis markers.
 function renderBoldText(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, idx) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={idx}>{part.slice(2, -2)}</strong>;
-    }
-    return <span key={idx}>{part}</span>;
-  });
+  return text.replace(/\*\*([^*]+)\*\*/g, "$1");
 }
 
 function statusBadgeLabel(status: string, baton: string | null | undefined, isZh: boolean): { text: string; live: boolean } {
@@ -305,6 +301,10 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
       }
       return;
     }
+    // Auto-switch the phone language to the persona's preferred language (e.g. Cantonese-speaking patients).
+    const nextMeta = journeys.find((j) => j.key === nextKey);
+    const preferred = nextMeta?.default_lang === "zh-HK" ? "zh-HK" : "en";
+    if (preferred !== lang) setLang(preferred);
     window.history.replaceState({}, "", `/p/chat/${nextKey}`);
     setJourneyKey(nextKey);
   };
