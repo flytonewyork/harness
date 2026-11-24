@@ -118,13 +118,14 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "持續疲倦及甲狀腺驗血報告",
         "subtitle": "TSH 11.4, Free T4 8.2 · already taking daily oral iron",
         "welcome_en": (
-            "Hi Siu-Fong, welcome back to Central & Mid-Levels Family Medical. "
-            "I'm Sam, the clinic's care assistant — your recent KingMed thyroid blood panel is back on file for Dr. Sarah Wong to review.\n\n"
-            "How have your energy levels been this week, and are you still taking your daily iron supplement?"
+            "Hi Siu-Fong, welcome to Central & Mid-Levels Family Medical. "
+            "I'm Sam, the clinic's care assistant — I can help with symptoms, medications, lab results, or booking a review.\n\n"
+            "How have you been feeling, and how can I help today?"
         ),
         "welcome_zh": (
-            "小芳你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，你最新嘅金域甲狀腺驗血報告已經返咗，會由黃莎拉醫生審閱。\n\n"
-            "你呢個星期精神點樣？仲有冇每日食緊鐵丸？"
+            "小芳你好，歡迎聯絡中環及半山家庭醫務中心。我係診所護理助手 Sam，"
+            "可以幫你跟進症狀、用藥、驗血報告或者預約覆診。\n\n"
+            "你最近身體覺得點樣？今日有咩可以幫到你？"
         ),
         "suggested_replies_en": [
             "Still feeling exhausted and cold all the time, and yes I take my iron tablet every morning with breakfast. Do I need thyroid medicine?",

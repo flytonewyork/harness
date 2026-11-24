@@ -144,6 +144,17 @@ _ZH_NEGATED_SYMPTOM_RE = re.compile(
 )
 
 
+# Benign colloquial "confused" about pills, dosages, or clinic logistics — NOT acute altered mental status.
+# Never masks acute neurological confusion ("feel confused", "suddenly confused", "drowsy and confused",
+# "confused and talking nonsense", "very confused", "disoriented", "delirious", "hallucinating").
+_BENIGN_COLLOQUIAL_CONFUSED_RE = re.compile(
+    r"\b(?:a\s+bit|a\s+little|slightly|kind\s+of|sort\s+of|somewhat)\s+confused\b"
+    r"|\bconfused\s+(?:about|by|over|with|which|what|whether|how)\b"
+    r"|\bconfused\b(?=\s*[—–\-:,][^.\n!?]{0,110}\b(?:pills?|meds?|medication|medicine|tablets?|dose|dosage|prescription|warfarin|statin|appointment|booking|slot|result|report|instructions?|which\s+(?:one|should\s+i))\b)",
+    re.I,
+)
+
+
 def _normalize_for_rules_floor(text: str) -> tuple[str, list[str]]:
     """Produce a clause-normalized copy for red-flag screening while recording suppressed benign phrases."""
     suppressed: list[str] = []
@@ -153,6 +164,12 @@ def _normalize_for_rules_floor(text: str) -> tuple[str, list[str]]:
         return f"{m.group(1)}得好犀利"
 
     work = _BENIGN_HYPERBOLE_RE.sub(_mask_idiom, text)
+
+    def _mask_colloquial_confused(m: re.Match[str]) -> str:
+        suppressed.append(f"colloquial_confusion:{m.group(0)}")
+        return re.sub(r"confused", "unsure", m.group(0), flags=re.I)
+
+    work = _BENIGN_COLLOQUIAL_CONFUSED_RE.sub(_mask_colloquial_confused, work)
 
     def _mask_hist(m: re.Match[str]) -> str:
         suppressed.append(f"remote_history:{m.group(0)}")

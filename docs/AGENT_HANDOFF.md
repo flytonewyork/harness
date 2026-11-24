@@ -143,6 +143,10 @@ bash scripts/check.sh                                                          #
     - Built `loopbench/src/loopbench/taste_eval.py`, `scripts/taste_eval.py`, and `tests/test_taste_eval.py` (strictly internal tooling — **never** surfaced in the patient-doctor walkthrough UI).
     - Caught & fixed a real multi-turn repetition defect on `cheung` Turn 2! Now passes **12/12 episodes (`112/112` clinical safety + product taste assertions, peak `2,726/4,096` tokens, `0` error tags)** and writes standalone internal review reports to `docs/research/founder_taste_eval_report.{html,md}`.
 15. **Milestone 3 Vision Chapter Added:** Appended Section 5 (*Zooming Out: From Tonight's 12-Case Prototype to the Full AI-Native Agentic Clinic*) to `docs/HEAD_OF_AI_DEEP_DIVE.md`.
+16. **Live Gemini 4 Wiring + Live Error-Analysis Pass:**
+    - Tiered routing in `live_demo.py` / `agent_harness.py`: `gemini-4-hydrogen` (`LOW`, 20s timeout, ~2.7–4.8s/turn) for patient phone chat; `gemini-4-neon` (`MEDIUM`/`HIGH`, 28s timeout) for Doctor ↔ Sam clinical Q&A. Key loaded from gitignored `harness/.env` (never commit).
+    - Live transcripts caught: P0 false 999 on colloquial "a bit confused" (fixed in `triage.py` via `_BENIGN_ADMIN_CONFUSION_RE`, layered with the parallel agent's `_BENIGN_COLLOQUIAL_CONFUSED_RE` from `6fad5eb` — both kept as defense in depth), `# clinic-team` staff-UI leak in `ng` chat, pre-announced unapproved Metformin dose in `cheung` chat, "Locum" title leak, informal diagnostic phrasing in `tsang`.
+    - Live `loopbench/scripts/taste_eval.py --live`: **12/12 episodes, 113/113 assertions**. Merged `6fad5eb` (kept its restructured `cheung` branching + my simple-ack branch); full pytest **480 passed, 1 skipped**.
 
 ### Ready for Next Agent Pickup (Disjoint Queue)
 1. **Live Visual Spot-Check of 12-Case Sidebar & `/emr?mode=live`:** Optional quick Playwright check of the new 3-group 12-case phone sidebar + `/emr?mode=live` blank-start waiting view.
