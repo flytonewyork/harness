@@ -99,3 +99,19 @@ bash scripts/check.sh                                                          #
   2. **Deterministic Practice Graph Management & Live X-Ray Polish:** End-to-end `@ Clinic Playbook` Q&A, Curator approval (`v2.4 → v2.5`), 3-pt ID quarantine → Nurse resolution in `# clinic-team`, and live `Architecture X-Ray` metrics (real token counts, traversed nodes, live `5/5` linter status).
   3. **HK EMR Additive Integration Blueprint:** Concrete read + additive writeback capability matrix for **EC Healthcare stack**, **ClinicSolution X**, and **Apricot/VITA** + Phase-1 zero-friction bridge mapped directly to `emr_connector.py` & `adapters.py`.
   4. **20-Case Founder Grading Eval Suite:** Reproducible synthetic eval pack in `../loopbench/` (calling `harness` via clean test client / HTTP boundary — zero `harness`→`loopbench` imports!) spanning all 8 pathways, Cantonese/code-switching, family proxies, thin intakes, 999 traps, prompt injections, and 2/3 ID mismatches — generating both automated pass/fail metrics AND a clean interactive **HTML + Markdown Founder Grading Sheet** (`docs/research/founder_grading_report.html` & `.md`) ready to review and score in the morning.
+
+---
+
+## 6. Live Convergence Checkpoint (`feat/live-demo-convergence`)
+
+*Updated: 24 Nov 2026 · Base: `feat/live-emr-agent-phone-demo` + `feat/agentic-skills-prompts-memory`*
+
+| Stage / Track | Status | Files & Verification |
+| :--- | :---: | :--- |
+| **Agentic Core (`feat/agentic-skills-prompts-memory`)** | **PUSHED** (`8781cf4`) | 8 `skills/clinical/*/SKILL.md`, `backend/agentic/*` (skills, prompts, tools, CJK `<4,096` context, Postgres FORCE RLS memory, runner, transports), `tests/test_agentic_core.py` (14/14 pass). |
+| **Mandatory Schema Sync Barrier** | **COMMITTED** | `docs/research/SEAM_CONTRACT.md` locking Seams A/B/C across all 4 tracks. |
+| **Track 1 · Clinical Knowledge Graph** | **COMMITTED** | `docs/research/track1_clinical_knowledge_graph.md`, `terminology.py`, `rx_rules.py`, `certificates.py`, `practice_graph.py`, `curator.py` (73/73 pytest pass). |
+| **Track 2 · Design & 14-Widget UX** | **COMMITTED** | `docs/research/track2_design_ux_widget_catalog.md`, `docs/CLINICAL_UI_DESIGN_SYSTEM.md` (`v1.1`), `ClinicWorkspaceApp.tsx`, `workspace.css` (`npm --prefix frontend run build` pass, 0 TS errors). |
+| **Track 3 · Agentic Harness Runtime** | **COMMITTED** | `docs/research/track3_agentic_harness_runtime.md`, `agent_harness.py`, `triage.py`, `verification.py`, `workflows.py`, `workspace_engine.py` (51/51 pytest pass). |
+| **Track 4 · Demo Wiring, EMR & 20-Case Eval** | **IN PROGRESS** | `emr_connector.py`, `adapters.py`, `app.py`, `tests/test_practice_graph_loops.py`, `../loopbench/` 20-case Founder Eval, `docs/research/founder_grading_report.{html,md}`, final `scripts/check.sh` gate. |
+

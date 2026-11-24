@@ -215,17 +215,30 @@ _UNCONTROLLED_HTN_TERMS = (
     "未受控高血壓",
 )
 
+_IRON_CALCIUM_TERMS = (
+    "ferrous", "iron", "calcium", "caltrate", "os-cal", "carbonate", "bisglycinate", "鐵", "鈣",
+)
+_LEVOTHYROXINE_TERMS = (
+    "levothyroxine", "thyroxine", "eltroxin", "euthyrox", "synthroid", "左甲狀腺素",
+)
+_TERATOGENIC_CHRONIC_FORMULARY = frozenset(
+    {"warfarin", "atorvastatin", "simvastatin", "rosuvastatin", "losartan", "perindopril"}
+)
+
 # Frequency string -> doses per day mapping
 _FREQ_MAP: dict[str, float] = {
     "od": 1.0,
     "qd": 1.0,
     "q24h": 1.0,
     "daily": 1.0,
+    "po daily": 1.0,
     "once daily": 1.0,
     "on": 1.0,
     "nocte": 1.0,
+    "po nocte": 1.0,
     "hs": 1.0,
     "stat": 1.0,
+    "single dose": 1.0,
     "bd": 2.0,
     "bid": 2.0,
     "q12h": 2.0,
@@ -235,12 +248,21 @@ _FREQ_MAP: dict[str, float] = {
     "q8h": 3.0,
     "three times daily": 3.0,
     "qid": 4.0,
+    "qds": 4.0,
     "q6h": 4.0,
     "four times daily": 4.0,
     "q4h": 6.0,
     "q4-6h": 6.0,
     "q6-8h": 4.0,
     "q8-12h": 3.0,
+    "alternate days": 0.5,
+    "alternate day": 0.5,
+    "alt days": 0.5,
+    "eod": 0.5,
+    "every other day": 0.5,
+    "q48h": 0.5,
+    "weekly": 1.0 / 7.0,
+    "once weekly": 1.0 / 7.0,
 }
 
 # Normalize classes for duplicate therapy warnings
@@ -359,19 +381,39 @@ def _parse_age_years(patient_profile: Any, as_of: date | None = None) -> float |
 
 
 def _parse_numeric_mg(val: Any) -> float | None:
+    """Parse a dose value into milligrams, handling mcg/ug/µg (÷1000) and g (×1000)."""
     if val is None or val == "":
         return None
     if isinstance(val, (int, float)):
         return float(val)
-    m = re.search(r"(\d+(?:\.\d+)?)", str(val))
-    return float(m.group(1)) if m else None
+    text = str(val).strip()
+    m = re.search(r"(\d+(?:\.\d+)?)\s*(mcg|ug|µg|μg|mg|g)?\b", text, flags=re.IGNORECASE)
+    if not m:
+        return None
+    num = float(m.group(1))
+    unit = (m.group(2) or "").lower()
+    if unit in ("mcg", "ug", "µg", "μg"):
+        return round(num / 1000.0, 6)
+    if unit == "g":
+        return round(num * 1000.0, 6)
+    return num
+
+
+def _extract_dose_from_drug_name(raw_drug: str) -> float | None:
+    """Extract an explicit unit-tagged dose (e.g. '50mcg', '3g', '500mg') embedded in a drug label."""
+    if not raw_drug:
+        return None
+    m = re.search(r"(\d+(?:\.\d+)?)\s*(mcg|ug|µg|μg|mg|g)\b", raw_drug, flags=re.IGNORECASE)
+    if not m:
+        return None
+    return _parse_numeric_mg(m.group(0))
 
 
 def _parse_doses_per_day(item: dict[str, Any]) -> float | None:
     explicit = item.get("doses_per_day")
     if explicit is not None:
         return float(explicit)
-    freq = str(item.get("frequency") or "").strip().lower()
+    freq = str(item.get("frequency") or item.get("freq") or "").strip().lower()
     if not freq:
         return None
     # Strip leading "prn" qualifier while preserving the interval/rate
@@ -379,7 +421,7 @@ def _parse_doses_per_day(item: dict[str, Any]) -> float | None:
     cleaned = re.sub(r"\s+", " ", cleaned)
     if cleaned in _FREQ_MAP:
         return _FREQ_MAP[cleaned]
-    for token, rate in _FREQ_MAP.items():
+    for token, rate in sorted(_FREQ_MAP.items(), key=lambda kv: len(kv[0]), reverse=True):
         if re.search(rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])", cleaned):
             return rate
     # Match "q<N>h" e.g. q4h -> 6, q6h -> 4
@@ -586,14 +628,23 @@ def check_prescription_safety(
                 )
             continue
 
-        # Parse single and daily doses
-        dose_mg = _parse_numeric_mg(item.get("dose_mg"))
+        # Parse single and daily doses (supporting dose_mg, dose_mcg, and unit-tagged strings like '50mcg' / '3g')
+        raw_dose_mg = item.get("dose_mg") if item.get("dose_mg") is not None else item.get("doseMg")
+        raw_dose_mcg = item.get("dose_mcg") if item.get("dose_mcg") is not None else item.get("doseMcg")
+        if raw_dose_mg is not None and raw_dose_mg != "":
+            dose_mg = _parse_numeric_mg(raw_dose_mg)
+        elif raw_dose_mcg is not None and raw_dose_mcg != "":
+            mcg_val = _parse_numeric_mg(f"{raw_dose_mcg}mcg") if isinstance(raw_dose_mcg, (int, float)) else _parse_numeric_mg(raw_dose_mcg)
+            dose_mg = mcg_val
+        else:
+            dose_mg = _extract_dose_from_drug_name(raw_drug)
+
         doses_per_day = _parse_doses_per_day(item)
         explicit_daily = _parse_numeric_mg(item.get("daily_mg"))
         if explicit_daily is not None:
             daily_mg: float | None = explicit_daily
         elif dose_mg is not None and doses_per_day is not None:
-            daily_mg = round(dose_mg * doses_per_day, 4)
+            daily_mg = round(dose_mg * doses_per_day, 6)
         elif dose_mg is not None:
             daily_mg = dose_mg
         else:
@@ -707,6 +758,25 @@ def check_prescription_safety(
                     rule_ref="Major DDI / Anticoagulant",
                 )
             )
+        if canon == "warfarin":
+            warf_partner = _matches_any_term(
+                concurrent_meds,
+                ("ibuprofen", "naproxen", "aspirin", "diclofenac", "mefenamic", "clarithromycin", "co-trimoxazole", "bactrim"),
+            )
+            if warf_partner:
+                findings.append(
+                    RxFinding(
+                        severity="override_required",
+                        code="major_drug_interaction",
+                        drug=canon,
+                        message=(
+                            f"Major drug interaction: Warfarin with {warf_partner} significantly "
+                            "increases bleeding risk and/or INR elevation."
+                        ),
+                        message_zh=f"嚴重藥物相互作用：華法林與 {warf_partner} 同服會顯著增加出血風險及 INR 升高。",
+                        rule_ref="Major DDI / Anticoagulant",
+                    )
+                )
 
         doac_hit = _matches_any_term(concurrent_meds, _DOAC_TERMS)
         if doac_hit and canon in _NSAID_FORMULARY:
@@ -905,6 +975,48 @@ def check_prescription_safety(
                         rule_ref="Pregnancy Safety / Macrolides",
                     )
                 )
+            elif canon == "carbimazole":
+                findings.append(
+                    RxFinding(
+                        severity="override_required",
+                        code="pregnancy_antithyroid_teratogen",
+                        drug=canon,
+                        message=(
+                            "Pregnancy contraindication: Carbimazole carries teratogenic risk (aplasia cutis, "
+                            "choanal atresia) especially in the 1st trimester; switch to propylthiouracil / endocrinology review."
+                        ),
+                        message_zh="懷孕期禁忌：卡比馬唑於懷孕期（尤以首三個月）具致畸胎風險，請轉介內分泌科評估改用丙基硫氧嘧啶。",
+                        rule_ref="NICE NG145 / Pregnancy Antithyroid Safety",
+                    )
+                )
+            elif canon == "nitrofurantoin":
+                findings.append(
+                    RxFinding(
+                        severity="override_required",
+                        code="pregnancy_nitrofurantoin_caution",
+                        drug=canon,
+                        message=(
+                            "Pregnancy caution: Nitrofurantoin must be avoided at term (>=36 weeks) due to "
+                            "neonatal haemolysis risk; confirm gestational age or use Cephalexin."
+                        ),
+                        message_zh="懷孕期警示：懷孕後期（>=36週）禁用呋喃妥因以免引致新生兒溶血，請核實孕週或改用頭孢氨苄。",
+                        rule_ref="NICE NG109 / Pregnancy UTI",
+                    )
+                )
+            elif canon in _TERATOGENIC_CHRONIC_FORMULARY or entry.get("teratogenic"):
+                findings.append(
+                    RxFinding(
+                        severity="override_required",
+                        code="pregnancy_teratogen_contraindication",
+                        drug=canon,
+                        message=(
+                            f"Pregnancy contraindication: {entry['display']} is teratogenic / contraindicated in pregnancy; "
+                            "specialist review required for safe alternative."
+                        ),
+                        message_zh=f"懷孕期禁忌：{entry['display_zh']} 具致畸胎風險，懷孕期禁用。",
+                        rule_ref="Pregnancy Safety / Teratogens",
+                    )
+                )
 
         # 7c. Pediatric < 6y Dextromethorphan (HK DH / FDA cough-suppressant safety warning) -> override_required
         if canon == "dextromethorphan" and age_years is not None and age_years < 6:
@@ -995,13 +1107,109 @@ def check_prescription_safety(
                         rule_ref="Renal Contraindication / eGFR < 45",
                     )
                 )
+            if canon == "metformin" and egfr < 30:
+                findings.append(
+                    RxFinding(
+                        severity="override_required",
+                        code="renal_contraindication",
+                        drug=canon,
+                        message=(
+                            f"Metformin is contraindicated when eGFR < 30 (patient eGFR {egfr:g}) "
+                            "due to lactic acidosis risk (NICE NG28 / HK DM Framework)."
+                        ),
+                        message_zh=f"腎功能禁忌：eGFR {egfr:g}（<30）禁用二甲雙胍，以免引致乳酸中毒。",
+                        rule_ref="NICE NG28 / Metformin eGFR < 30",
+                    )
+                )
+            elif canon == "metformin" and egfr < 45:
+                if daily_mg is None or daily_mg > 1000.0 + 1e-6:
+                    findings.append(
+                        RxFinding(
+                            severity="override_required",
+                            code="renal_dose_adjustment_required",
+                            drug=canon,
+                            message=(
+                                f"Metformin renal dose cap at eGFR {egfr:g} (30–44): "
+                                f"daily dose ({daily_mg if daily_mg is not None else 'unspecified'}mg/day) "
+                                "must not exceed 1000mg/day (avoid initiating new therapy)."
+                            ),
+                            message_zh=f"腎功能劑量上限：eGFR {egfr:g}（30–44）時，二甲雙胍每日劑量不得超過 1000mg。",
+                            rule_ref="NICE NG28 / Metformin eGFR 30–44",
+                        )
+                    )
 
         # 8. Advisory Warnings (warn — no override required)
+        # Carbimazole agranulocytosis mandatory counselling warning (Pathway 7)
+        if canon == "carbimazole" or entry.get("agranulocytosis_warning"):
+            findings.append(
+                RxFinding(
+                    severity="warn",
+                    code="carbimazole_agranulocytosis_warning",
+                    drug=canon,
+                    message=(
+                        "Mandatory agranulocytosis counselling for Carbimazole: instruct patient to stop immediately "
+                        "and obtain urgent FBC if sore throat, fever, or mouth ulcers occur."
+                    ),
+                    message_zh="卡比馬唑粒細胞缺乏症警示：如出現喉嚨痛、發燒或口腔潰瘍，須立即停藥並緊急檢驗血常規 (FBC)。",
+                    rule_ref="NICE NG145 / Antithyroid Agranulocytosis",
+                )
+            )
+
+        # Levothyroxine <-> Oral Iron / Calcium 4-hour spacing advisory (Pathways 3 & 7)
+        if canon == "levothyroxine":
+            mineral_hit = _matches_any_term(concurrent_meds, _IRON_CALCIUM_TERMS)
+            if mineral_hit:
+                findings.append(
+                    RxFinding(
+                        severity="warn",
+                        code="levothyroxine_absorption_spacing",
+                        drug=canon,
+                        message=(
+                            f"Absorption spacing advisory: separate Levothyroxine from iron/calcium ({mineral_hit}) "
+                            "by at least 4 hours to prevent reduced thyroid hormone absorption."
+                        ),
+                        message_zh=f"吸收間隔提示：左甲狀腺素須與鐵劑或鈣片（{mineral_hit}）相隔最少 4 小時服用。",
+                        rule_ref="NICE NG145 / Levothyroxine Absorption",
+                    )
+                )
+        elif canon in {"ferrous bisglycinate", "ferrous sulfate"}:
+            levo_hit = _matches_any_term(concurrent_meds, _LEVOTHYROXINE_TERMS)
+            if levo_hit:
+                findings.append(
+                    RxFinding(
+                        severity="warn",
+                        code="levothyroxine_absorption_spacing",
+                        drug=canon,
+                        message=(
+                            f"Absorption spacing advisory: separate oral iron ({entry['display']}) from "
+                            f"Levothyroxine ({levo_hit}) by at least 4 hours."
+                        ),
+                        message_zh=f"吸收間隔提示：口服鐵劑須與左甲狀腺素（{levo_hit}）相隔最少 4 小時服用。",
+                        rule_ref="NICE NG145 / Levothyroxine Absorption",
+                    )
+                )
+
+        # Cephalexin with documented Penicillin allergy: low cross-reactivity caution
+        if canon == "cephalexin" and "penicillin" in allergy_groups:
+            findings.append(
+                RxFinding(
+                    severity="warn",
+                    code="cephalosporin_penicillin_cross_caution",
+                    drug=canon,
+                    message=(
+                        "Cross-reactivity caution: Cephalexin shares a similar R1 side chain with some penicillins; "
+                        "avoid if prior penicillin reaction was anaphylaxis/severe IgE-mediated."
+                    ),
+                    message_zh="交叉過敏提示：病人有青黴素過敏史，如曾出現嚴重過敏性休克應避免使用頭孢氨苄。",
+                    rule_ref="Beta-Lactam Cross-Reactivity",
+                )
+            )
+
         # HK CHP IMPACT / NICE NG84 Antibiotic Stewardship for uncomplicated viral influenza/URTI
         if (
             diagnosis_icd10
             and diagnosis_icd10.strip().upper() in {"J10.1", "J11.1", "J06.9"}
-            and canon in {"amoxicillin", "amoxicillin-clavulanate", "clarithromycin", "co-trimoxazole", "nitrofurantoin"}
+            and canon in {"amoxicillin", "amoxicillin-clavulanate", "clarithromycin", "co-trimoxazole", "nitrofurantoin", "fosfomycin", "cephalexin"}
         ):
             findings.append(
                 RxFinding(
@@ -1089,6 +1297,11 @@ _CROSS_CHART_THERAPEUTIC_CLASSES: dict[str, tuple[str, tuple[str, ...]]] = {
     "ras_blocker": ("ACEi/ARB", ("lisinopril", "perindopril", "enalapril", "ramipril", "losartan", "valsartan", "telmisartan", "irbesartan", "candesartan")),
     "anticoagulant": ("anticoagulant", ("warfarin", "apixaban", "rivaroxaban", "dabigatran", "edoxaban", "marevan", "eliquis", "xarelto", "pradaxa")),
     "ccb": ("calcium-channel blocker", ("amlodipine", "nifedipine", "felodipine", "diltiazem", "verapamil", "norvasc")),
+    "sulfonylurea": ("sulfonylurea", ("gliclazide", "glipizide", "glibenclamide", "glimepiride", "diamicron")),
+    "sglt2_inhibitor": ("SGLT2 inhibitor", ("empagliflozin", "dapagliflozin", "canagliflozin", "jardiance", "forxiga")),
+    "antithyroid": ("antithyroid agent", ("carbimazole", "methimazole", "propylthiouracil", "neomercazole")),
+    "oral_iron": ("oral iron", ("ferrous bisglycinate", "ferrous sulfate", "ferrous fumarate", "ferrous gluconate")),
+    "beta_blocker": ("beta-blocker", ("bisoprolol", "metoprolol", "atenolol", "propranolol", "carvedilol", "nebivolol")),
 }
 
 
@@ -1126,3 +1339,114 @@ def check_duplicate_therapeutic_classes(medications: list[str]) -> list[RxFindin
                 )
             )
     return findings
+
+
+def _canonical_drug_token(raw: str) -> str:
+    looked = lookup_drug(raw)
+    if looked:
+        return looked[0]
+    cleaned = re.sub(r"\b\d+(?:\.\d+)?\s*(?:mcg|ug|µg|μg|mg|g)\b", "", str(raw or "").lower()).strip()
+    return cleaned.split()[0] if cleaned else ""
+
+
+def evaluate_rx_order_primitives(
+    orders: Sequence[dict[str, Any]],
+    patient_context: Any,
+    active_meds: Sequence[str] | None = None,
+    override_reason: str | None = None,
+    *,
+    as_of: date | None = None,
+    diagnosis_icd10: str | None = None,
+) -> RxSafetyReport:
+    """Evaluate canonical `/prescribe` (`type == 'rx'`) order primitives with `action == 'stop'` reconciliation.
+
+    Removes medications explicitly stopped (`action='stop'`) from `active_meds` before running
+    cross-chart duplicate class and DDI checks, so switching e.g. `stop Simvastatin` + `start Atorvastatin`
+    does NOT false-trigger duplicate statin warnings/overrides.
+    """
+    rx_orders = [
+        dict(o) for o in orders
+        if isinstance(o, dict) and (o.get("type") in (None, "", "rx"))
+    ]
+
+    stopped_tokens: set[str] = set()
+    updated_tokens: set[str] = set()
+    active_rx_items: list[dict[str, Any]] = []
+
+    for ord_item in rx_orders:
+        action = str(ord_item.get("action") or "start").strip().lower()
+        drug_raw = str(ord_item.get("drug") or ord_item.get("name") or ord_item.get("drug_name") or "").strip()
+        tok = _canonical_drug_token(drug_raw)
+        if action == "stop":
+            if tok:
+                stopped_tokens.add(tok)
+            continue
+        if action == "update" and tok:
+            updated_tokens.add(tok)
+        # Normalize frequency alias (`freq` -> `frequency`) for check_prescription_safety
+        normalized_item = dict(ord_item)
+        if not normalized_item.get("frequency") and normalized_item.get("freq"):
+            normalized_item["frequency"] = normalized_item["freq"]
+        active_rx_items.append(normalized_item)
+
+    # Reconcile patient's active medication chart against stop/update directives
+    base_patient = _normalize_patient(patient_context, as_of=as_of)
+    source_active = list(active_meds) if active_meds is not None else list(base_patient["current_meds"])
+    reconciled_active: list[str] = []
+    for med in source_active:
+        med_tok = _canonical_drug_token(med)
+        if med_tok and (med_tok in stopped_tokens or med_tok in updated_tokens):
+            continue
+        reconciled_active.append(str(med))
+
+    # Build reconciled patient profile dict
+    reconciled_profile: dict[str, Any] = dict(patient_context) if isinstance(patient_context, dict) else {
+        "age_years": base_patient["age_years"],
+        "weight_kg": base_patient["weight_kg"],
+        "egfr": base_patient["egfr"],
+        "g6pd_deficient": base_patient["g6pd_deficient"],
+        "pregnant": base_patient["pregnant"],
+        "allergies": base_patient["allergies"],
+        "conditions": base_patient["conditions"],
+        "uncontrolled_hypertension": base_patient["uncontrolled_hypertension"],
+    }
+    reconciled_profile["current_meds"] = reconciled_active
+
+    report = check_prescription_safety(
+        reconciled_profile,
+        active_rx_items,
+        as_of=as_of,
+        diagnosis_icd10=diagnosis_icd10,
+    )
+
+    # Run cross-chart duplicate therapeutic class check over reconciled active meds + active new rx items
+    new_active_labels = [
+        str(item.get("drug") or item.get("name") or "").strip()
+        for item in active_rx_items
+        if str(item.get("drug") or item.get("name") or "").strip()
+    ]
+    cross_dups = check_duplicate_therapeutic_classes(reconciled_active + new_active_labels)
+    existing_keys = {(f.code, f.drug) for f in report.findings}
+    for dup in cross_dups:
+        if (dup.code, dup.drug) not in existing_keys:
+            report.findings.append(dup)
+            existing_keys.add((dup.code, dup.drug))
+
+    # Re-sort findings and recompute status cleanly
+    report.findings.sort(key=lambda f: -_SEVERITY_RANK[f.severity])
+    if any(f.severity == "hard_block" for f in report.findings):
+        report.status = "hard_block"
+    elif any(f.severity == "override_required" for f in report.findings):
+        report.status = "override_required"
+    elif any(f.severity == "warn" for f in report.findings):
+        report.status = "warn"
+    else:
+        report.status = "pass"
+
+    # If override_reason was passed, attach validation metadata non-destructively
+    if override_reason is not None:
+        ok, err = report.validate_override(override_reason)
+        report.override_accepted = ok  # type: ignore[attr-defined]
+        report.override_error = err  # type: ignore[attr-defined]
+
+    return report

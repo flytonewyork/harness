@@ -18,6 +18,7 @@ import json
 import os
 import re
 import time
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -25,6 +26,8 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
+
+from backend.agentic.transports import acquire_vertex_adc_token, detect_provider_chain
 
 from .companion import HK_MENTAL_HEALTH_HOTLINES, classify_crisis, next_clinic_review_sla
 from .db import (
@@ -46,7 +49,8 @@ from .db import (
 from .legacy_feed import build_legacy_demo_store
 from .live_bus import LiveHarnessBus
 from .rx_rules import check_prescription_safety
-from .security import HKT
+from .security import HKT, PHIScrubber
+from .triage import screen_acute_message
 
 HERO_URTI_PATIENT_ID = "pat_lam_urti_demo"
 
@@ -294,38 +298,446 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 ]
 
 
+def _probe_vertex_adc_available(project_id: str) -> bool:
+    """Gracefully probe GCP ADC / Cloud Run metadata without crashing or stalling offline CI."""
+    creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    if creds_path and os.path.isfile(creds_path):
+        return True
+    if os.environ.get("K_SERVICE") or os.environ.get("CLOUD_RUN_JOB"):
+        return True
+    try:
+        token, proj = acquire_vertex_adc_token(project_id)
+        return bool(token and proj)
+    except Exception:
+        return False
+
+
 def detect_live_llm_engine() -> dict[str, Any]:
-    """Detect whether live LLM credentials (Anthropic, OpenAI, Gemini API, or Vertex AI HK ADC) are configured."""
+    """Detect active LLM runtime prioritizing Vertex AI asia-east2 -> Gemini -> Anthropic -> OpenAI -> deterministic."""
     forced = (os.environ.get("AGENT_LLM_PROVIDER") or "").strip().lower()
+    chain_summary = [c["provider"] for c in detect_provider_chain()]
+
     if forced in ("deterministic", "off"):
-        return {"live": False, "provider": "deterministic", "model": "clinic-harness-tool-engine-v1", "label": "Deterministic Tool Harness"}
-    if (forced in ("", "anthropic")) and os.environ.get("ANTHROPIC_API_KEY"):
-        model = os.environ.get("AGENT_LLM_MODEL") or "claude-sonnet-4-20250514"
-        return {"live": True, "provider": "anthropic", "model": model, "label": f"Live LLM · Anthropic ({model})"}
-    if (forced in ("", "openai")) and os.environ.get("OPENAI_API_KEY"):
-        model = os.environ.get("AGENT_LLM_MODEL") or "gpt-4o-mini"
-        return {"live": True, "provider": "openai", "model": model, "label": f"Live LLM · OpenAI ({model})"}
-    if (forced in ("", "gemini")) and os.environ.get("GEMINI_API_KEY"):
-        model = os.environ.get("AGENT_LLM_MODEL") or "gemini-2.5-flash"
-        return {"live": True, "provider": "gemini", "model": model, "label": f"Live LLM · Gemini ({model})"}
-    gcp_project = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID") or os.environ.get("VERTEX_PROJECT_ID")
-    if (forced in ("", "vertex")) and gcp_project:
-        region = os.environ.get("VERTEX_REGION") or os.environ.get("HARNESS_REGION") or "asia-east2"
+        return {
+            "live": False,
+            "provider": "deterministic",
+            "model": "clinic-harness-tool-engine-v1",
+            "region": "local",
+            "temperature": 0.1,
+            "phi_scrub_required": False,
+            "provider_chain": [],
+            "label": "Deterministic Tool Harness",
+        }
+
+    # 1. Primary: Vertex AI asia-east2 (Hong Kong) via GCP ADC
+    gcp_project = (
+        os.environ.get("VERTEX_PROJECT_ID")
+        or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        or os.environ.get("GCP_PROJECT_ID")
+    )
+    if forced in ("", "vertex") and gcp_project:
+        region = (
+            os.environ.get("VERTEX_LOCATION")
+            or os.environ.get("VERTEX_REGION")
+            or os.environ.get("HARNESS_REGION")
+            or "asia-east2"
+        )
         model = os.environ.get("AGENT_LLM_MODEL") or os.environ.get("VERTEX_MODEL") or "gemini-2.5-flash"
+        adc_ready = True if forced == "vertex" else _probe_vertex_adc_available(gcp_project)
+        if adc_ready:
+            return {
+                "live": True,
+                "provider": "vertex",
+                "model": model,
+                "region": region,
+                "project": gcp_project,
+                "temperature": 0.1,
+                "phi_scrub_required": region.strip().lower() != "asia-east2",
+                "provider_chain": chain_summary or ["vertex"],
+                "label": f"Live LLM · Vertex AI {region} ({model})",
+            }
+
+    # 2. Gemini Developer API
+    if forced in ("", "gemini") and os.environ.get("GEMINI_API_KEY"):
+        model = os.environ.get("AGENT_LLM_MODEL") or "gemini-2.5-flash"
         return {
             "live": True,
-            "provider": "vertex",
+            "provider": "gemini",
             "model": model,
-            "region": region,
-            "project": gcp_project,
-            "label": f"Live LLM · Vertex AI {region} ({model})",
+            "region": "global",
+            "temperature": 0.1,
+            "phi_scrub_required": True,
+            "provider_chain": chain_summary or ["gemini"],
+            "label": f"Live LLM · Gemini ({model})",
         }
+
+    # 3. Anthropic Messages API
+    if forced in ("", "anthropic") and os.environ.get("ANTHROPIC_API_KEY"):
+        model = os.environ.get("AGENT_LLM_MODEL") or "claude-sonnet-4-20250514"
+        return {
+            "live": True,
+            "provider": "anthropic",
+            "model": model,
+            "region": "us-global",
+            "temperature": 0.1,
+            "phi_scrub_required": True,
+            "provider_chain": chain_summary or ["anthropic"],
+            "label": f"Live LLM · Anthropic ({model})",
+        }
+
+    # 4. OpenAI Chat Completions API
+    if forced in ("", "openai") and os.environ.get("OPENAI_API_KEY"):
+        model = os.environ.get("AGENT_LLM_MODEL") or "gpt-4o-mini"
+        return {
+            "live": True,
+            "provider": "openai",
+            "model": model,
+            "region": "us-global",
+            "temperature": 0.1,
+            "phi_scrub_required": True,
+            "provider_chain": chain_summary or ["openai"],
+            "label": f"Live LLM · OpenAI ({model})",
+        }
+
+    # 5. Deterministic Offline Fallback
     return {
         "live": False,
         "provider": "deterministic",
         "model": "clinic-harness-tool-engine-v1",
+        "region": "local",
+        "temperature": 0.1,
+        "phi_scrub_required": False,
+        "provider_chain": chain_summary,
         "label": "Deterministic Tool Harness (Vertex AI asia-east2 ADC auto-activates on Cloud Run)",
     }
+
+
+@dataclass
+class ModelCallResult:
+    """Unified telemetry & output envelope for every live or offline-fallback clinical LLM call."""
+
+    ok: bool
+    provider: str
+    model: str
+    region: str
+    text: str = ""
+    json_payload: dict[str, Any] | None = None
+    latency_ms: int = 0
+    phi_scrubbed: bool = False
+    redacted_categories: list[str] = field(default_factory=list)
+    prompt_tokens: int | None = None
+    output_tokens: int | None = None
+    fallback_used: bool = False
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "provider": self.provider,
+            "model": self.model,
+            "region": self.region,
+            "latency_ms": self.latency_ms,
+            "phi_scrubbed": self.phi_scrubbed,
+            "redacted_categories": list(self.redacted_categories),
+            "prompt_tokens": self.prompt_tokens,
+            "output_tokens": self.output_tokens,
+            "fallback_used": self.fallback_used,
+            "error": self.error,
+        }
+
+
+def _extract_json_object(raw_text: str) -> dict[str, Any] | None:
+    """Parse strict JSON or fenced ```json ... ``` object cleanly."""
+    cleaned = (raw_text or "").strip()
+    if not cleaned:
+        return None
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.I)
+        cleaned = re.sub(r"\s*```$", "", cleaned).strip()
+    try:
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, dict):
+            return parsed
+    except ValueError:
+        pass
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start != -1 and end > start:
+        try:
+            parsed = json.loads(cleaned[start : end + 1])
+            if isinstance(parsed, dict):
+                return parsed
+        except ValueError:
+            return None
+    return None
+
+
+def _invoke_live_provider(
+    *,
+    system_prompt: str,
+    user_prompt: str,
+    expect_json: bool,
+    temperature: float = 0.1,
+    max_output_tokens: int = 1100,
+    patient_names_for_scrub: list[str] | None = None,
+    engine_override: dict[str, Any] | None = None,
+    timeout_seconds: float = 18.0,
+) -> ModelCallResult:
+    """Execute one governed call through the active provider chain with off-HK PHIScrubber enforcement."""
+    engine = dict(engine_override) if engine_override is not None else detect_live_llm_engine()
+    provider = str(engine.get("provider") or "deterministic")
+    model = str(engine.get("model") or "clinic-harness-tool-engine-v1")
+    region = str(engine.get("region") or "local")
+
+    if not engine.get("live"):
+        return ModelCallResult(
+            ok=False,
+            provider=provider,
+            model=model,
+            region=region,
+            fallback_used=True,
+            error="offline_deterministic_mode",
+        )
+
+    sys_txt = system_prompt
+    usr_txt = user_prompt
+    phi_scrubbed = False
+    redacted_cats: list[str] = []
+    if region.strip().lower() != "asia-east2":
+        sys_txt, c_sys = PHIScrubber.scrub(sys_txt, extra_names=patient_names_for_scrub)
+        usr_txt, c_usr = PHIScrubber.scrub(usr_txt, extra_names=patient_names_for_scrub)
+        phi_scrubbed = True
+        redacted_cats = sorted(set(c_sys) | set(c_usr))
+
+    t0 = time.perf_counter()
+    try:
+        with httpx.Client(timeout=timeout_seconds) as client:
+            prompt_tok: int | None = None
+            out_tok: int | None = None
+            txt = ""
+
+            if provider in ("vertex", "gemini"):
+                if provider == "vertex":
+                    token, project = MultiAgentHarness._vertex_adc_token(engine.get("project"))
+                    url = (
+                        f"https://{region}-aiplatform.googleapis.com/v1/projects/{project}"
+                        f"/locations/{region}/publishers/google/models/{model}:generateContent"
+                    )
+                    headers = {
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json",
+                        "X-Vertex-Zero-Data-Retention": "true",
+                        "X-No-Training": "true",
+                    }
+                    params: dict[str, str] = {}
+                else:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+                    headers = {"Content-Type": "application/json"}
+                    params = {"key": os.environ["GEMINI_API_KEY"]}
+
+                gen_cfg: dict[str, Any] = {
+                    "temperature": temperature,
+                    "maxOutputTokens": max_output_tokens,
+                }
+                if expect_json:
+                    gen_cfg["responseMimeType"] = "application/json"
+
+                req_body: dict[str, Any] = {
+                    "systemInstruction": {"parts": [{"text": sys_txt}]},
+                    "contents": [{"role": "user", "parts": [{"text": usr_txt}]}],
+                    "generationConfig": gen_cfg,
+                }
+                if provider == "vertex":
+                    req_body["labels"] = {
+                        "zero_retention": "true",
+                        "no_training": "true",
+                        "pdpo_dpp3": "enforced",
+                    }
+
+                resp = client.post(url, headers=headers, params=params, json=req_body)
+                if resp.status_code != 200:
+                    raise RuntimeError(f"{provider}_http_{resp.status_code}")
+                data = resp.json()
+                cand = (data.get("candidates") or [{}])[0]
+                parts = (cand.get("content") or {}).get("parts") or []
+                txt = " ".join(str(p.get("text", "")) for p in parts if "text" in p).strip()
+                usage = data.get("usageMetadata") or {}
+                prompt_tok = usage.get("promptTokenCount")
+                out_tok = usage.get("candidatesTokenCount")
+
+            elif provider == "anthropic":
+                resp = client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": os.environ["ANTHROPIC_API_KEY"],
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "max_tokens": max_output_tokens,
+                        "temperature": temperature,
+                        "system": sys_txt,
+                        "messages": [{"role": "user", "content": usr_txt}],
+                    },
+                )
+                if resp.status_code != 200:
+                    raise RuntimeError(f"anthropic_http_{resp.status_code}")
+                data = resp.json()
+                blocks = data.get("content") or []
+                txt = " ".join(str(b.get("text", "")) for b in blocks if b.get("type") == "text").strip()
+                usage = data.get("usage") or {}
+                prompt_tok = usage.get("input_tokens")
+                out_tok = usage.get("output_tokens")
+
+            elif provider == "openai":
+                oai_body: dict[str, Any] = {
+                    "model": model,
+                    "max_tokens": max_output_tokens,
+                    "temperature": temperature,
+                    "store": False,
+                    "messages": [
+                        {"role": "system", "content": sys_txt},
+                        {"role": "user", "content": usr_txt},
+                    ],
+                }
+                if expect_json:
+                    oai_body["response_format"] = {"type": "json_object"}
+                resp = client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
+                        "Content-Type": "application/json",
+                    },
+                    json=oai_body,
+                )
+                if resp.status_code != 200:
+                    raise RuntimeError(f"openai_http_{resp.status_code}")
+                data = resp.json()
+                txt = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+                usage = data.get("usage") or {}
+                prompt_tok = usage.get("prompt_tokens")
+                out_tok = usage.get("completion_tokens")
+            else:
+                raise RuntimeError(f"unsupported_provider:{provider}")
+
+        latency_ms = max(1, int((time.perf_counter() - t0) * 1000))
+        if expect_json:
+            parsed = _extract_json_object(txt)
+            if parsed is None:
+                return ModelCallResult(
+                    ok=False,
+                    provider=provider,
+                    model=model,
+                    region=region,
+                    text=txt,
+                    latency_ms=latency_ms,
+                    phi_scrubbed=phi_scrubbed,
+                    redacted_categories=redacted_cats,
+                    prompt_tokens=prompt_tok,
+                    output_tokens=out_tok,
+                    fallback_used=True,
+                    error="invalid_json_output",
+                )
+            return ModelCallResult(
+                ok=True,
+                provider=provider,
+                model=model,
+                region=region,
+                text=txt,
+                json_payload=parsed,
+                latency_ms=latency_ms,
+                phi_scrubbed=phi_scrubbed,
+                redacted_categories=redacted_cats,
+                prompt_tokens=prompt_tok,
+                output_tokens=out_tok,
+                fallback_used=False,
+            )
+
+        if not txt:
+            return ModelCallResult(
+                ok=False,
+                provider=provider,
+                model=model,
+                region=region,
+                latency_ms=latency_ms,
+                phi_scrubbed=phi_scrubbed,
+                redacted_categories=redacted_cats,
+                fallback_used=True,
+                error="empty_model_response",
+            )
+        return ModelCallResult(
+            ok=True,
+            provider=provider,
+            model=model,
+            region=region,
+            text=txt,
+            latency_ms=latency_ms,
+            phi_scrubbed=phi_scrubbed,
+            redacted_categories=redacted_cats,
+            prompt_tokens=prompt_tok,
+            output_tokens=out_tok,
+            fallback_used=False,
+        )
+    except Exception as exc:
+        latency_ms = max(1, int((time.perf_counter() - t0) * 1000))
+        return ModelCallResult(
+            ok=False,
+            provider=provider,
+            model=model,
+            region=region,
+            latency_ms=latency_ms,
+            phi_scrubbed=phi_scrubbed,
+            redacted_categories=redacted_cats,
+            fallback_used=True,
+            error=f"{type(exc).__name__}: {exc}",
+        )
+
+
+def invoke_structured_json(
+    *,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.1,
+    max_output_tokens: int = 1100,
+    patient_names_for_scrub: list[str] | None = None,
+    engine_override: dict[str, Any] | None = None,
+    timeout_seconds: float = 18.0,
+) -> ModelCallResult:
+    """Unified structured-JSON clinical LLM invocation (Vertex asia-east2 primary, off-HK PHIScrubber)."""
+    return _invoke_live_provider(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        expect_json=True,
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        patient_names_for_scrub=patient_names_for_scrub,
+        engine_override=engine_override,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def invoke_clinical_qa(
+    *,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.1,
+    max_output_tokens: int = 360,
+    patient_names_for_scrub: list[str] | None = None,
+    engine_override: dict[str, Any] | None = None,
+    timeout_seconds: float = 15.0,
+) -> ModelCallResult:
+    """Unified concise clinical Q&A LLM invocation (Vertex asia-east2 primary, off-HK PHIScrubber)."""
+    return _invoke_live_provider(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        expect_json=False,
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        patient_names_for_scrub=patient_names_for_scrub,
+        engine_override=engine_override,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def _compute_age(dob: str | None) -> int | None:
@@ -803,11 +1215,23 @@ class MultiAgentHarness:
         elif tool_name == "safety.screen_red_flags":
             emr_target = "safety_sentinel"
             msg = str(args.get("message") or "")
-            crisis = classify_crisis(msg)
+            temp_c_arg = args.get("temp_c")
+            vitals_arg = {"temp_c": float(temp_c_arg)} if temp_c_arg is not None else None
+            triage_res = screen_acute_message(msg, vitals=vitals_arg, enable_model_screen=False)
+            crisis: str | None = None
+            if triage_res.is_emergency:
+                crisis = "mental_health_crisis" if triage_res.kind == "crisis" else "medical_999"
+            elif not triage_res.suppressed_negations:
+                # Union-only with legacy crisis matcher when neither Cantonese hyperbole nor clause-scoped negation suppressed it
+                crisis = classify_crisis(msg)
             result = {
                 "crisis_kind": crisis,
                 "status": "EMERGENCY_STOP" if crisis else "CLEAR",
-                "rule_engine": "deterministic_hk_999_mh_v1",
+                "urgency": triage_res.urgency,
+                "red_flags": list(triage_res.red_flags),
+                "suppressed_negations": list(triage_res.suppressed_negations),
+                "prompt_injection_detected": triage_res.prompt_injection_detected,
+                "rule_engine": "triage_screen_acute_message_union_v2",
             }
 
         elif tool_name == "memory.upsert_fact":
@@ -1183,15 +1607,7 @@ class MultiAgentHarness:
     # ------------------------------------------------------------------ Live LLM + Native Tool-Calling Loop
     @staticmethod
     def _vertex_adc_token(project_override: str | None = None) -> tuple[str, str]:
-        import google.auth  # type: ignore[import-untyped]
-        import google.auth.transport.requests  # type: ignore[import-untyped]
-
-        creds, default_project = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
-        creds.refresh(google.auth.transport.requests.Request())
-        project = project_override or default_project
-        if not project or not creds.token:
-            raise RuntimeError("Vertex AI ADC missing project or token")
-        return str(creds.token), str(project)
+        return acquire_vertex_adc_token(project_override)
 
     @staticmethod
     def _gemini_tool_declarations() -> list[dict[str, Any]]:
@@ -1222,6 +1638,7 @@ class MultiAgentHarness:
             return None
         provider = engine["provider"]
         model = engine["model"]
+        region = str(engine.get("region") or ("asia-east2" if provider == "vertex" else "global"))
         user_payload = json.dumps(
             {
                 "language": "Traditional Chinese (Hong Kong Cantonese/written)" if lang == "zh-HK" else "English",
@@ -1238,13 +1655,17 @@ class MultiAgentHarness:
             },
             ensure_ascii=False,
         )
+        system_prompt_eff = ctx["system_prompt"]
+        if region.strip().lower() != "asia-east2":
+            extra_names = [n for n in (patient.name_en, patient.name_zh) if n]
+            system_prompt_eff, _ = PHIScrubber.scrub(system_prompt_eff, extra_names=extra_names)
+            user_payload, _ = PHIScrubber.scrub(user_payload, extra_names=extra_names)
         name_map = {t["name"].replace(".", "_"): t["name"] for t in TOOL_SCHEMAS}
         try:
             with httpx.Client(timeout=15.0) as client:
                 if provider in ("vertex", "gemini"):
                     if provider == "vertex":
                         token, project = self._vertex_adc_token(engine.get("project"))
-                        region = engine.get("region") or "asia-east2"
                         url = (
                             f"https://{region}-aiplatform.googleapis.com/v1/projects/{project}"
                             f"/locations/{region}/publishers/google/models/{model}:generateContent"
@@ -1265,9 +1686,9 @@ class MultiAgentHarness:
                     tools_spec = self._gemini_tool_declarations() if (s is not None and tenant_id is not None) else None
                     for _round in range(3):
                         req_body: dict[str, Any] = {
-                            "systemInstruction": {"parts": [{"text": ctx["system_prompt"]}]},
+                            "systemInstruction": {"parts": [{"text": system_prompt_eff}]},
                             "contents": contents,
-                            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 320},
+                            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 320},
                         }
                         if provider == "vertex":
                             req_body["labels"] = {"zero_retention": "true", "no_training": "true", "pdpo_dpp3": "enforced"}

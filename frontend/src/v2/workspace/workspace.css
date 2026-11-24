@@ -30,7 +30,7 @@
   flex-direction: column;
   background: var(--ws-bg);
   color: var(--ws-ink);
-  font-family: var(--font-sans, "Inter", -apple-system, BlinkMacSystemFont, "PingFang HK", sans-serif);
+  font-family: var(--font-sans, "Inter", -apple-system, BlinkMacSystemFont, "PingFang HK", "Noto Sans HK", "Microsoft JhengHei", sans-serif);
 }
 
 .ws-num {
@@ -865,3 +865,261 @@
   color: var(--ws-jade-dark);
   font-weight: 700;
 }
+
+/* Keyboard highlight on floating / slash popover (zero page-shift jank) */
+.ws-slash-item.is-highlighted {
+  background: var(--ws-jade-soft);
+  color: var(--ws-jade-dark);
+}
+
+/* Calm light-mode inline order editors (natural sans, zero monospace) */
+.ws-select {
+  padding: 5px 9px;
+  border: 1px solid var(--ws-line-strong);
+  border-radius: 7px;
+  background: var(--ws-paper);
+  color: var(--ws-ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.ws-select:focus {
+  outline: none;
+  border-color: var(--ws-jade);
+}
+
+.ws-inline-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.ws-inline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ws-inline-field.is-full {
+  grid-column: 1 / -1;
+}
+
+.ws-inline-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ws-ink-3);
+}
+
+.ws-inline-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ws-inline-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 9px;
+  border: 1px solid var(--ws-line-strong);
+  border-radius: 7px;
+  background: var(--ws-paper);
+  color: var(--ws-ink);
+  font-family: inherit;
+  font-size: 12.5px;
+}
+
+.ws-inline-input:focus {
+  outline: none;
+  border-color: var(--ws-jade);
+}
+
+/* HTTP 422 CDS Hard-Block & Override Feedback */
+.ws-cds-panel {
+  border-radius: 9px;
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.48;
+}
+
+.ws-cds-panel.is-hard-block {
+  background: var(--ws-red-bg);
+  border: 1px solid var(--ws-red-line);
+  border-left: 3px solid var(--ws-red);
+  color: var(--ws-red);
+}
+
+.ws-cds-panel.is-override {
+  background: var(--ws-amber-bg);
+  border: 1px solid var(--ws-amber-line);
+  border-left: 3px solid var(--ws-amber);
+  color: #8A4208;
+}
+
+/* Signed MCHK PDF Certificate & Additive EMR Confirmation Receipt */
+.ws-receipt-card {
+  border-radius: 9px;
+  padding: 10px 13px;
+  background: var(--ws-jade-soft);
+  border: 1px solid var(--ws-jade-line);
+  color: var(--ws-jade-dark);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.ws-receipt-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Calm 1-Line Family-Proxy Strip */
+.ws-proxy-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 8px 13px;
+  border-radius: 9px;
+  background: var(--ws-paper);
+  border: 1px solid var(--ws-line);
+  font-size: 12.5px;
+  color: var(--ws-ink-2);
+}
+
+/* Thin-Intake Safety Gap with 1-Click Sam Questionnaire */
+.ws-thin-intake-gap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  padding: 10px 13px;
+  border-radius: 9px;
+  background: var(--ws-amber-bg);
+  border: 1px solid var(--ws-amber-line);
+  color: #8A4208;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* Generalized MedDiff table horizontal safety & ImagingPreview expandable report */
+.ws-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ws-imaging-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--ws-jade-dark);
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.ws-imaging-report {
+  margin-top: 8px;
+  padding: 9px 11px;
+  border-radius: 7px;
+  border: 1px solid var(--ws-line);
+  background: var(--ws-paper);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ws-ink-2);
+  white-space: pre-wrap;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.ws-empty-note {
+  font-size: 12.5px;
+  color: var(--ws-ink-3);
+  padding: 4px 2px;
+  line-height: 1.45;
+}
+
+.ws-lang-tag {
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--ws-line);
+  background: var(--ws-paper);
+  color: var(--ws-ink-3);
+}
+
+/* X-Ray <4,096 Token Budget Meter */
+.ws-budget-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ws-subtle);
+  border: 1px solid var(--ws-line);
+  overflow: hidden;
+}
+
+.ws-budget-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ws-jade);
+  transition: width 0.2s ease;
+}
+
+.ws-budget-fill.is-warn {
+  background: var(--ws-amber);
+}
+
+.ws-budget-fill.is-over {
+  background: var(--ws-red);
+}
+
+/* Narrow-screen (<1024px) high-alert SafetyCard promotion (hidden on desktop >= 1025px) */
+.ws-narrow-safety-promote {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .ws-topbar {
+    height: auto;
+    min-height: 52px;
+    padding: 8px 14px;
+    flex-wrap: wrap;
+  }
+
+  .ws-brand,
+  .ws-top-actions {
+    flex-wrap: wrap;
+  }
+
+  .ws-content {
+    padding: 14px 14px 64px;
+  }
+
+  .ws-narrow-safety-promote {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ws-inline-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ws-wait-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+

@@ -15,11 +15,13 @@ Product invariant: NEVER imports `loopbench`.
 from __future__ import annotations
 
 import copy
+import hashlib
 import re
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from .db import (
     AgentMemoryEntry,
@@ -36,8 +38,21 @@ from .practice_graph import (
     SafetyFloorViolation,
     build_effective_graph,
     compute_graph_hash,
+    resolve_pathway_id,
     validate_careline_profile,
     validate_overlay_against_safety_floor,
+)
+
+_UNSAFE_CAPTURE_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("allow_autonomous_rx", "autonomous prescribing"),
+    ("auto-prescribe", "autonomous prescribing"),
+    ("autonomous prescribing", "autonomous prescribing"),
+    ("auto-hold", "autonomous medication holds"),
+    ("withhold warfarin automatically", "autonomous medication holds"),
+    ("disable 3-point id", "disabling 3-point ID verification"),
+    ("skip 3-pt id", "disabling 3-point ID verification"),
+    ("bypass g6pd", "bypassing G6PD safety floor"),
+    ("disable safety floor", "disabling Immutable Safety Floor"),
 )
 
 
@@ -46,6 +61,93 @@ def _bump_minor_version(tag: str) -> str:
     if not m:
         return "v2.5"
     return f"v{int(m.group(1))}.{int(m.group(2)) + 1}"
+
+
+def _is_locum_actor(actor_name: str, actor_role: str | None = None) -> bool:
+    if (actor_role or "").strip().lower() == "locum":
+        return True
+    return "locum" in (actor_name or "").strip().lower()
+
+
+def compute_diff_fingerprint(target_node_id: str, diff_key: str, normalized_value: Any) -> str:
+    """Compute a deterministic 16-char cluster fingerprint over `(target_node_id, diff_key, normalized_value)`."""
+    canon_node = resolve_pathway_id(target_node_id).strip().lower()
+    canon_key = str(diff_key or "practice_note").strip().lower()
+    canon_val = re.sub(r"\s+", " ", str(normalized_value or "").strip().lower())
+    raw = f"{canon_node}::{canon_key}::{canon_val}".encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()[:16]
+
+
+def _extract_structured_diff(
+    target_node_id: str,
+    instruction_text: str,
+    structured_diff: dict[str, Any] | None = None,
+) -> tuple[str, str, dict[str, Any]]:
+    """Extract `(diff_key, normalized_value, node_patch_dict)` from a doctor override diff."""
+    canon_node = resolve_pathway_id(target_node_id)
+    if structured_diff and isinstance(structured_diff, dict):
+        dkey = str(structured_diff.get("diff_key") or "practice_note").strip().lower()
+        dval = str(structured_diff.get("normalized_value") or structured_diff.get("value") or "").strip().lower()
+        patch_fields = copy.deepcopy(structured_diff.get("patch") or {})
+        if not patch_fields and dkey != "practice_note":
+            patch_fields[dkey] = structured_diff.get("value")
+        patch_fields.setdefault("practice_note", f"Observed doctor customization: {instruction_text}")
+        return dkey, dval or re.sub(r"\s+", " ", instruction_text.strip().lower()), patch_fields
+
+    txt = (instruction_text or "").strip()
+    low = txt.lower()
+
+    # BP target extraction (e.g. "<130/80" or "135/85")
+    m_bp = re.search(r"\b(\d{2,3})\s*/\s*(\d{2,3})\b", low)
+    if m_bp and ("bp" in low or "target" in low or "goal" in low or "htn" in canon_node):
+        sys_v, dia_v = int(m_bp.group(1)), int(m_bp.group(2))
+        return "bp_target", f"{sys_v}/{dia_v}", {
+            "target_sys": sys_v,
+            "target_dia": dia_v,
+            "practice_note": f"Observed doctor customization: {txt}",
+        }
+
+    # Oral iron cadence (daily vs alternate-day)
+    if "iron" in low or "ferritin" in canon_node:
+        if "alternate" in low or "every other day" in low or "eod" in low:
+            return "oral_iron_regimen", "alternate_day", {
+                "oral_iron_regimen": "Alternate-day gentle oral iron",
+                "practice_note": f"Observed doctor customization: {txt}",
+            }
+        if "daily" in low or "od" in low:
+            return "oral_iron_regimen", "daily", {
+                "oral_iron_regimen": "Daily oral iron",
+                "practice_note": f"Observed doctor customization: {txt}",
+            }
+
+    # Repeat interval in months
+    m_mo = re.search(r"\b(\d+)\s*(?:month|months|mo|mth)\b", low)
+    if m_mo:
+        months = int(m_mo.group(1))
+        return "repeat_months", f"{months}m", {
+            "repeat_months": months,
+            "practice_note": f"Observed doctor customization: {txt}",
+        }
+
+    # Fasting hours
+    m_fast = re.search(r"\b(\d+)\s*(?:h|hr|hrs|hour|hours)\s*fast", low)
+    if m_fast:
+        hrs = int(m_fast.group(1))
+        return "fasting_hours", f"{hrs}h", {
+            "fasting_hours": hrs,
+            "practice_note": f"Observed doctor customization: {txt}",
+        }
+
+    # Paid GP review auto-booking toggle
+    if "paid review" in low or "gp review" in low:
+        no_book = "no " in low or "skip " in low or "without " in low
+        return "auto_book_paid_review", "false" if no_book else "true", {
+            "auto_book_paid_review": not no_book,
+            "practice_note": f"Observed doctor customization: {txt}",
+        }
+
+    norm_val = re.sub(r"\s+", " ", low)
+    return "practice_note", norm_val, {"practice_note": f"Observed doctor customization: {txt}"}
 
 
 def ensure_active_practice_graph(session: Session, tenant_id: str) -> PracticeGraphVersion:
@@ -77,6 +179,7 @@ def ensure_active_practice_graph(session: Session, tenant_id: str) -> PracticeGr
         select(CuratorProposal).where(CuratorProposal.tenant_id == tenant_id)
     ).scalars().first()
     if existing_prop is None:
+        fp = compute_diff_fingerprint("ebm.pathway.borderline_ldl", "auto_book_paid_review", "true")
         session.add(
             CuratorProposal(
                 id=new_id("cur"),
@@ -102,6 +205,19 @@ def ensure_active_practice_graph(session: Session, tenant_id: str) -> PracticeGr
                     "passed": True,
                     "safety_floor_intact": True,
                     "guideline_alignment": "Aligned with HK Cardiovascular Risk Primary Care Framework",
+                    "diff_fingerprint": fp,
+                    "diff_key": "auto_book_paid_review",
+                    "normalized_value": "true",
+                    "contributing_doctors": [
+                        {"name": "Dr. Kenneth Lam", "is_locum": False, "case_key": "case_lee"},
+                        {"name": "Dr. Kenneth Lam", "is_locum": False, "case_key": "hist_ldl_01"},
+                        {"name": "Dr. Mei-Ling Lau", "is_locum": False, "case_key": "hist_ldl_02"},
+                        {"name": "Dr. Sarah Wong (Locum GP)", "is_locum": True, "case_key": "hist_ldl_03"},
+                    ],
+                    "locum_only": False,
+                    "needs_regular_corroboration": False,
+                    "conflict_detected": False,
+                    "conflicting_proposal_ids": [],
                 },
                 evidence_case_ids_json=["case_lee", "hist_ldl_01", "hist_ldl_02", "hist_ldl_03"],
                 status="pending_lead_gp",
@@ -126,6 +242,29 @@ def get_effective_practice_graph(session: Session, tenant_id: str) -> dict[str, 
     return graph
 
 
+def list_practice_graph_versions(session: Session, tenant_id: str) -> list[dict[str, Any]]:
+    """Return immutable version history of Practice Graphs for the tenant (newest first)."""
+    ensure_active_practice_graph(session, tenant_id)
+    rows = session.execute(
+        select(PracticeGraphVersion)
+        .where(PracticeGraphVersion.tenant_id == tenant_id)
+        .order_by(PracticeGraphVersion.created_at.desc())
+    ).scalars().all()
+    return [
+        {
+            "id": r.id,
+            "version_tag": r.version_tag,
+            "ebm_base_version": r.ebm_base_version,
+            "content_hash": r.content_hash,
+            "status": r.status,
+            "approved_by": r.approved_by,
+            "change_summary": r.change_summary,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in rows
+    ]
+
+
 def mould_practice_graph(
     session: Session,
     *,
@@ -144,10 +283,11 @@ def mould_practice_graph(
             if isinstance(overlay_patch.get(sec), dict):
                 next_overlay.setdefault(sec, {})
                 for k, v in overlay_patch[sec].items():
-                    if isinstance(v, dict) and isinstance(next_overlay[sec].get(k), dict):
-                        next_overlay[sec][k].update(v)
+                    target_k = resolve_pathway_id(k) if sec == "node_overrides" else k
+                    if isinstance(v, dict) and isinstance(next_overlay[sec].get(target_k), dict):
+                        next_overlay[sec][target_k].update(v)
                     else:
-                        next_overlay[sec][k] = copy.deepcopy(v)
+                        next_overlay[sec][target_k] = copy.deepcopy(v)
     validate_overlay_against_safety_floor(next_overlay)
 
     next_profile = copy.deepcopy(current.careline_profile_json or DEFAULT_CARELINE_PROFILE)
@@ -184,6 +324,85 @@ def mould_practice_graph(
     return get_effective_practice_graph(session, tenant_id)
 
 
+def rollback_practice_graph(
+    session: Session,
+    *,
+    tenant_id: str,
+    rolled_back_by: str,
+    target_version_tag: str | None = None,
+    target_version_id: str | None = None,
+    reason: str = "Rollback to prior verified Practice Graph snapshot",
+) -> dict[str, Any]:
+    """Publish a new immutable PracticeGraphVersion restoring a prior snapshot after Safety Floor re-verification."""
+    if _is_locum_actor(rolled_back_by):
+        raise SafetyFloorViolation(
+            "Only Lead GP / regular clinic physician may roll back Practice Graph versions.",
+            error_code="LEAD_GP_APPROVAL_REQUIRED",
+            node_id="ebm.safety.doctor_only_authority",
+        )
+
+    current = ensure_active_practice_graph(session, tenant_id)
+
+    query = select(PracticeGraphVersion).where(PracticeGraphVersion.tenant_id == tenant_id)
+    if target_version_id:
+        target = session.execute(query.where(PracticeGraphVersion.id == target_version_id)).scalars().first()
+    elif target_version_tag:
+        target = session.execute(
+            query.where(PracticeGraphVersion.version_tag == target_version_tag).order_by(PracticeGraphVersion.created_at.desc())
+        ).scalars().first()
+    else:
+        target = session.execute(
+            query.where(PracticeGraphVersion.id != current.id).order_by(PracticeGraphVersion.created_at.desc())
+        ).scalars().first()
+
+    if target is None:
+        raise ValueError("Target Practice Graph version for rollback not found.")
+
+    restored_overlay = copy.deepcopy(target.overlay_json or DEFAULT_PRACTICE_OVERLAY)
+    restored_profile = copy.deepcopy(target.careline_profile_json or DEFAULT_CARELINE_PROFILE)
+    validate_overlay_against_safety_floor(restored_overlay)
+    restored_profile = validate_careline_profile(restored_profile)
+
+    current.status = "superseded"
+    next_tag = _bump_minor_version(current.version_tag)
+    new_ver = PracticeGraphVersion(
+        id=new_id("pgv"),
+        tenant_id=tenant_id,
+        version_tag=next_tag,
+        ebm_base_version=EBM_BASE_VERSION,
+        content_hash=compute_graph_hash(restored_overlay, restored_profile),
+        status="active",
+        careline_profile_json=restored_profile,
+        overlay_json=restored_overlay,
+        approved_by=rolled_back_by,
+        change_summary=f"Rollback from {current.version_tag} to {target.version_tag}: {reason}",
+    )
+    session.add(new_ver)
+    record_audit(
+        session,
+        tenant_id=tenant_id,
+        actor_role="clinician",
+        actor_id=rolled_back_by,
+        action="practice_graph_rolled_back",
+        resource_type="practice_graph_version",
+        resource_id=new_ver.id,
+        metadata={
+            "from_version": current.version_tag,
+            "restored_source_version": target.version_tag,
+            "restored_source_id": target.id,
+            "published_version": next_tag,
+            "reason": reason,
+        },
+    )
+    session.flush()
+
+    eff = get_effective_practice_graph(session, tenant_id)
+    eff["rolled_back_from"] = current.version_tag
+    eff["rolled_back_to_source_version"] = target.version_tag
+    eff["rollback_reason"] = reason
+    return eff
+
+
 def record_override_diff(
     session: Session,
     *,
@@ -193,55 +412,160 @@ def record_override_diff(
     target_node_id: str,
     doctor_name: str,
     instruction_text: str,
+    actor_role: str | None = None,
+    structured_diff: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Phase 5B: Record structured doctor override diff into Agent Memory and update Curator cluster."""
+    """Phase 5B: Record structured doctor override diff into Agent Memory and cluster Curator proposals.
+
+    Enforces:
+    1. Capture-time Safety Floor guard (raises `SafetyFloorViolation` before queuing illegal diffs).
+    2. Deterministic `(target_node_id, diff_key, normalized_value)` `diff_fingerprint` clustering.
+    3. Multi-doctor conflict detection when differing values target the same `(target_node_id, diff_key)`.
+    4. Locum corroboration safeguard (`locum_only` / `needs_regular_corroboration`).
+    """
+    canon_node_id = resolve_pathway_id(target_node_id)
+    diff_key, normalized_value, node_patch_fields = _extract_structured_diff(
+        canon_node_id, instruction_text, structured_diff=structured_diff
+    )
+    patch = {"node_overrides": {canon_node_id: node_patch_fields}}
+
+    # 1. Capture-time Safety Floor guard (blocks unsafe instructions and immutable nodes immediately)
+    low_instr = (instruction_text or "").lower()
+    for pat, reason_label in _UNSAFE_CAPTURE_PATTERNS:
+        if pat in low_instr:
+            record_audit(
+                session,
+                tenant_id=tenant_id,
+                actor_role=actor_role or "clinician",
+                actor_id=doctor_name,
+                action="curator_safety_floor_blocked",
+                resource_type="curator_override_diff",
+                resource_id=canon_node_id,
+                metadata={"instruction_text": instruction_text, "reason": reason_label},
+            )
+            raise SafetyFloorViolation(
+                f"Immutable Safety Floor violation at capture time: {reason_label} cannot be queued for Clinic Curator.",
+                error_code="CAPTURE_TIME_SAFETY_FLOOR_BLOCK",
+                node_id=canon_node_id,
+            )
+    try:
+        validate_overlay_against_safety_floor(patch)
+    except SafetyFloorViolation as exc:
+        record_audit(
+            session,
+            tenant_id=tenant_id,
+            actor_role=actor_role or "clinician",
+            actor_id=doctor_name,
+            action="curator_safety_floor_blocked",
+            resource_type="curator_override_diff",
+            resource_id=canon_node_id,
+            metadata={"instruction_text": instruction_text, "error_code": exc.error_code, "reason": str(exc)},
+        )
+        raise
+
+    fingerprint = compute_diff_fingerprint(canon_node_id, diff_key, normalized_value)
+    is_locum = _is_locum_actor(doctor_name, actor_role=actor_role)
+
     entry = AgentMemoryEntry(
         id=new_id("mem"),
         tenant_id=tenant_id,
         patient_id=patient_id,
         tier="override_diff",
-        topic=target_node_id,
-        summary_text=f"{doctor_name} customized '{target_node_id}': {instruction_text}",
+        topic=canon_node_id,
+        summary_text=f"{doctor_name} customized '{canon_node_id}' ({diff_key}={normalized_value}): {instruction_text}",
         source_quote=instruction_text,
         consent_scope="practice_quality_improvement",
-        payload_json={"case_key": case_key, "doctor": doctor_name, "node_id": target_node_id},
+        payload_json={
+            "case_key": case_key,
+            "doctor": doctor_name,
+            "is_locum": is_locum,
+            "node_id": canon_node_id,
+            "diff_key": diff_key,
+            "normalized_value": normalized_value,
+            "diff_fingerprint": fingerprint,
+        },
     )
     session.add(entry)
 
-    # Check if an open Curator proposal exists for this node; otherwise create one cleanly.
-    existing = session.execute(
+    # 2. Cluster by exact `diff_fingerprint` & detect conflicts on same `(target_node_id, diff_key)`
+    open_props = session.execute(
         select(CuratorProposal).where(
             CuratorProposal.tenant_id == tenant_id,
-            CuratorProposal.target_node_id == target_node_id,
+            CuratorProposal.target_node_id == canon_node_id,
             CuratorProposal.status == "pending_lead_gp",
         )
-    ).scalars().first()
-    if existing is not None:
-        existing.observed_count += 1
-        ev = list(existing.evidence_case_ids_json or [])
+    ).scalars().all()
+
+    matched_prop: CuratorProposal | None = None
+    conflicting_props: list[CuratorProposal] = []
+    for p in open_props:
+        meta = dict(p.ebm_safety_check_json or {})
+        p_fp = meta.get("diff_fingerprint")
+        p_key = meta.get("diff_key")
+        if p_fp == fingerprint:
+            matched_prop = p
+            break
+        if p_key and p_key == diff_key and p_fp != fingerprint:
+            conflicting_props.append(p)
+
+    conflict_detected = False
+    conflicting_ids: list[str] = []
+
+    if matched_prop is not None:
+        matched_prop.observed_count += 1
+        ev = list(matched_prop.evidence_case_ids_json or [])
         if case_key not in ev:
             ev.append(case_key)
-        existing.evidence_case_ids_json = ev
-        proposal_id = existing.id
+        matched_prop.evidence_case_ids_json = ev
+
+        meta = dict(matched_prop.ebm_safety_check_json or {})
+        contributors = list(meta.get("contributing_doctors") or [])
+        contributors.append({"name": doctor_name, "is_locum": is_locum, "case_key": case_key})
+        locum_only = all(bool(c.get("is_locum")) for c in contributors)
+        conflict_detected = bool(meta.get("conflict_detected", False))
+        conflicting_ids = list(meta.get("conflicting_proposal_ids") or [])
+
+        meta.update({
+            "contributing_doctors": contributors,
+            "locum_only": locum_only,
+            "needs_regular_corroboration": locum_only,
+            "auto_promote_eligible": (not locum_only) and (not conflict_detected) and matched_prop.observed_count >= 3,
+        })
+        matched_prop.ebm_safety_check_json = meta
+        flag_modified(matched_prop, "ebm_safety_check_json")
+        flag_modified(matched_prop, "evidence_case_ids_json")
+        proposal_id = matched_prop.id
+        needs_corroboration = locum_only
     else:
-        patch = {
-            "node_overrides": {
-                target_node_id: {
-                    "practice_note": f"Observed doctor customization: {instruction_text}",
-                }
-            }
+        conflict_detected = len(conflicting_props) > 0
+        conflicting_ids = [p.id for p in conflicting_props]
+        contributors = [{"name": doctor_name, "is_locum": is_locum, "case_key": case_key}]
+        needs_corroboration = is_locum
+
+        safety_check = {
+            "passed": True,
+            "safety_floor_intact": True,
+            "diff_fingerprint": fingerprint,
+            "diff_key": diff_key,
+            "normalized_value": normalized_value,
+            "contributing_doctors": contributors,
+            "locum_only": is_locum,
+            "needs_regular_corroboration": needs_corroboration,
+            "conflict_detected": conflict_detected,
+            "conflicting_proposal_ids": conflicting_ids,
+            "auto_promote_eligible": False,
         }
-        try:
-            validate_overlay_against_safety_floor(patch)
-            safety_check = {"passed": True, "safety_floor_intact": True}
-        except SafetyFloorViolation as exc:
-            safety_check = {"passed": False, "safety_floor_intact": False, "reason": str(exc)}
         prop = CuratorProposal(
             id=new_id("cur"),
             tenant_id=tenant_id,
-            target_node_id=target_node_id,
-            title=f"Observed customization on {target_node_id.split('.')[-1].replace('_', ' ').title()}",
-            rationale=f"Captured from {doctor_name}'s instruction: “{instruction_text}”. Awaiting Lead GP review before publishing to Practice Graph.",
+            target_node_id=canon_node_id,
+            title=f"Observed customization on {canon_node_id.split('.')[-1].replace('_', ' ').title()} ({diff_key})",
+            rationale=(
+                f"Captured from {doctor_name}'s instruction: “{instruction_text}”. "
+                + ("Multi-doctor conflict flagged against existing pending proposal. " if conflict_detected else "")
+                + ("Locum-only observation — requires regular GP corroboration. " if needs_corroboration else "")
+                + "Awaiting Lead GP review before publishing to Practice Graph."
+            ),
             observed_count=1,
             proposed_patch_json=patch,
             ebm_safety_check_json=safety_check,
@@ -252,7 +576,29 @@ def record_override_diff(
         session.flush()
         proposal_id = prop.id
 
-    return {"memory_entry_id": entry.id, "curator_proposal_id": proposal_id}
+        # Cross-link conflict flag onto existing conflicting proposals
+        for other in conflicting_props:
+            other_meta = dict(other.ebm_safety_check_json or {})
+            other_meta["conflict_detected"] = True
+            other_conflicts = list(other_meta.get("conflicting_proposal_ids") or [])
+            if proposal_id not in other_conflicts:
+                other_conflicts.append(proposal_id)
+            other_meta["conflicting_proposal_ids"] = other_conflicts
+            other_meta["auto_promote_eligible"] = False
+            other.ebm_safety_check_json = other_meta
+            flag_modified(other, "ebm_safety_check_json")
+
+    return {
+        "memory_entry_id": entry.id,
+        "curator_proposal_id": proposal_id,
+        "diff_fingerprint": fingerprint,
+        "diff_key": diff_key,
+        "normalized_value": normalized_value,
+        "conflict_detected": conflict_detected,
+        "conflicting_proposal_ids": conflicting_ids,
+        "locum_only": needs_corroboration,
+        "needs_regular_corroboration": needs_corroboration,
+    }
 
 
 def list_curator_proposals(session: Session, tenant_id: str) -> list[dict[str, Any]]:
@@ -262,23 +608,33 @@ def list_curator_proposals(session: Session, tenant_id: str) -> list[dict[str, A
         .where(CuratorProposal.tenant_id == tenant_id)
         .order_by(CuratorProposal.created_at.desc())
     ).scalars().all()
-    return [
-        {
-            "id": r.id,
-            "target_node_id": r.target_node_id,
-            "title": r.title,
-            "rationale": r.rationale,
-            "observed_count": r.observed_count,
-            "proposed_patch": r.proposed_patch_json,
-            "ebm_safety_check": r.ebm_safety_check_json,
-            "evidence_case_ids": r.evidence_case_ids_json,
-            "status": r.status,
-            "decided_by": r.decided_by,
-            "published_graph_version": r.published_graph_version,
-            "created_at": r.created_at.isoformat(),
-        }
-        for r in rows
-    ]
+    results: list[dict[str, Any]] = []
+    for r in rows:
+        meta = dict(r.ebm_safety_check_json or {})
+        results.append(
+            {
+                "id": r.id,
+                "target_node_id": r.target_node_id,
+                "title": r.title,
+                "rationale": r.rationale,
+                "observed_count": r.observed_count,
+                "proposed_patch": r.proposed_patch_json,
+                "ebm_safety_check": meta,
+                "evidence_case_ids": r.evidence_case_ids_json,
+                "diff_fingerprint": meta.get("diff_fingerprint"),
+                "diff_key": meta.get("diff_key"),
+                "normalized_value": meta.get("normalized_value"),
+                "conflict_detected": bool(meta.get("conflict_detected", False)),
+                "conflicting_proposal_ids": list(meta.get("conflicting_proposal_ids") or []),
+                "locum_only": bool(meta.get("locum_only", False)),
+                "needs_regular_corroboration": bool(meta.get("needs_regular_corroboration", False)),
+                "status": r.status,
+                "decided_by": r.decided_by,
+                "published_graph_version": r.published_graph_version,
+                "created_at": r.created_at.isoformat(),
+            }
+        )
+    return results
 
 
 def decide_curator_proposal(
@@ -297,6 +653,13 @@ def decide_curator_proposal(
         raise ValueError("Curator proposal not found.")
     if decision not in ("approve", "dismiss"):
         raise ValueError("Decision must be 'approve' or 'dismiss'.")
+
+    if decision == "approve" and _is_locum_actor(decided_by):
+        raise SafetyFloorViolation(
+            "Locum clinicians cannot approve Curator proposals — Lead GP or regular clinic physician sign-off is required.",
+            error_code="LEAD_GP_APPROVAL_REQUIRED",
+            node_id=prop.target_node_id,
+        )
 
     prop.decided_by = decided_by
     prop.decided_at = utcnow()
@@ -321,7 +684,7 @@ def decide_curator_proposal(
 
 
 def query_practice_playbook(effective_graph: dict[str, Any], question: str) -> dict[str, Any]:
-    """Graph-grounded @ Clinic Playbook Q&A for covering locum doctors and nurses."""
+    """Graph-grounded @ Clinic Playbook Q&A for covering locum doctors and nurses across all 8 HK GP pathways."""
     q = (question or "").strip()
     low = q.lower()
     nodes = effective_graph["nodes"]
@@ -332,12 +695,18 @@ def query_practice_playbook(effective_graph: dict[str, Any], question: str) -> d
         matched = [n for n in nodes if n["id"] == "ebm.pathway.low_ferritin_normal_hb"]
     elif any(k in low for k in ("warfarin", "qeh", "discharge", "inr", "anticoag", "statin")):
         matched = [n for n in nodes if n["id"] in ("ebm.safety.doctor_only_authority", "ebm.pathway.post_discharge_anticoag")]
-    elif any(k in low for k in ("g6pd", "urti", "sick", "harbour", "flu", "penicillin")):
+    elif any(k in low for k in ("urti", "sick", "harbour", "flu", "penicillin")):
         matched = [n for n in nodes if n["id"] in ("ebm.safety.g6pd_allergy_floor", "ebm.pathway.acute_urti_g6pd")]
     elif any(k in low for k in ("bp", "hypertension", "blood pressure", "goal", "target", "wong")):
         matched = [n for n in nodes if n["id"] == "ebm.pathway.chronic_htn_home_bp"]
     elif any(k in low for k in ("ldl", "lipid", "cholesterol")):
         matched = [n for n in nodes if n["id"] == "ebm.pathway.borderline_ldl"]
+    elif any(k in low for k in ("t2dm", "diabetes", "hba1c", "metformin", "uacr")):
+        matched = [n for n in nodes if n["id"] == "ebm.pathway.t2dm_hba1c"]
+    elif any(k in low for k in ("thyroid", "tsh", "levothyroxine", "carbimazole", "fatigue")):
+        matched = [n for n in nodes if n["id"] == "ebm.pathway.thyroid_fatigue"]
+    elif any(k in low for k in ("uti", "dysuria", "cystitis", "nitrofurantoin", "fosfomycin", "g6pd")):
+        matched = [n for n in nodes if n["id"] in ("ebm.safety.g6pd_allergy_floor", "ebm.pathway.acute_uti")]
     else:
         matched = [n for n in nodes if n["category"] in ("triage", "safety")][:3]
 

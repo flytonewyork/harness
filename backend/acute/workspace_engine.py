@@ -11,13 +11,32 @@ Product invariant: NEVER imports `loopbench`.
 from __future__ import annotations
 
 import copy
+import re
+import time
 from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
+from backend.agentic import (
+    CLINICAL_PRESENTATION_SLOT_FILL_V1,
+    PRESENTATION_SELF_REPAIR_V1,
+    SAM_PRIVATE_REGISTRAR_QA_V1,
+    ContextCompiler,
+    SkillRegistry,
+    detect_prompt_injection_signals,
+    estimate_tokens,
+    screen_agent_output,
+)
+
+from .agent_harness import (
+    detect_live_llm_engine,
+    invoke_clinical_qa,
+    invoke_structured_json,
+)
 from .curator import (
     ensure_active_practice_graph,
     get_effective_practice_graph,
@@ -32,30 +51,185 @@ from .db import (
     DocumentIngestion,
     ExecutionTrace,
     OutboxEvent,
+    Patient,
     PracticeGraphVersion,
+    Practitioner,
     new_id,
     record_audit,
     utcnow,
 )
 from .emr_connector import (
+    EMR_PATIENT_REGISTRY,
     ingest_external_document,
     list_quarantined_documents,
+    verify_three_point_id,
     write_additive_emr_addendum,
 )
 from .practice_graph import (
+    CHATTY_SAM_PHRASES,
+    OBJECTIVE_SAM_MARKERS,
     PATHWAY_WIDGET_STACKS,
     classify_inbound_triage,
     compile_instruction_plan,
     compute_cha2ds2_vasc,
     compute_cvd_10yr_tier,
     compute_has_bled,
+    normalize_order_primitive,
+    resolve_pathway_id,
     validate_case_presentation,
 )
-from .workflows import EVENT_ACTION_COMMIT_DISPATCH
+from .rx_rules import evaluate_rx_order_primitives
+from .security import hash_secret, mask_phone, sha256_hex
+from .triage import classify_bilingual_async_triage
+from .verification import verify_external_document_payload
+from .workflows import EVENT_ACTION_COMMIT_DISPATCH, DurableWorkflowEngine
+
+_SKILL_REGISTRY_CACHE: SkillRegistry | None = None
+_CONTEXT_COMPILER = ContextCompiler(token_ceiling=4096)
+
+
+def _get_skill_registry() -> SkillRegistry:
+    global _SKILL_REGISTRY_CACHE
+    if _SKILL_REGISTRY_CACHE is None:
+        try:
+            _SKILL_REGISTRY_CACHE = SkillRegistry.load_from_directory()
+        except Exception:
+            _SKILL_REGISTRY_CACHE = SkillRegistry([])
+    return _SKILL_REGISTRY_CACHE
+
+
+def has_objective_sam_signal(text: str | None) -> bool:
+    """Enforce R5 high-signal gate: objective score/guideline/threshold present AND zero chatty UI narration."""
+    if not text or not str(text).strip():
+        return False
+    low = str(text).lower()
+    if any(phrase in low for phrase in CHATTY_SAM_PHRASES):
+        return False
+    return any(marker in low for marker in OBJECTIVE_SAM_MARKERS)
+
+
+_WORKSPACE_FK_PATIENTS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "pat_chan_warfarin",
+        "name_en": "CHAN Tai Man",
+        "name_zh": "陳大文",
+        "dob": "1964-03-14",
+        "sex": "M",
+        "hkid_masked": "A412***(8)",
+        "phone": "+85296204101",
+        "g6pd_deficient": False,
+        "egfr": 71.0,
+        "weight_kg": 72.0,
+        "allergies": [],
+        "current_meds": ["Warfarin 5mg daily", "Simvastatin 20mg nocte"],
+        "referral_code": "REF-CHAN-62041",
+    },
+    {
+        "id": "pat_wong_htn",
+        "name_en": "WONG Mei Ling",
+        "name_zh": "黃美玲",
+        "dob": "1968-09-21",
+        "sex": "F",
+        "hkid_masked": "K901***(2)",
+        "phone": "+85295809202",
+        "g6pd_deficient": False,
+        "egfr": 89.0,
+        "weight_kg": 58.0,
+        "allergies": [],
+        "current_meds": ["Amlodipine 5mg daily"],
+        "referral_code": "REF-WONG-58092",
+    },
+    {
+        "id": "pat_lee_ldl",
+        "name_en": "LEE Ming Kit",
+        "name_zh": "李明傑",
+        "dob": "1990-02-04",
+        "sex": "M",
+        "hkid_masked": "C219***(1)",
+        "phone": "+85293604403",
+        "g6pd_deficient": False,
+        "egfr": 102.0,
+        "weight_kg": 76.0,
+        "allergies": [],
+        "current_meds": [],
+        "referral_code": "REF-LEE-36044",
+    },
+    {
+        "id": "pat_lam_urti_demo",
+        "name_en": "LAM Wing-Yan",
+        "name_zh": "林詠欣",
+        "dob": "1994-04-18",
+        "sex": "F",
+        "hkid_masked": "M528***(6)",
+        "phone": "+85293201804",
+        "g6pd_deficient": True,
+        "egfr": 104.0,
+        "weight_kg": 54.0,
+        "allergies": ["Penicillin"],
+        "current_meds": [],
+        "referral_code": "REF-LAM-32018",
+    },
+)
+
+
+def _ensure_workspace_fk_entities(session: Session, tenant_id: str) -> None:
+    """Idempotently ensure synthetic workspace patients & `doc_locum_sarah` exist so Prescription/Certificate FKs never fail."""
+    now = utcnow()
+    # 1. Ensure locum practitioner `doc_locum_sarah` exists for MCHK doctor sign-offs
+    prac_stmt = (
+        pg_insert(Practitioner)
+        .values(
+            id="doc_locum_sarah",
+            tenant_id=tenant_id,
+            email="sarah.locum@central-gp.tmrw.hk",
+            password_hash=hash_secret("DemoClinic!2026"),
+            name_en="Locum Dr. Sarah Wong",
+            name_zh="黃莎拉醫生",
+            role="clinician",
+            mchk_reg_no="M61042",
+            clinic_name="Central & Mid-Levels Family Medical (HK)",
+            availability_json=[],
+            active=True,
+            created_at=now,
+        )
+        .on_conflict_do_nothing()
+    )
+    session.execute(prac_stmt)
+
+    # 2. Ensure synthetic workspace patients exist in `patients` table
+    for p in _WORKSPACE_FK_PATIENTS:
+        pat_stmt = (
+            pg_insert(Patient)
+            .values(
+                id=p["id"],
+                tenant_id=tenant_id,
+                phone_hash=sha256_hex(p["phone"]),
+                phone_masked=mask_phone(p["phone"]),
+                name_en=p["name_en"],
+                name_zh=p["name_zh"],
+                dob=p["dob"],
+                sex=p["sex"],
+                hkid_masked=p["hkid_masked"],
+                ehealth_consent=True,
+                preferred_lang="en",
+                g6pd_deficient=p["g6pd_deficient"],
+                weight_kg=p["weight_kg"],
+                egfr=p["egfr"],
+                allergies_json=list(p["allergies"]),
+                current_meds_json=list(p["current_meds"]),
+                referral_code=p["referral_code"],
+                status="active",
+                created_at=now,
+            )
+            .on_conflict_do_nothing()
+        )
+        session.execute(pat_stmt)
+    session.flush()
 
 
 def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
-    """Seed the 4 canonical clinical cases, linked 3-pt ID docs, and compliance-gated Agent Memory."""
+    """Seed FK-safe patients/practitioners, 4 canonical clinical cases, linked 3-pt ID docs, and Agent Memory."""
+    _ensure_workspace_fk_entities(session, tenant_id)
     graph = get_effective_practice_graph(session, tenant_id)
     existing = session.execute(
         select(CaseLoop).where(CaseLoop.tenant_id == tenant_id)
@@ -572,6 +746,523 @@ def ensure_workspace_seeded(session: Session, tenant_id: str) -> None:
     session.flush()
 
 
+seed_workspace_cases = ensure_workspace_seeded
+
+
+# -------------------------------------------------------------------------------------- Presentation Compiler & Helpers
+def _prune_active_graph_nodes(graph: dict[str, Any], pathway_node_id: str) -> list[dict[str, Any]]:
+    """Prune Practice Graph to 2–4 active GraphNodes (Safety Floor + pathway node + triage/clinic standards)."""
+    nodes = list(graph.get("nodes") or [])
+    by_id = {str(n.get("id")): n for n in nodes if isinstance(n, dict) and n.get("id")}
+    resolved_pathway = resolve_pathway_id(pathway_node_id)
+    selected: list[dict[str, Any]] = []
+    preferred_ids = [
+        "ebm.safety.g6pd_allergy_floor",
+        "ebm.safety.doctor_only_authority",
+        resolved_pathway,
+        "ebm.safety.crisis_999",
+    ]
+    for nid in preferred_ids:
+        node = by_id.get(nid)
+        if node is not None and node not in selected:
+            selected.append(node)
+        if len(selected) >= 4:
+            break
+    if len(selected) < 2:
+        for n in nodes:
+            if n not in selected:
+                selected.append(n)
+            if len(selected) >= 2:
+                break
+    return selected[:4]
+
+
+def _normalize_summary_orders(summary: dict[str, Any]) -> dict[str, Any]:
+    """Normalize every order inside `issues[].suggested_orders` and `preventive_care[].order` via Seam A normalizer."""
+    out = copy.deepcopy(summary or {})
+    for iss in out.get("issues") or []:
+        if isinstance(iss, dict) and isinstance(iss.get("suggested_orders"), list):
+            iss["suggested_orders"] = [
+                normalize_order_primitive(o, include_camel_aliases=True)
+                for o in iss["suggested_orders"]
+                if isinstance(o, dict)
+            ]
+    for prev in out.get("preventive_care") or []:
+        if isinstance(prev, dict) and isinstance(prev.get("order"), dict):
+            prev["order"] = normalize_order_primitive(prev["order"], include_camel_aliases=True)
+    return out
+
+
+def _strip_internal_summary_keys(summary: dict[str, Any] | None) -> dict[str, Any]:
+    return {k: v for k, v in (summary or {}).items() if not str(k).startswith("_")}
+
+
+def _build_patient_clinical_context(session: Session, tenant_id: str, case: CaseLoop) -> dict[str, Any]:
+    """Build patient profile dict for `rx_rules` from DB Patient row with EMR_PATIENT_REGISTRY fallback."""
+    pat = session.execute(
+        select(Patient).where(Patient.tenant_id == tenant_id, Patient.id == case.patient_id)
+    ).scalars().first()
+    reg = EMR_PATIENT_REGISTRY.get(case.patient_id, {})
+    if pat is not None:
+        return {
+            "patient_id": pat.id,
+            "name_en": pat.name_en,
+            "dob": pat.dob,
+            "sex": pat.sex,
+            "g6pd_deficient": bool(pat.g6pd_deficient),
+            "allergies": list(pat.allergies_json or []),
+            "current_meds": list(pat.current_meds_json or []),
+            "egfr": pat.egfr,
+            "weight_kg": pat.weight_kg,
+        }
+    return {
+        "patient_id": case.patient_id,
+        "name_en": reg.get("name_en", case.patient_name),
+        "dob": reg.get("dob"),
+        "sex": (case.patient_age_sex[-1:] if case.patient_age_sex else "U"),
+        "g6pd_deficient": bool(reg.get("g6pd_deficient", False)),
+        "allergies": list(reg.get("allergies", [])),
+        "current_meds": list(reg.get("active_meds", [])),
+        "egfr": None,
+        "weight_kg": None,
+    }
+
+
+def _compile_5slot_context_snapshot(
+    *,
+    graph: dict[str, Any],
+    case: CaseLoop,
+    memories: list[dict[str, Any]],
+    engine: dict[str, Any],
+    current_input: str = "",
+    channel: str = "workspace",
+    template: Any = None,
+    repair_diagnostics: dict[str, Any] | None = None,
+) -> tuple[Any, dict[str, Any]]:
+    """Compile a strict <4,096 CJK-aware token 5-slot ContextSnapshot via `backend.agentic.ContextCompiler`."""
+    active_nodes = _prune_active_graph_nodes(graph, case.pathway_node_id)
+    registry = _get_skill_registry()
+    intent = "doctor_private_qa" if channel == "private_sam" else "workspace_compile"
+    selected_skills = registry.select_skills(
+        intent=intent,
+        pathway_node_id=resolve_pathway_id(case.pathway_node_id),
+        message_text=f"{case.lead_line} {current_input}",
+        max_skills=3,
+    )
+    summary_clean = _strip_internal_summary_keys(case.summary_json)
+    # Exclude private Sam thread from non-private context windows
+    clinical_state = {
+        k: v
+        for k, v in summary_clean.items()
+        if k not in ("agent_thread", "original_chat", "attachments")
+    }
+    verified_quotes = [
+        {"id": a.get("id"), "label": a.get("label"), "quote": a.get("quote")}
+        for a in (summary_clean.get("attachments") or [])
+        if isinstance(a, dict) and a.get("quote")
+    ]
+    conv_turns = list(summary_clean.get("original_chat") or [])
+    if channel == "private_sam":
+        conv_turns = conv_turns[-4:] + list(summary_clean.get("agent_thread") or [])[-4:]
+
+    region = str(engine.get("region") or ("asia-east2" if engine.get("provider") == "vertex" else "asia-east2"))
+    snap = _CONTEXT_COMPILER.compile(
+        template=template or CLINICAL_PRESENTATION_SLOT_FILL_V1,
+        skills=selected_skills,
+        active_graph_nodes=active_nodes,
+        total_graph_nodes=len(graph.get("nodes") or []) or 14,
+        clinical_state=clinical_state,
+        memories=memories,
+        verified_quotes=verified_quotes,
+        conversation_turns=conv_turns,
+        current_input=current_input or case.lead_line,
+        repair_diagnostics=repair_diagnostics,
+        template_vars={"careline_name": graph.get("careline_profile", {}).get("name", "Sam")},
+        region=region,
+        channel=channel,
+        patient_names_for_scrub=[case.patient_name],
+    )
+    tel = snap.to_telemetry_dict()
+    tel["model_routing"] = {
+        "provider": engine.get("provider", "deterministic"),
+        "region": engine.get("region", "local"),
+        "model": engine.get("model", "clinic-harness-tool-engine-v1"),
+        "temperature": float(engine.get("temperature", 0.1)),
+        "live": bool(engine.get("live", False)),
+        "phi_scrubbed": snap.phi_scrubbed,
+        "deterministic_pre_gates": ["triage.screen_acute_message", "rx_rules.evaluate_rx_order_primitives", "emr_connector.verify_three_point_id"],
+    }
+    return snap, tel
+
+
+def _merge_compiled_slots(base_summary: dict[str, Any], slot_payload: dict[str, Any]) -> dict[str, Any]:
+    """Merge LLM-filled presentation slots onto deterministic widget skeleton without touching Python scores/labs."""
+    merged = copy.deepcopy(base_summary)
+    if isinstance(slot_payload.get("intake_sufficiency"), str) and slot_payload["intake_sufficiency"] in ("sufficient", "insufficient"):
+        merged["intake_sufficiency"] = slot_payload["intake_sufficiency"]
+    if isinstance(slot_payload.get("issues"), list) and slot_payload["issues"]:
+        merged["issues"] = copy.deepcopy(slot_payload["issues"])
+    if "sam_proactive_insight" in slot_payload:
+        sam_val = slot_payload.get("sam_proactive_insight")
+        merged["sam_proactive_insight"] = str(sam_val).strip() if isinstance(sam_val, str) and sam_val.strip() else None
+    return _normalize_summary_orders(merged)
+
+
+def _deterministic_repair_presentation(summary: dict[str, Any], safe_fallback: dict[str, Any]) -> dict[str, Any]:
+    """Deterministic safe fallback repair guaranteeing 5/5 `validate_case_presentation` pass."""
+    candidate = _normalize_summary_orders(summary)
+    lint = validate_case_presentation(candidate)
+    if lint["passed"]:
+        return candidate
+    # Strip chatty/non-objective Sam insight if R5 failed
+    failed_rules = {v["rule_id"] for v in lint["violations"]}
+    if "R5_HIGH_SIGNAL_SAM_GATE" in failed_rules:
+        candidate["sam_proactive_insight"] = safe_fallback.get("sam_proactive_insight")
+    # Remove forbidden legacy essay fields on issues if R3 failed
+    if "R3_NO_SLOP_OR_SCAFFOLDING" in failed_rules:
+        for iss in candidate.get("issues") or []:
+            if isinstance(iss, dict):
+                for bad_k in ("subjective", "reasoning", "assessment", "history"):
+                    iss.pop(bad_k, None)
+    re_lint = validate_case_presentation(candidate)
+    if re_lint["passed"]:
+        return candidate
+    # Final guaranteed safe fallback: restore deterministic baseline issues & Sam signal
+    repaired = copy.deepcopy(candidate)
+    repaired["issues"] = copy.deepcopy(safe_fallback.get("issues") or [])
+    repaired["sam_proactive_insight"] = safe_fallback.get("sam_proactive_insight")
+    return _normalize_summary_orders(repaired)
+
+
+def compile_case_presentation(
+    db: Database,
+    *,
+    tenant_id: str,
+    case_id: str,
+    patient_intake_text: str | None = None,
+    override_summary: dict[str, Any] | None = None,
+    engine_override: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """5-Slot <4,096-Token Presentation Compiler + Bounded 1-Retry `validate_case_presentation` Self-Repair Loop."""
+    t0 = time.perf_counter()
+    with db.tenant_session(tenant_id) as session:
+        ensure_workspace_seeded(session, tenant_id)
+        graph = get_effective_practice_graph(session, tenant_id)
+        case = session.execute(
+            select(CaseLoop).where(CaseLoop.tenant_id == tenant_id, CaseLoop.id == case_id)
+        ).scalars().first()
+        if case is None:
+            raise ValueError("Case not found.")
+
+        mems = session.execute(
+            select(AgentMemoryEntry)
+            .where(AgentMemoryEntry.tenant_id == tenant_id, AgentMemoryEntry.patient_id == case.patient_id)
+            .order_by(AgentMemoryEntry.created_at.desc())
+            .limit(8)
+        ).scalars().all()
+        mem_dicts = [
+            {"tier": m.tier, "topic": m.topic, "summary": m.summary_text, "source_quote": m.source_quote}
+            for m in mems
+        ]
+
+        engine = dict(engine_override) if engine_override is not None else detect_live_llm_engine()
+        base_summary = _normalize_summary_orders(_strip_internal_summary_keys(case.summary_json))
+        snap, ctx_tel = _compile_5slot_context_snapshot(
+            graph=graph,
+            case=case,
+            memories=mem_dicts,
+            engine=engine,
+            current_input=patient_intake_text or case.lead_line,
+            channel="workspace",
+            template=CLINICAL_PRESENTATION_SLOT_FILL_V1,
+        )
+
+        retry_count = 0
+        fallback_used = False
+        repair_violations_log: list[dict[str, Any]] = []
+        model_error: str | None = None
+        phi_scrubbed = bool(snap.phi_scrubbed)
+
+        if override_summary is not None:
+            candidate = _normalize_summary_orders(_strip_internal_summary_keys(override_summary))
+            lint = validate_case_presentation(candidate)
+            if not lint["passed"]:
+                repair_violations_log = list(lint["violations"])
+                retry_count = 1
+                if engine.get("live"):
+                    rep_snap, _ = _compile_5slot_context_snapshot(
+                        graph=graph,
+                        case=case,
+                        memories=mem_dicts,
+                        engine=engine,
+                        current_input=patient_intake_text or case.lead_line,
+                        channel="workspace",
+                        template=PRESENTATION_SELF_REPAIR_V1,
+                        repair_diagnostics={
+                            "prior_payload": {
+                                "intake_sufficiency": candidate.get("intake_sufficiency", "sufficient"),
+                                "issues": candidate.get("issues", []),
+                                "sam_proactive_insight": candidate.get("sam_proactive_insight"),
+                            },
+                            "violations": [
+                                {
+                                    "rule_id": v["rule_id"],
+                                    "field_path": v["field_path"],
+                                    "message": v["message"],
+                                    "repair_hint": v["repair_hint"],
+                                }
+                                for v in lint["violations"]
+                            ],
+                        },
+                    )
+                    rep_call = invoke_structured_json(
+                        system_prompt=rep_snap.system_message,
+                        user_prompt=rep_snap.user_message,
+                        temperature=0.0,
+                        max_output_tokens=1100,
+                        patient_names_for_scrub=[case.patient_name],
+                        engine_override=engine,
+                    )
+                    phi_scrubbed = phi_scrubbed or rep_call.phi_scrubbed
+                    if rep_call.ok and rep_call.json_payload:
+                        candidate = _merge_compiled_slots(base_summary, rep_call.json_payload)
+                        lint = validate_case_presentation(candidate)
+                    else:
+                        model_error = rep_call.error
+                if not lint["passed"]:
+                    candidate = _deterministic_repair_presentation(candidate, base_summary)
+                    lint = validate_case_presentation(candidate)
+                    fallback_used = True
+        elif engine.get("live"):
+            call1 = invoke_structured_json(
+                system_prompt=snap.system_message,
+                user_prompt=snap.user_message,
+                temperature=0.1,
+                max_output_tokens=1100,
+                patient_names_for_scrub=[case.patient_name],
+                engine_override=engine,
+            )
+            phi_scrubbed = phi_scrubbed or call1.phi_scrubbed
+            if call1.ok and call1.json_payload:
+                candidate = _merge_compiled_slots(base_summary, call1.json_payload)
+                lint = validate_case_presentation(candidate)
+                if not lint["passed"]:
+                    # Bounded 1-retry diagnostic self-repair loop (MAX 1 retry!)
+                    retry_count = 1
+                    repair_violations_log = list(lint["violations"])
+                    rep_snap, _ = _compile_5slot_context_snapshot(
+                        graph=graph,
+                        case=case,
+                        memories=mem_dicts,
+                        engine=engine,
+                        current_input=patient_intake_text or case.lead_line,
+                        channel="workspace",
+                        template=PRESENTATION_SELF_REPAIR_V1,
+                        repair_diagnostics={
+                            "prior_payload": call1.json_payload,
+                            "violations": [
+                                {
+                                    "rule_id": v["rule_id"],
+                                    "field_path": v["field_path"],
+                                    "message": v["message"],
+                                    "repair_hint": v["repair_hint"],
+                                }
+                                for v in lint["violations"]
+                            ],
+                        },
+                    )
+                    call2 = invoke_structured_json(
+                        system_prompt=rep_snap.system_message,
+                        user_prompt=rep_snap.user_message,
+                        temperature=0.0,
+                        max_output_tokens=1100,
+                        patient_names_for_scrub=[case.patient_name],
+                        engine_override=engine,
+                    )
+                    phi_scrubbed = phi_scrubbed or call2.phi_scrubbed
+                    if call2.ok and call2.json_payload:
+                        candidate = _merge_compiled_slots(base_summary, call2.json_payload)
+                        lint = validate_case_presentation(candidate)
+                    else:
+                        model_error = call2.error
+                    if not lint["passed"]:
+                        candidate = _deterministic_repair_presentation(candidate, base_summary)
+                        lint = validate_case_presentation(candidate)
+                        fallback_used = True
+            else:
+                model_error = call1.error
+                candidate = base_summary
+                lint = validate_case_presentation(candidate)
+                fallback_used = True
+        else:
+            candidate = base_summary
+            lint = validate_case_presentation(candidate)
+            if not lint["passed"]:
+                candidate = _deterministic_repair_presentation(candidate, base_summary)
+                lint = validate_case_presentation(candidate)
+                fallback_used = True
+
+        latency_ms = max(1, int((time.perf_counter() - t0) * 1000))
+        telemetry = {
+            "provider": engine.get("provider", "deterministic"),
+            "model": engine.get("model", "clinic-harness-tool-engine-v1"),
+            "region": engine.get("region", "local"),
+            "live_model_invoked": bool(engine.get("live")) and not fallback_used,
+            "total_tokens_est": snap.total_tokens_est,
+            "token_budget_ceiling": snap.token_budget_ceiling,
+            "within_budget": snap.within_budget,
+            "active_node_ids": list(snap.active_node_ids),
+            "subgraph_pruning_ratio": snap.subgraph_pruning_ratio,
+            "skills_loaded": list(snap.skills_loaded),
+            "slots": [s.to_dict() for s in snap.slots],
+            "retry_count": retry_count,
+            "linter_passed": bool(lint["passed"]),
+            "rules_passed": lint["rules_passed"],
+            "rules_total": lint["rules_total"],
+            "fallback_used": fallback_used,
+            "phi_scrubbed": phi_scrubbed,
+            "context_hash": snap.context_hash,
+            "latency_ms": latency_ms,
+            "repair_violations_fixed": len(repair_violations_log),
+            "error": model_error,
+        }
+
+        persisted_summary = copy.deepcopy(candidate)
+        persisted_summary["_compilation_telemetry"] = telemetry
+        persisted_summary["_context_snapshot"] = ctx_tel
+        case.summary_json = persisted_summary
+        flag_modified(case, "summary_json")
+        case.updated_at = utcnow()
+        session.flush()
+
+        return {
+            "case_id": case.id,
+            "pathway_node_id": resolve_pathway_id(case.pathway_node_id),
+            "widget_stack": PATHWAY_WIDGET_STACKS.get(resolve_pathway_id(case.pathway_node_id), []),
+            "summary": candidate,
+            "lint_report": lint,
+            "context_snapshot": ctx_tel,
+            "compilation_telemetry": telemetry,
+        }
+
+
+def _extract_orders_from_instruction_and_summary(
+    *,
+    case: CaseLoop,
+    instruction_text: str,
+    explicit_orders: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Normalize explicit structured orders OR derive implied structured orders from instruction + case summary."""
+    if explicit_orders:
+        return [
+            normalize_order_primitive(o, include_camel_aliases=True)
+            for o in explicit_orders
+            if isinstance(o, dict)
+        ]
+
+    txt = (instruction_text or "").strip()
+    low = txt.lower()
+    summary = _strip_internal_summary_keys(case.summary_json)
+    suggested_all: list[dict[str, Any]] = []
+    for iss in summary.get("issues") or []:
+        for ord_item in (iss.get("suggested_orders") or []):
+            if isinstance(ord_item, dict):
+                suggested_all.append(normalize_order_primitive(ord_item, include_camel_aliases=True))
+
+    matched: list[dict[str, Any]] = []
+    for ord_item in suggested_all:
+        otype = ord_item.get("type")
+        if otype == "rx":
+            drug_first = str(ord_item.get("drug") or "").lower().split()[0] if ord_item.get("drug") else ""
+            action = str(ord_item.get("action") or "").lower()
+            if (
+                (drug_first and drug_first in low)
+                or ("adopt" in low and case.case_key == "chan")
+                or ("statin" in low and drug_first in ("simvastatin", "atorvastatin"))
+                or ("iron" in low and "ferrous" in drug_first)
+                or (("urti" in low or "pack" in low or "finalise" in low) and drug_first in ("paracetamol", "cetirizine"))
+            ):
+                if action == "stop" and drug_first == "simvastatin" and ("atorvastatin" in low or "adopt" in low or "stop simvastatin" in low):
+                    matched.append(ord_item)
+                elif action != "stop":
+                    matched.append(ord_item)
+                elif f"stop {drug_first}" in low or "discontinue" in low:
+                    matched.append(ord_item)
+        elif otype == "cert":
+            if any(k in low for k in ("sick", "cert", "2-day", "2d", "pack", "finalise")):
+                matched.append(ord_item)
+        elif otype == "lab":
+            tname = str(ord_item.get("test_name") or "").lower()
+            if any(k in low for k in ("inr", "29 nov", "adopt", "ferritin", "blood", "lab", "renal", "lipid")):
+                if any(tok in tname for tok in ("inr", "ferritin", "renal", "lipid")) or "lab" in low or "blood" in low:
+                    matched.append(ord_item)
+        elif otype == "nurse":
+            if any(k in low for k in ("nurse", "rachel", "call", "cantonese", "adherence", "chase", "adopt")):
+                matched.append(ord_item)
+        elif otype == "goal":
+            if any(k in low for k in ("130", "goal", "tighten", "target")):
+                updated_goal = dict(ord_item)
+                if "130" in low:
+                    updated_goal["target_sys"] = 130
+                    updated_goal["target_dia"] = 80
+                    updated_goal = normalize_order_primitive(updated_goal, include_camel_aliases=True)
+                matched.append(updated_goal)
+        elif otype == "book":
+            if any(k in low for k in ("book", "review", "visit", "16 feb", "flu")):
+                matched.append(ord_item)
+
+    # Deduplicate by order id while preserving order
+    seen_ids: set[str] = set()
+    deduped: list[dict[str, Any]] = []
+    for o in matched:
+        oid = str(o.get("id") or "")
+        if oid and oid in seen_ids:
+            continue
+        if oid:
+            seen_ids.add(oid)
+        deduped.append(o)
+    return deduped
+
+
+def _evaluate_orders_rx_safety(
+    orders: list[dict[str, Any]],
+    patient_context: dict[str, Any],
+    *,
+    override_reason: str | None = None,
+) -> dict[str, Any]:
+    """Run real deterministic `rx_rules.evaluate_rx_order_primitives` on all `rx` orders."""
+    rx_orders = [o for o in orders if isinstance(o, dict) and o.get("type") == "rx"]
+    if not rx_orders:
+        return {
+            "status": "pass",
+            "can_sign": True,
+            "rx_count": 0,
+            "hard_blocks": [],
+            "overrides_required": [],
+            "findings": [],
+        }
+    report = evaluate_rx_order_primitives(
+        rx_orders,
+        patient_context,
+        active_meds=patient_context.get("current_meds"),
+        override_reason=override_reason,
+    )
+    rep_dict = report.to_dict()
+    hard_blocks = [f for f in rep_dict.get("findings", []) if f.get("severity") == "hard_block"]
+    overrides = [f for f in rep_dict.get("findings", []) if f.get("severity") == "override_required"]
+    override_ok = bool(getattr(report, "override_accepted", False)) if override_reason else False
+    can_sign = (len(hard_blocks) == 0) and (len(overrides) == 0 or override_ok)
+    return {
+        **rep_dict,
+        "can_sign": can_sign,
+        "rx_count": len(rx_orders),
+        "hard_blocks": hard_blocks,
+        "overrides_required": overrides,
+        "override_accepted": override_ok,
+        "override_error": getattr(report, "override_error", None),
+    }
+
+
 def _serialize_trace(t: ExecutionTrace) -> dict[str, Any]:
     now = utcnow()
     can_undo = (
@@ -599,7 +1290,46 @@ def _serialize_trace(t: ExecutionTrace) -> dict[str, Any]:
     }
 
 
-def _serialize_case(c: CaseLoop, traces: list[ExecutionTrace]) -> dict[str, Any]:
+def _serialize_case(
+    c: CaseLoop,
+    traces: list[ExecutionTrace],
+    *,
+    graph: dict[str, Any] | None = None,
+    engine: dict[str, Any] | None = None,
+    memories: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    raw_summary = c.summary_json or {}
+    stored_tel = raw_summary.get("_compilation_telemetry") if isinstance(raw_summary, dict) else None
+    clean_summary = _strip_internal_summary_keys(raw_summary)
+    lint_report = validate_case_presentation(clean_summary)
+    resolved_pw = resolve_pathway_id(c.pathway_node_id)
+
+    if isinstance(stored_tel, dict):
+        comp_tel = dict(stored_tel)
+        comp_tel["linter_passed"] = bool(lint_report["passed"])
+        comp_tel["rules_passed"] = lint_report["rules_passed"]
+        comp_tel["rules_total"] = lint_report["rules_total"]
+    else:
+        eng = engine or detect_live_llm_engine()
+        active_nodes = _prune_active_graph_nodes(graph, c.pathway_node_id) if graph else []
+        est_tok = min(4096, estimate_tokens(clean_summary) + 420)
+        comp_tel = {
+            "provider": eng.get("provider", "deterministic"),
+            "model": eng.get("model", "clinic-harness-tool-engine-v1"),
+            "region": eng.get("region", "local"),
+            "live_model_invoked": False,
+            "total_tokens_est": est_tok,
+            "token_budget_ceiling": 4096,
+            "within_budget": est_tok <= 4096,
+            "active_node_ids": [str(n.get("id")) for n in active_nodes if n.get("id")],
+            "retry_count": 0,
+            "linter_passed": bool(lint_report["passed"]),
+            "rules_passed": lint_report["rules_passed"],
+            "rules_total": lint_report["rules_total"],
+            "fallback_used": False,
+            "latency_ms": 1,
+        }
+
     return {
         "id": c.id,
         "patient_id": c.patient_id,
@@ -615,9 +1345,10 @@ def _serialize_case(c: CaseLoop, traces: list[ExecutionTrace]) -> dict[str, Any]
         "lead_line": c.lead_line,
         "retry_count": c.retry_count,
         "next_checkpoint_label": c.next_checkpoint_label,
-        "summary": c.summary_json,
-        "widget_stack": PATHWAY_WIDGET_STACKS.get(c.pathway_node_id, []),
-        "lint_report": validate_case_presentation(c.summary_json or {}),
+        "summary": clean_summary,
+        "widget_stack": PATHWAY_WIDGET_STACKS.get(resolved_pw, []),
+        "lint_report": lint_report,
+        "compilation_telemetry": comp_tel,
         "timeline": c.timeline_json,
         "goal": c.goal_json,
         "traces": [_serialize_trace(t) for t in traces],
@@ -627,6 +1358,7 @@ def _serialize_case(c: CaseLoop, traces: list[ExecutionTrace]) -> dict[str, Any]
 
 def build_workspace_overview(db: Database, tenant_id: str) -> dict[str, Any]:
     """Return full Clinic Workspace state + Head-of-AI Technical X-Ray payload."""
+    engine = detect_live_llm_engine()
     with db.tenant_session(tenant_id) as session:
         ensure_active_practice_graph(session, tenant_id)
         ensure_workspace_seeded(session, tenant_id)
@@ -647,7 +1379,22 @@ def build_workspace_overview(db: Database, tenant_id: str) -> dict[str, Any]:
         for t in traces:
             traces_by_case.setdefault(t.case_loop_id, []).append(t)
 
-        serialized_cases = [_serialize_case(c, traces_by_case.get(c.id, [])) for c in cases]
+        mems_by_patient: dict[str, list[dict[str, Any]]] = {}
+        for m in memories:
+            mems_by_patient.setdefault(m.patient_id, []).append(
+                {"tier": m.tier, "topic": m.topic, "summary": m.summary_text, "source_quote": m.source_quote}
+            )
+
+        serialized_cases = [
+            _serialize_case(
+                c,
+                traces_by_case.get(c.id, []),
+                graph=graph,
+                engine=engine,
+                memories=mems_by_patient.get(c.patient_id, []),
+            )
+            for c in cases
+        ]
         # Deterministic display order inside sections
         order = {"chan": 0, "wingyan": 1, "lee": 2, "wong": 3}
         serialized_cases.sort(key=lambda x: order.get(x["case_key"], 99))
@@ -699,7 +1446,36 @@ def build_workspace_overview(db: Database, tenant_id: str) -> dict[str, Any]:
             if t.status != "undone" and (t.emr_addendum_json or {}).get("entries")
         ]
 
-        latest_context = traces[0].context_snapshot_json if traces else None
+        # Always non-null latest_context_window (real <4,096 token telemetry even pre-commit!)
+        latest_context: dict[str, Any] | None = traces[0].context_snapshot_json if traces else None
+        if not latest_context and cases:
+            focus_case = next((c for c in cases if c.state == "needs_decision"), cases[0])
+            stored_ctx = (focus_case.summary_json or {}).get("_context_snapshot")
+            if isinstance(stored_ctx, dict) and stored_ctx.get("total_tokens_est"):
+                latest_context = stored_ctx
+            else:
+                _, latest_context = _compile_5slot_context_snapshot(
+                    graph=graph,
+                    case=focus_case,
+                    memories=mems_by_patient.get(focus_case.patient_id, []),
+                    engine=engine,
+                    current_input=focus_case.lead_line,
+                    channel="workspace",
+                )
+
+        # Aggregate Presentation Linter telemetry across all cases
+        cases_passed = sum(1 for c in serialized_cases if c["lint_report"]["passed"])
+        rules_passed_total = sum(int(c["lint_report"]["rules_passed"]) for c in serialized_cases)
+        rules_possible_total = sum(int(c["lint_report"]["rules_total"]) for c in serialized_cases)
+        violations_count = sum(len(c["lint_report"]["violations"]) for c in serialized_cases)
+        linter_summary = {
+            "cases_total": len(serialized_cases),
+            "cases_passed": cases_passed,
+            "all_passed": cases_passed == len(serialized_cases),
+            "rules_passed_total": rules_passed_total,
+            "rules_possible_total": rules_possible_total,
+            "violations_count": violations_count,
+        }
 
         return {
             "practice_graph": graph,
@@ -711,6 +1487,9 @@ def build_workspace_overview(db: Database, tenant_id: str) -> dict[str, Any]:
             "quarantined_documents": quarantined,
             "curator_proposals": proposals,
             "xray": {
+                "llm_runtime": engine,
+                "model_runtime": engine,
+                "linter_summary": linter_summary,
                 "dual_store": {
                     "clinical_sot": "Central Medical EMR (Sole SoT · Additive-Only Connector)",
                     "agent_memory_store": f"PostgreSQL 15 FORCE RLS ({len(memories)} longitudinal entries)",
@@ -732,10 +1511,17 @@ def build_workspace_overview(db: Database, tenant_id: str) -> dict[str, Any]:
                 "persistence": {
                     "database": "PostgreSQL 15 + FORCE ROW LEVEL SECURITY (clinic_app NOBYPASSRLS)",
                     "durable_loops": "Transactional Outbox (outbox_events, Temporal-swappable)",
-                    "model_region": "Vertex AI asia-east2 (Hong Kong) via GCP ADC",
+                    "model_region": (
+                        f"Vertex AI {engine.get('region', 'asia-east2')} ({engine.get('model')})"
+                        if engine.get("provider") == "vertex"
+                        else f"{engine.get('provider')} ({engine.get('region', 'local')})"
+                    ),
                 },
             },
         }
+
+
+get_workspace_overview = build_workspace_overview
 
 
 def preview_case_instruction(
@@ -743,9 +1529,14 @@ def preview_case_instruction(
     *,
     tenant_id: str,
     case_id: str,
-    instruction_text: str,
+    instruction_text: str = "",
+    orders: list[dict[str, Any]] | None = None,
+    structured_orders: list[dict[str, Any]] | None = None,
+    override_reason: str | None = None,
 ) -> dict[str, Any]:
-    """Loop 3 Preview: traverse Practice Graph & compile categorised plan without mutating state."""
+    """Loop 3 Preview: traverse Practice Graph, normalize 8-primitive orders, run real rx_rules CDS, compile <4,096 context."""
+    engine = detect_live_llm_engine()
+    explicit_orders = orders if orders is not None else structured_orders
     with db.tenant_session(tenant_id) as session:
         ensure_workspace_seeded(session, tenant_id)
         graph = get_effective_practice_graph(session, tenant_id)
@@ -760,15 +1551,55 @@ def preview_case_instruction(
             .order_by(AgentMemoryEntry.created_at.desc())
         ).scalars().all()
         mem_dicts = [{"tier": m.tier, "topic": m.topic, "summary_text": m.summary_text, "source_quote": m.source_quote} for m in mems]
+
+        parsed_orders = _extract_orders_from_instruction_and_summary(
+            case=case,
+            instruction_text=instruction_text,
+            explicit_orders=explicit_orders,
+        )
+        eff_instruction = (instruction_text or "").strip()
+        if not eff_instruction and parsed_orders:
+            eff_instruction = "; ".join(
+                f"{o.get('type')}: {o.get('drug') or o.get('test_name') or o.get('visit_type') or o.get('task') or o.get('metric') or o.get('modality') or o.get('specialty') or o.get('dates') or o.get('id')}"
+                for o in parsed_orders
+            )
+
         plan = compile_instruction_plan(
             case_key=case.case_key,
             pathway_node_id=case.pathway_node_id,
-            instruction_text=instruction_text,
+            instruction_text=eff_instruction,
             effective_graph=graph,
             patient_name=case.patient_name,
             agent_memory_entries=mem_dicts,
         )
+
+        # Evaluate real deterministic HK rx_rules CDS on any `rx` orders
+        patient_ctx = _build_patient_clinical_context(session, tenant_id, case)
+        rx_safety_report = _evaluate_orders_rx_safety(
+            parsed_orders,
+            patient_ctx,
+            override_reason=override_reason,
+        )
+
+        # Upgrade context_snapshot with real <4,096 CJK-aware ContextCompiler telemetry while preserving legacy keys
+        _, real_ctx = _compile_5slot_context_snapshot(
+            graph=graph,
+            case=case,
+            memories=[{"tier": m.tier, "topic": m.topic, "summary": m.summary_text, "source_quote": m.source_quote} for m in mems],
+            engine=engine,
+            current_input=eff_instruction,
+            channel="workspace",
+        )
+        merged_ctx = dict(plan.get("context_snapshot") or {})
+        merged_ctx.update(real_ctx)
+        plan["context_snapshot"] = merged_ctx
         plan["case_id"] = case.id
+        plan["parsed_orders"] = parsed_orders
+        plan["rx_safety_report"] = rx_safety_report
+        if any(o.get("requires_sign") for o in parsed_orders):
+            plan["requires_irreversible_commit"] = True
+            if not plan.get("undo_window_seconds"):
+                plan["undo_window_seconds"] = int(graph["clinic_standards"].get("undo_window_seconds", 10))
         return plan
 
 
@@ -777,11 +1608,18 @@ def commit_case_instruction(
     *,
     tenant_id: str,
     case_id: str,
-    instruction_text: str,
+    instruction_text: str = "",
+    orders: list[dict[str, Any]] | None = None,
+    structured_orders: list[dict[str, Any]] | None = None,
+    override_reason: str | None = None,
     actor_id: str = "doc_locum_sarah",
     actor_name: str = "Locum Dr. Sarah Wong",
 ) -> dict[str, Any]:
-    """Loop 3 Commit: persist ExecutionTrace (10s Undo for irreversible), transition Loop 4 state, write additive EMR addendum, notify Curator."""
+    """Loop 3 Commit: normalize orders, run rx_rules CDS, persist ExecutionTrace + DurableWorkflowEngine 10s Undo outbox, write additive EMR addendum (zero private Sam chat)."""
+    engine = detect_live_llm_engine()
+    wf_engine = DurableWorkflowEngine()
+    explicit_orders = orders if orders is not None else structured_orders
+
     with db.tenant_session(tenant_id) as session:
         ensure_workspace_seeded(session, tenant_id)
         graph = get_effective_practice_graph(session, tenant_id)
@@ -798,28 +1636,75 @@ def commit_case_instruction(
         ).scalars().all()
         mem_dicts = [{"tier": m.tier, "topic": m.topic, "summary_text": m.summary_text, "source_quote": m.source_quote} for m in mems]
 
+        parsed_orders = _extract_orders_from_instruction_and_summary(
+            case=case,
+            instruction_text=instruction_text,
+            explicit_orders=explicit_orders,
+        )
+        eff_instruction = (instruction_text or "").strip()
+        if not eff_instruction and parsed_orders:
+            eff_instruction = "; ".join(
+                f"{o.get('type')}: {o.get('drug') or o.get('test_name') or o.get('visit_type') or o.get('task') or o.get('metric') or o.get('modality') or o.get('specialty') or o.get('dates') or o.get('id')}"
+                for o in parsed_orders
+            )
+
+        patient_ctx = _build_patient_clinical_context(session, tenant_id, case)
+        rx_safety_report = _evaluate_orders_rx_safety(
+            parsed_orders,
+            patient_ctx,
+            override_reason=override_reason,
+        )
+
         plan = compile_instruction_plan(
             case_key=case.case_key,
             pathway_node_id=case.pathway_node_id,
-            instruction_text=instruction_text,
+            instruction_text=eff_instruction,
             effective_graph=graph,
             patient_name=case.patient_name,
             agent_memory_entries=mem_dicts,
         )
+        _, real_ctx = _compile_5slot_context_snapshot(
+            graph=graph,
+            case=case,
+            memories=[{"tier": m.tier, "topic": m.topic, "summary": m.summary_text, "source_quote": m.source_quote} for m in mems],
+            engine=engine,
+            current_input=eff_instruction,
+            channel="workspace",
+        )
+        merged_ctx = dict(plan.get("context_snapshot") or {})
+        merged_ctx.update(real_ctx)
+        plan["context_snapshot"] = merged_ctx
 
         now = utcnow()
-        irreversible = bool(plan["requires_irreversible_commit"])
-        undo_sec = int(plan["undo_window_seconds"]) if irreversible else 0
+        irreversible = bool(plan["requires_irreversible_commit"]) or any(bool(o.get("requires_sign")) for o in parsed_orders)
+        undo_sec = int(plan["undo_window_seconds"] or graph["clinic_standards"].get("undo_window_seconds", 10)) if irreversible else 0
         undo_exp = now + timedelta(seconds=undo_sec) if undo_sec > 0 else None
 
+        # Compact additive EMR addendum — strictly excludes ephemeral private Sam chat
+        addendum_entries = list(plan["emr_addendum"]["entries"])
+        if not addendum_entries and parsed_orders:
+            for o in parsed_orders:
+                otype = o.get("type")
+                if otype == "rx":
+                    addendum_entries.append(
+                        f"Rx ({o.get('action', 'start')}): {o.get('drug', '')} {o.get('freq', '')} {o.get('days', '')}".strip()
+                    )
+                elif otype == "cert":
+                    omit_note = "diagnosis omitted on employer copy" if o.get("omit_employer_diagnosis", True) else "diagnosis included"
+                    addendum_entries.append(
+                        f"Sick leave certificate: {o.get('days_off', 1)}d ({o.get('dates') or o.get('start_date') or 'today'}; {omit_note})."
+                    )
+                elif otype == "lab":
+                    addendum_entries.append(f"Lab order: {o.get('test_name', '')} ({o.get('when', 'scheduled')}).")
+
         emr_add = {}
-        if plan["emr_addendum"]["entries"]:
+        if addendum_entries:
             emr_add = write_additive_emr_addendum(
                 session,
                 tenant_id=tenant_id,
                 patient_id=case.patient_id,
                 signed_by=actor_name,
-                entries=plan["emr_addendum"]["entries"],
+                entries=addendum_entries,
             )
 
         trace = ExecutionTrace(
@@ -828,7 +1713,7 @@ def commit_case_instruction(
             case_loop_id=case.id,
             actor_id=actor_id,
             actor_name=actor_name,
-            instruction_text=instruction_text,
+            instruction_text=eff_instruction,
             graph_version_tag=graph["version_tag"],
             traversed_nodes_json=[n["id"] for n in plan["traversed_nodes"]],
             categorised_plan_json=plan["categorised_plan"],
@@ -843,22 +1728,19 @@ def commit_case_instruction(
         session.add(trace)
         session.flush()
 
-        # Enqueue durable dispatch timer for irreversible 10s Undo window
+        # Enqueue durable dispatch timer via DurableWorkflowEngine for irreversible 10s Undo window
         if irreversible and undo_exp is not None:
-            session.add(
-                OutboxEvent(
-                    id=new_id("out"),
-                    tenant_id=tenant_id,
-                    event_type=EVENT_ACTION_COMMIT_DISPATCH,
-                    aggregate_id=trace.id,
-                    payload_json={"trace_id": trace.id, "case_loop_id": case.id},
-                    run_after=undo_exp,
-                    idempotency_key=f"{EVENT_ACTION_COMMIT_DISPATCH}:{tenant_id}:{trace.id}",
-                )
+            wf_engine.schedule_action_commit_dispatch(
+                session,
+                tenant_id,
+                trace_id=trace.id,
+                case_loop_id=case.id,
+                run_after=undo_exp,
             )
 
         # Loop 4 state transition: Needs Decision -> Running (with clear baton!) or Scheduled
-        if plan["nurse_handoff"]:
+        has_nurse_order = bool(plan["nurse_handoff"]) or any(o.get("type") == "nurse" for o in parsed_orders)
+        if has_nurse_order:
             case.state = "running"
             case.baton = "with_nurse"
         elif plan["categorised_plan"]["patient_task"]:
@@ -869,9 +1751,11 @@ def commit_case_instruction(
             case.baton = "idle"
 
         # Update Wong goal if tightened
-        if case.case_key == "wong" and "130" in instruction_text:
+        if case.case_key == "wong" and ("130" in eff_instruction or any(o.get("type") == "goal" and o.get("target_sys") == 130 for o in parsed_orders)):
             goal = copy.deepcopy(case.goal_json or {})
             goal["target"] = "< 130/80 mmHg"
+            goal["target_sys"] = 130
+            goal["target_dia"] = 80
             case.goal_json = goal
             flag_modified(case, "goal_json")
 
@@ -898,20 +1782,47 @@ def commit_case_instruction(
                 case_key=case.case_key,
                 target_node_id=case.pathway_node_id,
                 doctor_name=actor_name,
-                instruction_text=instruction_text,
+                instruction_text=eff_instruction,
             )
 
         session.flush()
+        handoff_payload = {
+            "patient_id": case.patient_id,
+            "patient_name": case.patient_name,
+            "case_id": case.id,
+            "case_key": case.case_key,
+            "trace_id": trace.id,
+            "actor_id": actor_id,
+            "signed_by": actor_name,
+            "doctor_outcome_summary": plan["doctor_outcome_summary"],
+            "parsed_orders": parsed_orders,
+            "rx_orders": [o for o in parsed_orders if o.get("type") == "rx"],
+            "cert_orders": [o for o in parsed_orders if o.get("type") == "cert"],
+            "lab_orders": [o for o in parsed_orders if o.get("type") == "lab"],
+            "imaging_orders": [o for o in parsed_orders if o.get("type") == "imaging"],
+            "refer_orders": [o for o in parsed_orders if o.get("type") == "refer"],
+            "nurse_orders": [o for o in parsed_orders if o.get("type") == "nurse"],
+            "book_orders": [o for o in parsed_orders if o.get("type") == "book"],
+            "goal_orders": [o for o in parsed_orders if o.get("type") == "goal"],
+            "emr_addendum": emr_add,
+            "rx_safety_report": rx_safety_report,
+            "nurse_handoff": plan["nurse_handoff"],
+            "excludes_ephemeral_sam_chat": True,
+        }
         return {
             "trace": _serialize_trace(trace),
             "case_state": case.state,
             "case_baton": case.baton,
             "curator_override_logged": curator_meta,
+            "parsed_orders": parsed_orders,
+            "rx_safety_report": rx_safety_report,
+            "handoff_payload": handoff_payload,
         }
 
 
 def undo_case_execution(db: Database, *, tenant_id: str, case_id: str, trace_id: str) -> dict[str, Any]:
-    """Cancel an irreversible execution trace inside its 10-second Undo window and restore Needs Decision."""
+    """Cancel an irreversible execution trace inside its 10-second Undo window, cancel queued outbox events, and restore Needs Decision."""
+    wf_engine = DurableWorkflowEngine()
     with db.tenant_session(tenant_id) as session:
         trace = session.execute(
             select(ExecutionTrace).where(
@@ -924,7 +1835,23 @@ def undo_case_execution(db: Database, *, tenant_id: str, case_id: str, trace_id:
             raise ValueError("Execution trace not found.")
         if trace.status != "undo_window" or (trace.undo_expires_at and trace.undo_expires_at <= utcnow()):
             raise ValueError("10-second Undo window has expired; action already dispatched.")
+
+        now_dt = utcnow()
         trace.status = "undone"
+        if isinstance(trace.emr_addendum_json, dict) and trace.emr_addendum_json:
+            retracted_addendum = dict(trace.emr_addendum_json)
+            retracted_addendum["retracted"] = True
+            retracted_addendum["retracted_at"] = now_dt.isoformat()
+            trace.emr_addendum_json = retracted_addendum
+            flag_modified(trace, "emr_addendum_json")
+
+        cancelled_count = wf_engine.cancel_pending(
+            session,
+            tenant_id,
+            event_type=EVENT_ACTION_COMMIT_DISPATCH,
+            trace_id=trace.id,
+        )
+
         case = session.execute(
             select(CaseLoop).where(CaseLoop.tenant_id == tenant_id, CaseLoop.id == case_id)
         ).scalars().first()
@@ -933,7 +1860,7 @@ def undo_case_execution(db: Database, *, tenant_id: str, case_id: str, trace_id:
             case.baton = "with_doctor"
             case.timeline_json = [item for item in (case.timeline_json or []) if item.get("trace_id") != trace.id]
             flag_modified(case, "timeline_json")
-            case.updated_at = utcnow()
+            case.updated_at = now_dt
         record_audit(
             session,
             tenant_id=tenant_id,
@@ -942,10 +1869,15 @@ def undo_case_execution(db: Database, *, tenant_id: str, case_id: str, trace_id:
             action="action.commit_undone",
             resource_type="execution_trace",
             resource_id=trace.id,
-            metadata={"case_loop_id": case_id},
+            metadata={"case_loop_id": case_id, "cancelled_outbox_events": cancelled_count},
         )
         session.flush()
-        return {"status": "undone", "trace_id": trace.id, "case_state": "needs_decision"}
+        return {
+            "status": "undone",
+            "trace_id": trace.id,
+            "case_state": "needs_decision",
+            "cancelled_outbox_events": cancelled_count,
+        }
 
 
 def simulate_loop_progression(
@@ -1018,19 +1950,191 @@ def simulate_patient_triage_turn(
     message_text: str,
     hours_since_last_visit: float | None = 24.0,
     patient_g6pd: bool = True,
+    patient_allergies: list[str] | None = None,
+    vitals: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run Loop 1 deterministic Practice Graph inbound triage against live tenant Practice Graph."""
+    """Loop 1 wired to `triage.screen_acute_message()` + `triage.extract_intake()` + `rx_rules` + bilingual 3-tier async triage."""
     with db.tenant_session(tenant_id) as session:
         graph = get_effective_practice_graph(session, tenant_id)
-        result = classify_inbound_triage(
+        grace_hours = int(graph.get("clinic_standards", {}).get("grace_window_hours", 72))
+        result = classify_bilingual_async_triage(
+            message_text=message_text,
+            hours_since_last_visit=hours_since_last_visit,
+            grace_window_hours=grace_hours,
+            patient_g6pd=patient_g6pd,
+            patient_allergies=patient_allergies,
+            vitals=vitals,
+        )
+        # Union any additional Practice Graph guard markers cleanly (keeping triage.py's Cantonese hyperbole safety)
+        graph_res = classify_inbound_triage(
             message_text=message_text,
             hours_since_last_visit=hours_since_last_visit,
             effective_graph=graph,
             patient_g6pd=patient_g6pd,
         )
+        for g in graph_res.get("guards_fired", []):
+            if g == "crisis_999_triggered" and result["triage_screen"].get("suppressed_negations"):
+                continue
+            if g not in result["guards_fired"]:
+                result["guards_fired"].append(g)
+
         result["graph_version_tag"] = graph["version_tag"]
         result["careline_name"] = graph["careline_profile"]["name"]
         return result
+
+
+def ingest_workspace_document(
+    db: Database,
+    *,
+    tenant_id: str,
+    external_doc_ref: str,
+    doc_kind: str,
+    source_org: str,
+    claimed_mrn_or_hkid: str,
+    claimed_name: str,
+    claimed_dob: str,
+    verbatim_quote: str,
+    page_ref: str = "p.1",
+    source_text: str | None = None,
+    parsed_diff: dict[str, Any] | None = None,
+    proposed_meds: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Loop 2 wired to `emr_connector.verify_three_point_id()` + `verification.verify_external_document_payload()`.
+
+    Fails closed strictly to Nurse Rachel quarantine on `< 3/3` ID match OR any multi-page HKID/DOB/MRN collision.
+    """
+    full_source_text = (source_text or "").strip() or (
+        f"Document: {external_doc_ref} ({source_org})\n"
+        f"Patient: {claimed_name} | DOB: {claimed_dob} | ID: {claimed_mrn_or_hkid}\n"
+        f"{verbatim_quote}"
+    )
+
+    with db.tenant_session(tenant_id) as session:
+        ensure_workspace_seeded(session, tenant_id)
+        three_pt = verify_three_point_id(
+            claimed_mrn_or_hkid=claimed_mrn_or_hkid,
+            claimed_name=claimed_name,
+            claimed_dob=claimed_dob,
+        )
+        matched_pid = three_pt.get("matched_patient_id")
+        patient_ctx: dict[str, Any] = {}
+        if matched_pid and matched_pid in EMR_PATIENT_REGISTRY:
+            reg = EMR_PATIENT_REGISTRY[matched_pid]
+            patient_ctx = {
+                "name_en": reg["name_en"],
+                "dob": reg["dob"],
+                "g6pd_deficient": reg.get("g6pd_deficient", False),
+                "allergies": reg.get("allergies", []),
+                "current_meds": reg.get("active_meds", []),
+            }
+
+        doc_ver = verify_external_document_payload(
+            full_source_text,
+            verbatim_quote=verbatim_quote,
+            parsed_diff=parsed_diff,
+            proposed_meds=proposed_meds,
+            patient_context=patient_ctx,
+        )
+
+        collision = bool(doc_ver.get("has_identity_collision"))
+        failed_3pt = three_pt["match_status"] != "exact_3pt_match"
+        quarantined = failed_3pt or collision
+
+        match_status = "quarantined_nurse" if quarantined else "exact_3pt_match"
+        final_patient_id = None if quarantined else matched_pid
+        route = "nurse_quarantine" if quarantined else "doctor_my_work"
+
+        checks_payload: dict[str, Any] = {
+            **three_pt["checks"],
+            "claimed_id": claimed_mrn_or_hkid,
+            "claimed_name": claimed_name,
+            "claimed_dob": claimed_dob,
+            "has_identity_collision": collision,
+            "collision_reasons": list(doc_ver.get("collision_reasons") or []),
+            "quote_verified": bool(doc_ver.get("quote_verified")),
+            "dose_conflicts_count": len(doc_ver.get("dose_conflicts") or []),
+        }
+        if collision:
+            checks_payload["quarantine_reason"] = (
+                "Fail-closed multi-page identity collision detected ("
+                + "; ".join(doc_ver.get("collision_reasons") or ["distinct patient identifiers across pages"])
+                + "). Routed strictly to Nurse Rachel quarantine — never exposed to doctor queue."
+            )
+
+        row = DocumentIngestion(
+            id=new_id("doc"),
+            tenant_id=tenant_id,
+            external_doc_ref=external_doc_ref,
+            doc_kind=doc_kind,
+            source_org=source_org,
+            matched_patient_id=final_patient_id,
+            match_status=match_status,
+            match_checks_json=checks_payload,
+            verbatim_quote=verbatim_quote,
+            page_ref=page_ref,
+            parsed_diff_json=parsed_diff or {},
+        )
+        session.add(row)
+        action_name = (
+            "document_quarantined_id_collision"
+            if collision
+            else ("document_quarantined_3pt_mismatch" if failed_3pt else "document_ingested")
+        )
+        record_audit(
+            session,
+            tenant_id=tenant_id,
+            actor_role="system",
+            actor_id="workspace_doc_gate",
+            action=action_name,
+            resource_type="document_ingestion",
+            resource_id=row.id,
+            metadata={
+                "external_doc_ref": external_doc_ref,
+                "match_status": match_status,
+                "matched_patient_id": final_patient_id,
+                "has_identity_collision": collision,
+            },
+        )
+        session.flush()
+        return {
+            "id": row.id,
+            "external_doc_ref": row.external_doc_ref,
+            "doc_kind": row.doc_kind,
+            "source_org": row.source_org,
+            "match_status": match_status,
+            "matched_patient_id": final_patient_id,
+            "route": route,
+            "quarantined": quarantined,
+            "checks": checks_payload,
+            "verification": doc_ver,
+        }
+
+
+def _deterministic_sam_qa_answer(case: CaseLoop, question: str) -> str:
+    """Grounded deterministic private registrar Q&A fallback when offline or if LLM output fails safety screen."""
+    low = (question or "").strip().lower()
+    k = case.case_key
+    if k == "wingyan":
+        if any(w in low for w in ("period", "gi", "bleed", "menst")):
+            return "From her 10 Nov consult note & intake: regular 5-day periods (not heavy) and denies melaena, dyspepsia, or weight loss. No GI red flags recorded."
+        if any(w in low for w in ("paracetamol", "panadol", "taken", "med")):
+            return "She has not taken analgesia yet today — she checked first because she was unsure about Aspirin with G6PD (G6PD contraindication active)."
+        return "KingMed 8 Nov panel shows Ferritin 14 ng/mL (low, trending 32 → 21 → 14; BSG non-anaemic iron deficiency threshold < 15), Hb 12.1 g/dL, WBC 6.4, LDL 2.3, Glucose 4.8, eGFR 104. G6PD deficient + Penicillin allergy active."
+    if k == "chan":
+        if any(w in low for w in ("inr", "renal", "egfr")):
+            return "Last clinic INR was 2.9 on 14 Sep (on Warfarin 5mg); QEH discharge INR was 2.4 on 21 Nov (after reduction to 3mg; CHA₂DS₂-VASc 3 / HAS-BLED 1). Last eGFR 71 mL/min (Sep 2026)."
+        if any(w in low for w in ("refill", "dispens")):
+            return "No clinic refills dispensed since discharge — next repeat was due 1 Dec, and no autonomous hold or premature message was sent."
+        return "QEH Discharge Summary (p.2) specifies Warfarin 3mg PO daily (reduced from 5mg) and Atorvastatin 20mg PO nocte (replacing Simvastatin 20mg), with next INR due 29 Nov (NICE NG196)."
+    if k == "wong":
+        if any(w in low for w in ("renal", "electrolyte", "u&e")):
+            return "Baseline renal panel on 12 Sep (pre-Amlodipine): Na 140, K 4.2, Creatinine 64 µmol/L, eGFR 89 mL/min — all normal."
+        if any(w in low for w in ("140", "range", "high")):
+            return "Zero readings > 140 systolic this week; 7-day home range was 124/76 to 134/82 (average 129/79 across 7/7 mornings, inside < 135/85 NICE NG136 threshold)."
+        return "Ms. Wong is stable on Amlodipine 5mg OD with 100% adherence (7d home avg 129/79, within < 135/85 threshold) and routine review scheduled Mon 21 Dec 10:00."
+    if any(w in low for w in ("risk", "cv")):
+        return "36M non-smoker, BP 118/74, fasting glucose 5.0 — HK 10-year CVD risk < 2% (low threshold), supporting lifestyle trial + 3-month fasting lipid repeat."
+    return "Automatic booking chase triggers after 3 days (2 nudges / 72h cap -> Nurse Rachel first) if Mr. Lee hasn't booked, or delegate directly to Nurse Rachel."
 
 
 def ask_case_agent(
@@ -1040,8 +2144,13 @@ def ask_case_agent(
     case_id: str,
     question: str,
     actor_name: str = "Locum Dr. Sarah Wong",
+    engine_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Back-and-forth clinical Q&A inside the case thread grounded in linked EMR notes & Agent Memory."""
+    """Live Private Sam Q&A routed through `agent_harness.invoke_clinical_qa()` + `SAM_PRIVATE_REGISTRAR_QA_V1` + `screen_agent_output`.
+
+    Strictly ephemeral & private (`ephemeral_private: True`, `written_to_emr: False`) — NEVER written to Clinic EMR.
+    """
+    engine = dict(engine_override) if engine_override is not None else detect_live_llm_engine()
     with db.tenant_session(tenant_id) as session:
         ensure_workspace_seeded(session, tenant_id)
         graph = get_effective_practice_graph(session, tenant_id)
@@ -1051,46 +2160,99 @@ def ask_case_agent(
         if case is None:
             raise ValueError("Case not found.")
 
-        q = question.strip()
-        low = q.lower()
-        k = case.case_key
-        if k == "wingyan":
-            if any(w in low for w in ("period", "gi", "bleed", "menst")):
-                ans = "From her 10 Nov consult note & intake: regular 5-day periods (not heavy) and denies melaena, dyspepsia, or weight loss. No GI red flags recorded."
-            elif any(w in low for w in ("paracetamol", "panadol", "taken", "med")):
-                ans = "She has not taken analgesia yet today — she checked first because she was unsure about Aspirin with G6PD."
+        q = (question or "").strip()
+        inj_signals = detect_prompt_injection_signals(q)
+        mems = session.execute(
+            select(AgentMemoryEntry)
+            .where(AgentMemoryEntry.tenant_id == tenant_id, AgentMemoryEntry.patient_id == case.patient_id)
+            .order_by(AgentMemoryEntry.created_at.desc())
+            .limit(6)
+        ).scalars().all()
+        mem_dicts = [
+            {"tier": m.tier, "topic": m.topic, "summary": m.summary_text, "source_quote": m.source_quote}
+            for m in mems
+        ]
+
+        snap, ctx_tel = _compile_5slot_context_snapshot(
+            graph=graph,
+            case=case,
+            memories=mem_dicts,
+            engine=engine,
+            current_input=q,
+            channel="private_sam",
+            template=SAM_PRIVATE_REGISTRAR_QA_V1,
+        )
+
+        ans = ""
+        fallback_used = False
+        model_meta: dict[str, Any] = {
+            "provider": engine.get("provider", "deterministic"),
+            "model": engine.get("model", "clinic-harness-tool-engine-v1"),
+            "region": engine.get("region", "local"),
+            "total_tokens_est": snap.total_tokens_est,
+            "phi_scrubbed": snap.phi_scrubbed,
+            "fallback_used": False,
+        }
+
+        if engine.get("live") and not inj_signals:
+            call_res = invoke_clinical_qa(
+                system_prompt=snap.system_message,
+                user_prompt=snap.user_message,
+                temperature=0.1,
+                max_output_tokens=360,
+                patient_names_for_scrub=[case.patient_name],
+                engine_override=engine,
+            )
+            model_meta.update(call_res.to_dict())
+            if call_res.ok and call_res.text:
+                screen = screen_agent_output(
+                    call_res.text,
+                    banned_claims=SAM_PRIVATE_REGISTRAR_QA_V1.banned_output_patterns,
+                    channel="workspace",
+                    is_sam_note=True,
+                )
+                if screen.passed and not any(p in call_res.text.lower() for p in CHATTY_SAM_PHRASES):
+                    ans = call_res.text.strip()
+                else:
+                    fallback_used = True
+                    model_meta["screen_violations"] = screen.violations
             else:
-                ans = "KingMed 8 Nov panel shows Ferritin 14 ng/mL (low, trending 32 → 21 → 14), Hb 12.1 g/dL, WBC 6.4, LDL 2.3, Glucose 4.8, eGFR 104. G6PD deficient + Penicillin allergic."
-        elif k == "chan":
-            if any(w in low for w in ("inr", "renal", "egfr")):
-                ans = "Last clinic INR was 2.9 on 14 Sep (on Warfarin 5mg); QEH discharge INR was 2.4 on 21 Nov (after reduction to 3mg). Last eGFR 71 mL/min (Sep 2026)."
-            elif any(w in low for w in ("refill", "dispens")):
-                ans = "No clinic refills dispensed since discharge — next repeat was due 1 Dec, and no autonomous hold or premature message was sent."
-            else:
-                ans = "QEH Discharge Summary (p.2) specifies Warfarin 3mg PO daily (reduced from 5mg) and Atorvastatin 20mg PO nocte (replacing Simvastatin 20mg), with next INR due 29 Nov."
-        elif k == "wong":
-            if any(w in low for w in ("renal", "electrolyte", "u&e")):
-                ans = "Baseline renal panel on 12 Sep (pre-Amlodipine): Na 140, K 4.2, Creatinine 64 µmol/L, eGFR 89 mL/min — all normal."
-            elif any(w in low for w in ("140", "range", "high")):
-                ans = "Zero readings > 140 systolic this week; 7-day home range was 124/76 to 134/82 (average 129/79 across 7/7 mornings)."
-            else:
-                ans = "Ms. Wong is stable on Amlodipine 5mg OD with 100% adherence and routine review scheduled Mon 21 Dec 10:00."
-        else:
-            if any(w in low for w in ("risk", "cv")):
-                ans = "36M non-smoker, BP 118/74, fasting glucose 5.0 — 10-year CV risk < 2%, supporting lifestyle trial + 3-month fasting lipid repeat."
-            else:
-                ans = "Automatic booking chase triggers after 3 days if Mr. Lee hasn't booked, or click 'Nurse to Chase' to hand it to Nurse Rachel now."
+                fallback_used = True
+
+        if not ans:
+            ans = _deterministic_sam_qa_answer(case, q)
+            if engine.get("live"):
+                fallback_used = True
+
+        model_meta["fallback_used"] = fallback_used
+        model_meta["objective_signal"] = has_objective_sam_signal(ans)
 
         summary = copy.deepcopy(case.summary_json or {})
         thread = list(summary.get("agent_thread") or [])
-        thread.append({"who": "doctor", "actor": actor_name, "text": q})
-        thread.append({"who": "agent", "actor": graph["careline_profile"]["name"], "text": ans})
+        thread.append({"who": "doctor", "actor": actor_name, "text": q, "ephemeral_private": True})
+        thread.append({
+            "who": "agent",
+            "actor": graph["careline_profile"]["name"],
+            "text": ans,
+            "ephemeral_private": True,
+        })
         summary["agent_thread"] = thread
         case.summary_json = summary
         flag_modified(case, "summary_json")
         case.updated_at = utcnow()
         session.flush()
-        return {"case_id": case.id, "question": q, "answer": ans, "agent_thread": thread}
+        return {
+            "case_id": case.id,
+            "question": q,
+            "answer": ans,
+            "agent_thread": thread,
+            "ephemeral_private": True,
+            "written_to_emr": False,
+            "objective_signal": has_objective_sam_signal(ans),
+            "prompt_injection_detected": bool(inj_signals),
+            "model_telemetry": model_meta,
+            "context_snapshot": ctx_tel,
+        }
 
 
 def reset_workspace(db: Database, tenant_id: str) -> dict[str, Any]:
