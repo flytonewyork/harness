@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from typing import Any
 
@@ -15,16 +16,42 @@ import httpx
 from .runner import ModelTurnResponse
 from .tools import ToolRegistry
 
-_ADC_CACHE: dict[str, Any] = {"token": None, "project": None, "expires_at": 0.0}
+_ADC_LOCK = threading.Lock()
+_ADC_CACHE: dict[str, Any] = {"token": None, "project": None, "expires_at": 0.0, "failed_until": 0.0}
+_ADC_NEGATIVE_TTL_SECONDS = 30.0
+_ADC_QUOTA_PROJ_CACHE: dict[str, tuple[float, str | None]] = {}
+_SHARED_HTTP_CLIENT: httpx.Client | None = None
+_SHARED_HTTP_LOCK = threading.Lock()
+
+
+def reset_adc_cache() -> None:
+    """Clear positive/negative ADC caches and quota-project file cache (used by tests & manual re-probe)."""
+    with _ADC_LOCK:
+        _ADC_CACHE.update({"token": None, "project": None, "expires_at": 0.0, "failed_until": 0.0})
+        _ADC_QUOTA_PROJ_CACHE.clear()
+
+
+def get_shared_llm_http_client() -> httpx.Client:
+    """Return a shared keep-alive httpx.Client to avoid per-turn DNS/TCP/TLS handshakes across all LLM transports."""
+    global _SHARED_HTTP_CLIENT
+    with _SHARED_HTTP_LOCK:
+        if _SHARED_HTTP_CLIENT is None or _SHARED_HTTP_CLIENT.is_closed:
+            _SHARED_HTTP_CLIENT = httpx.Client(
+                limits=httpx.Limits(max_connections=20, max_keepalive_connections=10, keepalive_expiry=120.0),
+            )
+        return _SHARED_HTTP_CLIENT
 
 
 def acquire_vertex_adc_token(project_override: str | None = None) -> tuple[str, str]:
-    """Acquire GCP ADC token via `google-auth` with Cloud Run metadata-server fallback & TTL cache."""
+    """Acquire GCP ADC token via `google-auth` with Cloud Run metadata-server fallback & positive/negative TTL cache."""
     now = time.time()
-    if _ADC_CACHE["token"] and now < float(_ADC_CACHE["expires_at"]) - 60:
-        proj = project_override or _ADC_CACHE["project"]
-        if proj:
-            return str(_ADC_CACHE["token"]), str(proj)
+    with _ADC_LOCK:
+        if _ADC_CACHE["token"] and now < float(_ADC_CACHE["expires_at"]) - 60:
+            proj = project_override or _ADC_CACHE["project"]
+            if proj:
+                return str(_ADC_CACHE["token"]), str(proj)
+        if now < float(_ADC_CACHE["failed_until"]):
+            raise RuntimeError("Vertex AI ADC credentials unavailable in this environment (cached).")
 
     # 1. Try google-auth when installed
     try:
@@ -35,15 +62,16 @@ def acquire_vertex_adc_token(project_override: str | None = None) -> tuple[str, 
         creds.refresh(google.auth.transport.requests.Request())
         proj = project_override or default_project or os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
         if creds.token and proj:
-            _ADC_CACHE.update({"token": str(creds.token), "project": str(proj), "expires_at": now + 2400})
+            with _ADC_LOCK:
+                _ADC_CACHE.update({"token": str(creds.token), "project": str(proj), "expires_at": now + 2400, "failed_until": 0.0})
             return str(creds.token), str(proj)
     except Exception:
         pass
 
-    # 2. Fast GCE / Cloud Run metadata server fallback
+    # 2. Fast GCE / Cloud Run link-local metadata server fallback (responds <5ms on GCP; fail fast off-GCP)
     proj = project_override or os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID") or os.environ.get("VERTEX_PROJECT_ID")
     try:
-        with httpx.Client(timeout=2.0) as client:
+        with httpx.Client(timeout=0.35) as client:
             r = client.get(
                 "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
                 headers={"Metadata-Flavor": "Google"},
@@ -60,17 +88,23 @@ def acquire_vertex_adc_token(project_override: str | None = None) -> tuple[str, 
                     if pr.status_code == 200:
                         proj = pr.text.strip()
                 if tok and proj:
-                    _ADC_CACHE.update({"token": tok, "project": proj, "expires_at": now + ttl})
+                    with _ADC_LOCK:
+                        _ADC_CACHE.update({"token": tok, "project": proj, "expires_at": now + ttl, "failed_until": 0.0})
                     return tok, proj
     except Exception:
         pass
 
+    with _ADC_LOCK:
+        _ADC_CACHE["failed_until"] = now + _ADC_NEGATIVE_TTL_SECONDS
     raise RuntimeError("Vertex AI ADC credentials unavailable in this environment.")
 
 
 DEFAULT_GEMINI_REASONING_MODEL = "gemini-4-neon"
 DEFAULT_GEMINI_FAST_MODEL = "gemini-4-hydrogen"
+DEFAULT_GEMINI_CHAT_MODEL = "gemini-3.5-flash-lite"
 _VALID_GEMINI4_THINKING_LEVELS = ("LOW", "MEDIUM", "HIGH", "XHIGH")
+_VALID_GEMINI3_MINIMAL_THINKING_LEVELS = ("MINIMAL", "LOW", "MEDIUM", "HIGH")
+_VALID_GEMINI3_STANDARD_THINKING_LEVELS = ("LOW", "MEDIUM", "HIGH")
 _GEMINI_MODEL_ALIASES: dict[str, str] = {
     "neon": DEFAULT_GEMINI_REASONING_MODEL,
     "gemini-neon": DEFAULT_GEMINI_REASONING_MODEL,
@@ -78,11 +112,14 @@ _GEMINI_MODEL_ALIASES: dict[str, str] = {
     "hydrogen": DEFAULT_GEMINI_FAST_MODEL,
     "gemini-hydrogen": DEFAULT_GEMINI_FAST_MODEL,
     "gemini-4-hydrogen": DEFAULT_GEMINI_FAST_MODEL,
+    "flash-lite": DEFAULT_GEMINI_CHAT_MODEL,
+    "3.5-flash-lite": DEFAULT_GEMINI_CHAT_MODEL,
+    "gemini-3.5-flash-lite": DEFAULT_GEMINI_CHAT_MODEL,
 }
 
 
 def normalize_gemini_model(raw: str | None, *, default: str = DEFAULT_GEMINI_REASONING_MODEL) -> str:
-    """Resolve short aliases (`neon` -> `gemini-4-neon`, `hydrogen` -> `gemini-4-hydrogen`) or default."""
+    """Resolve short aliases (`neon` -> `gemini-4-neon`, `hydrogen` -> `gemini-4-hydrogen`, `flash-lite` -> `gemini-3.5-flash-lite`) or default."""
     val = (raw or "").strip()
     if not val:
         return default
@@ -91,13 +128,27 @@ def normalize_gemini_model(raw: str | None, *, default: str = DEFAULT_GEMINI_REA
 
 def is_gemini_4_model(model: str) -> bool:
     low = (model or "").strip().lower()
-    return low.startswith("gemini-4-") or low.startswith("gemini-3.")
+    return low.startswith("gemini-4-") or low.startswith("gemini-3.") or low.startswith("gemini-3-")
+
+
+def supports_minimal_thinking(model: str) -> bool:
+    """True for Gemini 3.x Flash/Flash-Lite models that support `thinkingLevel: MINIMAL` (near-zero thinking latency)."""
+    low = (model or "").strip().lower()
+    if low.startswith("gemini-4-") or low.startswith("gemini-3.8-") or low.startswith("gemini-3.7-") or "pro" in low:
+        return False
+    return (
+        low.startswith("gemini-3.5-flash")
+        or low.startswith("gemini-3.6-flash")
+        or low.startswith("gemini-3.1-flash")
+        or low.startswith("gemini-3-flash")
+    )
 
 
 def build_vertex_generate_content_url(*, region: str, project: str, model: str) -> str:
     """Build Vertex AI generateContent URL supporting both regional (`asia-east2`) and `global` endpoints."""
     loc = (region or "asia-east2").strip() or "asia-east2"
-    api_ver = "v1beta1" if is_gemini_4_model(model) else "v1"
+    low = (model or "").strip().lower()
+    api_ver = "v1beta1" if (low.startswith("gemini-4-") or "preview" in low) else "v1"
     host = "aiplatform.googleapis.com" if loc.lower() == "global" else f"{loc}-aiplatform.googleapis.com"
     return (
         f"https://{host}/{api_ver}/projects/{project}"
@@ -113,32 +164,67 @@ def build_gemini_generation_config(
     expect_json: bool = False,
     thinking_level: str | None = None,
 ) -> dict[str, Any]:
-    """Build spec-compliant `generationConfig` for Gemini 4 Neon/Hydrogen vs legacy Gemini models.
+    """Build spec-compliant `generationConfig` across Gemini 4, Gemini 3.5 Flash-Lite, and Gemini 2.5 models.
 
-    Per Google's Gemini 4 Neon & Hydrogen Developer Guides:
-    - Control reasoning depth via `thinkingConfig.thinkingLevel` (`LOW` | `MEDIUM` | `HIGH` | `XHIGH`).
-    - Do NOT send `temperature`, `topP`, `topK`, or `thinkingBudget` on Gemini 4 (ignored or HTTP 400).
-    - `maxOutputTokens` covers BOTH internal thinking tokens and visible output, so enforce a safe
-      floor (`>= 8192`) on Gemini 4 to prevent truncated/empty responses during clinical reasoning.
+    - Gemini 3.5 Flash-Lite / 3.6 Flash: supports `thinkingLevel: MINIMAL` (near-zero hidden CoT latency,
+      no 8192 token inflation) for fast interactive chat/routing; omits unsupported `temperature`.
+    - Gemini 4 Neon / Hydrogen: `thinkingLevel` in `LOW|MEDIUM|HIGH|XHIGH` (clamps `MINIMAL`/`NONE`/`OFF` -> `LOW`
+      so fallback cascades never HTTP 400); omits `temperature`; enforces `>= 8192` token floor for thinking + output.
+    - Legacy Gemini 2.5 Flash: sets `thinkingBudget: 0` when `MINIMAL`/`NONE`/`OFF`/`LOW` is requested to disable
+      slow default dynamic thinking.
     """
-    if is_gemini_4_model(model):
-        raw_level = (
-            thinking_level
-            or os.environ.get("GEMINI_THINKING_LEVEL")
-            or ("HIGH" if "neon" in model.lower() else "MEDIUM")
-        ).strip().upper()
-        if raw_level not in _VALID_GEMINI4_THINKING_LEVELS:
-            raw_level = "HIGH" if "neon" in model.lower() else "MEDIUM"
+    low = (model or "").strip().lower()
+    req_level = (thinking_level or os.environ.get("GEMINI_THINKING_LEVEL") or "").strip().upper()
+
+    if low.startswith("gemini-4-"):
+        if req_level in ("MINIMAL", "NONE", "OFF"):
+            raw_level = "LOW"
+        elif req_level in _VALID_GEMINI4_THINKING_LEVELS:
+            raw_level = req_level
+        else:
+            raw_level = "HIGH" if "neon" in low else "MEDIUM"
         cfg: dict[str, Any] = {
             "maxOutputTokens": max(int(max_output_tokens or 1100), 8192),
             "thinkingConfig": {"thinkingLevel": raw_level},
         }
+    elif low.startswith("gemini-3.") or low.startswith("gemini-3-"):
+        if supports_minimal_thinking(low):
+            if req_level in ("NONE", "OFF", "MINIMAL"):
+                raw_level = "MINIMAL"
+            elif req_level in _VALID_GEMINI3_MINIMAL_THINKING_LEVELS:
+                raw_level = req_level
+            elif req_level == "XHIGH":
+                raw_level = "HIGH"
+            else:
+                raw_level = "MINIMAL" if "flash-lite" in low else "LOW"
+            token_cap = (
+                max(int(max_output_tokens or 512), 256)
+                if raw_level == "MINIMAL"
+                else max(int(max_output_tokens or 1100), 4096)
+            )
+            cfg = {
+                "maxOutputTokens": token_cap,
+                "thinkingConfig": {"thinkingLevel": raw_level},
+            }
+        else:
+            if req_level in ("MINIMAL", "NONE", "OFF"):
+                raw_level = "LOW"
+            elif req_level == "XHIGH":
+                raw_level = "HIGH"
+            elif req_level in _VALID_GEMINI3_STANDARD_THINKING_LEVELS:
+                raw_level = req_level
+            else:
+                raw_level = "MEDIUM"
+            cfg = {
+                "maxOutputTokens": max(int(max_output_tokens or 1100), 4096),
+                "thinkingConfig": {"thinkingLevel": raw_level},
+            }
     else:
         cfg = {
             "temperature": temperature,
             "maxOutputTokens": max_output_tokens,
         }
-        if "2.5-flash" in (model or "").lower() and (thinking_level or "").strip().upper() in ("LOW", "MINIMAL", "OFF", "NONE"):
+        if low.startswith("gemini-2.5-") and req_level in ("MINIMAL", "NONE", "OFF", "LOW"):
             cfg["thinkingConfig"] = {"thinkingBudget": 0}
     if expect_json:
         cfg["responseMimeType"] = "application/json"
@@ -156,7 +242,7 @@ def extract_gemini_visible_text(parts: list[dict[str, Any]]) -> str:
 
 
 def detect_adc_quota_project() -> str | None:
-    """Read `quota_project_id` from official gcloud ADC file if present (zero network calls)."""
+    """Read `quota_project_id` from official gcloud ADC file if present (mtime-cached, zero network calls)."""
     candidates = [
         os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"),
         os.path.expanduser("~/.config/gcloud/application_default_credentials.json"),
@@ -165,9 +251,16 @@ def detect_adc_quota_project() -> str | None:
         if not path or not os.path.isfile(path):
             continue
         try:
+            mtime = os.path.getmtime(path)
+            cached = _ADC_QUOTA_PROJ_CACHE.get(path)
+            if cached is not None and cached[0] == mtime:
+                if cached[1]:
+                    return cached[1]
+                continue
             with open(path, encoding="utf-8") as fh:
                 data = json.load(fh)
-            proj = str(data.get("quota_project_id") or data.get("project_id") or "").strip()
+            proj = str(data.get("quota_project_id") or data.get("project_id") or "").strip() or None
+            _ADC_QUOTA_PROJ_CACHE[path] = (mtime, proj)
             if proj:
                 return proj
         except Exception:
@@ -248,36 +341,36 @@ class LiveHTTPModelTransport:
         expect_json: bool,
     ) -> ModelTurnResponse:
         allowed = {str(t["name"]) for t in tools if isinstance(t, dict) and t.get("name")} or None
-        with httpx.Client(timeout=self.timeout_seconds) as client:
-            if self.provider in ("vertex", "gemini"):
-                return self._invoke_gemini_family(
-                    client,
-                    system_message=system_message,
-                    messages=messages,
-                    allowed_tools=allowed,
-                    temperature=temperature,
-                    max_output_tokens=max_output_tokens,
-                    expect_json=expect_json,
-                )
-            if self.provider == "anthropic":
-                return self._invoke_anthropic(
-                    client,
-                    system_message=system_message,
-                    messages=messages,
-                    allowed_tools=allowed,
-                    temperature=temperature,
-                    max_output_tokens=max_output_tokens,
-                )
-            if self.provider == "openai":
-                return self._invoke_openai(
-                    client,
-                    system_message=system_message,
-                    messages=messages,
-                    allowed_tools=allowed,
-                    temperature=temperature,
-                    max_output_tokens=max_output_tokens,
-                    expect_json=expect_json,
-                )
+        client = get_shared_llm_http_client()
+        if self.provider in ("vertex", "gemini"):
+            return self._invoke_gemini_family(
+                client,
+                system_message=system_message,
+                messages=messages,
+                allowed_tools=allowed,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+                expect_json=expect_json,
+            )
+        if self.provider == "anthropic":
+            return self._invoke_anthropic(
+                client,
+                system_message=system_message,
+                messages=messages,
+                allowed_tools=allowed,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+            )
+        if self.provider == "openai":
+            return self._invoke_openai(
+                client,
+                system_message=system_message,
+                messages=messages,
+                allowed_tools=allowed,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+                expect_json=expect_json,
+            )
         raise ValueError(f"Unsupported provider: '{self.provider}'")
 
     def _invoke_gemini_family(
@@ -339,7 +432,7 @@ class LiveHTTPModelTransport:
                 if gem_tools:
                     body["tools"] = gem_tools
 
-            resp = client.post(url, headers=headers, params=params, json=body)
+            resp = client.post(url, headers=headers, params=params, json=body, timeout=self.timeout_seconds)
             last_resp = resp
             if resp.status_code in (403, 404) and mdl != candidate_models[-1]:
                 continue
@@ -403,6 +496,7 @@ class LiveHTTPModelTransport:
                 "content-type": "application/json",
             },
             json=body,
+            timeout=self.timeout_seconds,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -451,6 +545,7 @@ class LiveHTTPModelTransport:
             "https://api.openai.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}", "Content-Type": "application/json"},
             json=body,
+            timeout=self.timeout_seconds,
         )
         resp.raise_for_status()
         data = resp.json()

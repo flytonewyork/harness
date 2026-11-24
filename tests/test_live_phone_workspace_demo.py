@@ -839,6 +839,111 @@ def test_ai_generated_suggested_replies_replace_stale_static_chips_and_survive_p
     reset_llm_target_cache()
 
 
+def test_fast_chat_routing_minimal_thinking_and_safe_fallback_cascade(tmp_path, monkeypatch):
+    """Verify low-latency backend optimizations:
+    - Interactive patient chat routes to `gemini-3.5-flash-lite` with `thinkingLevel: MINIMAL` and tight `maxOutputTokens`.
+    - Gemini 4 fallback safely clamps `MINIMAL` -> `LOW` (never HTTP 400) while preserving `>= 8192` floor.
+    - Legacy Gemini 2.5 Flash sets `thinkingBudget: 0` when `MINIMAL`/`LOW` is requested.
+    - Vertex URL uses GA `v1` for `gemini-3.5-flash-lite` and `v1beta1` for `gemini-4-*`.
+    - Live chat turn cascades seamlessly from `gemini-3.5-flash-lite` (404) -> `gemini-4-hydrogen` (`LOW`) and caches failed hop.
+    """
+    import httpx
+    from backend.acute.agent_harness import reset_llm_target_cache
+    from backend.agentic.transports import (
+        DEFAULT_GEMINI_CHAT_MODEL,
+        build_gemini_generation_config,
+        build_vertex_generate_content_url,
+    )
+
+    assert DEFAULT_GEMINI_CHAT_MODEL == "gemini-3.5-flash-lite"
+
+    # 1. GenerationConfig per model family
+    cfg_lite = build_gemini_generation_config(
+        "gemini-3.5-flash-lite", max_output_tokens=420, expect_json=True, thinking_level="MINIMAL"
+    )
+    assert cfg_lite["thinkingConfig"] == {"thinkingLevel": "MINIMAL"}
+    assert cfg_lite["maxOutputTokens"] == 420
+    assert "temperature" not in cfg_lite
+
+    cfg_g4_clamped = build_gemini_generation_config(
+        "gemini-4-hydrogen", max_output_tokens=420, expect_json=True, thinking_level="MINIMAL"
+    )
+    assert cfg_g4_clamped["thinkingConfig"] == {"thinkingLevel": "LOW"}
+    assert cfg_g4_clamped["maxOutputTokens"] >= 8192
+    assert "temperature" not in cfg_g4_clamped
+
+    cfg_g25 = build_gemini_generation_config(
+        "gemini-2.5-flash", temperature=0.1, max_output_tokens=420, expect_json=True, thinking_level="MINIMAL"
+    )
+    assert cfg_g25["thinkingConfig"] == {"thinkingBudget": 0}
+    assert cfg_g25["maxOutputTokens"] == 420
+
+    # 2. Vertex URL API version routing
+    url_lite = build_vertex_generate_content_url(region="asia-east2", project="hk-proj", model="gemini-3.5-flash-lite")
+    assert url_lite.startswith("https://asia-east2-aiplatform.googleapis.com/v1/projects/hk-proj/locations/asia-east2/")
+    url_g4 = build_vertex_generate_content_url(region="global", project="hk-proj", model="gemini-4-hydrogen")
+    assert url_g4.startswith("https://aiplatform.googleapis.com/v1beta1/projects/hk-proj/locations/global/")
+
+    # 3. End-to-end chat turn routes to gemini-3.5-flash-lite (MINIMAL), cascades safely on 404, and caches skip
+    reset_llm_target_cache()
+    client = _make_client(tmp_path)
+    assert client.post("/api/v1/demo/live/reset").status_code == 200
+    assert client.post("/api/v1/demo/live/chat/start", json={"journey_key": "wingyan", "lang": "en"}).status_code == 200
+
+    monkeypatch.setenv("AGENT_LLM_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gem-key")
+    monkeypatch.delenv("AGENT_CHAT_MODEL", raising=False)
+
+    seen_calls: list[dict] = []
+    real_post = httpx.Client.post
+
+    def fake_post(self, url, *args, headers=None, params=None, json=None, **kwargs):
+        if "googleapis.com" not in str(url):
+            return real_post(self, url, *args, headers=headers, params=params, json=json, **kwargs)
+        seen_calls.append({"url": str(url), "json": json})
+        req = httpx.Request("POST", str(url))
+        # Simulate flash-lite returning 404 -> must cascade cleanly to gemini-4-hydrogen with LOW (not MINIMAL!)
+        if "gemini-3.5-flash-lite" in str(url):
+            return httpx.Response(404, request=req, json={"error": {"message": "not enabled"}})
+        payload_text = (
+            '{"patient_reply": "Thanks — I have noted your sore throat and fever for Dr. Sarah Wong.", '
+            '"clinical_reasoning": "Acute URTI intake; staging for doctor.", '
+            '"registrar_action": "escalate_to_doctor", '
+            '"suggested_patient_replies": ["I also took a negative RAT"]}'
+        )
+        return httpx.Response(
+            200,
+            request=req,
+            json={"candidates": [{"content": {"parts": [{"text": payload_text}]}}]},
+        )
+
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    t1 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": "Sore throat and 38.2C fever since this morning.", "lang": "en"},
+    ).json()
+    assert t1["llm_meta"]["live_reply_used"] is True
+    assert t1["llm_meta"]["model"] == "gemini-4-hydrogen"
+    assert t1["llm_meta"]["attempts_tried"] == 2
+    assert len(seen_calls) == 2
+    assert "gemini-3.5-flash-lite" in seen_calls[0]["url"]
+    assert seen_calls[0]["json"]["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "MINIMAL"}
+    assert seen_calls[0]["json"]["generationConfig"]["maxOutputTokens"] == 420
+    assert "gemini-4-hydrogen" in seen_calls[1]["url"]
+    assert seen_calls[1]["json"]["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "LOW"}
+
+    # Next turn skips failed flash-lite hop and succeeds on Attempt 1
+    t2 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": "My home RAT is negative.", "lang": "en"},
+    ).json()
+    assert t2["llm_meta"]["live_reply_used"] is True
+    assert t2["llm_meta"]["attempts_tried"] == 1
+    assert len(seen_calls) == 3
+    reset_llm_target_cache()
+
+
+
 
 
 
