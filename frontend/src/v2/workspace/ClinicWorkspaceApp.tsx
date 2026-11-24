@@ -696,6 +696,7 @@ export function ClinicWorkspaceApp() {
   const [busy, setBusy] = useState(false);
 
   const sseRefreshTimer = useRef<number | null>(null);
+  const sessionEpochRef = useRef<string | null>(null);
 
   const phoneQrUrl = useMemo(() => {
     const cleanBase = publicBaseUrl.trim().replace(/\/+$/, "") || window.location.origin;
@@ -712,10 +713,29 @@ export function ClinicWorkspaceApp() {
       .catch(() => setQrDataUrl(""));
   }, [phoneQrUrl]);
 
+  const clearTransientUiState = useCallback(() => {
+    setPlans({});
+    setGoalOverrides({});
+    setSamReadMap({});
+    setCdsFeedback({});
+    setOverrideReasonMap({});
+    setReceipts({});
+    setBanner(null);
+    setPostSignGuide(null);
+  }, []);
+
   const refresh = useCallback(async () => {
     const ov = await v2Api.workspaceOverview(workspaceMode);
+    const nextEpoch = ov?.live_session?.session_epoch || null;
+    if (nextEpoch && sessionEpochRef.current && nextEpoch !== sessionEpochRef.current) {
+      clearTransientUiState();
+      setView("my_work");
+    }
+    if (nextEpoch) {
+      sessionEpochRef.current = nextEpoch;
+    }
     setData(ov);
-  }, [workspaceMode]);
+  }, [workspaceMode, clearTransientUiState]);
 
   useEffect(() => {
     refresh();
@@ -750,11 +770,16 @@ export function ClinicWorkspaceApp() {
           "document.ingested",
           "document.resolved",
           "case.updated",
+          "booking.confirmed",
           "patient.care_plan_delivered",
           "patient.care_plan_retracted",
-          "demo.reset",
         ];
         events.forEach((ev) => es?.addEventListener(ev, scheduleRefresh));
+        es.addEventListener("demo.reset", () => {
+          clearTransientUiState();
+          setView("my_work");
+          scheduleRefresh();
+        });
       } catch {
         setSseConnected(false);
       }
@@ -771,7 +796,7 @@ export function ClinicWorkspaceApp() {
       }
       es?.close();
     };
-  }, [refresh]);
+  }, [refresh, clearTransientUiState]);
 
   const cases: Array<Record<string, any>> = data?.cases || [];
   const activeCase = cases.find((c) => c.id === view) || null;
@@ -789,6 +814,22 @@ export function ClinicWorkspaceApp() {
     }
   }, [view, data, activeCase]);
 
+  // Clear postSignGuide if its case no longer exists (e.g., after Reset Demo)
+  useEffect(() => {
+    if (postSignGuide && data && !cases.some((c) => c.id === postSignGuide.caseId)) {
+      setPostSignGuide(null);
+    }
+  }, [postSignGuide, data, cases]);
+
+  // Auto-dismiss the compact "Plan signed" banner shortly after returning to #my-work
+  useEffect(() => {
+    if (!postSignGuide || view !== "my_work") return;
+    const timer = window.setTimeout(() => {
+      setPostSignGuide(null);
+    }, 4500);
+    return () => window.clearTimeout(timer);
+  }, [postSignGuide, view]);
+
   const handleResetDemo = async () => {
     setBusy(true);
     try {
@@ -797,13 +838,7 @@ export function ClinicWorkspaceApp() {
       } else {
         await v2Api.workspaceReset();
       }
-      setPlans({});
-      setGoalOverrides({});
-      setSamReadMap({});
-      setCdsFeedback({});
-      setOverrideReasonMap({});
-      setReceipts({});
-      setBanner(null);
+      clearTransientUiState();
       setView("my_work");
       setQrModalOpen(false);
       await refresh();
@@ -1425,46 +1460,33 @@ export function ClinicWorkspaceApp() {
                 </span>
               </div>
 
-              {/* Post-Sign Notification Bubble + First-Time Guided Transition Highlight */}
+              {/* Compact Post-Sign Confirmation Toast (auto-dismisses after returning to #my-work) */}
               {postSignGuide && (
                 <div
                   data-testid="post-sign-guide-banner"
                   style={{
                     background: "#eef8f5",
-                    border: "1.5px solid #0f766e",
-                    borderRadius: 12,
-                    padding: "12px 14px",
+                    border: "1px solid #bde2d9",
+                    borderRadius: 11,
+                    padding: "9px 13px",
                     display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                    boxShadow: "0 2px 8px rgba(15, 118, 110, 0.08)",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 10,
+                    flexWrap: "wrap",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 700, color: "#0f6b58", fontSize: 13.5 }}>
-                      <span>✓ Plan signed &amp; sent to {postSignGuide.patientName} ({postSignGuide.confirmedAt})</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="ws-btn-ghost"
-                      style={{ fontSize: 12, padding: "2px 8px" }}
-                      onClick={() => setPostSignGuide(null)}
-                    >
-                      Dismiss
-                    </button>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 650, color: "#0f6b58", fontSize: 13 }}>
+                    <span>✓ Plan signed &amp; sent to {postSignGuide.patientName} ({postSignGuide.confirmedAt})</span>
                   </div>
-                  <div style={{ fontSize: 13, color: "#292524", lineHeight: 1.45 }}>
-                    <strong>Done:</strong> {postSignGuide.patientName} is cleared from your inbox and moved to{" "}
-                    <span className="ws-pill ws-pill-jade">Seen Today</span>. Their plan is live on their phone, and Sam will handle the 3-day check-in without interrupting you.{" "}
-                    <button
-                      type="button"
-                      className="ws-btn-ghost"
-                      style={{ fontSize: 12.5, padding: "1px 6px", color: "#0f6b58", fontWeight: 600 }}
-                      onClick={() => openCase(postSignGuide.caseId)}
-                    >
-                      Open Thread →
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="ws-btn-ghost"
+                    style={{ fontSize: 12, padding: "2px 8px" }}
+                    onClick={() => setPostSignGuide(null)}
+                  >
+                    Dismiss
+                  </button>
                 </div>
               )}
 

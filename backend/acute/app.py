@@ -81,7 +81,9 @@ from .workspace_engine import (
 )
 from .live_demo import (
     append_doctor_signed_chat_bubble,
+    book_live_chat_slot,
     get_live_chat_state,
+    get_live_clinic_availability,
     get_live_journeys_status,
     handle_live_chat_turn,
     record_case_clinical_exam,
@@ -460,6 +462,16 @@ class LiveChatStartReq(BaseModel):
 class LiveChatTurnReq(BaseModel):
     journey_key: str = Field(default="wingyan", max_length=64)
     message: str = Field(min_length=1, max_length=2000)
+    lang: str = Field(default="en", max_length=12)
+    is_preset: bool = False
+
+
+class LiveChatBookReq(BaseModel):
+    journey_key: str = Field(default="wingyan", max_length=64)
+    doctor_id: str = Field(min_length=2, max_length=64)
+    slot_id: str = Field(min_length=2, max_length=128)
+    modality: str = Field(default="in_clinic", max_length=32)
+    offer_id: str | None = Field(default=None, max_length=64)
     lang: str = Field(default="en", max_length=12)
 
 
@@ -1375,7 +1387,39 @@ def create_acute_app(
                 message_text=body.message,
                 live_bus=live_bus,
                 lang=body.lang,
+                is_preset=body.is_preset,
             )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+
+    @app.get("/api/v1/demo/live/availability")
+    def demo_live_availability(request: Request, journey_key: str | None = Query(default=None)):
+        """Return live clinic doctor availability (busy vs. open slots) and Sam's recommended slot."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        tenant_id = _workspace_tenant(request)
+        return get_live_clinic_availability(database, tenant_id=tenant_id, journey_key_or_pid=journey_key)
+
+    @app.post("/api/v1/demo/live/chat/book")
+    def demo_live_chat_book(body: LiveChatBookReq, request: Request):
+        """Confirm or reschedule a patient's chosen doctor & slot from Sam's booking offer card."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        tenant_id = _workspace_tenant(request)
+        try:
+            return book_live_chat_slot(
+                database,
+                tenant_id=tenant_id,
+                journey_key_or_pid=body.journey_key,
+                doctor_id=body.doctor_id,
+                slot_id=body.slot_id,
+                modality=body.modality,
+                offer_id=body.offer_id,
+                lang=body.lang,
+                live_bus=live_bus,
+            )
+        except PermissionError as exc:
+            raise HTTPException(409, str(exc))
         except ValueError as exc:
             raise HTTPException(422, str(exc))
 

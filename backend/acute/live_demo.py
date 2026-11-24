@@ -79,6 +79,14 @@ from .practice_graph import (
     validate_case_presentation,
 )
 from .rx_rules import check_prescription_safety
+from .scheduling import (
+    build_clinic_availability,
+    confirm_live_chat_booking,
+    format_availability_for_prompt,
+    get_live_availability_payload,
+    select_booking_offer,
+    should_attach_booking_offer,
+)
 from .triage import classify_bilingual_async_triage, screen_acute_message
 from .workspace_engine import (
     _compile_5slot_context_snapshot,
@@ -125,9 +133,11 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         ),
         "suggested_replies_en": [
             "I woke up with a sore throat and 38.2°C fever — no chest pain or shortness of breath. Could I book a quick exam and ask about a 2-day sick note?",
+            "Thank you — is there anything else I should watch out for before my visit?",
         ],
         "suggested_replies_zh": [
             "我今朝起身覺得喉嚨痛同發燒 38.2 度，冇心口痛亦冇氣促。請問可唔可以約醫生檢查，同埋攞兩日病假紙？",
+            "多謝你——睇醫生前有冇咩症狀需要特別留意？",
         ],
     },
     {
@@ -141,7 +151,7 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "pathway_node_id": "ebm.pathway.post_discharge_anticoag",
         "title": "Post-hospital AFib medication check",
         "title_zh": "伊利沙伯醫院出院覆診・藥物核對",
-        "subtitle": "Discharged from QEH yesterday · 11:30 follow-up today",
+        "subtitle": "Discharged from QEH yesterday · post-discharge med review",
         "welcome_en": (
             "Hi Mr. Chan, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you doing today, and how can I help?"
         ),
@@ -150,9 +160,11 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         ),
         "suggested_replies_en": [
             "I just got discharged from QEH yesterday — they gave me Warfarin 3mg and Atorvastatin, but I still have 5mg Warfarin and Simvastatin at home. Which should I take?",
+            "No bruising or bleeding at all. Can I take ibuprofen for a mild headache?",
         ],
         "suggested_replies_zh": [
             "尋日喺伊利沙伯醫院出院，醫院開咗 3mg 薄血丸同新降膽固醇藥，但我屋企仲有之前診所 5mg 同舊藥，應該食邊隻？",
+            "冇瘀傷亦都冇流牙血。頭有少少痛，可唔可以食布洛芬止痛？",
         ],
     },
     {
@@ -263,6 +275,28 @@ _DAY3_REPLIES_ZH: list[str] = [
 ]
 
 
+def _normalize_preset_text(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip()).lower()
+
+
+def _is_defined_preset_message(j: dict[str, Any], message_text: str) -> bool:
+    """Return True when the patient message matches a curated preset reply for this journey (deterministic path)."""
+    norm = _normalize_preset_text(message_text)
+    if not norm:
+        return False
+    pool: list[str] = [
+        *(j.get("suggested_replies_en") or []),
+        *(j.get("suggested_replies_zh") or []),
+        *_POST_SIGN_REPLIES_EN,
+        *_POST_SIGN_REPLIES_ZH,
+        *_POST_SIGN_CHAN_REPLIES_EN,
+        *_POST_SIGN_CHAN_REPLIES_ZH,
+        *_DAY3_REPLIES_EN,
+        *_DAY3_REPLIES_ZH,
+    ]
+    return any(_normalize_preset_text(item) == norm for item in pool)
+
+
 def _has_patient_turns(messages: list[dict[str, Any]] | None) -> bool:
     for m in messages or []:
         actor = str(m.get("actor") or "")
@@ -307,10 +341,10 @@ def _suggested_replies_for(
         return list(_POST_SIGN_REPLIES_ZH if is_zh else _POST_SIGN_REPLIES_EN)
     if dynamic_replies:
         return [str(x).strip() for x in dynamic_replies if str(x).strip()][:2]
-    if has_patient_turns:
-        # Turn 1+ -> pure LLM contextual suggestions ONLY; NEVER fall back to static_list[1:]!
-        return []
     static_list = list(j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"])
+    if has_patient_turns:
+        # Turn 1+ preset mode: surface the curated follow-up preset replies directly answering Sam's Turn-1 prompt
+        return static_list[1:]
     return static_list[:1]
 
 
@@ -535,7 +569,7 @@ def _build_initial_summary(j_key: str, doc_id: str | None, doc_label: str, doc_q
                 },
             ],
             "scheduled_tasks": [
-                {"status": "booked", "label": "Today 11:30 · Post-QEH clinic visit (Careline check-in active)"},
+                {"status": "waiting", "label": "Post-QEH medication review slot offered (awaiting patient booking confirmation)"},
             ],
             "issues": [
                 {
@@ -1201,6 +1235,7 @@ def get_live_chat_state(
             "baton": case.baton,
             "messages": messages,
             "signed_plan": signed,
+            "booked_appointment": case_summary.get("booked_appointment"),
             "crisis": crisis,
             "suggested_replies": _suggested_replies_for(
                 j,
@@ -1432,7 +1467,15 @@ def _compile_journey_turn_update(
                 steps,
             )
 
-        worsening = any(
+        is_educational_watch_q = any(
+            k in low
+            for k in (
+                "what bleeding signs", "signs should i watch", "watch out for", "watch for",
+                "anything else i should", "do i need to fast", "need to fast",
+                "有咩出血跡象", "需要注意", "仲有冇咩需要", "要唔要空腹", "要唔要戒口",
+            )
+        )
+        worsening = (not is_educational_watch_q) and any(
             k in low
             for k in (
                 "worse", "worsening", "still fever", "high fever", "rash", "bleeding", "bruising",
@@ -1440,7 +1483,7 @@ def _compile_journey_turn_update(
                 "流血", "瘀傷", "頭暈", "副作用", "冇好轉",
             )
         )
-        if worsening or cds_blocked_drugs:
+        if worsening or (cds_blocked_drugs and not is_educational_watch_q):
             steps.append("LoopWatcher · Post-sign symptom update detected -> Re-opened case to #my-work for doctor review")
             reply = (
                 "收到你嘅最新情況——由於你提及症狀變化或新顧慮，我已經將你嘅最新訊息重新置頂到黃莎拉醫生嘅工作台覆核。如果情況急劇惡化或者呼吸困難，請即刻致電 999 或去急症室。"
@@ -1458,19 +1501,34 @@ def _compile_journey_turn_update(
                 steps,
             )
 
-        wants_sick_leave_amend = any(
+        has_amend_verb = any(
             k in low
             for k in (
-                "sick leave", "sick-leave", "sick note", "sick-note", "medical cert", "certificate",
-                "more day", "extra day", "another day", "extend", "day off", "days off",
-                "病假", "醫生紙", "延長", "多一日", "多幾日", "加多一日",
+                "extra", "more day", "another day", "extend", "amend", "request", "additional", "longer",
+                "change", "different", "stronger", "adjust", "延長", "多一日", "多幾日", "加多一日",
+                "申請", "換藥", "改藥", "加藥", "轉藥", "改劑量",
             )
-        ) or bool(re.search(r"\bmc\b", low))
-        wants_rx_amend = any(
+        )
+        wants_sick_leave_amend = (
+            any(
+                k in low
+                for k in (
+                    "extra day", "more day", "another day", "extend", "延長", "多一日", "多幾日", "加多一日",
+                )
+            )
+            or (
+                has_amend_verb
+                and (
+                    any(k in low for k in ("sick leave", "sick-leave", "sick note", "sick-note", "medical cert", "certificate", "day off", "days off", "病假", "醫生紙"))
+                    or bool(re.search(r"\bmc\b", low))
+                )
+            )
+        )
+        wants_rx_amend = has_amend_verb and any(
             k in low
             for k in (
-                "change med", "different med", "stronger med", "prescription", "change dose",
-                "換藥", "改藥", "加藥", "處方",
+                "change med", "different med", "stronger med", "prescription", "change dose", "meds", "medication",
+                "換藥", "改藥", "加藥", "處方", "改劑量",
             )
         )
         if wants_sick_leave_amend or wants_rx_amend:
@@ -1526,7 +1584,7 @@ def _compile_journey_turn_update(
                 steps,
             )
 
-        wants_booking_or_prev = any(
+        wants_booking_or_prev = (not is_educational_watch_q) and any(
             k in low
             for k in (
                 "flu", "vaccine", "shot", "book", "rebook", "appointment", "slot", "schedule",
@@ -1596,12 +1654,30 @@ def _compile_journey_turn_update(
                 steps,
             )
 
-        asked_med_or_watch = any(
+        asked_med_or_watch = is_educational_watch_q or any(
             k in low
-            for k in ("how", "when", "take", "dose", "watch", "warning", "fever", "water", "work", "點食", "幾時", "注意", "發燒")
+            for k in ("how", "when", "take", "dose", "watch", "warning", "fever", "water", "work", "inr", "fast", "點食", "幾時", "注意", "發燒", "空腹")
         )
         steps.append("CareAgent · Logged post-sign patient follow-up quietly (care plan remains active in Scheduled)")
-        if asked_med_or_watch:
+        if asked_med_or_watch and j_key == "chan":
+            reply = (
+                "好問題。服食薄血丸（Warfarin）期間，如果出現異常大片瘀傷、流鼻血或流牙血超過 10 分鐘未止、小便帶血或呈深茶色、大便呈黑色柏油狀，或者咳血，請盡快聯絡我哋或去急症室。7 日後覆驗 INR 凝血指數唔需要空腹，照常食早餐同飲水就得。"
+                if is_zh
+                else "Good question. On Warfarin, seek prompt review (or A&E/999 if heavy) for unusual bruising, nosebleeds or gum bleeding lasting over 10 minutes, pink or dark urine, black tarry stools, or coughing up blood. You do not need to fast for your 7-day INR blood test — just eat normally and stay hydrated."
+            )
+        elif asked_med_or_watch and j_key == "tang_uti":
+            reply = (
+                "請按指示完成整個 5 日療程並每日多飲清水（約 2 公升）。如果症狀喺 48 小時內未有改善，或者出現發燒、發冷、腰背痛或作嘔，請即刻通知我哋。"
+                if is_zh
+                else "Please complete the full 5-day course as prescribed and drink plenty of water (around 2L daily). Reach out promptly if symptoms are not easing after 48 hours, or straight away if you develop fever, chills, lower back pain, or vomiting."
+            )
+        elif asked_med_or_watch and j_key == "lau_chest":
+            reply = (
+                "請繼續每日準時服食血壓及膽固醇藥並記錄坐定 5 分鐘後嘅家居血壓。如果出現心口痛、氣促、頭暈、視力模糊或劇烈頭痛，請即刻通知我哋或致電 999。"
+                if is_zh
+                else "Please keep taking your daily blood pressure and cholesterol medicines as prescribed and log seated home BP readings after 5 minutes of rest. Reach out promptly or call 999 if you ever develop chest pain, shortness of breath, dizziness, vision changes, or a severe headache."
+            )
+        elif asked_med_or_watch:
             reply = (
                 "你可以按處方指示服食退燒止痛藥，多飲溫水同多休息。一般如果 48 至 72 小時內仲未退燒，或者出現高燒超過 39 度、呼吸困難或喉嚨劇痛，就隨時再搵我哋。3 日後我亦會自動問候你康復進度。"
                 if is_zh
@@ -1773,9 +1849,9 @@ def _compile_journey_turn_update(
             )
         else:
             reply = (
-                f"多謝你提供資料——我已經記低你嘅症狀（{temp_val if has_temp else '38.2 °C'}、冇氣促或心口痛）同埋今日醫生檢查及 {days_off} 日病假紙申請，並整理咗摘要交畀黃莎拉醫生審閱。醫生一確認就會喺呢度通知你。"
+                f"多謝你提供資料——我已經記低你嘅症狀（{temp_val if has_temp else '38.2 °C'}、冇氣促或心口痛）同 {days_off} 日病假紙申請並整理好摘要畀醫生審閱。我亦查閱咗今日診所時間表，林啟賢醫生今日 11:00 有最早普通科空檔（你亦可喺下方轉揀黃莎拉醫生、張詠欣醫生或視像診症）。"
                 if is_zh
-                else f"Thanks for sharing those details — I've noted your sore throat and fever ({temp_val if has_temp else '38.2 °C'}, no red-flag symptoms) along with your request for a same-day clinic exam and a {days_off}-day sick-leave note, and sent a concise summary to Dr. Sarah Wong to review. I'll update you right here once she confirms."
+                else f"Thanks for sharing those details — I've noted your sore throat and fever ({temp_val if has_temp else '38.2 °C'}, no red-flag symptoms) and staged your {days_off}-day sick-leave request for clinical review. I also checked today's clinic schedule and found our earliest open slot with Dr. Kenneth Lam at 11:00 below (or you can switch doctors or pick teleconsult)."
             )
 
         return (
@@ -1813,11 +1889,11 @@ def _compile_journey_turn_update(
             return (current_state, current_baton, current_title or "Post-QEH Discharge Check-In", current_lead, current_cp, summary, reply, steps)
 
         if asked_appt and not (asked_nsaid or asked_meds):
-            steps.append("CareAgent · Confirmed 11:30 post-discharge follow-up details")
+            steps.append("CareAgent · Checked live doctor availability for post-discharge follow-up")
             reply = (
-                "你嘅覆診安排喺今日上午 11:30，由黃莎拉醫生同陳護士跟進。麻煩記得帶齊你屋企所有醫院新藥袋同舊藥過嚟核對。"
+                "我查閱咗今日診所時間表——黃莎拉醫生今日上午 11:30 有空檔幫你覆診及核對藥袋（可喺下方確認或揀其他醫生時間）。麻煩記得帶齊你屋企所有醫院新藥袋同舊藥過嚟核對。"
                 if is_zh
-                else "Your follow-up is booked for today at 11:30 with Dr. Sarah Wong and Nurse Rachel. Please bring all of your current medicine bags with you so we can review them together."
+                else "I checked today's clinic schedule — Dr. Sarah Wong has an open 11:30 slot for your post-discharge review below (or you can pick another doctor or time). Please bring all of your hospital and clinic medicine bags so we can review them together."
             )
             return (current_state, current_baton, current_title or "Post-QEH Discharge Check-In", current_lead, current_cp, summary, reply, steps)
 
@@ -1859,30 +1935,28 @@ def _compile_journey_turn_update(
         if asked_nsaid:
             reply_en = (
                 "Please avoid ibuprofen (and other NSAIDs) while taking Warfarin — combining them significantly raises bleeding risk. "
-                "I've flagged this for Dr. Sarah Wong ahead of your 11:30 visit today so she can confirm a safe pain-relief option and reconcile your medication bags with you."
+                "I've flagged this for Dr. Sarah Wong ahead of your review today so she can confirm a safe pain-relief option and reconcile your medication bags with you."
             )
             reply_zh = (
                 "服食薄血丸（Warfarin）期間請避免服食布洛芬（Ibuprofen）或其他消炎止痛藥，因為會大幅增加出血風險。"
-                "我已經通知咗黃莎拉醫生，等陣 11:30 覆診時會同你逐一核對藥袋同安排安全嘅止痛選擇。"
+                "我已經通知咗黃莎拉醫生，覆診時會同你逐一核對藥袋同安排安全嘅止痛選擇。"
             )
         elif mentioned_no_bleed and not asked_meds:
             reply_en = (
-                "Good to hear there's no bruising or bleeding — I've noted that for Dr. Sarah Wong ahead of your 11:30 visit today. "
+                "Good to hear there's no bruising or bleeding — I've noted that for Dr. Sarah Wong ahead of your review today. "
                 "Please bring all of your hospital and clinic medicine bags so we can confirm everything cleanly."
             )
             reply_zh = (
-                "冇瘀傷亦都冇流血就好放心——我已經幫你記低畀黃莎拉醫生知。陣間 11:30 覆診麻煩帶齊所有醫院同診所藥袋過嚟核對。"
+                "冇瘀傷亦都冇流血就好放心——我已經幫你記低畀黃莎拉醫生知。覆診時麻煩帶齊所有醫院同診所藥袋過嚟核對。"
             )
         else:
             reply_en = (
-                "Thank you for checking before taking anything — please do not take both statins together, and bring all of your hospital and old clinic medicine bags to your 11:30 appointment today.\n\n"
-                "Your QEH discharge summary lists Warfarin 3mg daily (reduced from 5mg) and Atorvastatin 20mg replacing Simvastatin. "
-                "I've flagged this exact comparison in Dr. Sarah Wong's workspace so she can confirm your updated regimen, order your 7-day INR, and have Nurse Rachel walk through your pillbox in Cantonese. Have you noticed any unusual bruising or bleeding?"
+                "Thank you for checking before taking anything — please do not take both statins together, and wait for Dr. Sarah Wong to confirm your exact Warfarin and cholesterol doses.\n\n"
+                "I've flagged the QEH discharge changes (Warfarin 3mg vs. 5mg, Atorvastatin replacing Simvastatin) in Dr. Sarah Wong's workspace and checked today's schedule — she has an open 11:30 slot below so we can reconcile your medicine bags in person. Have you noticed any unusual bruising or bleeding?"
             )
             reply_zh = (
-                "好多謝你食藥前先問清楚——請千祈唔好同時食兩隻降膽固醇藥，並帶齊所有醫院新藥袋同屋企舊藥嚟今日 11:30 覆診。\n\n"
-                "伊利沙伯醫院出院紙寫明薄血丸改為每日 3mg（由 5mg 減量），同埋轉用 Atorvastatin 20mg 代替舊嘅 Simvastatin。"
-                "我已經將完整對照放咗喺黃莎拉醫生嘅工作台，陣間會幫你核對藥單、安排 7 日後覆驗 INR，並由陳護士用廣東話幫你執好藥盒。你最近有冇發現容易瘀傷或者流牙血？"
+                "好多謝你食藥前先問清楚——請千祈唔好同時食兩隻降膽固醇藥，並等黃莎拉醫生確認你嘅薄血丸同降膽固醇藥劑量後先好服食今日嘅藥。\n\n"
+                "我已經將伊利沙伯醫院出院改藥對照放咗喺黃莎拉醫生嘅工作台，亦查閱咗今日診所時間表——黃莎拉醫生今日 11:30 有空檔幫你當面核對藥袋（可喺下方確認或揀其他時段）。你最近有冇發現容易瘀傷或者流牙血？"
             )
         return (
             "needs_decision",
@@ -2264,8 +2338,9 @@ def handle_live_chat_turn(
     message_text: str,
     live_bus: LiveHarnessBus,
     lang: str = "en",
+    is_preset: bool = False,
 ) -> dict[str, Any]:
-    """Process a natural-language patient chat turn, run real pre-gates + agents, and update `/workspace` live."""
+    """Process a patient chat turn: defined presets run 100% deterministically; free text invokes live LLM with deterministic pre-gates."""
     t_turn_start = time.perf_counter()
     text = (message_text or "").strip()
     if not text:
@@ -2275,6 +2350,7 @@ def handle_live_chat_turn(
     j_key = j["key"]
     pid = j["patient_id"]
     is_zh = _is_zh(text, lang)
+    use_deterministic_preset = bool(is_preset or _is_defined_preset_message(j, text))
     engine = detect_live_llm_engine()
     live_demo_coordinator.mark_phone_active(j_key)
 
@@ -2499,16 +2575,18 @@ def handle_live_chat_turn(
             if (pat is not None and j_key != "wingyan")
             else "New/minimal intake (no prior chart alerts)"
         )
+        availability_roster = build_clinic_availability(session, tenant_id, for_case_key=j_key)
+        availability_prompt_line = format_availability_for_prompt(availability_roster)
         case_id = case.id
         session.flush()
 
-    # 4. Live Autonomous AI Registrar (outside DB transaction so Postgres locks are never held during LLM HTTP wait).
-    # Keeps Gemini 4 Hydrogen (`thinkingLevel: LOW`) by default for full clinical quality, with compact prompt & zero-hop infra.
+    # 4. Live Autonomous AI Registrar — invoked ONLY on custom free-text messages (defined demo presets run 100% deterministically).
     reply = fallback_reply
     live_reply_used = False
-    llm_provider_used = str(engine.get("provider") or "deterministic")
-    llm_model_used = str(engine.get("model") or "clinic-harness-tool-engine-v1")
-    llm_region_used = str(engine.get("region") or "local")
+    llm_offer_booking = False
+    llm_provider_used = "deterministic" if use_deterministic_preset else str(engine.get("provider") or "deterministic")
+    llm_model_used = "clinic-harness-preset-v1" if use_deterministic_preset else str(engine.get("model") or "clinic-harness-tool-engine-v1")
+    llm_region_used = "local" if use_deterministic_preset else str(engine.get("region") or "local")
     llm_latency_ms = 0
     llm_attempts = 0
     llm_fallback_used = False
@@ -2518,7 +2596,7 @@ def handle_live_chat_turn(
     llm_error: str | None = None
     dynamic_suggested_replies: list[str] = []
 
-    if engine.get("live"):
+    if engine.get("live") and not use_deterministic_preset:
         lang_directive = (
             "Write patient_reply warmly in natural HK Traditional Chinese/Cantonese (繁體中文)."
             if is_zh
@@ -2559,15 +2637,16 @@ def handle_live_chat_turn(
 
         sys_prompt = (
             "You are Sam, Clinic Careline AI Registrar at Central & Mid-Levels Family Medical (HK). "
-            "Strict Asymmetric Authority: gather history, extract vitals, route admin tasks, or stage briefs for Dr. Sarah Wong; "
+            "Strict Asymmetric Authority: gather history, extract vitals, check live doctor availability & offer bookings, route admin tasks, or stage briefs for our doctors; "
             "NEVER prescribe, issue/extend sick-leave, sign, diagnose definitively, or promise reply SLAs.\n"
             "Return STRICT JSON ONLY:\n"
             '{"patient_reply":str,"clinical_reasoning":str,"registrar_action":"keep_in_patient_loop"|"escalate_to_doctor"|"route_to_admin"|"close_quietly",'
-            '"extracted_vitals":[{"label":str,"val":str}],"issue_summary_update":str,"admin_task":str,"suggested_patient_replies":[str,str]}\n'
+            '"offer_booking":bool,"extracted_vitals":[{"label":str,"val":str}],"issue_summary_update":str,"admin_task":str,"suggested_patient_replies":[str,str]}\n'
             "Rules:\n"
             "- patient_reply: 1-2 crisp, calm, empathetic sentences answering what they JUST wrote for the current phase; "
             "NEVER use exclamation marks (! or ！) — use plain periods and question marks; "
             "never re-ask already stated facts; if confused ('whaat?'), apologize & clarify; never say 'feeling better' unless stated; "
+            "when suggesting a visit or appointment, mention an exact open doctor & time from Live open slots and set offer_booking=true so the booking card appears below; "
             "NEVER mention internal alerts/jargon (G6PD, haemolysis, nitrofurantoin, drug-class mechanisms) to patient (keep in clinical_reasoning); "
             "never claim to be a doctor or repeat a prior reply.\n"
             "- clinical_reasoning: 1 terse clinical line (<=20 words) for doctor (phase, safety, why action); never write chat-formatting meta-commentary (never say 'patient chat kept simple and jargon-free').\n"
@@ -2578,6 +2657,7 @@ def handle_live_chat_turn(
         user_prompt = (
             f"Phase: {phase_desc}\n"
             f"Patient: {j['patient_name']} ({j['age_sex']})\n"
+            f"{availability_prompt_line}\n"
             f"Chart (clinician-only): {chart_facts}\n"
             f"CDS (clinician-only): {cds_warnings or 'None'}\n"
             f"Chat:\n{recent_turns}\n\n"
@@ -2610,6 +2690,7 @@ def handle_live_chat_turn(
             parsed_reply = str(obj["patient_reply"]).strip()
             parsed_reasoning = str(obj.get("clinical_reasoning") or "").strip()
             reg_action = str(obj.get("registrar_action") or "").strip().lower()
+            llm_offer_booking = bool(obj.get("offer_booking"))
             extracted_vitals: list[dict[str, str]] = []
             if isinstance(obj.get("extracted_vitals"), list):
                 extracted_vitals = [
@@ -2767,15 +2848,27 @@ def handle_live_chat_turn(
 
     reply = _plain_chat_text(reply)
     chat = list(updated_summary.get("original_chat") or [])
-    chat.append({"actor": "Sam", "time": hhmm, "text": reply, "lang": "zh-HK" if is_zh else "en"})
-    updated_summary["original_chat"] = chat
+    attach_booking = should_attach_booking_offer(
+        j_key=j_key,
+        patient_text=text,
+        existing_summary=updated_summary,
+        new_state=new_state,
+        has_signed=has_signed,
+        llm_requested_booking=llm_offer_booking,
+    )
+    booking_offer: dict[str, Any] | None = None
+    sam_msg: dict[str, Any] = {
+        "actor": "Sam",
+        "time": hhmm,
+        "text": reply,
+        "lang": "zh-HK" if is_zh else "en",
+    }
+
     if not (live_reply_used and dynamic_suggested_replies):
         updated_summary.pop("_dynamic_suggested_replies", None)
     updated_summary.pop("_active_crisis", None)
 
     lint = validate_case_presentation(updated_summary)
-    for st_label in agent_steps:
-        timeline.append({"date": f"Today {hhmm}", "label": st_label, "agent": st_label.split("·")[0].strip()})
 
     with db.tenant_session(tenant_id) as session:
         case = session.get(CaseLoop, case_id)
@@ -2785,6 +2878,26 @@ def handle_live_chat_turn(
             )
         if case is None:
             raise ValueError(f"Case for journey '{j_key}' not found")
+
+        if attach_booking:
+            booking_offer = select_booking_offer(
+                session,
+                tenant_id,
+                j_key=j_key,
+                patient_text=text,
+            )
+            sam_msg["booking_offer"] = booking_offer
+            rec = booking_offer["recommended"]
+            agent_steps.append(
+                f"SchedulingAgent · Checked {booking_offer['checked_doctors_count']} doctors' availability "
+                f"({booking_offer['open_today_count']} open slots today) → offered {rec['doctor_name']} ({rec['short_day_en']} {rec['time']})"
+            )
+
+        chat.append(sam_msg)
+        updated_summary["original_chat"] = chat
+
+        for st_label in agent_steps:
+            timeline.append({"date": f"Today {hhmm}", "label": st_label, "agent": st_label.split("·")[0].strip()})
 
         case.state = new_state
         case.baton = new_baton
@@ -2839,6 +2952,22 @@ def handle_live_chat_turn(
         session.flush()
         case_id = case.id
 
+    if booking_offer:
+        rec = booking_offer["recommended"]
+        live_bus.append_tool_call(
+            pid,
+            {
+                "agent": "SchedulingAgent",
+                "tool": "scheduling.check_availability",
+                "authority": "READ",
+                "emr_target": "clinic_schedule",
+                "summary": (
+                    f"Checked {booking_offer['checked_doctors_count']} doctors "
+                    f"({booking_offer['open_today_count']} open slots today) → selected {rec['doctor_name']} · {rec['short_day_en']} {rec['time']}"
+                ),
+            },
+        )
+
     live_bus.append_tool_call(
         pid,
         {
@@ -2869,10 +2998,13 @@ def handle_live_chat_turn(
         "reply": reply,
         "messages": chat,
         "signed_plan": signed,
+        "booking_offer": booking_offer,
+        "booked_appointment": updated_summary.get("booked_appointment"),
         "crisis": None,
         "prompt_injection_detected": False,
         "lint_report": lint,
         "llm_meta": {
+            "mode": "deterministic_preset" if use_deterministic_preset else ("live_llm" if live_reply_used else "deterministic_fallback"),
             "live_reply_used": live_reply_used,
             "provider": llm_provider_used,
             "model": llm_model_used,
@@ -2896,6 +3028,57 @@ def handle_live_chat_turn(
             has_patient_turns=True,
         ),
     }
+
+
+def get_live_clinic_availability(
+    db: Database,
+    *,
+    tenant_id: str,
+    journey_key_or_pid: str | None = None,
+) -> dict[str, Any]:
+    """Return live clinic doctor availability matrix and recommended booking pick."""
+    j_key = resolve_journey(journey_key_or_pid)["key"] if journey_key_or_pid else None
+    return get_live_availability_payload(db, tenant_id=tenant_id, journey_key=j_key)
+
+
+def book_live_chat_slot(
+    db: Database,
+    *,
+    tenant_id: str,
+    journey_key_or_pid: str,
+    doctor_id: str,
+    slot_id: str,
+    modality: str = "in_clinic",
+    offer_id: str | None = None,
+    lang: str = "en",
+    live_bus: LiveHarnessBus,
+) -> dict[str, Any]:
+    """Confirm or reschedule an appointment offered by Sam in the live patient chat."""
+    j = resolve_journey(journey_key_or_pid)
+    j_key = j["key"]
+    pid = j["patient_id"]
+    with db.tenant_session(tenant_id) as session:
+        existing_case = session.scalar(
+            select(CaseLoop).where(CaseLoop.tenant_id == tenant_id, CaseLoop.case_key == j_key)
+        )
+    if existing_case is None:
+        start_live_journey(db, tenant_id=tenant_id, journey_key_or_pid=j_key, live_bus=live_bus, lang=lang)
+
+    return confirm_live_chat_booking(
+        db,
+        tenant_id=tenant_id,
+        journey_key=j_key,
+        patient_id=pid,
+        patient_name=j["patient_name"],
+        doctor_id=doctor_id,
+        slot_id=slot_id,
+        modality=modality,
+        offer_id=offer_id,
+        lang=lang,
+        live_bus=live_bus,
+        hhmm=_hkt_hhmm(),
+        session_epoch=live_demo_coordinator.epoch,
+    )
 
 
 def append_doctor_signed_chat_bubble(

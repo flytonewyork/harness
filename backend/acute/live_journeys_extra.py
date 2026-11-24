@@ -41,9 +41,11 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         ),
         "suggested_replies_en": [
             "I've had burning when I pee and going to the toilet frequently since yesterday evening.",
+            "No fever, chills, or lower back pain, and no chance of pregnancy. Could I see a doctor today?",
         ],
         "suggested_replies_zh": [
             "琴晚開始小便刺痛同成日急尿，請問醫生可以點幫我？",
+            "冇發燒、冇發冷亦冇腰背痛，亦冇機會懷孕。今日可唔可以約醫生？",
         ],
     },
     {
@@ -89,9 +91,11 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         ),
         "suggested_replies_en": [
             "My home blood pressure has been creeping up to around 148/92 this week on Perindopril 4mg — no chest pain or shortness of breath. Could Dr. Wong review my blood pressure, cholesterol, and any routine checkups I'm due for?",
+            "Yes, I take my Perindopril and Rosuvastatin every day with no side effects — please bundle my flu shot and routine checks with the visit.",
         ],
         "suggested_replies_zh": [
             "今個星期食住 Perindopril 4mg 屋企血壓升到大約 148/92，冇心口痛亦冇氣促。請問黃醫生需唔需要覆核血壓藥、膽固醇，同埋我有冇常規檢查到期？",
+            "有呀，每日都有準時食 Perindopril 同 Rosuvastatin，冇咩副作用——麻煩覆診時一併幫我安排流感針同常規檢查。",
         ],
     },
     # ---- Hospital Follow-Up & Chronic Care ----
@@ -572,9 +576,9 @@ def compile_extra_journey_turn(
             )
         else:
             reply = (
-                "多謝你確認。我已經將你嘅症狀同安全核對結果整理畀黃醫生，醫生審閱後就會確認合適嘅抗生素處方。記得多飲清水，如果出現發燒、發冷或腰背痛，請即刻通知我哋。"
+                "多謝你確認。我已經將你嘅症狀同病歷安全核對結果整理畀醫生團隊，亦查閱咗今日診所時間表——張詠欣醫生（急症及婦女健康）今日 11:15 有空檔，你可以喺下方一鍵確認親臨診所或視像診症，或者揀其他醫生時間。期間記得多飲清水，如果出現發燒、發冷或腰背痛，請即刻通知我哋。"
                 if is_zh
-                else "Thank you for confirming. I have passed your details to Dr. Wong so she can review and arrange an appropriate antibiotic prescription. Keep up your fluids, and let us know straight away if you develop fever, chills, vomiting, or lower back pain."
+                else "Thank you for confirming. I have passed your details and chart safety checks to the clinic team so the doctor can arrange an appropriate antibiotic prescription, and I checked today's schedule — Dr. Wing-Yan Cheung has an open 11:15 slot below (in-clinic or teleconsult, or you can pick another doctor). Keep drinking plenty of water, and let us know straight away if you develop fever, chills, vomiting, or lower back pain."
             )
         return (
             "needs_decision",
@@ -1010,6 +1014,10 @@ def compile_extra_journey_turn(
                 "order": {"id": "ord_lau_lipid", "type": "lab", "issue": "Preventive Care", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "fasting": True, "when": "In 8 weeks"},
             },
         ]
+        confirmed_adherence = any(
+            k in all_low or k in all_text
+            for k in ("every day", "take my perindopril", "no side effects", "每日都有準時食", "冇咩副作用", "準時食藥")
+        )
         summary["issues"] = [{
             "id": "iss_lau_cardiac",
             "name": "1. Chronic hypertension & cardiovascular risk optimization",
@@ -1017,9 +1025,13 @@ def compile_extra_journey_turn(
                 "Home BP drifted upward over 8 weeks on Perindopril 4mg; asymptomatic at rest with no chest pain or dyspnoea.",
                 "LDL remains above high-risk target on Rosuvastatin 10mg alongside mild baseline LVH on Oct ECG (see 10-Yr CVD Risk Score & BP Trend).",
             ],
-            "safety_gap": "Confirm seated 5-minute home BP technique & medication adherence before Perindopril titration.",
+            "safety_gap": (
+                "Adherence confirmed (daily Perindopril 4mg & Rosuvastatin 10mg, no side effects); verify seated clinic BP before titration."
+                if confirmed_adherence
+                else "Confirm seated 5-minute home BP technique & medication adherence before Perindopril titration."
+            ),
             "suggested_orders": [
-                {"id": "lau_book", "type": "book", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "visitType": "In-Clinic GP Cardiovascular Review & Repeat ECG", "when": "This week (15 min)"},
+                {"id": "lau_book", "type": "book", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "visitType": "In-Clinic GP Cardiovascular Review & Repeat ECG", "when": "Today 14:15 (20 min)"},
                 {"id": "lau_rx_perind", "type": "rx", "action": "update", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "drug": "Perindopril 8mg", "freq": "OM daily", "days": "30d", "note": "Consider titration after confirming clinic BP & renal panel"},
                 {"id": "lau_lab", "type": "lab", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "fasting": True, "when": "Before clinic review"},
                 {"id": "lau_goal_bp", "type": "goal", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "metric": "Blood Pressure", "targetSys": 135, "targetDia": 85},
@@ -1042,19 +1054,19 @@ def compile_extra_journey_turn(
         summary["agent_thread"] = agent_thread[-4:]
         steps.append(f"PracticeGraph · Computed Python 10-Yr CVD Risk ({cvd_score.get('value', '5–10%')}) & mounted Cardiac Prevention Canvas")
 
-        if is_followup_turn and any(k in low for k in ("ecg", "check", "today", "adjust", "vaccine", "flu", "mammogram", "book", "心電圖", "血壓", "覆檢", "預防", "預約")):
+        if is_followup_turn and (confirmed_adherence or any(k in low for k in ("ecg", "check", "today", "adjust", "vaccine", "flu", "mammogram", "book", "bundle", "心電圖", "血壓", "覆檢", "預防", "預約", "流感", "一併"))):
             reply = (
-                "好呀——我已經幫你整理好血壓趨勢、過往心電圖及抽血記錄畀黃醫生覆核，並標記咗季節性流感疫苗、兩年一度乳房造影同空腹血脂／腎功能抽血，等覆診時可以一併安排。期間如果出現任何心口痛、氣促、頭暈或劇烈頭痛，請即刻通知我哋或致電 999。"
+                "多謝你確認每日有準時服藥同冇副作用。我已經記錄落病歷，並為黃莎拉醫生一併預備咗季節性流感疫苗、兩年一度乳房造影同空腹血脂／腎功能抽血，等覆診時可以一次過安排。期間如果出現任何心口痛、氣促、頭暈或劇烈頭痛，請即刻通知我哋或致電 999。"
                 if is_zh
-                else "Sounds good — I have pulled your BP trend, prior ECG/Echo, and recent lipid panel for Dr. Wong, and flagged your CV-priority seasonal flu shot, biennial mammogram, and fasting lipid/renal blood panel so we can bundle them cleanly. If you ever develop chest discomfort, shortness of breath, dizziness, or severe headache, please let us know promptly or call 999."
+                else "Thank you for confirming daily adherence with no side effects. I have updated your chart and bundled your CV-priority seasonal flu shot, biennial mammogram referral, and fasting lipid and renal panel for Dr. Sarah Wong's review. If you ever develop chest discomfort, shortness of breath, dizziness, or severe headache, please let us know promptly or call 999."
             )
         else:
             reply = (
-                "多謝你定期記錄血壓。由於屋企血壓由 132 慢慢升到 148/92（高於 135/85 目標），加上你上次膽固醇稍微高於理想水平，我已經整理好你嘅血壓趨勢、心血管風險評估同過往心電圖畀黃醫生覆核，睇吓需唔需要調整 Perindopril 劑量同覆驗空腹血脂及腎功能。\n\n"
-                "預防檢查方面，你亦到期接種心血管保護優先嘅季節性流感疫苗同安排兩年一度乳房造影檢查——請問你每日有冇準時食藥，同埋想唔想一併預約今個星期覆診同預防檢查？"
+                "多謝你定期記錄血壓。由於屋企血壓由 132 慢慢升到 148/92（高於 135/85 目標），加上上次膽固醇略高於理想水平，我已經整理好你嘅血壓趨勢、心血管風險評估同過往心電圖畀黃莎拉醫生覆核。\n\n"
+                "我亦查閱咗今日診所時間表——黃莎拉醫生今日 14:15 有 20 分鐘空檔可以一併檢視血壓藥、安排心血管優先流感針同兩年一度乳房造影（可喺下方確認或揀其他時段）。請問你每日有冇準時食 Perindopril 同 Rosuvastatin，有冇副作用？"
                 if is_zh
-                else "Thank you for keeping track of your readings. Because your home BP has drifted up toward 148/92 (above your < 135/85 target) alongside slightly elevated LDL, I have compiled your BP trend, 10-year cardiovascular risk profile, and baseline ECG/Echo for Dr. Wong to review whether to adjust your Perindopril and repeat your fasting lipids and renal panel.\n\n"
-                "On preventive care, you are also due for your cardiovascular-priority seasonal flu shot and biennial breast mammogram. Have you been taking your Perindopril and Rosuvastatin every day without side effects, and would you like us to bundle those checkups with your review visit?"
+                else "Thank you for keeping track of your readings. Because your home BP has drifted up toward 148/92 alongside slightly elevated LDL, I have compiled your BP trend, 10-year cardiovascular risk profile, and baseline ECG and Echo for Dr. Sarah Wong.\n\n"
+                "I also checked today's clinic schedule and found an open 20-minute review slot with Dr. Sarah Wong at 14:15 below, where we can bundle your CV-priority flu shot and biennial mammogram. Have you been taking your Perindopril and Rosuvastatin every day without side effects?"
             )
         return (
             "needs_decision",

@@ -350,10 +350,35 @@ export const v2Api = {
     }),
   liveChatState: (journeyKey: string, lang: "en" | "zh-HK" = "en") =>
     req<Record<string, any>>(`/api/v1/demo/live/chat/state/${encodeURIComponent(journeyKey)}?lang=${encodeURIComponent(lang)}`),
-  liveChatTurn: (journeyKey: string, message: string, lang: "en" | "zh-HK" = "en") =>
+  liveChatTurn: (journeyKey: string, message: string, lang: "en" | "zh-HK" = "en", isPreset = false) =>
     req<Record<string, any>>("/api/v1/demo/live/chat/turn", {
       method: "POST",
-      body: JSON.stringify({ journey_key: journeyKey, message, lang }),
+      body: JSON.stringify({ journey_key: journeyKey, message, lang, is_preset: isPreset }),
+    }),
+  liveAvailability: (journeyKey?: string) =>
+    req<Record<string, any>>(
+      journeyKey
+        ? `/api/v1/demo/live/availability?journey_key=${encodeURIComponent(journeyKey)}`
+        : "/api/v1/demo/live/availability",
+    ),
+  liveChatBook: (body: {
+    journeyKey: string;
+    doctorId: string;
+    slotId: string;
+    modality: "in_clinic" | "teleconsult";
+    offerId?: string;
+    lang?: "en" | "zh-HK";
+  }) =>
+    req<Record<string, any>>("/api/v1/demo/live/chat/book", {
+      method: "POST",
+      body: JSON.stringify({
+        journey_key: body.journeyKey,
+        doctor_id: body.doctorId,
+        slot_id: body.slotId,
+        modality: body.modality,
+        offer_id: body.offerId,
+        lang: body.lang || "en",
+      }),
     }),
   liveChatCheckin: (journeyKey: string, lang: "en" | "zh-HK" = "en") =>
     req<Record<string, any>>("/api/v1/demo/live/chat/checkin", {

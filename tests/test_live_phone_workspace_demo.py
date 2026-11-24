@@ -635,14 +635,21 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
 
     t1 = client.post(
         "/api/v1/demo/live/chat/turn",
-        json={"journey_key": "wingyan", "message": s1["suggested_replies"][0], "lang": "en"},
+        json={"journey_key": "wingyan", "message": s1["suggested_replies"][0], "lang": "en", "is_preset": True},
     ).json()
     assert t1["case_state"] == "needs_decision"
     assert "!" not in t1["reply"]
-    # Turn 1+ MUST NOT fall back to hardcoded static chips when LLM isn't active
-    assert t1["suggested_replies"] == []
+    assert t1["llm_meta"]["mode"] == "deterministic_preset"
+    assert t1["llm_meta"]["live_reply_used"] is False
+    # Booking offer attached for Case 1 (Dr. Kenneth Lam 11:00 earliest open slot)
+    assert t1["booking_offer"] is not None
+    assert t1["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_lam"
+    assert t1["booking_offer"]["recommended"]["time"] == "11:00"
+    # Curated Turn-2 preset reply surfaces cleanly
+    assert len(t1["suggested_replies"]) == 1
+    assert "watch out" in t1["suggested_replies"][0].lower()
     st1 = client.get("/api/v1/demo/live/chat/state/wingyan?lang=en").json()
-    assert st1["suggested_replies"] == []
+    assert st1["suggested_replies"] == t1["suggested_replies"]
 
     ov1 = client.get("/api/v1/workspace/overview?mode=live").json()
     wy_case = next(c for c in ov1["cases"] if c["case_key"] == "wingyan")
@@ -688,10 +695,19 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert pdf_resp.status_code == 200
     assert pdf_resp.content.startswith(b"%PDF")
 
+    # Post-sign "Got the prescription and certificate, thank you. Anything else I should watch out for?" gives recovery guidance (NOT false sick-leave amendment refusal!)
+    watch_q = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": "Got the prescription and certificate, thank you. Anything else I should watch out for?", "lang": "en", "is_preset": True},
+    ).json()
+    assert watch_q["case_state"] == "scheduled"
+    assert "39" in watch_q["reply"] or "hydrated" in watch_q["reply"].lower()
+    assert "can't extend" not in watch_q["reply"].lower()
+
     # Post-sign extra sick leave request escalates strictly to doctor
     ext = client.post(
         "/api/v1/demo/live/chat/turn",
-        json={"journey_key": "wingyan", "message": "I'm still feeling unwell — could I request 1 extra day of sick leave?", "lang": "en"},
+        json={"journey_key": "wingyan", "message": "I'm still feeling quite unwell — could I request 1 extra day of sick leave?", "lang": "en", "is_preset": True},
     ).json()
     assert ext["case_state"] == "needs_decision"
     assert "!" not in ext["reply"]
@@ -703,27 +719,35 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     # ---- CASE 2: tang_uti (Acute Uncomplicated UTI) ----
     s2 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "tang_uti", "lang": "en"}).json()
     assert len(s2["suggested_replies"]) == 1
+    assert "pregnancy" not in s2["suggested_replies"][0].lower()  # Turn 0 never leaks Turn-2 pregnancy answer
     t2_1 = client.post(
         "/api/v1/demo/live/chat/turn",
-        json={"journey_key": "tang_uti", "message": s2["suggested_replies"][0], "lang": "en"},
+        json={"journey_key": "tang_uti", "message": s2["suggested_replies"][0], "lang": "en", "is_preset": True},
     ).json()
     assert "pregnant" in t2_1["reply"].lower()
     assert "fever" in t2_1["reply"].lower()
     assert "g6pd" not in t2_1["reply"].lower()
     assert "!" not in t2_1["reply"]
-    assert t2_1["suggested_replies"] == []  # NO premature "No chance of pregnancy" static chip!
+    # No premature booking card before pregnancy/pyelonephritis screen is answered!
+    assert t2_1["booking_offer"] is None
+    # Now Turn-2 preset chip directly answers Sam's pregnancy + red-flag questions!
+    assert len(t2_1["suggested_replies"]) == 1
+    assert "no chance of pregnancy" in t2_1["suggested_replies"][0].lower()
 
     ov2_1 = client.get("/api/v1/workspace/overview?mode=live").json()
     tang_case_1 = next(c for c in ov2_1["cases"] if c["case_key"] == "tang_uti")
     assert any("pregnancy" in a["label"].lower() for a in tang_case_1["summary"]["alerts"])
     assert tang_case_1["summary"]["issues"][0]["safety_gap"] is not None
 
-    # Turn 2: Patient answers red flags + pregnancy -> pregnancy alert AND safety_gap clear!
+    # Turn 2: Patient clicks Turn-2 preset -> pregnancy alert & safety_gap clear + Dr. Wing-Yan Cheung 11:15 booking offer appears!
     t2_2 = client.post(
         "/api/v1/demo/live/chat/turn",
-        json={"journey_key": "tang_uti", "message": "No fever, chills, or back pain, and no chance of pregnancy.", "lang": "en"},
+        json={"journey_key": "tang_uti", "message": t2_1["suggested_replies"][0], "lang": "en", "is_preset": True},
     ).json()
     assert t2_2["lint_report"]["passed"] is True
+    assert t2_2["booking_offer"] is not None
+    assert t2_2["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_cheung"
+    assert t2_2["booking_offer"]["recommended"]["time"] == "11:15"
     ov2_2 = client.get("/api/v1/workspace/overview?mode=live").json()
     tang_case_2 = next(c for c in ov2_2["cases"] if c["case_key"] == "tang_uti")
     assert not any("pregnancy" in a["label"].lower() for a in tang_case_2["summary"]["alerts"])
@@ -739,28 +763,62 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert s3["journey"]["default_lang"] == "zh-HK"
     t3 = client.post(
         "/api/v1/demo/live/chat/turn",
-        json={"journey_key": "chan", "message": s3["suggested_replies"][0], "lang": "zh-HK"},
+        json={"journey_key": "chan", "message": s3["suggested_replies"][0], "lang": "zh-HK", "is_preset": True},
     ).json()
     assert t3["case_state"] == "needs_decision"
     assert "！" not in t3["reply"] and "!" not in t3["reply"]
-    assert t3["suggested_replies"] == []
+    assert t3["booking_offer"] is not None
+    assert t3["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_wong"
+    assert t3["booking_offer"]["recommended"]["time"] == "11:30"
+    assert len(t3["suggested_replies"]) == 1
+    assert "布洛芬" in t3["suggested_replies"][0]
     ov3 = client.get("/api/v1/workspace/overview?mode=live").json()
     chan_case = next(c for c in ov3["cases"] if c["case_key"] == "chan")
     assert len(chan_case["summary"]["clinical_scores"]) == 2
     assert chan_case["summary"]["med_diff"]["rows"]
     assert chan_case["summary"]["trend_chart"]["kind"] == "inr"
 
+    # Doctor signs CHAN plan -> Post-sign Warfarin bleeding-signs + non-fasting INR question answers accurately (no false worsening alarm!)
+    conf_chan = client.post(
+        f"/api/v1/workspace/cases/{chan_case['id']}/confirm",
+        json={
+            "actor_name": "Locum Dr. Sarah Wong",
+            "mchk_reg_no": "M16412",
+            "instruction_text": "Warfarin 3mg OD + Atorvastatin 20mg nocte + 7d INR",
+            "orders": [
+                {"id": "ch_rx_warf", "type": "rx", "action": "update", "issue": "1. AFib — Warfarin dose reduction", "drug": "Warfarin 3mg", "freq": "PO daily", "days": "30d"},
+            ],
+        },
+    )
+    assert conf_chan.status_code == 200
+    t3_post = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={
+            "journey_key": "chan",
+            "message": "Got the updated plan, thank you. What bleeding signs should I watch for on Warfarin, and do I need to fast for the 7-day INR check?",
+            "lang": "en",
+            "is_preset": True,
+        },
+    ).json()
+    assert t3_post["case_state"] == "scheduled"
+    assert "do not need to fast" in t3_post["reply"].lower()
+    assert "bruising" in t3_post["reply"].lower()
+
     # ---- CASE 4: lau_chest (Cardiac Chronic Disease & Prevention) ----
     s4 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "lau_chest", "lang": "en"}).json()
     assert len(s4["suggested_replies"]) == 1
     t4 = client.post(
         "/api/v1/demo/live/chat/turn",
-        json={"journey_key": "lau_chest", "message": s4["suggested_replies"][0], "lang": "en"},
+        json={"journey_key": "lau_chest", "message": s4["suggested_replies"][0], "lang": "en", "is_preset": True},
     ).json()
     assert t4["case_state"] == "needs_decision"
     assert t4["lint_report"]["passed"] is True
     assert "!" not in t4["reply"]
-    assert t4["suggested_replies"] == []
+    assert t4["booking_offer"] is not None
+    assert t4["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_wong"
+    assert t4["booking_offer"]["recommended"]["time"] == "14:15"
+    assert len(t4["suggested_replies"]) == 1
+    assert "perindopril" in t4["suggested_replies"][0].lower()
     ov4 = client.get("/api/v1/workspace/overview?mode=live").json()
     lau_case = next(c for c in ov4["cases"] if c["case_key"] == "lau_chest")
     lau_sum = lau_case["summary"]
@@ -818,7 +876,25 @@ def test_ai_generated_suggested_replies_replace_stale_static_chips_and_survive_p
             json={"candidates": [{"content": {"parts": [{"text": payload_text}]}}]},
         )
 
-    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    # 2b. Verify a defined preset turn NEVER invokes the live LLM even when Gemini is configured
+    s_wy = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "wingyan", "lang": "en"}).json()
+    llm_calls_before = []
+
+    def counting_fake_post(self, url, *args, headers=None, params=None, json=None, **kwargs):
+        if "googleapis.com" in str(url):
+            llm_calls_before.append(str(url))
+        return fake_post(self, url, *args, headers=headers, params=params, json=json, **kwargs)
+
+    monkeypatch.setattr(httpx.Client, "post", counting_fake_post)
+    t_preset = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": s_wy["suggested_replies"][0], "lang": "en", "is_preset": True},
+    ).json()
+    assert t_preset["llm_meta"]["mode"] == "deterministic_preset"
+    assert t_preset["llm_meta"]["live_reply_used"] is False
+    assert len(llm_calls_before) == 0
+
+    # 2c. Custom free-text turn DOES invoke live LLM & returns AI-generated suggestions
     t1 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={
@@ -827,7 +903,9 @@ def test_ai_generated_suggested_replies_replace_stale_static_chips_and_survive_p
             "lang": "en",
         },
     ).json()
+    assert t1["llm_meta"]["mode"] == "live_llm"
     assert t1["llm_meta"]["live_reply_used"] is True
+    assert len(llm_calls_before) >= 1
     assert len(t1["suggested_replies"]) == 2
     assert all("pregnancy" not in s.lower() for s in t1["suggested_replies"])
     assert all("chest pain" not in s.lower() for s in t1["suggested_replies"])
@@ -952,6 +1030,110 @@ def test_gemini4_hydrogen_default_chat_telemetry_and_zero_hop_cache(tmp_path, mo
     assert t2["llm_meta"]["attempts_tried"] == 1
     assert len(seen_calls) == 3
     reset_llm_target_cache()
+
+
+def test_agent_checks_doctor_availability_offers_slot_confirms_and_prevents_double_booking(tmp_path):
+    """Sam inspects real clinic doctor availability, selects an open doctor+time, offers it in chat, confirms & syncs to /workspace, and blocks double-booking across patients."""
+    client = _make_client(tmp_path)
+    assert client.post("/api/v1/demo/live/reset").status_code == 200
+
+    # 1. Start CHAN Tai Man (Post-QEH Warfarin discharge) and ask about medications -> Sam checks availability & attaches booking_offer
+    assert client.post("/api/v1/demo/live/chat/start", json={"journey_key": "chan", "lang": "en"}).status_code == 200
+    t_chan = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={
+            "journey_key": "chan",
+            "message": "I just got discharged from QEH yesterday — they gave me Warfarin 3mg and Atorvastatin, but I still have 5mg Warfarin and Simvastatin at home. Which should I take?",
+            "lang": "en",
+        },
+    ).json()
+
+    offer = t_chan.get("booking_offer")
+    assert offer is not None
+    assert offer["status"] == "offered"
+    assert offer["checked_doctors_count"] == 3
+    assert offer["open_today_count"] >= 6
+    assert offer["recommended"]["doctor_id"] == "doc_dr_wong"
+    assert offer["recommended"]["time"] == "11:30"
+    assert offer["recommended"]["slot_id"] == "doc_dr_wong__today__1130"
+    # Verify the offer is persisted on the latest Sam message in the thread
+    assert t_chan["messages"][-1]["booking_offer"]["offer_id"] == offer["offer_id"]
+    # Verify roster shows both busy and open slots
+    wong_doc = next(d for d in offer["doctors"] if d["doctor_id"] == "doc_dr_wong")
+    assert any(not s["available"] for s in wong_doc["days"]["today"])
+    assert any(s["available"] and s["time"] == "11:30" for s in wong_doc["days"]["today"])
+
+    # 2. Confirm the offered booking (Dr. Sarah Wong · Today 11:30)
+    book_resp = client.post(
+        "/api/v1/demo/live/chat/book",
+        json={
+            "journey_key": "chan",
+            "doctor_id": "doc_dr_wong",
+            "slot_id": "doc_dr_wong__today__1130",
+            "modality": "in_clinic",
+            "offer_id": offer["offer_id"],
+            "lang": "en",
+        },
+    )
+    assert book_resp.status_code == 200
+    booked = book_resp.json()
+    assert booked["booking"]["status"] == "confirmed"
+    assert booked["booking"]["booking_ref"].startswith("APT-2411-")
+    assert booked["booking"]["doctor_name"] == "Dr. Sarah Wong"
+    assert booked["booking"]["time"] == "11:30"
+    # Offer card in chat thread transitioned to confirmed
+    confirmed_msg = next(m for m in booked["messages"] if isinstance(m.get("booking_offer"), dict))
+    assert confirmed_msg["booking_offer"]["status"] == "confirmed"
+    assert confirmed_msg["booking_offer"]["booking_ref"] == booked["booking"]["booking_ref"]
+
+    # 3. Verify laptop /workspace ScheduledCard synced live with the booking ref & doctor
+    ov = client.get("/api/v1/workspace/overview?mode=live").json()
+    chan_case = next(c for c in ov["cases"] if c["case_key"] == "chan")
+    sched_labels = [t["label"] for t in chan_case["summary"].get("scheduled_tasks") or []]
+    assert any("Dr. Sarah Wong" in lbl and "11:30" in lbl and booked["booking"]["booking_ref"] in lbl for lbl in sched_labels)
+
+    # 4. Cross-patient availability check: Dr. Sarah Wong 11:30 is now TAKEN for LAM Wing-Yan
+    avail_wy = client.get("/api/v1/demo/live/availability?journey_key=wingyan").json()
+    wong_for_wy = next(d for d in avail_wy["doctors"] if d["doctor_id"] == "doc_dr_wong")
+    slot_1130 = next(s for s in wong_for_wy["days"]["today"] if s["time"] == "11:30")
+    assert slot_1130["available"] is False
+    assert slot_1130["state"] == "booked"
+
+    # Attempting to double-book Dr. Sarah Wong 11:30 as Wing-Yan returns HTTP 409
+    assert client.post("/api/v1/demo/live/chat/start", json={"journey_key": "wingyan", "lang": "en"}).status_code == 200
+    dup = client.post(
+        "/api/v1/demo/live/chat/book",
+        json={
+            "journey_key": "wingyan",
+            "doctor_id": "doc_dr_wong",
+            "slot_id": "doc_dr_wong__today__1130",
+            "modality": "teleconsult",
+            "lang": "en",
+        },
+    )
+    assert dup.status_code == 409
+
+    # 5. Rescheduling CHAN Tai Man to Dr. Kenneth Lam 14:00 frees Dr. Sarah Wong 11:30
+    resched = client.post(
+        "/api/v1/demo/live/chat/book",
+        json={
+            "journey_key": "chan",
+            "doctor_id": "doc_dr_lam",
+            "slot_id": "doc_dr_lam__today__1400",
+            "modality": "in_clinic",
+            "offer_id": offer["offer_id"],
+            "lang": "en",
+        },
+    )
+    assert resched.status_code == 200
+    assert resched.json()["booking"]["doctor_name"] == "Dr. Kenneth Lam"
+    assert resched.json()["booking"]["time"] == "14:00"
+    assert resched.json()["booking"]["booking_ref"] == booked["booking"]["booking_ref"]
+
+    avail_after = client.get("/api/v1/demo/live/availability?journey_key=wingyan").json()
+    wong_after = next(d for d in avail_after["doctors"] if d["doctor_id"] == "doc_dr_wong")
+    assert next(s for s in wong_after["days"]["today"] if s["time"] == "11:30")["available"] is True
+
 
 
 

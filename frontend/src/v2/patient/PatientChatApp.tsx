@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowUp, FileText, Menu, RotateCcw, Sparkles, X } from "lucide-react";
 import { v2Api } from "../api";
+import { BookingOfferCard } from "./BookingOfferCard";
+import type { BookingOfferPayload } from "./BookingOfferCard";
 import "./patientChat.css";
 
 interface StructuredRxItem {
@@ -44,6 +46,7 @@ interface ChatMsg {
   lang?: string;
   is_crisis?: boolean;
   trace_id?: string;
+  booking_offer?: BookingOfferPayload;
   care_plan?: {
     signed_by: string;
     mchk_reg_no: string;
@@ -184,8 +187,8 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
       setConsentDone(false);
       setIdMode(targetKey === "wingyan" ? "new_case" : "existing");
 
-      // Brief render tick before typing bubble appears
-      await new Promise((r) => window.setTimeout(r, 60));
+      // Brief render tick before typing bubble appears (sweet-spot natural cadence)
+      await new Promise((r) => window.setTimeout(r, 220));
       if (bootGenRef.current !== gen) return;
 
       // Step 2: Clinic typing bubble appears while backend creates live thread in /workspace
@@ -195,7 +198,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
         const res = await v2Api.liveChatStart(targetKey, targetLang, forceRestart);
         if (bootGenRef.current !== gen) return;
 
-        const minTypingMs = res.already_started && !forceRestart ? 80 : 180;
+        const minTypingMs = res.already_started && !forceRestart ? 120 : 820;
         const elapsed = Date.now() - tStart;
         if (elapsed < minTypingMs) {
           await new Promise((r) => window.setTimeout(r, minTypingMs - elapsed));
@@ -278,6 +281,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           "patient.care_plan_retracted",
           "workspace.committed",
           "workspace.undone",
+          "booking.confirmed",
           "demo.reset",
         ].forEach((ev) => es?.addEventListener(ev, onEvt));
         es.onerror = () => {
@@ -304,25 +308,32 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
     };
   }, [journeyKey, lang, sending, startJourneyFlow, refreshJourneys]);
 
-  const handleSend = async (overrideText?: string) => {
+  const handleSend = async (overrideText?: string, isPreset = false) => {
     const txt = (overrideText ?? input).trim();
     if (!txt || sending || typing) return;
     setInput("");
     setErrorNote(null);
     setSending(true);
 
-    // Optimistic patient bubble on right & fire request immediately (0ms dead wait)
+    // Optimistic patient bubble on right; fire API immediately while pacing realistic typing bubble
     const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
     const patName = activeJourneyInfo?.patient_name || "You";
     setMessages((prev) => [...prev, { actor: patName, role: "patient", time: nowTime, text: txt }]);
+
+    const reqPromise = v2Api.liveChatTurn(journeyKey, txt, lang, isPreset);
+    // Natural read beat before Sam's typing dots appear
+    await new Promise((r) => window.setTimeout(r, 180));
     setTyping(true);
-    const t0 = Date.now();
+    const tTypingStart = Date.now();
 
     try {
-      const res = await v2Api.liveChatTurn(journeyKey, txt, lang);
-      const elapsed = Date.now() - t0;
-      if (elapsed < 120) {
-        await new Promise((r) => window.setTimeout(r, 120 - elapsed));
+      const res = await reqPromise;
+      const hasBookingCard = Boolean(res.booking_offer);
+      const isDeterministic = res.llm_meta?.mode === "deterministic_preset" || isPreset;
+      const minTypingMs = isDeterministic ? (hasBookingCard ? 1020 : 860) : 600;
+      const elapsed = Date.now() - tTypingStart;
+      if (elapsed < minTypingMs) {
+        await new Promise((r) => window.setTimeout(r, minTypingMs - elapsed));
       }
       setMessages(Array.isArray(res.messages) ? res.messages : []);
       setCrisis(res.crisis || null);
@@ -336,6 +347,27 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
       setTyping(false);
       setSending(false);
     }
+  };
+
+  const handleBookSlot = async (params: {
+    doctorId: string;
+    slotId: string;
+    modality: "in_clinic" | "teleconsult";
+    offerId: string;
+  }) => {
+    setErrorNote(null);
+    const res = await v2Api.liveChatBook({
+      journeyKey,
+      doctorId: params.doctorId,
+      slotId: params.slotId,
+      modality: params.modality,
+      offerId: params.offerId,
+      lang,
+    });
+    if (Array.isArray(res.messages)) {
+      setMessages(res.messages);
+    }
+    void refreshJourneys();
   };
 
   const handleSelectJourney = (nextKey: string, restart = false) => {
@@ -652,10 +684,18 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
             );
           }
 
+          const hasBooking = !isPatient && Boolean(m.booking_offer);
           return (
-            <div key={idx} className={`pc-row ${isPatient ? "is-patient" : "is-clinic"}`}>
+            <div key={idx} className={`pc-row ${isPatient ? "is-patient" : "is-clinic"}${hasBooking ? " has-booking" : ""}`}>
               {!isPatient && <span className="pc-sender-label">Sam · {isZh ? "診所助手" : "Clinic AI"}</span>}
               <div className="pc-bubble">{renderBoldText(m.text)}</div>
+              {hasBooking && m.booking_offer && (
+                <BookingOfferCard
+                  offer={m.booking_offer}
+                  isZh={isZh}
+                  onConfirmBooking={handleBookSlot}
+                />
+              )}
               <span className="pc-bubble-time">{m.time}</span>
             </div>
           );
@@ -775,6 +815,34 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           </div>
         )}
 
+        {/* Generic clinic quick-action pills stay neatly below Sam's welcome (1st-turn demo prompt stays at bottom near composer) */}
+        {consentDone && messages.length === 1 && !typing && (
+          <div className="pc-welcome-actions" data-testid="welcome-quick-actions">
+            {(isZh
+              ? [
+                  "預約或更改診症時間",
+                  "跟進驗血報告或藥物",
+                  "查詢或申請病假紙",
+                ]
+              : [
+                  "Book or reschedule an appointment",
+                  "Follow up on a test result or medication",
+                  "I need a sick-leave certificate",
+                ]
+            ).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                className="pc-chip"
+                onClick={() => void handleSend(opt, true)}
+                title={opt}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        )}
+
         {typing && (
           <div className="pc-row is-clinic" data-testid="clinic-typing-bubble">
             <span className="pc-sender-label">Sam · {isZh ? "診所助手" : "Clinic AI"}</span>
@@ -859,7 +927,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
                 key={prompt}
                 type="button"
                 className={`pc-chip${isOpeningTurn && i === 0 ? " is-demo-first" : ""}`}
-                onClick={() => void handleSend(prompt)}
+                onClick={() => void handleSend(prompt, true)}
                 title={prompt}
                 data-testid={isOpeningTurn && i === 0 ? "suggested-first-demo-prompt" : `suggested-reply-${i}`}
               >
