@@ -1325,7 +1325,7 @@ def _compile_journey_turn_update(
                 )
             elif mentions_urti or (not is_followup_turn and not (mentions_ferritin or mentions_flu or asked_para or asked_penicillin)):
                 parts_en.append(
-                    f"I've noted your symptoms ({temp_val}) and your {days_off}-day sick-leave request, and prepared a summary for Locum Dr. Sarah Wong so she can review everything together — we have a 14:30 teleconsult slot open today."
+                    f"I've noted your symptoms ({temp_val}) and your {days_off}-day sick-leave request, and prepared a summary for Dr. Sarah Wong so she can review everything together — we have a 14:30 teleconsult slot open today."
                 )
                 parts_zh.append(
                     f"我已經記錄咗你嘅症狀（{temp_val}）同埋 {days_off} 日病假紙申請，並整理好資料交畀黃莎拉醫生一齊審閱——今日 14:30 有視像覆診時段。"
@@ -1659,14 +1659,12 @@ def _compile_journey_turn_update(
         reply_zh = "唔使客氣——所有血糖記錄同驗血報告都已經交到黃莎拉醫生嘅工作台，等覆診時一齊傾。"
     elif is_followup_turn and mentions_glucose_or_met and not suppressed:
         reply_en = (
-            "Thanks for sharing your home fasting readings (8–9 mmol/L) — that matches your recent HbA1c of 7.8%. "
-            "Your kidney function (eGFR 64) is in the safe range for adjusting Metformin, so I've logged your home readings for Dr. Sarah Wong to review whether stepping up to 850mg twice daily with meals makes sense for you. "
+            "Thanks for sharing your home fasting readings (8–9 mmol/L) — I've logged them alongside your recent HbA1c of 7.8% and kidney result (eGFR 64) for Dr. Sarah Wong to review whether your Metformin plan should be adjusted at your visit. "
             "Have you had any stomach upset on your current 500mg dose?"
         )
         reply_zh = (
-            "多謝你提供屋企空腹血糖記錄（約 8 至 9 mmol/L），同你最新 HbA1c 7.8% 嘅趨勢吻合。"
-            "你嘅腎功能（eGFR 64）喺安全範圍內，我已經記低畀黃莎拉醫生評估係咪適合將 Metformin 調整至每日兩次 850mg（餐後服食）。"
-            "你而家食 500mg 有冇任何腸胃唔舒服？"
+            "多謝你提供屋企空腹血糖記錄（約 8 至 9 mmol/L），我已經連同你最新 HbA1c 7.8% 同腎功能（eGFR 64）一齊記錄好交畀黃莎拉醫生，等佢覆診時同你評估係咪需要調整 Metformin 方案。"
+            "請問你而家食緊 500mg 有冇任何腸胃唔舒服？"
         )
     elif is_followup_turn and mentions_slot:
         summary["scheduled_tasks"] = [{"status": "booked", "label": "Clinic GP Review · Diabetes & Cough Follow-Up (requested)"}]

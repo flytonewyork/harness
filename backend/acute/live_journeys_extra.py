@@ -557,9 +557,9 @@ def compile_extra_journey_turn(
         summary["sam_proactive_insight"] = None
         steps.append("IntakeGuard · Clarifying details received -> intake_sufficiency upgraded to 'sufficient'")
         reply = (
-            "多謝你講得咁清楚——冇發燒亦冇氣促心口痛，聽落似輕微傷風疲倦，一般唔需要抗生素。我已經幫你記低畀黃莎拉醫生，並預留今日下午 4:15 嘅 15 分鐘診症時段。"
+            "多謝你講得咁清楚——冇發燒亦冇氣促或心口痛係好消息。我已經幫你記低畀黃莎拉醫生，並預留今日下午 4:15 嘅 15 分鐘診症時段，等醫生親身評估需唔需要用藥。"
             if is_zh
-            else "Thanks for sharing those details — mild congestion and fatigue with no fever or red flags sounds much more like a simple viral bug than something needing antibiotics. I've updated Dr. Sarah Wong's notes and held a 15-minute slot at 16:15 today."
+            else "Thanks for sharing those details — having no fever or warning signs is reassuring. I've updated Dr. Sarah Wong's notes and held a 15-minute slot at 16:15 today so she can assess you and confirm the right treatment."
         )
         return (
             "needs_decision",
@@ -744,9 +744,9 @@ def compile_extra_journey_turn(
         # Follow-up: patient confirmed DOB 14 Aug 1959
         steps.append("CareAgent · Logged patient's DOB confirmation (14 Aug 1959) for Nurse Rachel's #clinic-team check")
         reply = (
-            "多謝吳先生確認（1959 年 8 月 14 日）！我已經將你嘅確認記錄交畀陳護士，佢喺 `# clinic-team` 核實釋放報告後，黃莎拉醫生就會審閱你嘅驗血結果。"
+            "多謝吳先生確認（1959 年 8 月 14 日）！我已經將你嘅確認記錄交畀陳護士，佢核實並放返入你嘅病歷後，黃莎拉醫生就會審閱你嘅驗血結果。"
             if is_zh
-            else "Thank you for confirming 14 Aug 1959, Mr. Ng! I've passed your confirmation straight to Nurse Rachel — as soon as she clicks Confirm & Release in `# clinic-team`, Dr. Sarah Wong will review your results."
+            else "Thank you for confirming 14 Aug 1959, Mr. Ng! I've passed your confirmation straight to Nurse Rachel — as soon as she verifies and links the report to your file, Dr. Sarah Wong will review your results."
         )
         return (
             "running",

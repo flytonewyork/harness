@@ -675,9 +675,27 @@ def screen_acute_message(
             _add_quote(m.group(0))
 
     # Step 1C: Expanded HK acute flu-season red flags
+    _BENIGN_ADMIN_CONFUSION_RE = re.compile(
+        r"\b(?:a\s+bit|a\s+little|slightly|kind\s+of|somewhat)\s+confused\b|"
+        r"\bconfused\s+(?:about|by|which|whether|with\s+(?:the|my)|—|--|-)\b",
+        re.I,
+    )
+    _NEURO_CONFUSION_CUES_RE = re.compile(
+        r"\b(?:sudden(?:ly)?|drowsy|slurred|unresponsive|collapsed|faint(?:ed|ing)?|seizure|fever|headache|"
+        r"disoriented|delirious|hallucinat\w*|incoherent|elderly|dad|father|mum|mother|grandma|grandpa)\b",
+        re.I,
+    )
     for code, pat in ACUTE_RED_FLAG_PATTERNS:
         m = re.search(pat, norm_text, re.I)
         if m:
+            if (
+                code == "confusion_ams"
+                and m.group(0).strip().lower() == "confused"
+                and _BENIGN_ADMIN_CONFUSION_RE.search(norm_text)
+                and not _NEURO_CONFUSION_CUES_RE.search(norm_text)
+            ):
+                suppressed.append(f"benign_admin_confusion:{m.group(0)}")
+                continue
             rules_kind = _upgrade_kind(rules_kind, "red_flag")
             if code not in rules_flags:
                 rules_flags.append(code)
