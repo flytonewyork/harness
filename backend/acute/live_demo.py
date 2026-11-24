@@ -106,24 +106,24 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "patient_name": "LAM Wing-Yan",
         "patient_name_zh": "林詠欣",
         "age_sex": "32F",
-        "pathway_node_id": "ebm.pathway.low_ferritin_normal_hb",
+        "pathway_node_id": "ebm.pathway.acute_urti_simple",
         "title": "Sore throat, fever & sick leave",
         "title_zh": "喉嚨痛、發燒及病假紙",
-        "subtitle": "Recent KingMed blood panel on file · G6PD & penicillin alert",
+        "subtitle": "Simple acute URTI · sick leave & symptomatic care",
         "welcome_en": (
-            "Hi Wing-Yan, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you feeling today, and how can I help?"
+            "Hello! I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How can I help you today?"
         ),
         "welcome_zh": (
-            "詠欣你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日身體點樣，有咩可以幫到你？"
+            "你好！我係中環及半山家庭醫務中心嘅護理助手 Sam。今日有咩可以幫到你？"
         ),
         "suggested_replies_en": [
-            "Woke up with a sore throat and 38.2°C fever — can I take aspirin? Also need a 2-day sick note and wanted to ask about my recent blood test.",
-            "My home RAT is negative and I'm breathing fine with no chest pain. Can we arrange a teleconsult today?",
-            "Can I also book my Harbour FinTech flu shot once I recover?",
+            "I woke up with a sore throat and fever.",
+            "It's 38.2°C since this morning — no chest pain or shortness of breath. Could I get a 2-day sick note and something for the fever?",
+            "Thank you — is there anything else I should watch out for?",
         ],
         "suggested_replies_zh": [
-            "今朝開始喉嚨痛同發燒38.2度，我可以食阿士匹靈嗎？想攞兩日病假紙，順便問吓我最近份驗血報告。",
-            "屋企快測陰性，冇氣促亦都冇心口痛，可唔可以今日約視像睇醫生？",
+            "我今朝起身覺得喉嚨痛同發燒。",
+            "今朝開始燒到 38.2 度，冇氣促亦冇心口痛。想攞兩日病假紙同退燒藥可以嗎？",
         ],
     },
     {
@@ -406,51 +406,23 @@ def _build_initial_summary(j_key: str, doc_id: str | None, doc_label: str, doc_q
 
     if j_key == "wingyan":
         return {
-            "alerts": [
-                {"level": "high", "label": "G6PD Deficient", "detail": "Avoid Aspirin, NSAIDs, sulfonamides, nitrofurantoin"},
-                {"level": "high", "label": "Penicillin Allergy", "detail": "Urticarial rash — avoid Amoxicillin / Augmentin"},
-            ],
-            "preventive_care": [
-                {
-                    "id": "prev_flu",
-                    "title": "Seasonal Influenza Vaccine (2026/27)",
-                    "badge": "$0 Harbour FinTech",
-                    "detail": "Inactivated (G6PD-safe) · 10-min nurse visit (defer 14d if febrile)",
-                    "order": {"id": "ord_prev_flu", "type": "book", "issue": "Preventive Care", "visitType": "10-min Nurse Flu Shot ($0)", "when": "In 14 days (post-recovery)"},
-                },
-            ],
-            "scheduled_tasks": [
-                {"status": "waiting", "label": "Careline conversation active with patient"},
-            ],
+            "alerts": [],
+            "preventive_care": [],
+            "scheduled_tasks": [],
             "issues": [
                 {
                     "id": "iss_intake_live",
-                    "name": "1. Patient check-in — gathering history",
+                    "name": "1. New careline inquiry — gathering history",
                     "bullets": [
-                        "Patient scanned clinic QR code; Sam sent welcome message and loaded 8 Nov KingMed panel.",
-                        "Awaiting patient's reason for contact before staging clinical actions.",
+                        "Patient opened clinic careline; Sam is clarifying reason for contact before staging clinical actions.",
                     ],
                     "safety_gap": None,
                     "suggested_orders": [],
                 }
             ],
-            "lab_panel": {
-                "source": "KingMed Annual Blood Panel · 8 Nov 2026",
-                "rows": [
-                    {"test": "Serum Ferritin", "val": "14 ng/mL", "ref": "15–150", "flag": "LOW"},
-                    {"test": "Haemoglobin (Hb)", "val": "12.1 g/dL", "ref": "11.5–15.5", "flag": "Normal"},
-                    {"test": "eGFR", "val": "104 mL/min", "ref": "> 90", "flag": "Normal"},
-                ],
-            },
-            "trend_chart": {
-                "kind": "ferritin",
-                "title": "Ferritin Trend (ng/mL)",
-                "unit": "ng/mL",
-                "target_label": "Lower ref 15",
-                "target_value": 15,
-                "points": [{"label": "Nov 24", "v": 32}, {"label": "Nov 25", "v": 21}, {"label": "Nov 26", "v": 14}],
-            },
-            "attachments": [{"id": doc_id or "att_wy", "label": doc_label, "quote": doc_quote, "verified_3pt": True}],
+            "lab_panel": None,
+            "trend_chart": None,
+            "attachments": [],
             "sam_proactive_insight": None,
             "agent_thread": [],
             "patient_chat_label": f"{j['patient_name']} ↔ Sam Careline Chat",
@@ -1229,7 +1201,7 @@ def _compile_journey_turn_update(
         )
         return (current_state, current_baton, current_title, current_lead, current_cp, summary, reply, steps)
 
-    # Post-sign-off follow-up loop: preserve signed care plan and only wake doctor if worsening/new concern
+    # Post-sign-off follow-up loop: preserve signed care plan, handle admin/preventive autonomously, and only wake doctor on worsening symptoms
     if has_signed:
         worsening = any(
             k in low
@@ -1257,18 +1229,60 @@ def _compile_journey_turn_update(
                 steps,
             )
 
+        wants_booking_or_prev = any(
+            k in low
+            for k in (
+                "flu", "vaccine", "shot", "book", "rebook", "appointment", "slot", "schedule",
+                "tired", "fatigue", "checkup", "blood test", "refill", "another",
+                "流感", "打針", "預約", "覆診", "驗血", "攰", "檢查",
+            )
+        )
+        if wants_booking_or_prev:
+            tasks = list(summary.get("scheduled_tasks") or [])
+            new_task = (
+                {"status": "booked", "label": "Autonomous AI Booking · Nurse preventive / follow-up visit requested (doctor kept out of loop)"}
+            )
+            if not any("Autonomous AI Booking" in str(t.get("label", "")) for t in tasks):
+                tasks.append(new_task)
+            summary["scheduled_tasks"] = tasks
+            admin_handoffs = list(summary.get("admin_handoffs") or [])
+            admin_handoffs.append({
+                "id": new_id("adm"),
+                "route": "Sam (AI Careline) → Clinic Admin / Nurse Rachel",
+                "task": f"Post-visit autonomous request from {JOURNEY_BY_KEY[j_key]['patient_name']}: “{patient_text.strip()}” — confirm nurse/admin slot (doctor kept out of loop).",
+                "status": "pending_admin",
+                "created_at": utcnow().isoformat(),
+            })
+            summary["admin_handoffs"] = admin_handoffs
+            steps.append("CareAgent · Handled post-visit preventive/rebooking request autonomously → routed to #clinic-team Admin/Nurse (zero doctor interruption)")
+            reply = (
+                "好呀！聽到你好返好多就好放心。我已經幫你安排下星期嘅護士接種／覆診時段，並通知前台同事確認時間——暫時唔需要打擾醫生，有時間表確認會即刻喺呢度通知你。"
+                if is_zh
+                else "Glad to hear you're feeling better! I've queued a nurse preventive / follow-up slot for next week and routed it to our clinic admin team to confirm the time — no need to interrupt Dr. Wong. I'll drop the confirmed slot right here once locked in."
+            )
+            return (
+                "scheduled",
+                "idle",
+                f"{JOURNEY_BY_KEY[j_key]['title']} — AI Follow-Up Handled",
+                "Day-3 AI check-in routed preventive care / rebooking to Clinic Admin without interrupting the doctor.",
+                "Autonomous follow-up · Admin/Nurse",
+                summary,
+                reply,
+                steps,
+            )
+
         steps.append("CareAgent · Logged post-sign patient follow-up quietly (care plan remains active in Scheduled)")
         reply = (
-            "多謝回覆！醫生簽署嘅護理計劃同相關文件已經保存喺對話入面。一般如果 48 至 72 小時內未見好轉，或者出現高燒、氣促或新症狀，隨時再透過呢個對話聯絡我哋——祝你早日康復！"
+            "多謝回覆！醫生簽署嘅護理計劃同相關文件已經保存喺對話入面。我會喺 3 日後自動再問候你康復進度——期間如有高燒、氣促或任何變化，隨時喺度聯絡我哋！"
             if is_zh
-            else "You're very welcome! Your doctor-signed care plan stays right here in this thread. As a general guide, please check back in if symptoms aren't improving within 48–72 hours, or right away if you develop high fever, shortness of breath, or any new warning signs. Wishing you a smooth recovery!"
+            else "Glad to hear that! Your signed care plan stays right here in this thread, and I'll check in automatically in 3 days to see how you're recovering. If anything worsens before then, just message me anytime."
         )
         return (
             "scheduled",
             "idle",
             f"{JOURNEY_BY_KEY[j_key]['title']} — Plan Signed & Active",
-            "Doctor-signed care plan delivered; patient acknowledged follow-up loop.",
-            "Monitoring · post-plan",
+            "Doctor-signed care plan delivered; 3-day AI check-in scheduled.",
+            "3-day AI check-in",
             summary,
             reply,
             steps,
@@ -1289,153 +1303,116 @@ def _compile_journey_turn_update(
             hhmm=_hkt_hhmm(),
         )
 
-    # 1. LAM Wing-Yan (URTI + G6PD/Allergy + Ferritin 14 + Flu Shot)
+    # 1. LAM Wing-Yan — Simple Focused Case 1: Bread-and-butter Acute URTI (sick leave + symptomatic meds only)
     if j_key == "wingyan":
         all_text = " ".join([*prior_patient_msgs, patient_text])
         temp_m = _TEMP_RE.search(all_text)
-        temp_val = f"{temp_m.group(1)} °C" if temp_m else "38.2 °C"
+        has_temp = bool(temp_m)
+        temp_val = f"{temp_m.group(1)} °C" if temp_m else "Not yet measured"
         days_m = _DAYS_RE.search(all_text)
         days_off = 2
         if days_m:
             raw_d = days_m.group(1) or days_m.group(2)
             days_off = _ZH_NUM_MAP.get(raw_d, int(raw_d) if raw_d and raw_d.isdigit() else 2)
-        rat_neg_now = any(k in low for k in ("negative", "陰性", "rat neg"))
-        rat_neg_ever = rat_neg_now or any(k in all_text.lower() for k in ("negative", "陰性", "rat neg"))
-        mentions_teleconsult = any(k in low for k in ("teleconsult", "book", "slot", "appointment", "視像", "預約", "約"))
-        mentions_urti = any(k in low for k in ("sore throat", "fever", "cough", "sick", "喉嚨", "發燒", "咳", "病假"))
-        mentions_ferritin = any(k in low for k in ("ferritin", "iron", "鐵蛋白", "鐵丸", "blood", "驗血"))
-        mentions_flu = any(k in low for k in ("flu", "vaccine", "流感", "打針"))
-        asked_para = any(k in low for k in ("paracetamol", "panadol", "必理痛", "撲熱息痛"))
-        asked_penicillin = "amoxicillin" in cds_blocked_drugs or any(k in low for k in ("amoxicillin", "augmentin", "penicillin", "盤尼西林", "阿莫西林"))
+        mentions_sick_or_med = any(
+            k in all_text.lower()
+            for k in ("sick", "note", "cert", "med", "medicine", "panadol", "paracetamol", "teleconsult", "doctor", "病假", "藥", "睇醫生")
+        )
+        mentions_urti = any(k in all_text.lower() for k in ("sore throat", "fever", "cough", "cold", "throat", "runny", "喉嚨", "發燒", "咳", "傷風"))
+
+        # Keep Case 1 ultra-clean: zero alerts, zero preventive care, zero lab panels, zero clinical guidance box
+        summary["alerts"] = []
+        summary["preventive_care"] = []
+        summary["lab_panel"] = None
+        summary["trend_chart"] = None
+        summary["attachments"] = []
+        summary["sam_proactive_insight"] = None
+
+        # Open registrar-style questioning on Turn 1 when patient hasn't yet shared temp/red-flags/request
+        if not is_followup_turn and not has_temp and not mentions_sick_or_med and mentions_urti:
+            summary["vitals_exam"] = None
+            summary["issues"] = [
+                {
+                    "id": "iss_urti_intake",
+                    "name": "1. Acute URTI — gathering brief history",
+                    "bullets": [
+                        f"Patient reported: “{patient_text.strip()}”.",
+                        "Sam asked open follow-up questions (temperature, onset, red flags, and whether a sick note or visit is needed).",
+                    ],
+                    "safety_gap": None,
+                    "suggested_orders": [],
+                }
+            ]
+            steps.append("CareAgent · Registrar-style open history + proactive home vitals check (no chart dump)")
+            reply = (
+                "明白，聽到你喉嚨痛同發燒真係辛苦。想先了解少少：你大概燒到幾多度、幾時開始唔舒服，有冇氣促或者心口痛？如果屋企有體溫計、血壓計或者脈搏機，都可以順便話我知讀數。另外今日需唔需要醫生診症、紓緩藥物或者病假紙呢？"
+                if is_zh
+                else "Sorry to hear you're not feeling well. Just to help prepare for the doctor — roughly how high has your fever been, when did symptoms start, and is your breathing comfortable with no chest pain? If you have a thermometer or home BP/pulse monitor handy, feel free to share those readings too. Let me know if you'd like a doctor review, symptom relief, or a sick-leave note today."
+            )
+            return (
+                "running",
+                "with_patient",
+                "Sore throat & fever — gathering history",
+                "Sam is taking a brief registrar-style history and checking available home vitals before routing to Dr. Sarah Wong.",
+                "Careline intake",
+                summary,
+                reply,
+                steps,
+            )
 
         summary["vitals_exam"] = {
             "source": f"Patient Careline · Today {_hkt_hhmm()}",
+            "encounter_context": "Inbound Remote · Self-Measured",
             "items": [
-                {"label": "Temp (home)", "val": temp_val},
-                {"label": "COVID / Flu RAT", "val": "Negative" if rat_neg_ever else "Pending / Not yet logged"},
-                {"label": "Red flags", "val": "Denies SOB, chest pain, or neck stiffness"},
+                {"label": "Temp (home)", "val": temp_val if has_temp else "38.2 °C"},
+                {"label": "BP / Pulse (home)", "val": "Not yet measured"},
+                {"label": "Red flags", "val": "Denies shortness of breath or chest pain"},
             ],
         }
         summary["scheduled_tasks"] = [
             {
-                "status": "booked" if mentions_teleconsult else "staged",
-                "label": "Today 14:30 · Teleconsult with Locum Dr. Sarah" + (" (patient requested)" if mentions_teleconsult else " (offered)"),
+                "status": "staged",
+                "label": "3-day AI post-visit check-in (queued on sign-off)",
             },
         ]
-        if mentions_flu or "flu" in all_text.lower() or "流感" in all_text:
-            summary["scheduled_tasks"].append(
-                {"status": "auto", "label": "Flu shot ($0 Harbour FinTech) — auto-deferred 14d until afebrile"}
-            )
-
         summary["issues"] = [
             {
                 "id": "iss_urti",
                 "name": "1. Acute viral URTI",
                 "bullets": [
-                    f"Patient messaged with sore throat and fever ({temp_val}); requesting {days_off}-day sick leave certificate.",
-                    "No clinical antibiotic indication; G6PD and Penicillin safety blocks active.",
-                ],
-                "safety_gap": "Aspirin queried by patient — G6PD contraindication flagged in Careline." if ("aspirin" in cds_blocked_drugs or "aspirin" in all_text.lower() or "阿士匹靈" in all_text) else None,
-                "suggested_orders": [
-                    {"id": "wy_cert", "type": "cert", "issue": "1. Acute viral URTI", "daysOff": days_off, "dates": "23–24 Nov 2026" if days_off == 2 else f"{days_off} days from 23 Nov 2026", "omitDx": True},
-                    {"id": "wy_rx_para", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Paracetamol 500mg", "freq": "QDS PRN", "days": "5d", "note": "G6PD-safe analgesic"},
-                    {"id": "wy_rx_cet", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Cetirizine 10mg", "freq": "OD PRN", "days": "5d", "note": "Non-sedating antihistamine"},
-                ],
-            },
-            {
-                "id": "iss_ferr",
-                "name": "2. Non-anaemic iron deficiency",
-                "bullets": [
-                    "Steady decline in ferritin across annual panels with preserved haemoglobin (see Trend & Labs).",
-                    "Prior 10 Nov note documented regular periods and no GI bleeding; patient asked about oral iron.",
+                    f"Sore throat and fever ({temp_val if has_temp else '38.2 °C'}) since this morning; denies shortness of breath or chest pain.",
+                    f"Requesting symptomatic relief and a {days_off}-day medical sick-leave certificate.",
                 ],
                 "safety_gap": None,
                 "suggested_orders": [
-                    {"id": "wy_rx_iron", "type": "rx", "action": "start", "issue": "2. Non-anaemic iron deficiency", "drug": "Ferrous bisglycinate 25mg", "freq": "Alternate days", "days": "90d", "note": "Gentle oral iron · minimizes GI intolerance"},
-                    {"id": "wy_lab_ferr", "type": "lab", "issue": "2. Non-anaemic iron deficiency", "testName": "Repeat Serum Ferritin + FBC", "lab": "KingMed", "fasting": False, "when": "Tue 9 Feb 2027 (08:30 Nurse)"},
+                    {"id": "wy_cert", "type": "cert", "issue": "1. Acute viral URTI", "daysOff": days_off, "dates": "24–25 Nov 2026" if days_off == 2 else f"{days_off} days from 24 Nov 2026", "omitDx": True},
+                    {"id": "wy_rx_para", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Paracetamol 500mg", "freq": "QDS PRN", "days": "5d", "note": "Antipyretic / analgesic"},
+                    {"id": "wy_rx_cet", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Cetirizine 10mg", "freq": "OD PRN", "days": "5d", "note": "Symptomatic relief"},
                 ],
-            },
+            }
         ]
-        summary["sam_proactive_insight"] = (
-            "BSG Iron Deficiency Guideline: Ferritin < 15 ng/mL with normal Hb meets non-anaemic iron deficiency threshold "
-            "(alternate-day gentle oral iron + 3-month repeat). G6PD & Penicillin formulary blocks active; Harbour FinTech $0 flu shot eligible after 14d recovery."
-        )
-        steps.append("PracticeGraph · Traversed ebm.pathway.acute_urti_g6pd + ebm.pathway.low_ferritin_normal_hb")
-        steps.append("PresentationCompiler · Compiled URTI + Ferritin workspace case (5/5 linter pass)")
+        steps.append("PracticeGraph · Compiled single-issue Acute URTI summary for doctor review")
+        steps.append("PresentationCompiler · Compiled clean 1-issue workspace brief (5/5 linter pass)")
 
-        parts_en: list[str] = []
-        parts_zh: list[str] = []
         if is_simple_ack and is_followup_turn:
-            parts_en.append("You're very welcome — everything is ready in Dr. Sarah Wong's workspace now. As soon as she signs off on your care plan and sick-leave certificate, they'll appear right here in this chat.")
-            parts_zh.append("唔使客氣——所有資料已經交到黃莎拉醫生嘅工作台。醫生一簽署你嘅護理計劃同病假證明書，就會即時傳送到呢個對話。")
+            reply = (
+                "唔使客氣——資料已經送交黃莎拉醫生審閱，醫生一簽署你嘅處方同病假紙就會即刻喺呢度彈出。"
+                if is_zh
+                else "You're very welcome — Dr. Sarah Wong has your summary now. As soon as she signs off, your care plan and sick-leave certificate will appear right here."
+            )
         else:
-            if "aspirin" in cds_blocked_drugs:
-                parts_en.append(
-                    "First — please do not take aspirin. Your clinic record notes G6PD deficiency, so aspirin and NSAIDs should be avoided (paracetamol is generally the safer option your doctor can confirm)."
-                )
-                parts_zh.append(
-                    "首先請唔好食阿士匹靈——你嘅診所病歷記錄咗你有蠶豆症（G6PD 缺乏症），需要避免阿士匹靈及消炎止痛藥（一般會由醫生考慮較安全嘅撲熱息痛）。"
-                )
-            if asked_penicillin:
-                parts_en.append(
-                    "Also flagging from your allergy record: please avoid amoxicillin / penicillin antibiotics (documented urticarial rash). Viral URTI typically doesn't need antibiotics anyway, and Dr. Wong will confirm safe symptom relief."
-                )
-                parts_zh.append(
-                    "另外按你嘅過敏記錄提醒：請避免服食盤尼西林類抗生素（如 Amoxicillin / Augmentin）。一般病毒性上呼吸道感染亦毋須抗生素，黃醫生會為你安排安全嘅紓緩方案。"
-                )
-            if asked_para:
-                parts_en.append(
-                    "Paracetamol (Panadol) is G6PD-safe and doesn't cross-react with your penicillin allergy — I've noted that for Dr. Sarah Wong to confirm your dosing in the care plan."
-                )
-                parts_zh.append(
-                    "撲熱息痛（必理痛）對蠶豆症安全，亦唔會引起盤尼西林過敏——我已經記低畀黃莎拉醫生喺處方中確認劑量。"
-                )
-            if rat_neg_now or (is_followup_turn and mentions_teleconsult and not mentions_urti):
-                parts_en.append(
-                    "Thank you for confirming — glad your home RAT is negative and your breathing is comfortable. I've updated Dr. Sarah Wong's chart and held the 14:30 teleconsult slot today; once she reviews and signs your plan, your e-script and MCHK sick-leave PDF will land right here."
-                )
-                parts_zh.append(
-                    "多謝你確認——快測陰性同呼吸暢順就好放心。我已經更新咗黃莎拉醫生嘅病歷並為你預留今日 14:30 視像覆診；醫生一審閱簽署，電子處方同病假紙就會直接送返嚟呢度。"
-                )
-            elif mentions_urti:
-                parts_en.append(
-                    f"I've noted your symptoms ({temp_val}) and your {days_off}-day sick-leave request, and prepared a summary for Dr. Sarah Wong so she can review everything together — we have a 14:30 teleconsult slot open today."
-                )
-                parts_zh.append(
-                    f"我已經記錄咗你嘅症狀（{temp_val}）同埋 {days_off} 日病假紙申請，並整理好資料交畀黃莎拉醫生一齊審閱——今日 14:30 有視像覆診時段。"
-                )
-            if mentions_ferritin:
-                parts_en.append(
-                    "I've also attached your 8 Nov KingMed report (Ferritin 14 ng/mL with normal haemoglobin 12.1) for Dr. Wong to discuss gentle alternate-day oral iron and a 3-month repeat blood test."
-                )
-                parts_zh.append(
-                    "我亦已附上你 11 月 8 日嘅金域報告（鐵蛋白 14 ng/mL，血紅素正常 12.1），黃醫生會喺覆診時同你傾隔日口服補鐵同三個月後覆驗。"
-                )
-            if mentions_flu:
-                parts_en.append(
-                    "Regarding your $0 Harbour FinTech flu shot: because you're currently unwell with a fever, our clinic protocol defers vaccination by 14 days until you're fully recovered — Dr. Wong can queue that nurse slot for you right in your plan."
-                )
-                parts_zh.append(
-                    "至於你嘅 Harbour FinTech 免費流感針：由於你而家發燒唔舒服，按診所指引會暫緩 14 日等你退燒康復後先打，黃醫生可以幫你預先排好護士接種時段。"
-                )
-            if not rat_neg_ever and mentions_urti and "aspirin" in cds_blocked_drugs:
-                parts_en.append("Just to help Dr. Wong prepare: have you done a home COVID/Flu RAT test, and is your breathing comfortable with no chest pain?")
-                parts_zh.append("另外想幫黃醫生確認一下：你有冇做過屋企快測（新冠/流感）？呼吸暢順、冇心口痛嗎？")
-            if not parts_en:
-                parts_en.append(
-                    "Got it — I've noted that for Dr. Sarah Wong. Could you share a bit more about what you'd like help with today (for example any symptoms, a medication question, your recent blood test, or booking a visit)?"
-                )
-                parts_zh.append(
-                    "收到——我已經幫你記低畀黃莎拉醫生。可唔可以講多啲今日想查詢邊方面（例如身體症狀、用藥問題、最近份驗血報告，或者想預約覆診）？"
-                )
+            reply = (
+                f"多謝你提供資料——我已經記低你嘅症狀（{temp_val if has_temp else '38.2 °C'}、冇氣促或心口痛）同埋 {days_off} 日病假紙申請，並整理咗簡潔摘要交畀黃莎拉醫生審閱。醫生一確認就會喺呢度通知你。"
+                if is_zh
+                else f"Thanks for sharing those details — I've noted your sore throat and fever ({temp_val if has_temp else '38.2 °C'}, no red-flag symptoms) along with your {days_off}-day sick-leave request, and sent a concise summary to Dr. Sarah Wong to review. I'll update you right here as soon as she signs off."
+            )
 
-        reply = "\n\n".join(parts_zh if is_zh else parts_en)
         return (
             "needs_decision",
             "with_doctor",
-            "Acute Viral URTI & Non-Anaemic Iron Deficiency",
-            f"Patient reported viral URTI ({temp_val}), requesting {days_off}-day sick leave alongside Ferritin 14 review.",
-            "Today 14:30 teleconsult",
+            "Acute Viral URTI — Sick Leave & Symptomatic Care",
+            f"Sore throat and fever ({temp_val if has_temp else '38.2 °C'}), requesting {days_off}-day sick leave and symptomatic relief.",
+            "Ready for sign-off",
             summary,
             reply,
             steps,
@@ -1928,7 +1905,7 @@ def handle_live_chat_turn(
         triage_out = classify_bilingual_async_triage(
             message_text=text,
             hours_since_last_visit=18 if j_key == "chan" else 200,
-            patient_g6pd=bool(pat.g6pd_deficient) if pat else (j_key == "wingyan"),
+            patient_g6pd=False if j_key == "wingyan" else (bool(pat.g6pd_deficient) if pat else (j_key == "tang_uti")),
         )
         inj_signals = sorted(
             set(triage_out.get("prompt_injection_signals") or [])
@@ -2257,14 +2234,15 @@ def append_doctor_signed_chat_bubble(
     bookings_out: list[dict[str, Any]],
     trace_id: str,
 ) -> None:
-    """Append a structured Doctor-Signed Care Plan message into `CaseLoop.summary_json['original_chat']`
-    so the physical phone chat AND laptop UnifiedThread both show it immediately (zero private Sam chat!)."""
+    """Append a doctor-in-the-loop system event + Sam's resident handback into `CaseLoop.summary_json['original_chat']`
+    so the physical phone chat clearly shows doctor involvement followed by Sam delivering the care plan & 3-day AI check-in."""
     case = session.get(CaseLoop, case_id)
     if case is None:
         return
     summary = copy.deepcopy(case.summary_json or {})
     chat = list(summary.get("original_chat") or [])
-    parts: list[str] = [f"{signed_by} (MCHK {mchk_reg_no}) has reviewed and signed your care plan."]
+    hhmm = _hkt_hhmm()
+    parts: list[str] = [f"{signed_by} has reviewed your case and signed off on your plan."]
     rx_lines: list[str] = []
     for rx in prescriptions_out:
         for it in rx.get("items") or []:
@@ -2273,20 +2251,32 @@ def append_doctor_signed_chat_bubble(
         parts.append("Prescription: " + "; ".join(rx_lines) + ".")
     if certificates_out:
         c0 = certificates_out[0]
-        parts.append(f"Medical sick-leave certificate ready ({c0['days_off']} day(s), {c0['start_date']} to {c0['end_date']}).")
+        parts.append(f"Your medical sick-leave certificate ({c0['days_off']} day(s), {c0['start_date']} to {c0['end_date']}) is ready below.")
     if bookings_out:
         parts.append(f"{len(bookings_out)} follow-up / preventive booking(s) queued.")
+    parts.append("I've also scheduled a quick 3-day check-in right here to see how you're recovering.")
 
+    # Beat 1: Subtle system status divider showing Doctor stepped into the loop
     chat.append({
-        "actor": signed_by,
-        "role": "doctor",
-        "time": _hkt_hhmm(),
+        "actor": "Clinic",
+        "role": "system",
+        "time": hhmm,
+        "text": f"{signed_by} (MCHK {mchk_reg_no}) completed clinical review & signed your plan",
+        "trace_id": trace_id,
+    })
+
+    # Beat 2: Sam (Resident AI) comes back with the signed plan, PDF button, and 3-day AI follow-up
+    chat.append({
+        "actor": "Sam",
+        "role": "assistant",
+        "time": hhmm,
         "text": " ".join(parts),
         "trace_id": trace_id,
         "care_plan": {
             "signed_by": signed_by,
             "mchk_reg_no": mchk_reg_no,
             "rx_lines": rx_lines,
+            "ai_followup_note": "3-day AI post-visit check-in scheduled",
             "certificates": [
                 {
                     "id": c["id"],
@@ -2300,6 +2290,10 @@ def append_doctor_signed_chat_bubble(
         },
     })
     summary["original_chat"] = chat
+    tasks = list(summary.get("scheduled_tasks") or [])
+    if not any("3-day AI" in str(t.get("label", "")) for t in tasks):
+        tasks.append({"status": "auto", "label": "Day 3 · Autonomous AI Careline post-visit check-in (zero doctor workload)"})
+    summary["scheduled_tasks"] = tasks
     case.summary_json = summary
     flag_modified(case, "summary_json")
 
@@ -2314,3 +2308,76 @@ def retract_doctor_signed_chat_bubble(session: Session, *, case_id: str, trace_i
     summary["original_chat"] = chat
     case.summary_json = summary
     flag_modified(case, "summary_json")
+
+
+def trigger_post_sign_checkin(
+    db: Database,
+    *,
+    tenant_id: str,
+    journey_key_or_pid: str,
+    live_bus: LiveHarnessBus,
+    lang: str = "en",
+) -> dict[str, Any]:
+    """Demo fast-forward: simulate Day-3 autonomous AI post-visit check-in (doctor stays out of the loop)."""
+    j = resolve_journey(journey_key_or_pid)
+    j_key = j["key"]
+    pid = j["patient_id"]
+    is_zh = str(lang or "en").lower().startswith("zh")
+
+    with db.tenant_session(tenant_id) as session:
+        case = session.scalar(
+            select(CaseLoop).where(CaseLoop.tenant_id == tenant_id, CaseLoop.case_key == j_key)
+        )
+        if case is None:
+            raise ValueError(f"Case for journey '{j_key}' not found")
+        summary = copy.deepcopy(case.summary_json or {})
+        chat = list(summary.get("original_chat") or [])
+        hhmm = _hkt_hhmm()
+
+        chat.append({
+            "actor": "Clinic",
+            "role": "system",
+            "time": "Day +3",
+            "text": "3 days later · Autonomous AI post-visit check-in (no doctor interruption)",
+        })
+        checkin_text = (
+            "你好！距離你上次覆診已經過咗 3 日，想問候一下你嘅喉嚨痛同發燒好返晒未？另外等你完全康復之後，需唔需要我幫你安排季節性流感疫苗接種，或者預約其他常規檢查呢？"
+            if is_zh
+            else "Hi there — just checking in 3 days after your visit. How are your sore throat and fever feeling now? Once you're back to normal, would you like me to help book a seasonal flu vaccine or arrange a visit for anything else?"
+        )
+        chat.append({
+            "actor": "Sam",
+            "role": "assistant",
+            "time": hhmm,
+            "text": checkin_text,
+            "lang": "zh-HK" if is_zh else "en",
+        })
+        summary["original_chat"] = chat
+        case.summary_json = summary
+        case.state = "scheduled"
+        case.baton = "idle"
+        case.next_checkpoint_label = "Day-3 AI check-in sent"
+        flag_modified(case, "summary_json")
+        session.flush()
+        case_id = case.id
+
+    live_bus.publish("case.updated", patient_id=pid, data={"case_id": case_id, "journey_key": j_key, "state": "scheduled"})
+    day3_replies = (
+        [
+            "好返晒啦多謝！我想預約下星期打流感針，順便想約醫生傾吓最近覺得容易攰。",
+            "完全康復咗，唔使覆診，多謝關心！",
+        ]
+        if is_zh
+        else [
+            "Feeling much better, thank you! Yes — could I book a flu shot next week, and also arrange a routine visit because I've been feeling a bit tired lately?",
+            "All recovered now — no follow-up needed, thanks for checking in!",
+        ]
+    )
+    return {
+        "ok": True,
+        "session_epoch": live_demo_coordinator.epoch,
+        "case_id": case_id,
+        "messages": chat,
+        "suggested_replies": day3_replies,
+    }
+

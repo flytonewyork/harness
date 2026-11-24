@@ -1560,6 +1560,17 @@ def build_workspace_overview(db: Database, tenant_id: str, *, auto_seed: bool = 
                 "status": "quarantined_nurse",
                 "created_at": q["created_at"],
             })
+        for c in cases:
+            for ah in (c.summary_json or {}).get("admin_handoffs") or []:
+                team_handoffs.append({
+                    "id": ah.get("id") or f"adm_{c.id}",
+                    "case_id": c.id,
+                    "patient_name": c.patient_name,
+                    "route": ah.get("route") or "Sam (AI Careline) → Clinic Admin / Nurse Rachel",
+                    "task": ah.get("task") or "",
+                    "status": ah.get("status") or "pending_admin",
+                    "created_at": ah.get("created_at") or utcnow().isoformat(),
+                })
 
         emr_addenda = [
             {

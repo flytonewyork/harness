@@ -5,7 +5,7 @@ import "./patientChat.css";
 
 interface ChatMsg {
   actor: string;
-  role?: "doctor" | "assistant" | "patient";
+  role?: "doctor" | "assistant" | "patient" | "system";
   time: string;
   text: string;
   lang?: string;
@@ -14,6 +14,7 @@ interface ChatMsg {
   care_plan?: {
     signed_by: string;
     mchk_reg_no: string;
+    ai_followup_note?: string;
     rx_lines?: string[];
     certificates?: Array<{
       id: string;
@@ -93,6 +94,13 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
   const [input, setInput] = useState("");
   const [errorNote, setErrorNote] = useState<string | null>(null);
 
+  // Two-mode Identity & PDPO Consent Gate (New Case minimal details vs Existing Patient verified chart link)
+  const [consentDone, setConsentDone] = useState(false);
+  const [idMode, setIdMode] = useState<"new_case" | "existing">("new_case");
+  const [idName, setIdName] = useState("");
+  const [idHkid4, setIdHkid4] = useState("4821");
+  const [day3Busy, setDay3Busy] = useState(false);
+
   const sessionEpochRef = useRef<string | null>(null);
   const bootGenRef = useRef<number>(0);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -138,6 +146,8 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
       setCrisis(null);
       setErrorNote(null);
       setTyping(false);
+      setConsentDone(false);
+      setIdMode(targetKey === "wingyan" ? "new_case" : "existing");
 
       // Step 1: Empty chat interface pause before clinic typing bubble appears
       await new Promise((r) => window.setTimeout(r, 420));
@@ -161,9 +171,13 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
         sessionEpochRef.current = res.session_epoch || sessionEpochRef.current;
         setPatientToken(res.token || "");
         setActiveJourneyInfo(res.journey || null);
-        setMessages(Array.isArray(res.messages) ? res.messages : []);
+        const nextMsgs = Array.isArray(res.messages) ? res.messages : [];
+        setMessages(nextMsgs);
         setSuggestedReplies(Array.isArray(res.suggested_replies) ? res.suggested_replies : []);
         setCrisis(res.crisis || null);
+        setIdName(res.journey?.patient_name || "");
+        // If conversation already has patient turns, keep gate unlocked
+        setConsentDone(nextMsgs.length > 1);
         setTyping(false);
         void refreshJourneys();
       } catch (e: any) {
@@ -402,19 +416,45 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
         <div className="pc-date-pill">{isZh ? "今天" : "Today"}</div>
 
         {messages.map((m, idx) => {
-          const isDoctor = m.role === "doctor" || Boolean(m.care_plan);
-          const isClinic = m.actor === "Sam" || m.role === "assistant";
-          const isPatient = !isDoctor && !isClinic;
+          if (m.role === "system") {
+            return (
+              <div
+                key={idx}
+                className="pc-system-pill"
+                data-testid="chat-system-divider"
+                style={{
+                  alignSelf: "center",
+                  margin: "8px 0 4px",
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  background: "#eef6f3",
+                  border: "1px solid #cce3db",
+                  color: "#0f6b58",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  textAlign: "center",
+                  maxWidth: "92%",
+                }}
+              >
+                {m.text} · {m.time}
+              </div>
+            );
+          }
 
-          if (isDoctor && m.care_plan) {
+          const isDoctorCard = m.role === "doctor" || Boolean(m.care_plan);
+          const isClinic = m.actor === "Sam" || m.role === "assistant";
+          const isPatient = !isDoctorCard && !isClinic;
+
+          if (isDoctorCard && m.care_plan) {
             return (
               <div key={idx} className="pc-row is-doctor" data-testid="chat-doctor-signed-card">
+                <span className="pc-sender-label">Sam · {isZh ? "診所助手" : "Clinic AI"}</span>
                 <div className="pc-doctor-card">
                   <div className="pc-doctor-kicker">
                     {m.care_plan.signed_by} · MCHK {m.care_plan.mchk_reg_no} · {isZh ? "已簽署" : "Signed Plan"}
                   </div>
                   <div className="pc-doctor-title">
-                    {isZh ? "你的個人化診所護理計劃已就緒" : "Your Doctor-Signed Care Plan"}
+                    {isZh ? "醫生已完成審閱 — 你的護理計劃已就緒" : "Doctor-Signed Care Plan"}
                   </div>
                   <div style={{ fontSize: 14, lineHeight: 1.48 }}>{m.text}</div>
                   {m.care_plan.rx_lines && m.care_plan.rx_lines.length > 0 && (
@@ -423,6 +463,22 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
                         <li key={i}>{line}</li>
                       ))}
                     </ul>
+                  )}
+                  {m.care_plan.ai_followup_note && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        background: "#eef7f5",
+                        border: "1px solid #c9e5dd",
+                        color: "#0f6b58",
+                        fontSize: 12.5,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {isZh ? "AI 護理追蹤：3 日後自動問候康復進度" : `AI Follow-Up: ${m.care_plan.ai_followup_note}`}
+                    </div>
                   )}
                   {m.care_plan.certificates && m.care_plan.certificates.map((cert) => (
                     <button
@@ -472,6 +528,149 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           );
         })}
 
+        {/* First-Step Identity & HK PDPO Consent Gate (New Case vs Existing Patient HKID Link) */}
+        {!consentDone && messages.length > 0 && messages.length <= 1 && !typing && (
+          <div
+            data-testid="chat-identity-consent-gate"
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2ddd4",
+              borderRadius: 14,
+              padding: "13px 14px",
+              marginTop: 4,
+              boxShadow: "0 1px 3px rgba(28,25,23,0.05)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#0f6b58", letterSpacing: "0.03em", textTransform: "uppercase" }}>
+              {isZh ? "身份確認及私隱同意 (HK PDPO)" : "Quick Check-In & Consent (HK PDPO)"}
+            </div>
+            <div style={{ fontSize: 13, color: "#44403c", lineHeight: 1.42 }}>
+              {isZh
+                ? "為保障私隱，我們只會收集協助今次診症所需嘅基本資料。未經核實身份，系統唔會查閱任何過往病歷。"
+                : "To protect your privacy, we only collect what's needed for today's inquiry. Existing clinic charts are never accessed until verified."}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => setIdMode("new_case")}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 9,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  border: idMode === "new_case" ? "1.5px solid #0f766e" : "1px solid #d6d3d1",
+                  background: idMode === "new_case" ? "#eef7f5" : "#fafaf9",
+                  color: idMode === "new_case" ? "#0f6b58" : "#57534e",
+                  cursor: "pointer",
+                }}
+              >
+                {isZh ? "新個案（只需姓名）" : "New Case (Name only)"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIdMode("existing")}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 9,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  border: idMode === "existing" ? "1.5px solid #0f766e" : "1px solid #d6d3d1",
+                  background: idMode === "existing" ? "#eef7f5" : "#fafaf9",
+                  color: idMode === "existing" ? "#0f6b58" : "#57534e",
+                  cursor: "pointer",
+                }}
+              >
+                {isZh ? "舊症病人（核對病歷）" : "Existing Patient"}
+              </button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <input
+                type="text"
+                value={idName}
+                onChange={(e) => setIdName(e.target.value)}
+                placeholder={isZh ? "你的姓名" : "Your name"}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #d6d3d1",
+                  fontSize: 13.5,
+                  background: "#fafaf9",
+                }}
+              />
+              {idMode === "existing" && (
+                <input
+                  type="text"
+                  value={idHkid4}
+                  onChange={(e) => setIdHkid4(e.target.value)}
+                  placeholder={isZh ? "香港身份證最後 4 位數字（核實病歷用）" : "HKID last 4 digits (to link existing chart)"}
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: "1px solid #d6d3d1",
+                    fontSize: 13.5,
+                    background: "#fafaf9",
+                  }}
+                />
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setConsentDone(true)}
+              data-testid="consent-continue-btn"
+              style={{
+                padding: "9px 12px",
+                borderRadius: 9,
+                border: "none",
+                background: "#0f766e",
+                color: "#ffffff",
+                fontWeight: 600,
+                fontSize: 13.5,
+                cursor: "pointer",
+              }}
+            >
+              {isZh
+                ? idMode === "existing"
+                  ? "同意並核實身份開始對話 →"
+                  : "同意並開始新對話 →"
+                : idMode === "existing"
+                  ? "Consent & Verify Chart →"
+                  : "Consent & Start Chat →"}
+            </button>
+          </div>
+        )}
+
+        {/* Menu of what Sam can help with right after consent */}
+        {consentDone && messages.length === 1 && !typing && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2 }}>
+            {(isZh
+              ? [
+                  "我今日身體唔舒服，想睇醫生",
+                  "想查詢或申請病假紙",
+                  "預約或更改診症時間",
+                  "跟進驗血報告或藥物",
+                ]
+              : [
+                  "I woke up with a sore throat and fever.",
+                  "I need a sick-leave certificate",
+                  "Book or reschedule an appointment",
+                  "Follow up on a test result or medication",
+                ]
+            ).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                className="pc-chip"
+                onClick={() => void handleSend(opt)}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        )}
+
         {typing && (
           <div className="pc-row is-clinic" data-testid="clinic-typing-bubble">
             <span className="pc-sender-label">Sam · {isZh ? "診所助手" : "Clinic AI"}</span>
@@ -492,15 +691,60 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
         <div ref={bottomRef} />
       </main>
 
+      {/* Demo Fast-Forward: Day-3 Autonomous AI Check-In (shown once doctor has signed) */}
+      {(() => {
+        const hasSigned = messages.some((m) => Boolean(m.care_plan));
+        const hasDay3 = messages.some((m) => m.role === "system" && m.time === "Day +3");
+        if (!hasSigned || hasDay3 || typing || crisis?.active) return null;
+        return (
+          <div style={{ padding: "6px 12px 2px", display: "flex", justifyContent: "center" }}>
+            <button
+              type="button"
+              disabled={day3Busy}
+              data-testid="fast-forward-day3-btn"
+              onClick={async () => {
+                setDay3Busy(true);
+                setTyping(true);
+                try {
+                  const res = await v2Api.liveChatCheckin(journeyKey, lang);
+                  if (Array.isArray(res.messages)) setMessages(res.messages);
+                  if (Array.isArray(res.suggested_replies)) setSuggestedReplies(res.suggested_replies);
+                  void refreshJourneys();
+                } catch (e: any) {
+                  setErrorNote(e?.message || "Could not trigger Day-3 check-in.");
+                } finally {
+                  setTyping(false);
+                  setDay3Busy(false);
+                }
+              }}
+              style={{
+                padding: "7px 14px",
+                borderRadius: 999,
+                border: "1px solid #0f766e",
+                background: "#eef7f5",
+                color: "#0f6b58",
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              {day3Busy
+                ? isZh ? "模擬 3 日後追蹤中…" : "Simulating Day +3 check-in…"
+                : isZh ? "快轉示範：3 日後 AI 自動問候 →" : "Fast-forward: Day +3 AI Check-In →"}
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Optional Subtle Suggested Replies (for smooth live stage demoing — full free-text always works!) */}
       {(() => {
         const sentSet = new Set(
           messages
-            .filter((m) => m.actor !== "Sam" && m.role !== "assistant" && m.role !== "doctor")
+            .filter((m) => m.actor !== "Sam" && m.role !== "assistant" && m.role !== "doctor" && m.role !== "system")
             .map((m) => m.text.trim().toLowerCase()),
         );
         const remainingSuggestions = suggestedReplies.filter((p) => !sentSet.has(p.trim().toLowerCase()));
-        if (!showPrompts || remainingSuggestions.length === 0 || messages.length === 0 || typing || crisis?.active) {
+        if (!consentDone || !showPrompts || remainingSuggestions.length === 0 || messages.length <= 1 || typing || crisis?.active) {
           return null;
         }
         return (

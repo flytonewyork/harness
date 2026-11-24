@@ -82,6 +82,7 @@ from .live_demo import (
     reset_live_demo,
     retract_doctor_signed_chat_bubble,
     start_live_journey,
+    trigger_post_sign_checkin,
 )
 from .db import (
     TENANT_SCOPED_TABLES,
@@ -1335,6 +1336,23 @@ def create_acute_app(
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc))
+
+    @app.post("/api/v1/demo/live/chat/checkin")
+    def demo_live_chat_checkin(body: LiveChatStartReq, request: Request):
+        """Fast-forward 3 days after doctor sign-off to trigger autonomous AI Careline check-in."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        tenant_id = _workspace_tenant(request)
+        try:
+            return trigger_post_sign_checkin(
+                database,
+                tenant_id=tenant_id,
+                journey_key_or_pid=body.journey_key,
+                live_bus=live_bus,
+                lang=body.lang,
+            )
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
 
     @app.post("/api/v1/demo/live/reset")
     def demo_live_reset(request: Request):

@@ -353,6 +353,11 @@ export const v2Api = {
       method: "POST",
       body: JSON.stringify({ journey_key: journeyKey, message, lang }),
     }),
+  liveChatCheckin: (journeyKey: string, lang: "en" | "zh-HK" = "en") =>
+    req<Record<string, any>>("/api/v1/demo/live/chat/checkin", {
+      method: "POST",
+      body: JSON.stringify({ journey_key: journeyKey, lang }),
+    }),
   liveDemoReset: () => req<Record<string, any>>("/api/v1/demo/live/reset", { method: "POST" }),
   workspacePreview: (caseId: string, instructionText: string) =>
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/preview`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText }) }),

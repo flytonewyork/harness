@@ -56,19 +56,19 @@ def test_blank_start_qr_scan_natural_chat_doctor_sign_undo_and_reset(tmp_path):
     assert ov1["live_session"]["phone_connected"] is True
     assert len(ov1["live_session"]["recent_tool_calls"]) >= 2
 
-    # 3. Patient chats naturally (URTI + Aspirin G6PD query + 2-day sick note + Ferritin)
+    # 3. Patient chats naturally (clean single-issue Acute URTI + 2-day sick note)
     r_turn = client.post(
         "/api/v1/demo/live/chat/turn",
         json={
             "journey_key": "wingyan",
-            "message": "Woke up with a sore throat and 38.2°C fever — can I take aspirin? Also need a 2-day sick note and wanted to ask about my ferritin test.",
+            "message": "Woke up with a sore throat and 38.2°C fever — no chest pain or shortness of breath. Could I get a 2-day sick note and something for the fever?",
             "lang": "en",
         },
     )
     assert r_turn.status_code == 200
     t_body = r_turn.json()
     assert t_body["case_state"] == "needs_decision"
-    assert "aspirin" in t_body["reply"].lower() and "g6pd" in t_body["reply"].lower()
+    assert "38.2" in t_body["reply"] and "2-day" in t_body["reply"].lower()
     assert t_body["lint_report"]["passed"] is True
     assert t_body["lint_report"]["rules_passed"] == 5
 
@@ -76,9 +76,11 @@ def test_blank_start_qr_scan_natural_chat_doctor_sign_undo_and_reset(tmp_path):
     assert ov2["counts"]["needs_decision"] == 1
     wy_case = ov2["grouped"]["needs_decision"][0]
     assert wy_case["id"] == wy_case_id
+    assert len(wy_case["summary"]["issues"]) == 1
+    assert len(wy_case["summary"].get("alerts") or []) == 0
     assert len(wy_case["summary"]["original_chat"]) == 3
 
-    # 4. Doctor signs plan in /workspace -> Doctor-Signed Care Plan + MCHK PDF delivered live to phone chat!
+    # 4. Doctor signs plan in /workspace -> Doctor system beat + Sam Care Plan + MCHK PDF delivered live to phone chat!
     r_conf = client.post(
         f"/api/v1/workspace/cases/{wy_case_id}/confirm",
         json={
@@ -97,15 +99,16 @@ def test_blank_start_qr_scan_natural_chat_doctor_sign_undo_and_reset(tmp_path):
     assert len(conf_body["certificates"]) == 1
 
     st_after_sign = client.get("/api/v1/demo/live/chat/state/wingyan").json()
-    doctor_bubbles = [m for m in st_after_sign["messages"] if m.get("role") == "doctor"]
-    assert len(doctor_bubbles) == 1
-    assert len(doctor_bubbles[0]["care_plan"]["certificates"]) == 1
+    assert any(m.get("role") == "system" for m in st_after_sign["messages"])
+    signed_bubbles = [m for m in st_after_sign["messages"] if m.get("care_plan")]
+    assert len(signed_bubbles) == 1
+    assert len(signed_bubbles[0]["care_plan"]["certificates"]) == 1
 
-    # 5. Doctor clicks 10-second Undo -> doctor-signed bubble cleanly retracted from phone chat!
+    # 5. Doctor clicks 10-second Undo -> doctor-signed bubbles cleanly retracted from phone chat!
     r_undo = client.post(f"/api/v1/workspace/cases/{wy_case_id}/undo/{trace_id}")
     assert r_undo.status_code == 200
     st_after_undo = client.get("/api/v1/demo/live/chat/state/wingyan").json()
-    assert [m for m in st_after_undo["messages"] if m.get("role") == "doctor"] == []
+    assert [m for m in st_after_undo["messages"] if m.get("care_plan")] == []
 
     # 6. Switch journey in phone sidebar -> CHAN Tai Man (new independent case thread)
     r_chan_start = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "chan", "lang": "en"})

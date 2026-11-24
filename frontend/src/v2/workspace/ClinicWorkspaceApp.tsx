@@ -655,7 +655,6 @@ export function ClinicWorkspaceApp() {
   const [goalOverrides, setGoalOverrides] = useState<Record<string, { sys: number; dia: number }>>({});
   const [slashInput, setSlashInput] = useState("");
   const [slashIdx, setSlashIdx] = useState(0);
-  const [expandedTraces, setExpandedTraces] = useState<Record<string, boolean>>({});
   const [expandedImaging, setExpandedImaging] = useState<Record<string, boolean>>({});
   const [expandedClips, setExpandedClips] = useState<Record<string, boolean>>({});
   const [samReadMap, setSamReadMap] = useState<Record<string, boolean>>({});
@@ -666,6 +665,13 @@ export function ClinicWorkspaceApp() {
   const [cdsFeedback, setCdsFeedback] = useState<Record<string, CdsFeedbackState | null>>({});
   const [overrideReasonMap, setOverrideReasonMap] = useState<Record<string, string>>({});
   const [receipts, setReceipts] = useState<Record<string, CommitReceipt | null>>({});
+  const [aiFollowupMap, setAiFollowupMap] = useState<Record<string, boolean>>({});
+  const [postSignGuide, setPostSignGuide] = useState<{
+    caseId: string;
+    patientName: string;
+    traceId?: string;
+    confirmedAt: string;
+  } | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -948,12 +954,17 @@ export function ClinicWorkspaceApp() {
         (addendumEntries.length ? `${addendumEntries.length} additive EMR addendum ${addendumEntries.length === 1 ? "entry" : "entries"} recorded` : undefined) ||
         (body.emr_written ? "Additive EMR addendum recorded (Sole SoT)" : undefined);
 
+      const signedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const traceId = body.trace?.id || body.trace_id;
+      const signedCaseObj = (data?.cases || []).find((c: any) => c.id === caseId);
+      const signedPatientName = signedCaseObj?.patient_name || "Patient";
+
       if (rawCerts.length > 0 || emrSummary) {
         setReceipts((prev) => ({
           ...prev,
           [caseId]: {
-            traceId: body.trace?.id || body.trace_id,
-            confirmedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            traceId,
+            confirmedAt: signedAt,
             certificates: rawCerts,
             emrAddendumSummary: emrSummary,
             emrAddendumCount: addendumEntries.length || (emrSummary ? 1 : 0),
@@ -963,6 +974,13 @@ export function ClinicWorkspaceApp() {
 
       updateCasePlan(caseId, (cur) => cur.filter((x) => !x.checked));
       setOverrideReasonMap((prev) => ({ ...prev, [caseId]: "" }));
+      setPostSignGuide({
+        caseId,
+        patientName: signedPatientName,
+        traceId,
+        confirmedAt: signedAt,
+      });
+      setView("my_work");
       await refresh();
     } catch (e: any) {
       setBanner(e?.message || "Failed to confirm plan");
@@ -1213,7 +1231,27 @@ export function ClinicWorkspaceApp() {
           <div className="ws-nav-group">
             <div className="ws-nav-heading"><span>Channels</span></div>
             <button type="button" className={`ws-nav-btn ${view === "my_work" ? "is-active" : ""}`} onClick={() => setView("my_work")}>
-              <span># my-work</span><span className="ws-badge">{data.counts.needs_decision}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span># my-work</span>
+                {data.counts.needs_decision > 0 && (
+                  <span
+                    aria-label="Unread patient inquiry"
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      background: "#0f766e",
+                      display: "inline-block",
+                    }}
+                  />
+                )}
+              </span>
+              <span
+                className="ws-badge"
+                style={data.counts.needs_decision > 0 ? { background: "#0f766e", color: "#ffffff" } : undefined}
+              >
+                {data.counts.needs_decision}
+              </span>
             </button>
             <button type="button" className={`ws-nav-btn ${view === "clinic_team" ? "is-active" : ""}`} onClick={() => setView("clinic_team")}>
               <span># clinic-team</span><span className="ws-badge">{data.team_handoffs.length}</span>
@@ -1367,14 +1405,53 @@ export function ClinicWorkspaceApp() {
                 </span>
               </div>
 
+              {/* Post-Sign Notification Bubble + First-Time Guided Transition Highlight */}
+              {postSignGuide && (
+                <div
+                  data-testid="post-sign-guide-banner"
+                  style={{
+                    background: "#eef8f5",
+                    border: "1.5px solid #0f766e",
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    boxShadow: "0 2px 8px rgba(15, 118, 110, 0.08)",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 700, color: "#0f6b58", fontSize: 13.5 }}>
+                      <span>✓ Plan signed &amp; sent to {postSignGuide.patientName} ({postSignGuide.confirmedAt})</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="ws-btn-ghost"
+                      style={{ fontSize: 12, padding: "2px 8px" }}
+                      onClick={() => setPostSignGuide(null)}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 13, color: "#292524", lineHeight: 1.45 }}>
+                    <strong>What happened:</strong> {postSignGuide.patientName} moved from{" "}
+                    <span className="ws-pill">Needs Decision</span> →{" "}
+                    <span className="ws-pill ws-pill-jade">Scheduled · 3-Day AI Follow-Up</span>. Their prescription &amp; MCHK certificate are now live on their phone, and Sam will run the Day-3 check-in autonomously without interrupting you.
+                  </div>
+                </div>
+              )}
+
               {data.grouped.needs_decision.map((c: any) => {
                 const latestPatMsg = [...(c.summary?.original_chat || [])]
                   .reverse()
-                  .find((m: any) => m.actor !== "Sam" && m.role !== "doctor");
+                  .find((m: any) => m.actor !== "Sam" && m.role !== "doctor" && m.role !== "system");
                 return (
                   <div key={c.id} className="ws-card" data-testid={`my-work-case-${c.case_key}`}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                      <span className="ws-num" style={{ fontSize: 12.5, color: "var(--ws-ink-3)" }}>{c.patient_name} ({c.patient_age_sex}) · {c.next_checkpoint_label}</span>
+                      <span className="ws-num" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--ws-ink-3)" }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0f766e", display: "inline-block" }} />
+                        <span>{c.patient_name} ({c.patient_age_sex}) · {c.next_checkpoint_label}</span>
+                      </span>
                       {c.summary?.alerts?.[0] && (
                         <span className={`ws-pill ${c.summary.alerts[0].level === "high" ? "ws-pill-red" : "ws-pill-amber"}`}>
                           {c.summary.alerts[0].label}
@@ -1388,11 +1465,6 @@ export function ClinicWorkspaceApp() {
                         <strong style={{ color: "var(--ws-jade-dark)" }}>{latestPatMsg.actor} ({latestPatMsg.time}):</strong> “{latestPatMsg.text}”
                       </div>
                     )}
-                    {c.timeline?.length > 0 && (
-                      <div style={{ fontSize: 12.5, color: "var(--ws-ink-2)", padding: "8px 10px", background: "var(--ws-paper)", borderRadius: 8, border: "1px solid var(--ws-line)" }}>
-                        <strong>Latest agent activity:</strong> {c.timeline[c.timeline.length - 1]?.label}
-                      </div>
-                    )}
                     <div><button type="button" className="ws-btn-primary" onClick={() => openCase(c.id)}>Open Case →</button></div>
                   </div>
                 );
@@ -1400,7 +1472,7 @@ export function ClinicWorkspaceApp() {
 
               {data.grouped.running.length > 0 && (
                 <>
-                  <div className="ws-section-kicker" style={{ marginTop: 4 }}>Live Agent Threads · In Progress</div>
+                  <div className="ws-section-kicker" style={{ marginTop: 4 }}>Live Careline Intake · In Progress</div>
                   {data.grouped.running.map((c: any) => (
                     <div key={c.id} className="ws-card" data-testid={`running-case-${c.case_key}`}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -1408,26 +1480,51 @@ export function ClinicWorkspaceApp() {
                           <span className="ws-live-dot" />
                           <span>{c.patient_name} ({c.patient_age_sex})</span>
                         </span>
-                        <span className="ws-pill ws-pill-jade">Agents working live</span>
+                        <span className="ws-pill ws-pill-jade">Gathering history</span>
                       </div>
                       <p className="ws-lead">{c.lead_line}</p>
-                      {c.timeline?.length > 0 && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5, color: "var(--ws-ink-2)", padding: "8px 10px", background: "var(--ws-paper)", borderRadius: 8, border: "1px solid var(--ws-line)" }}>
-                          {c.timeline.slice(-3).map((t: any, i: number) => (
-                            <div key={i}><span className="ws-num" style={{ color: "var(--ws-ink-3)", marginRight: 6 }}>{t.date}</span>{t.label}</div>
-                          ))}
-                        </div>
-                      )}
-                      <div><button type="button" className="ws-btn" onClick={() => openCase(c.id)}>Watch Thread Live →</button></div>
+                      <div><button type="button" className="ws-btn" onClick={() => openCase(c.id)}>View Thread →</button></div>
                     </div>
                   ))}
                 </>
               )}
 
-              {data.grouped.needs_decision.length === 0 && data.grouped.running.length === 0 && (
+              {data.grouped.scheduled.length > 0 && (
+                <>
+                  <div className="ws-section-kicker" style={{ marginTop: 4 }}>Scheduled / Autonomous AI Follow-Up</div>
+                  {data.grouped.scheduled.map((c: any) => {
+                    const isJustSigned = postSignGuide?.caseId === c.id;
+                    return (
+                      <div
+                        key={c.id}
+                        className="ws-card"
+                        data-testid={`scheduled-case-${c.case_key}`}
+                        style={
+                          isJustSigned
+                            ? { border: "1.5px solid #0f766e", background: "#f7fcfa" }
+                            : undefined
+                        }
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 13.5, fontWeight: 600 }}>
+                            {c.patient_name} ({c.patient_age_sex})
+                          </span>
+                          <span className="ws-pill ws-pill-jade">
+                            {isJustSigned ? "Just signed · 3-Day AI Check-In" : c.next_checkpoint_label || "AI Follow-Up Active"}
+                          </span>
+                        </div>
+                        <p className="ws-lead" style={{ fontSize: 13 }}>{c.lead_line}</p>
+                        <div><button type="button" className="ws-btn" onClick={() => openCase(c.id)}>Open Summary →</button></div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {data.grouped.needs_decision.length === 0 && data.grouped.running.length === 0 && data.grouped.scheduled.length === 0 && (
                 <div className="ws-card">
                   <div className="ws-lead">
-                    All pending decisions cleared. {data.grouped.scheduled.length > 0 ? `${data.grouped.scheduled.length} patient loop(s) running quietly in Scheduled / Waiting.` : ""}
+                    All pending decisions cleared.
                   </div>
                 </div>
               )}
@@ -1589,17 +1686,68 @@ export function ClinicWorkspaceApp() {
                 )}
 
                 {/* Canonical Widget 1: VitalsExamStrip */}
-                {activeCase.summary?.vitals_exam?.items?.length > 0 && (
-                  <div className="ws-vitals-strip">
-                    <span className="ws-section-kicker" style={{ marginRight: 4 }}>{activeCase.summary.vitals_exam.source}</span>
-                    {activeCase.summary.vitals_exam.items.map((v: any, idx: number) => (
-                      <div key={idx} className="ws-vital-item">
-                        <span className="ws-vital-label">{v.label}</span>
-                        <span className="ws-vital-val">{v.val}</span>
+                {activeCase.summary?.vitals_exam?.items?.length > 0 && (() => {
+                  const ve = activeCase.summary.vitals_exam;
+                  const ctxLabel = ve.encounter_context || (activeCase.state === "scheduled" ? "Post-Care Follow-Up" : "Inbound Case");
+                  const nurseExamOrder = normalizeOrder(
+                    {
+                      id: `ord_nurse_exam_${activeCase.id}`,
+                      type: "nurse",
+                      issue: "Physical Examination",
+                      nurseTask: "In-clinic vitals & focused physical exam prep (BP, HR, Temp, SpO₂)",
+                      assignee: "Nurse Rachel (RN)",
+                    },
+                    "Physical Examination",
+                  );
+                  const nurseExamInPlan = activeOrders.some((x) => x.id === nurseExamOrder.id);
+                  return (
+                    <div className="ws-card" style={{ padding: "11px 13px", gap: 8 }} data-testid="physical-exam-vitals-card">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span className="ws-section-kicker">Physical Exam &amp; Vitals · {ve.source}</span>
+                        <span className="ws-pill">{ctxLabel}</span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div className="ws-vitals-strip" style={{ padding: 0, border: "none", background: "transparent" }}>
+                        {ve.items.map((v: any, idx: number) => (
+                          <div key={idx} className="ws-vital-item">
+                            <span className="ws-vital-label">{v.label}</span>
+                            <span className="ws-vital-val">{v.val}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 4, borderTop: "1px solid var(--ws-line)" }}>
+                        <button
+                          type="button"
+                          className={`ws-add-pill ${nurseExamInPlan ? "is-added" : ""}`}
+                          onClick={() => toggleOrderInPlan(activeCase.id, nurseExamOrder)}
+                        >
+                          <span className="ws-add-pill-icon">{nurseExamInPlan ? "✓" : "+"}</span>
+                          <span>{nurseExamInPlan ? "Nurse Vitals Exam in Plan" : "Hand over to Nurse for Vitals / Exam"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="ws-add-pill"
+                          disabled={busy}
+                          onClick={async () => {
+                            setBusy(true);
+                            try {
+                              await v2Api.workspaceAsk(
+                                activeCase.id,
+                                "Please ask the patient to self-measure and share home vitals (BP, pulse, and repeat temperature) if a home monitor is available.",
+                                role === "locum" ? "Locum Dr. Sarah Wong" : "Nurse Rachel Chan (RN)",
+                              );
+                              await refresh();
+                            } finally {
+                              setBusy(false);
+                            }
+                          }}
+                        >
+                          <span className="ws-add-pill-icon">◦</span>
+                          <span>Ask Sam for Home BP / Pulse</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Canonical Widget 2: ClinicalScoreStrip (Deterministic Python Scores) */}
                 {activeCase.summary?.clinical_scores?.length > 0 && (
@@ -2519,6 +2667,58 @@ export function ClinicWorkspaceApp() {
                     </div>
                   </div>
 
+                  {/* Built-in Autonomous AI Follow-Up Row (Highlighted in AI-Harness Teal — Zero Doctor Workload) */}
+                  {(() => {
+                    const aiFollowupEnabled = aiFollowupMap[activeCase.id] !== false;
+                    return (
+                      <label
+                        data-testid="ai-3day-followup-row"
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 10,
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          background: aiFollowupEnabled ? "#eef7f5" : "#fafaf9",
+                          border: aiFollowupEnabled ? "1px solid #99d5c9" : "1px dashed #d6d3d1",
+                          cursor: "pointer",
+                          marginTop: 4,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={aiFollowupEnabled}
+                          onChange={(e) =>
+                            setAiFollowupMap((prev) => ({ ...prev, [activeCase.id]: e.target.checked }))
+                          }
+                          style={{ marginTop: 3, accentColor: "#0f766e" }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <strong style={{ fontSize: 13, color: "#0f6b58" }}>
+                              3-Day AI Agent Post-Visit Check-In
+                            </strong>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                padding: "2px 7px",
+                                borderRadius: 999,
+                                background: "#d1fae5",
+                                color: "#065f46",
+                              }}
+                            >
+                              AI Harness · Zero Doctor Workload
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, color: "#44403c", marginTop: 2, lineHeight: 1.4 }}>
+                            Sam checks in automatically on Day 3 — handles recovery, preventive care &amp; admin rebooking autonomously; only escalates to you on red flags.
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })()}
+
                   {/* Clean Commit Bar */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, paddingTop: 10, borderTop: "1px solid var(--ws-line)" }}>
                     <span style={{ fontSize: 12, color: "var(--ws-ink-3)" }}>
@@ -2531,24 +2731,22 @@ export function ClinicWorkspaceApp() {
                 </div>
               </div>
 
-              {/* FIXED RIGHT RAIL (Widgets 10–14): SafetyCard -> PreventiveCard -> ScheduledCard -> TimelineCard -> UnifiedThread */}
+              {/* CLEAN RIGHT RAIL: Only show relevant clinical cards (developer Timeline lives in Under the Hood) */}
               <aside className="ws-col">
-                {/* Canonical Widget 10: SafetyCard */}
-                <div className="ws-card">
-                  <div className="ws-section-kicker">Safety &amp; Alerts</div>
-                  {activeAlerts.length === 0 ? (
-                    <div className="ws-empty-note">No active drug allergies, G6PD flags, or high-risk medication conflicts on file.</div>
-                  ) : (
-                    activeAlerts.map((a: any, i: number) => (
+                {/* Canonical Widget 10: SafetyCard (only when active alerts exist) */}
+                {activeAlerts.length > 0 && (
+                  <div className="ws-card">
+                    <div className="ws-section-kicker">Safety &amp; Alerts</div>
+                    {activeAlerts.map((a: any, i: number) => (
                       <div key={i} className={`ws-alert-item ${a.level === "high" ? "is-high" : ""}`}>
                         <div style={{ fontWeight: 600 }}>{a.label}</div>
                         <div style={{ color: "var(--ws-ink-2)", fontSize: 12.5, marginTop: 2 }}>{a.detail}</div>
                       </div>
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
 
-                {/* Canonical Widget 11: PreventiveCard */}
+                {/* Canonical Widget 11: PreventiveCard (only when relevant) */}
                 {activeCase.summary?.preventive_care?.length > 0 && (
                   <div className="ws-card">
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2583,53 +2781,18 @@ export function ClinicWorkspaceApp() {
                   </div>
                 )}
 
-                {/* Canonical Widget 12: ScheduledCard */}
-                <div className="ws-card">
-                  <div className="ws-section-kicker">Scheduled &amp; Upcoming</div>
-                  {(activeCase.summary?.scheduled_tasks || []).length === 0 ? (
-                    <div className="ws-empty-note">No upcoming visits or pending lab draws.</div>
-                  ) : (
-                    (activeCase.summary?.scheduled_tasks || []).map((t: any, i: number) => (
+                {/* Canonical Widget 12: ScheduledCard (only when upcoming tasks exist) */}
+                {(activeCase.summary?.scheduled_tasks || []).length > 0 && (
+                  <div className="ws-card">
+                    <div className="ws-section-kicker">Scheduled &amp; Upcoming</div>
+                    {(activeCase.summary?.scheduled_tasks || []).map((t: any, i: number) => (
                       <div key={i} className="ws-alert-item" style={{ display: "flex", gap: 8 }}>
                         <span style={{ color: "var(--ws-jade)", fontWeight: 700 }}>{t.status === "booked" ? "•" : "◦"}</span>
                         <span>{t.label}</span>
                       </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Canonical Widget 13: TimelineCard (Persistent Right Rail) */}
-                <div className="ws-card">
-                  <div className="ws-section-kicker">Timeline</div>
-                  {(activeCase.timeline || []).length === 0 ? (
-                    <div className="ws-empty-note">No case milestones logged yet.</div>
-                  ) : (
-                    <div className="ws-timeline">
-                      {(activeCase.timeline || []).map((item: any, idx: number) => {
-                        const matchedTrace = item.trace_id ? activeCase.traces?.find((t: any) => t.id === item.trace_id) : null;
-                        const isOpen = matchedTrace ? Boolean(expandedTraces[matchedTrace.id]) : false;
-                        return (
-                          <div key={idx} className="ws-tl-item">
-                            <div><span className="ws-tl-date">{item.date}</span><span>{item.label}</span></div>
-                            {matchedTrace && (
-                              <div className="ws-trace-fold" style={{ marginTop: 6 }}>
-                                <button type="button" className="ws-trace-btn" onClick={() => setExpandedTraces((m) => ({ ...m, [matchedTrace.id]: !m[matchedTrace.id] }))}>
-                                  <span>{isOpen ? "▾" : "▸"} {matchedTrace.folded_steps?.length || 0} agent steps</span>
-                                  <span>{matchedTrace.status === "undo_window" ? "Undo window" : "Synced to EMR"}</span>
-                                </button>
-                                {isOpen && (
-                                  <div className="ws-trace-steps">
-                                    {(matchedTrace.folded_steps || []).map((st: any, j: number) => <div key={j}><strong>{st.tool}</strong> — {st.detail}</div>)}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Canonical Widget 14: UnifiedThread (Careline Chat with verbatim zh-HK + Private Sam Note & Reply) */}
                 <div className="ws-thread-card">
