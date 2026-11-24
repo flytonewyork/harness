@@ -1956,13 +1956,18 @@ def handle_live_chat_turn(
                 f"Patient just wrote: {text}\n"
                 f"Clinic safety & workflow facts you must convey accurately: {fallback_reply}"
             )
+            chat_engine = dict(engine)
+            if chat_engine.get("provider") in ("gemini", "vertex") and chat_engine.get("model") == "gemini-4-neon":
+                chat_engine["model"] = "gemini-4-hydrogen"
             llm_call = invoke_clinical_qa(
                 system_prompt=sys_prompt,
                 user_prompt=user_prompt,
                 temperature=0.2,
                 max_output_tokens=360,
                 patient_names_for_scrub=[j["patient_name"]],
-                engine_override=engine,
+                engine_override=chat_engine,
+                timeout_seconds=20.0,
+                thinking_level="LOW",
             )
             if llm_call.ok and llm_call.text.strip():
                 screened = screen_agent_output(llm_call.text.strip(), channel="patient_careline")

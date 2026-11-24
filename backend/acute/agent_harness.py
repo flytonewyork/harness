@@ -496,7 +496,8 @@ def _invoke_live_provider(
     max_output_tokens: int = 1100,
     patient_names_for_scrub: list[str] | None = None,
     engine_override: dict[str, Any] | None = None,
-    timeout_seconds: float = 25.0,
+    timeout_seconds: float = 28.0,
+    thinking_level: str | None = None,
 ) -> ModelCallResult:
     """Execute one governed call through the active provider chain with off-HK PHIScrubber enforcement."""
     engine = dict(engine_override) if engine_override is not None else detect_live_llm_engine()
@@ -565,7 +566,7 @@ def _invoke_live_provider(
                         temperature=temperature,
                         max_output_tokens=max_output_tokens,
                         expect_json=expect_json,
-                        thinking_level=engine.get("thinking_level"),
+                        thinking_level=thinking_level or engine.get("thinking_level"),
                     )
                     req_body: dict[str, Any] = {
                         "systemInstruction": {"parts": [{"text": sys_txt}]},
@@ -754,7 +755,8 @@ def invoke_clinical_qa(
     max_output_tokens: int = 360,
     patient_names_for_scrub: list[str] | None = None,
     engine_override: dict[str, Any] | None = None,
-    timeout_seconds: float = 15.0,
+    timeout_seconds: float = 28.0,
+    thinking_level: str | None = None,
 ) -> ModelCallResult:
     """Unified concise clinical Q&A LLM invocation (Vertex asia-east2 primary, off-HK PHIScrubber)."""
     return _invoke_live_provider(
@@ -766,6 +768,7 @@ def invoke_clinical_qa(
         patient_names_for_scrub=patient_names_for_scrub,
         engine_override=engine_override,
         timeout_seconds=timeout_seconds,
+        thinking_level=thinking_level,
     )
 
 

@@ -5131,6 +5131,29 @@ def create_acute_app(
     return app
 
 
+def _load_local_dotenv() -> None:
+    """Load gitignored repo-root `.env` for local uvicorn/watchdog runs without overriding existing env vars."""
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if not env_path.is_file():
+        return
+    try:
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            key = k.strip()
+            val = v.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = val
+    except Exception:
+        pass
+
+
 def app_from_env() -> FastAPI:
     """Factory entrypoint for uvicorn / Cloud Run: `uvicorn backend.acute.app:app_from_env --factory`."""
+    _load_local_dotenv()
     return create_acute_app(seed_on_startup=_is_demo_mode())
+
