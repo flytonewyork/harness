@@ -1153,14 +1153,36 @@ def _compile_journey_turn_update(
         )
     )
 
-    # Universal conversational handling: NEVER ignore "hi", "no", or "thanks" with a canned clinical dump
+    has_day3 = any(m.get("role") == "system" and m.get("time") == "Day +3" for m in raw_chat)
+
+    # Universal conversational handling: phase-aware so Sam NEVER ignores "hi", "no", or "thanks"
+    # and NEVER says "waiting for doctor review" if the doctor already signed off!
     if is_greeting:
-        steps.append("CareAgent · Greeted patient and invited symptom or clinic question")
-        reply = (
-            "你好！請問今日有咩可以幫到你——係身體唔舒服、想問用藥、查詢報告，定係想預約覆診？"
-            if is_zh
-            else "Hi there! What can I help you with today — a symptom, a medication question, a lab result, or an appointment?"
-        )
+        steps.append("CareAgent · Greeted patient in context of current care phase")
+        if has_day3:
+            reply = (
+                "你好！我係 Sam——見你覆診完已經過咗幾日，你而家身體好返晒未，有咩可以幫到你？"
+                if is_zh
+                else "Hi! Good to hear from you — how are you feeling a few days after your visit, and is there anything I can help arrange?"
+            )
+        elif has_signed:
+            reply = (
+                "你好！你嘅處方同相關文件已經喺上面對話入面——今日身體感覺點樣，有冇咩用藥或者覆診問題想問？"
+                if is_zh
+                else "Hi! Your care plan and documents are right above in this thread — how are you feeling, and is there anything about your recovery, medications, or a follow-up I can help with?"
+            )
+        elif current_state == "needs_decision":
+            reply = (
+                "你好！我已經將你之前嘅資料整理好交畀黃醫生審閱中——有冇咩最新症狀或者補充想話我知？"
+                if is_zh
+                else "Hi! Your summary is with Dr. Wong for review right now — is there any new symptom or detail you'd like me to add?"
+            )
+        else:
+            reply = (
+                "你好！請問今日有咩可以幫到你——係身體唔舒服、想問用藥、查詢報告，定係想預約覆診？"
+                if is_zh
+                else "Hi there! What can I help you with today — a symptom, a medication question, a lab result, or an appointment?"
+            )
         return (
             current_state,
             current_baton,
@@ -1173,20 +1195,44 @@ def _compile_journey_turn_update(
         )
 
     if is_short_no:
-        if is_followup_turn and any(k in last_sam_text for k in ("bruising", "bleeding", "瘀", "流牙血")):
-            steps.append("CareAgent · Logged negative bruising/bleeding screen for Dr. Sarah Wong")
+        if has_day3:
+            steps.append("CareAgent · Patient declined extra Day-3 booking; closed check-in warmly (doctor kept out of loop)")
             reply = (
-                "明白，冇瘀傷亦都冇流血就好放心——我已經幫你記低喺黃莎拉醫生嘅覆診記錄度。仲有冇其他問題想我預先通知醫生？"
+                "明白，冇問題！好開心知道你康復得順利——之後幾時有需要預約、打針或者問診，隨時喺度搵我就得。"
                 if is_zh
-                else "Good to hear there's no unusual bruising or bleeding — I've noted that for Dr. Sarah Wong ahead of your visit. Is there anything else you'd like me to flag?"
+                else "No problem at all — glad you're recovering smoothly! Just message here anytime if you ever need a future visit, vaccine, or anything else."
+            )
+            return ("scheduled", "idle", current_title, current_lead, "Check-in complete", summary, reply, steps)
+        if has_signed:
+            steps.append("CareAgent · Patient has no further post-sign questions; keeping loop quiet")
+            reply = (
+                "明白，一切清楚就好！記得多休息，我會喺 3 日後再問候你康復進度——期間有咩變化隨時話我知。"
+                if is_zh
+                else "Sounds good — glad everything is clear! Get plenty of rest, and I'll check in with you in 3 days. Message anytime if anything changes."
+            )
+            return ("scheduled", "idle", current_title, current_lead, current_cp, summary, reply, steps)
+        if is_followup_turn and any(k in last_sam_text for k in ("bruising", "bleeding", "瘀", "流牙血")):
+            steps.append("CareAgent · Logged negative bruising/bleeding screen for Dr. Wong")
+            reply = (
+                "明白，冇瘀傷亦都冇流血就好放心——我已經幫你記低喺黃醫生嘅覆診記錄度。仲有冇其他問題想我預先通知醫生？"
+                if is_zh
+                else "Good to hear there's no unusual bruising or bleeding — I've noted that for Dr. Wong ahead of your visit. Is there anything else you'd like me to flag?"
             )
             return (current_state, current_baton, current_title, current_lead, current_cp, summary, reply, steps)
-        if is_followup_turn and any(k in last_sam_text for k in ("rat", "快測", "breathing", "呼吸")):
-            steps.append("CareAgent · Logged follow-up response for Dr. Sarah Wong")
+        if is_followup_turn and any(k in last_sam_text for k in ("pregnant", "懷孕")):
+            steps.append("CareAgent · Logged negative pregnancy screen for Dr. Wong")
             reply = (
-                "收到，我已經記低畀黃莎拉醫生知。如果你陣間做咗快測或者有咩唔舒服，隨時喺度話我知就得。"
+                "多謝確認——我已經更新畀黃醫生，醫生好快就會確認合適嘅處方。記得多飲清水；如有發燒或腰背痛請即刻通知我哋。"
                 if is_zh
-                else "Got it — I've noted that for Dr. Sarah Wong. Just let me know if you end up doing a RAT test or if anything changes."
+                else "Thanks for confirming — I've updated Dr. Wong so she can send through your treatment shortly. Keep up your fluids, and let us know straight away if you develop fever or lower back pain."
+            )
+            return (current_state, current_baton, current_title, current_lead, current_cp, summary, reply, steps)
+        if is_followup_turn and any(k in last_sam_text for k in ("rat", "快測", "breathing", "呼吸", "chest pain", "心口痛")):
+            steps.append("CareAgent · Logged negative red-flag screen for Dr. Wong")
+            reply = (
+                "收到，冇氣促或心口痛就安心啲，我已經記低畀黃醫生知。仲有冇其他症狀或者需要（例如病假紙或覆診時間）想我一併整理？"
+                if is_zh
+                else "Good to hear you have no breathing trouble or chest pain — I've noted that for Dr. Wong. Is there anything else you'd like to mention (like fever readings, a sick note, or booking a visit)?"
             )
             return (current_state, current_baton, current_title, current_lead, current_cp, summary, reply, steps)
 
@@ -1208,12 +1254,27 @@ def _compile_journey_turn_update(
         )
 
     if is_simple_ack and is_followup_turn:
+        if has_signed:
+            steps.append("CareAgent · Warmly closed post-sign patient acknowledgement (care plan active)")
+            reply = (
+                "唔使客氣！你嘅處方同文件會一直保存喺對話入面，祝你早日康復——有任何變化隨時喺度搵我。"
+                if is_zh
+                else "You're very welcome! Your plan and documents stay right here in this chat — wishing you a smooth recovery, and message anytime if anything comes up."
+            )
+            return ("scheduled", "idle", current_title, current_lead, current_cp, summary, reply, steps)
         steps.append("CareAgent · Acknowledged patient reply cleanly")
-        reply = (
-            "唔使客氣——所有資料已經整理好放喺黃莎拉醫生嘅工作台。醫生一審閱簽署，更新就會直接傳送到呢個對話。"
-            if is_zh
-            else "You're very welcome — everything is updated in Dr. Sarah Wong's workspace. As soon as she reviews and signs off, any updates will arrive right here."
-        )
+        if current_state == "needs_decision":
+            reply = (
+                "唔使客氣——所有資料已經整理好放喺黃醫生嘅工作台。醫生一確認，更新就會直接傳送到呢個對話。"
+                if is_zh
+                else "You're very welcome — everything is ready in Dr. Wong's workspace now. As soon as she reviews and confirms, your plan will arrive right here."
+            )
+        else:
+            reply = (
+                "好呀！隨時話我知多啲你嘅症狀或者想安排嘅事項，我即刻幫你跟進。"
+                if is_zh
+                else "Sounds good! Whenever you're ready, just share a bit more about what you need and I'll get it lined up for you."
+            )
         return (current_state, current_baton, current_title, current_lead, current_cp, summary, reply, steps)
 
     # Post-sign-off follow-up loop: preserve signed care plan, handle admin/preventive autonomously, and only wake doctor on worsening symptoms
@@ -2109,7 +2170,8 @@ def handle_live_chat_turn(
 
         # 3. Compile Clinical Workspace Update (5/5 Linter Verified!)
         signed = _build_signed_plan_snapshot(session, tenant_id, pid)
-        has_signed = bool(signed) or any(m.get("role") == "doctor" and m.get("care_plan") for m in chat)
+        has_signed = bool(signed) or any(bool(m.get("care_plan")) for m in chat)
+        has_day3 = any(m.get("role") == "system" and m.get("time") == "Day +3" for m in chat)
         live_bus.update_patient_state(pid, active_agent="PresentationCompiler")
         new_state, new_baton, ai_title, lead_line, next_cp, updated_summary, fallback_reply, agent_steps = _compile_journey_turn_update(
             session=session,
@@ -2129,14 +2191,42 @@ def handle_live_chat_turn(
             current_cp=case.next_checkpoint_label or "Patient messaging Sam",
         )
 
-        # 4. Real-Time Multi-Turn Live LLM Response (Gemini 4 Hydrogen with thinking -> colloquial patient reply + Private Doctor reasoning trace!)
+        # 4. Real-Time Multi-Turn Live LLM Response (Gemini 4 Hydrogen with thinking -> phase-aware colloquial reply + Private Doctor reasoning trace!)
         reply = fallback_reply
         if engine.get("live"):
             lang_directive = "Write patient_reply warmly and concisely in natural Hong Kong Traditional Chinese / Cantonese (繁體中文)." if is_zh else "Write patient_reply warmly and concisely in clear, natural English."
             recent_turns = "\n".join(
-                f"- {m.get('actor', 'User')}: {str(m.get('text') or '')[:260]}"
-                for m in chat[-8:]
+                f"- {m.get('actor', 'User')} ({m.get('time', '')}): {str(m.get('text') or '')[:260]}"
+                for m in chat[-10:]
             )
+            if has_day3:
+                phase_desc = (
+                    "PHASE 4 · DAY +3 AUTONOMOUS POST-VISIT CHECK-IN: The doctor ALREADY reviewed and signed the patient's plan 3 days ago. "
+                    "Handle recovery check-ins, preventive care (e.g. flu shot), and clinic admin/nurse rebooking autonomously WITHOUT telling the patient to wait for doctor sign-off. "
+                    "Only escalate back to the doctor if the patient reports worsening or new red-flag symptoms."
+                )
+            elif has_signed:
+                signed_summary = ""
+                if signed:
+                    rx_s = "; ".join(signed.get("rx_lines") or [])
+                    cert_s = f"{len(signed.get('certificates') or [])} sick-leave cert(s)" if signed.get("certificates") else ""
+                    signed_summary = f" Already signed: {', '.join(x for x in (rx_s, cert_s) if x)}."
+                phase_desc = (
+                    f"PHASE 3 · POST-SIGN CARE ACTIVE: Dr. Sarah Wong ALREADY reviewed and signed the patient's plan.{signed_summary} "
+                    "NEVER say 'waiting for doctor to review' unless the patient reports new or worsening symptoms. "
+                    "Answer recovery/medication questions calmly, handle logistics/rebooking via clinic admin, and remind them of the 3-day check-in only if relevant."
+                )
+            elif new_state == "needs_decision":
+                phase_desc = (
+                    "PHASE 2 · SUMMARY READY FOR DOCTOR REVIEW: Clinical history is packaged for Dr. Sarah Wong. "
+                    "Acknowledge the patient's latest message specifically, answer any safe general question, and let them know Dr. Wong has the update."
+                )
+            else:
+                phase_desc = (
+                    "PHASE 1 · INITIAL REGISTRAR INTAKE (PATIENT LOOP): Doctor has NOT been interrupted yet. "
+                    "Ask 1–2 concise, open registrar-style clarifying questions (symptom onset, severity, red flags, available home vitals like temp/BP/pulse, or visit intent) tailored directly to what the patient just wrote."
+                )
+
             chart_facts = (
                 f"G6PD deficient={bool(pat.g6pd_deficient)}, "
                 f"Allergies={list(pat.allergies_json or [])}, "
@@ -2146,21 +2236,22 @@ def handle_live_chat_turn(
                 else "New / minimal intake (no prior chart alerts loaded)"
             )
             sys_prompt = (
-                "You are Sam, the Clinic Careline AI assistant at Central & Mid-Levels Family Medical (Hong Kong), acting like a calm clinical registrar during intake. "
+                "You are Sam, the Clinic Careline AI assistant at Central & Mid-Levels Family Medical (Hong Kong), acting like a calm clinical registrar. "
                 "Respond ONLY in valid JSON with two keys: {\"patient_reply\": string, \"clinical_reasoning\": string}. "
-                "Rules for patient_reply: 100% colloquial patient language; answer directly to what the patient JUST wrote; ask open registrar-style clarifying questions (including home BP/pulse/temp if relevant) before escalating; "
-                "NEVER mention technical medical alerts or jargon (such as G6PD, haemolysis, nitrofurantoin, or drug-class mechanisms) to the patient — keep those strictly in clinical_reasoning for the doctor; "
-                "NEVER claim to be a doctor, clinician, or resident; NEVER prescribe medications, promise reply SLAs, or repeat previous replies verbatim (1–3 concise sentences). "
-                "Rules for clinical_reasoning: 1–2 concise sentences for the doctor summarizing your registrar thinking steps (red-flag screen, missing history/home vitals, safety checks, and whether to keep in patient loop vs escalate to doctor/admin). "
+                "Rules for patient_reply: 100% warm, colloquial patient language; respond DIRECTLY to what the patient JUST wrote and respect the CURRENT LIFECYCLE PHASE; "
+                "NEVER mention internal medical alerts or technical jargon (such as G6PD, haemolysis, nitrofurantoin, or drug-class mechanisms) to the patient — keep those strictly in clinical_reasoning for the doctor; "
+                "NEVER claim to be a doctor, clinician, or resident; NEVER prescribe medications, promise reply SLAs, or repeat any prior Sam message verbatim (1–3 concise sentences). "
+                "Rules for clinical_reasoning: 1–2 concise sentences for the doctor summarizing your registrar thinking steps (phase awareness, red-flag screen, missing history/home vitals, safety checks, and routing decision). "
                 f"{lang_directive}"
             )
             user_prompt = (
+                f"Current Lifecycle Phase: {phase_desc}\n"
                 f"Patient: {j['patient_name']} ({j['age_sex']})\n"
                 f"Clinician-side chart context (do NOT dump to patient): {chart_facts}\n"
                 f"Deterministic CDS findings (clinician-side only): {cds_warnings or 'None'}\n"
                 f"Recent conversation:\n{recent_turns}\n\n"
                 f"Patient's latest message: {text}\n"
-                f"Reference clinic guidance (use only what fits the patient's message): {fallback_reply}"
+                f"Reference clinic guidance (use only what fits the patient's message and phase): {fallback_reply}"
             )
             chat_engine = dict(engine)
             if chat_engine.get("provider") in ("gemini", "vertex") and chat_engine.get("model") == "gemini-4-neon":
@@ -2168,7 +2259,7 @@ def handle_live_chat_turn(
             llm_call = invoke_clinical_qa(
                 system_prompt=sys_prompt,
                 user_prompt=user_prompt,
-                temperature=0.2,
+                temperature=0.25,
                 max_output_tokens=480,
                 patient_names_for_scrub=[j["patient_name"]],
                 engine_override=chat_engine,
@@ -2198,6 +2289,15 @@ def handle_live_chat_turn(
                         "text": parsed_reasoning,
                     })
                     updated_summary["agent_thread"] = at[-5:]
+
+        # Anti-repetition guard: never echo the exact previous Sam reply back-to-back
+        prev_sam = next((str(m.get("text") or "").strip() for m in reversed(chat) if m.get("actor") in ("Sam", "Assistant")), "")
+        if prev_sam and _plain_chat_text(reply).strip().lower() == prev_sam.lower():
+            reply = (
+                "收到你嘅補充——我已經記錄落去。仲有冇其他症狀或者問題想問，或者需要幫你安排預約？"
+                if is_zh
+                else "Got it — I've noted that update. Is there anything else you'd like to ask or have us arrange for you?"
+            )
 
         chat = list(updated_summary.get("original_chat") or [])
         chat.append({"actor": "Sam", "time": hhmm, "text": _plain_chat_text(reply), "lang": "zh-HK" if is_zh else "en"})
