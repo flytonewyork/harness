@@ -892,6 +892,7 @@ def create_acute_app(
             t_count = s.scalar(select(func.count(Tenant.id))) or 0
             t1 = s.get(Tenant, DEMO_TENANT_1)
             ai_enabled = bool(t1.ai_enabled) if t1 else True
+        from .agent_harness import detect_live_llm_engine
         return {
             "ok": True,
             "status": "ok",
@@ -903,6 +904,7 @@ def create_acute_app(
             "ai_enabled": ai_enabled,
             "tenants_count": int(t_count),
             "outbox_worker_enabled": outbox_worker_enabled,
+            "live_llm": detect_live_llm_engine(),
             "runtime_toggles": runtime_toggles(),
             "compliance": ["HK-PDPO-Cap486", "MCHK-Telemedicine", "HL7-FHIR-R4", "ISO-27799"],
         }
