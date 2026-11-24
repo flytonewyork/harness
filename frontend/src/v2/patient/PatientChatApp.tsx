@@ -43,6 +43,8 @@ interface ChatMsg {
   role?: "doctor" | "assistant" | "patient" | "system";
   time: string;
   text: string;
+  text_en?: string;
+  text_zh?: string;
   lang?: string;
   is_crisis?: boolean;
   trace_id?: string;
@@ -509,7 +511,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
                   maxWidth: "92%",
                 }}
               >
-                {m.text} · {m.time}
+                {isZh ? (m.text_zh || m.text) : (m.text_en || m.text)} · {m.time}
               </div>
             );
           }
@@ -517,6 +519,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           const isDoctorCard = m.role === "doctor" || Boolean(m.care_plan);
           const isClinic = m.actor === "Sam" || m.role === "assistant";
           const isPatient = !isDoctorCard && !isClinic;
+          const localizedText = isZh ? (m.text_zh || m.text) : (m.text_en || m.text);
 
           if (isDoctorCard && m.care_plan) {
             const prescriptions = m.care_plan.prescriptions || [];
@@ -532,7 +535,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
                 <div className="pc-row is-clinic">
                   <span className="pc-sender-label">Sam · {isZh ? "AI 駐診助手" : "AI Resident"}</span>
                   <div className="pc-bubble">
-                    <div>{m.text}</div>
+                    <div>{localizedText}</div>
                     {fallbackRxLines.length > 0 && (
                       <ul className="pc-doctor-list" style={{ marginTop: 8 }}>
                         {fallbackRxLines.map((line, i) => (
@@ -724,7 +727,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           return (
             <div key={idx} className={`pc-row ${isPatient ? "is-patient" : "is-clinic"}${hasBooking ? " has-booking" : ""}`}>
               {!isPatient && <span className="pc-sender-label">Sam · {isZh ? "AI 駐診助手" : "AI Resident"}</span>}
-              <div className="pc-bubble">{renderBoldText(m.text)}</div>
+              <div className="pc-bubble">{renderBoldText(localizedText)}</div>
               {hasBooking && m.booking_offer && (
                 <BookingOfferCard
                   offer={m.booking_offer}

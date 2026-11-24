@@ -414,10 +414,10 @@ def should_attach_booking_offer(
                 return False
         return True
 
-    # Proactively offer on the first clinical turn that genuinely requires a scheduled visit (chan & lau_chest).
-    # Cases 1 (wingyan) and 2 (tang_uti) proceed naturally via chat review unless the patient asks to book.
+    # Proactively offer on the first clinical turn that genuinely requires an immediate in-clinic visit (chan).
+    # Cases 1 & 2 proceed via chat review unless requested; Case 4 (lau_chest) offers booking after Dr. Wong confirms tests/prevention plan.
     if not already_offered and not has_signed and new_state == "needs_decision":
-        if j_key in ("chan", "lau_chest"):
+        if j_key == "chan":
             return True
 
     return False
@@ -820,28 +820,25 @@ def confirm_live_chat_booking(
                     updated_any_offer = True
                     break
 
-        # Add a crisp confirmation message from Sam in the chat thread
+        # Add a crisp confirmation message from Sam in the chat thread (bilingual for live EN/ZH toggle)
         if clean_modality == "async_message":
-            confirm_text = (
-                f"已確認非同步訊息審閱（即時意見）：{target_doc['name_zh']}（參考編號 {booking_ref}）。你的症狀同家居讀數已經放上醫生工作台，簽署後電子處方同病假紙會直接傳送到呢度。"
-                if is_zh
-                else f"Confirmed async message review (Instant Opinion) with {target_doc['name_en']} (Ref {booking_ref}). Your symptoms and home vitals are already on the doctor's desk — your signed e-prescription and sick-leave certificate will arrive right here shortly."
-            )
-            sched_label = f"Async Review (Instant Opinion) · {target_doc['name_en']} ({booking_ref})"
-            tl_label = f"SchedulingAgent · Confirmed async Instant Opinion with {target_doc['name_en']} ({booking_ref})."
+            confirm_en = f"Confirmed doctor review with {target_doc['name_en']} (Ref {booking_ref}). Your symptoms and home vitals are already on the doctor's desk — your signed plan will arrive right here shortly."
+            confirm_zh = f"已確認由 {target_doc['name_zh']} 審閱（參考編號 {booking_ref}）。你的症狀同家居讀數已經放上醫生工作台，簽署後會直接喺呢度通知你。"
+            sched_label = f"Doctor Review · {target_doc['name_en']} ({booking_ref})"
+            tl_label = f"SchedulingAgent · Confirmed doctor review with {target_doc['name_en']} ({booking_ref})."
         else:
-            confirm_text = (
-                f"已為你{'更改並' if is_reschedule else ''}確認預約：{target_slot['short_day_zh']} {target_slot['time']} · {target_doc['name_zh']}（{modality_zh}，參考編號 {booking_ref}）。我已同步更新診所時間表及醫生摘要。"
-                if is_zh
-                else f"{'Updated and confirmed' if is_reschedule else 'Booked'} your {modality_en.lower()} appointment with {target_doc['name_en']} for {target_slot['short_day_en']} at {target_slot['time']} (Ref {booking_ref}). I've synced this straight to the clinic schedule and clinician workspace."
-            )
+            confirm_en = f"{'Updated and confirmed' if is_reschedule else 'Booked'} your {modality_en.lower()} appointment with {target_doc['name_en']} for {target_slot['short_day_en']} at {target_slot['time']} (Ref {booking_ref}). I've synced this straight to the clinic schedule and clinician workspace."
+            confirm_zh = f"已為你{'更改並' if is_reschedule else ''}確認預約：{target_slot['short_day_zh']} {target_slot['time']} · {target_doc['name_zh']}（{modality_zh}，參考編號 {booking_ref}）。我已同步更新診所時間表及醫生摘要。"
             sched_label = f"{target_slot['short_day_en']} {target_slot['time']} · {target_doc['name_en']} ({modality_en} · {profile['visit_type_en']} · {booking_ref})"
             tl_label = f"SchedulingAgent · {'Rescheduled' if is_reschedule else 'Booked'} {target_doc['name_en']} ({target_slot['short_day_en']} {target_slot['time']}, {modality_en}, {booking_ref})."
+        confirm_text = confirm_zh if is_zh else confirm_en
         chat.append({
             "actor": "Sam",
             "role": "assistant",
             "time": hhmm,
             "text": confirm_text,
+            "text_en": confirm_en,
+            "text_zh": confirm_zh,
             "lang": "zh-HK" if is_zh else "en",
         })
         summary["original_chat"] = chat

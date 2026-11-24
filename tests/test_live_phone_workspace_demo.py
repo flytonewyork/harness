@@ -854,16 +854,19 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert conf_tang.status_code == 200
     assert conf_tang.json()["case_state"] == "closed"
 
-    # ---- CASE 3: chan (Post-Discharge AFib — Cantonese default) ----
+    # ---- CASE 3: chan (Post-Discharge AFib — Cantonese default, live EN/ZH toggle on messages) ----
     s3 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "chan", "lang": "zh-HK"}).json()
     assert len(s3["suggested_replies"]) == 1
     assert s3["journey"]["default_lang"] == "zh-HK"
+    assert s3["messages"][0].get("text_en") and s3["messages"][0].get("text_zh")
     t3 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "chan", "message": s3["suggested_replies"][0], "lang": "zh-HK", "is_preset": True},
     ).json()
     assert t3["case_state"] == "needs_decision"
     assert "！" not in t3["reply"] and "!" not in t3["reply"]
+    assert t3["messages"][-1].get("text_en") and t3["messages"][-1].get("text_zh")
+    assert t3["messages"][-2].get("text_en") and t3["messages"][-2].get("text_zh")
     assert t3["booking_offer"] is not None
     assert t3["booking_offer"]["modality"] == "in_clinic"
     assert t3["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_wong"
@@ -905,22 +908,29 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert "do not need to fast" in t3_post["reply"].lower()
     assert "bruising" in t3_post["reply"].lower()
 
-    # ---- CASE 4: lau_chest (Cardiac Chronic Disease & Prevention) ----
+    # ---- CASE 4: lau_chest (Cardiac Chronic Disease & Prevention — 2-step intake, post-sign prevention confirmation + Dr. Wong follow-up booking) ----
     s4 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "lau_chest", "lang": "en"}).json()
     assert len(s4["suggested_replies"]) == 1
-    t4 = client.post(
+    # Turn 1: Sam confirms daily adherence & seated BP technique first (stays running, NO premature booking card!)
+    t4_1 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "lau_chest", "message": s4["suggested_replies"][0], "lang": "en", "is_preset": True},
     ).json()
-    assert t4["case_state"] == "needs_decision"
-    assert t4["lint_report"]["passed"] is True
-    assert "!" not in t4["reply"]
-    assert t4["booking_offer"] is not None
-    assert t4["booking_offer"]["modality"] == "teleconsult"
-    assert t4["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_wong"
-    assert t4["booking_offer"]["recommended"]["time"] == "14:15"
-    assert len(t4["suggested_replies"]) == 1
-    assert "perindopril" in t4["suggested_replies"][0].lower()
+    assert t4_1["case_state"] == "running"
+    assert t4_1["booking_offer"] is None
+    assert "!" not in t4_1["reply"]
+    assert len(t4_1["suggested_replies"]) == 1
+    assert "perindopril" in t4_1["suggested_replies"][0].lower()
+
+    # Turn 2: Patient confirms adherence + asks to bundle flu shot & routine checks -> escalates to Dr. Wong (still no premature booking card!)
+    t4_2 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "lau_chest", "message": t4_1["suggested_replies"][0], "lang": "en", "is_preset": True},
+    ).json()
+    assert t4_2["case_state"] == "needs_decision"
+    assert t4_2["lint_report"]["passed"] is True
+    assert "!" not in t4_2["reply"]
+    assert t4_2["booking_offer"] is None
     ov4 = client.get("/api/v1/workspace/overview?mode=live").json()
     lau_case = next(c for c in ov4["cases"] if c["case_key"] == "lau_chest")
     lau_sum = lau_case["summary"]
@@ -933,20 +943,32 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
         o["type"] == "lab" and "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)" in o.get("testName", "")
         for o in lau_sum["issues"][0]["suggested_orders"]
     )
+    # Doctor signs Perindopril + Fasting Lipid/RFT + Flu Shot + Mammogram -> Sam confirms ALL prevention items & starts Dr. Wong post-tests booking flow!
     conf_lau = client.post(
         f"/api/v1/workspace/cases/{lau_case['id']}/confirm",
         json={
             "actor_name": "Locum Dr. Sarah Wong",
             "mchk_reg_no": "M16412",
-            "instruction_text": "Perindopril 8mg + Fasting Lipid/RFT + BP goal <135/85",
+            "instruction_text": "Perindopril 8mg + Fasting Lipid/RFT + Flu Shot + Mammogram",
             "orders": [
                 {"id": "lau_rx_perind", "type": "rx", "action": "update", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "drug": "Perindopril 8mg", "freq": "OM daily", "days": "30d"},
                 {"id": "lau_lab", "type": "lab", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "when": "Before clinic review"},
+                {"id": "ord_lau_flu", "type": "book", "issue": "Preventive Care", "visitType": "10-min Nurse Flu Shot", "when": "At clinic review"},
+                {"id": "ord_lau_mammo", "type": "imaging", "issue": "Preventive Care", "modality": "Bilateral Screening Mammogram", "indication": "HK biennial breast screening (64F)"},
             ],
         },
     )
     assert conf_lau.status_code == 200
     assert conf_lau.json()["case_state"] == "scheduled"
+    st4_after = client.get("/api/v1/demo/live/chat/state/lau_chest?lang=en").json()
+    signed_plan_msg = next(m for m in reversed(st4_after["messages"]) if m.get("care_plan"))
+    assert "Fasting Lipid Profile" in signed_plan_msg["text"]
+    assert "Mammogram" in signed_plan_msg["text"]
+    assert "Flu Shot" in signed_plan_msg["text"]
+    booking_followup_msg = st4_after["messages"][-1]
+    assert booking_followup_msg.get("booking_offer") is not None
+    assert booking_followup_msg["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_wong"
+    assert booking_followup_msg["booking_offer"]["modality"] == "teleconsult"
 
 
 def test_ai_generated_suggested_replies_replace_stale_static_chips_and_survive_polling(tmp_path, monkeypatch):

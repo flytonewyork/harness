@@ -1072,6 +1072,9 @@ def start_live_journey(
         if existing is None:
             doc_id, doc_label, doc_quote = _seed_journey_prior_record(session, tenant_id, j_key)
             summary = _build_initial_summary(j_key, doc_id, doc_label, doc_quote, welcome_msg)
+            if summary.get("original_chat") and isinstance(summary["original_chat"][0], dict):
+                summary["original_chat"][0]["text_en"] = j["welcome_en"]
+                summary["original_chat"][0]["text_zh"] = j["welcome_zh"]
             now = utcnow()
             hhmm = _hkt_hhmm()
             case = CaseLoop(
@@ -2068,20 +2071,18 @@ def _compile_journey_turn_update(
 
         if not (asked_nsaid or asked_meds or asked_appt or mentioned_no_bleed):
             steps.append("CareAgent · Replied to patient's message and offered help with visit or medications")
-            reply = (
-                "收到。請問你今日想查詢邊方面——係醫院出院後嘅用藥安排、身體有冇唔舒服，定係想確認今日 11:30 嘅覆診？"
-                if is_zh
-                else "Got it — how can I best help you right now? I can help check your medications, note any symptoms for Dr. Sarah Wong, or confirm your visit details."
-            )
+            r_en = "Got it — how can I best help you right now? I can help check your medications, note any symptoms for Dr. Sarah Wong, or confirm your visit details."
+            r_zh = "收到。請問你今日想查詢邊方面——係醫院出院後嘅用藥安排、身體有冇唔舒服，定係想確認今日 11:30 嘅覆診？"
+            summary["_last_reply_bilingual"] = (r_en, r_zh)
+            reply = r_zh if is_zh else r_en
             return (current_state, current_baton, current_title or "Post-QEH Discharge Check-In", current_lead, current_cp, summary, reply, steps)
 
         if asked_appt and not (asked_nsaid or asked_meds):
             steps.append("CareAgent · Checked live doctor availability for post-discharge follow-up")
-            reply = (
-                "我查閱咗今日診所時間表——黃莎拉醫生今日上午 11:30 有空檔幫你覆診及核對藥袋（可喺下方確認或揀其他醫生時間）。麻煩記得帶齊你屋企所有醫院新藥袋同舊藥過嚟核對。"
-                if is_zh
-                else "I checked today's clinic schedule — Dr. Sarah Wong has an open 11:30 slot for your post-discharge review below (or you can pick another doctor or time). Please bring all of your hospital and clinic medicine bags so we can review them together."
-            )
+            r_en = "I checked today's clinic schedule — Dr. Sarah Wong has an open 11:30 slot for your post-discharge review below (or you can pick another doctor or time). Please bring all of your hospital and clinic medicine bags so we can review them together."
+            r_zh = "我查閱咗今日診所時間表——黃莎拉醫生今日上午 11:30 有空檔幫你覆診及核對藥袋（可喺下方確認或揀其他醫生時間）。麻煩記得帶齊你屋企所有醫院新藥袋同舊藥過嚟核對。"
+            summary["_last_reply_bilingual"] = (r_en, r_zh)
+            reply = r_zh if is_zh else r_en
             return (current_state, current_baton, current_title or "Post-QEH Discharge Check-In", current_lead, current_cp, summary, reply, steps)
 
         summary["issues"] = [
@@ -2145,6 +2146,7 @@ def _compile_journey_turn_update(
                 "好多謝你食藥前先問清楚——請千祈唔好同時食兩隻降膽固醇藥，並等黃莎拉醫生確認你嘅薄血丸同降膽固醇藥劑量後先好服食今日嘅藥。\n\n"
                 "我已經將伊利沙伯醫院出院改藥對照放咗喺黃莎拉醫生嘅工作台，亦查閱咗今日診所時間表——黃莎拉醫生今日 11:30 有空檔幫你當面核對藥袋（可喺下方確認或揀其他時段）。你最近有冇發現容易瘀傷或者流牙血？"
             )
+        summary["_last_reply_bilingual"] = (reply_en, reply_zh)
         return (
             "needs_decision",
             "with_doctor",
@@ -3053,12 +3055,36 @@ def handle_live_chat_turn(
         llm_requested_booking=llm_offer_booking,
     )
     booking_offer: dict[str, Any] | None = None
+    bilingual_pair = updated_summary.pop("_last_reply_bilingual", None)
     sam_msg: dict[str, Any] = {
         "actor": "Sam",
         "time": hhmm,
         "text": reply,
         "lang": "zh-HK" if is_zh else "en",
     }
+    if isinstance(bilingual_pair, (list, tuple)) and len(bilingual_pair) == 2:
+        sam_msg["text_en"] = _plain_chat_text(str(bilingual_pair[0]))
+        sam_msg["text_zh"] = _plain_chat_text(str(bilingual_pair[1]))
+
+    # Attach bilingual text_en/text_zh to the latest patient message if it matches a bilingual preset pair
+    if chat and isinstance(chat[-1], dict) and chat[-1].get("actor") not in ("Sam", "Clinic", "System"):
+        last_pt = chat[-1]
+        norm_pt = str(last_pt.get("text") or "").strip().lower()
+        preset_pairs: list[tuple[list[str], list[str]]] = [
+            (list(j.get("suggested_replies_en") or []), list(j.get("suggested_replies_zh") or [])),
+            (_POST_SIGN_CHAN_REPLIES_EN, _POST_SIGN_CHAN_REPLIES_ZH),
+            (_POST_SIGN_REPLIES_EN, _POST_SIGN_REPLIES_ZH),
+            (_DAY3_REPLIES_EN, _DAY3_REPLIES_ZH),
+            (_DAY3_CONCERN_REPLIES_EN, _DAY3_CONCERN_REPLIES_ZH),
+        ]
+        for en_list, zh_list in preset_pairs:
+            for en_s, zh_s in zip(en_list, zh_list):
+                if norm_pt in (en_s.strip().lower(), zh_s.strip().lower()):
+                    last_pt["text_en"] = en_s
+                    last_pt["text_zh"] = zh_s
+                    break
+            if "text_en" in last_pt:
+                break
 
     if not (live_reply_used and dynamic_suggested_replies):
         updated_summary.pop("_dynamic_suggested_replies", None)
@@ -3306,13 +3332,15 @@ def append_doctor_signed_chat_bubble(
     trace_id: str,
     nurse_handover_only: bool = False,
     nurse_assignee: str = "Nurse Rachel (RN)",
+    signed_orders: list[dict[str, Any]] | None = None,
 ) -> None:
     """Append a clinically accurate status event + Sam's message into `CaseLoop.summary_json['original_chat']`.
 
     - When `nurse_handover_only=True`: notifies patient that Nurse Rachel will perform vitals/exam first
       (NEVER claims clinical review is complete and NEVER attaches sick leave or prescriptions).
     - Otherwise: delivers full structured e-Prescription details (dose, route, frequency, duration, quantity,
-      dispensing details, PDF download ID) and MCHK Sick-Leave PDF.
+      dispensing details, PDF download ID), MCHK Sick-Leave PDF, explicit confirmation of signed lab/imaging/
+      preventive orders, and (for Case 4 / post-tests reviews) a follow-up booking flow with Dr. Sarah Wong.
     """
     case = session.get(CaseLoop, case_id)
     if case is None:
@@ -3375,31 +3403,83 @@ def append_doctor_signed_chat_bubble(
             "items": enriched_items,
         })
 
-    parts: list[str] = []
+    # Collect human-readable confirmations for lab, imaging, preventive, booking, and goal orders
+    orders_list = list(signed_orders or [])
+    confirmed_items_en: list[str] = []
+    confirmed_items_zh: list[str] = []
+    has_tests_or_prev = False
+    for o in orders_list:
+        otype = str(o.get("type") or "").lower()
+        if otype == "lab":
+            has_tests_or_prev = True
+            tname = o.get("test_name") or o.get("testName") or "Blood / Lab Test"
+            when = f" ({o.get('when')})" if o.get("when") else ""
+            confirmed_items_en.append(f"{tname}{when}")
+            confirmed_items_zh.append(f"{tname}{when}")
+        elif otype == "imaging":
+            has_tests_or_prev = True
+            mod = o.get("modality") or "Imaging Referral"
+            confirmed_items_en.append(f"{mod} referral")
+            confirmed_items_zh.append(f"{mod} 轉介")
+        elif otype == "book":
+            has_tests_or_prev = True
+            vt = o.get("visit_type") or o.get("visitType") or "Clinic Visit"
+            confirmed_items_en.append(vt)
+            confirmed_items_zh.append(vt)
+        elif otype == "goal":
+            metric = o.get("metric") or o.get("title") or ""
+            if o.get("target_sys") and o.get("target_dia"):
+                confirmed_items_en.append(f"Home BP target < {o['target_sys']}/{o['target_dia']} mmHg")
+                confirmed_items_zh.append(f"家居血壓目標 < {o['target_sys']}/{o['target_dia']} mmHg")
+            elif metric:
+                confirmed_items_en.append(metric)
+                confirmed_items_zh.append(metric)
+
+    parts_en: list[str] = []
+    parts_zh: list[str] = []
     if structured_prescriptions and certificates_out:
-        parts.append("Your signed e-prescription and MCHK sick-leave certificate are ready below.")
+        parts_en.append("Your signed e-prescription and MCHK sick-leave certificate are ready below.")
+        parts_zh.append("你的已簽署電子處方同香港註冊西醫病假紙已經準備好喺下方。")
     elif structured_prescriptions:
-        parts.append("Your signed e-prescription is ready below with full dosing and dispensing details.")
+        parts_en.append("Your signed e-prescription is ready below with full dosing and dispensing details.")
+        parts_zh.append("你的已簽署電子處方已經準備好喺下方，附有完整服法同配藥詳情。")
     elif certificates_out:
-        parts.append("Your MCHK sick-leave certificate is ready below.")
+        parts_en.append("Your MCHK sick-leave certificate is ready below.")
+        parts_zh.append("你的香港註冊西醫病假紙已經準備好喺下方。")
     else:
-        parts.append("Your care plan has been confirmed below.")
-    if bookings_out:
-        parts.append(f"{len(bookings_out)} follow-up booking(s) queued.")
-    parts.append("I will check in with you here in 3 days to see how you are recovering.")
+        parts_en.append("Your care plan has been confirmed below.")
+        parts_zh.append("醫生已經確認你的護理計劃。")
+
+    if confirmed_items_en:
+        parts_en.append("Confirmed orders and preventive checks: " + "; ".join(confirmed_items_en) + ".")
+        parts_zh.append("已確認檢查及預防項目：" + "；".join(confirmed_items_zh) + "。")
+    elif bookings_out:
+        parts_en.append(f"{len(bookings_out)} follow-up booking(s) queued.")
+        parts_zh.append(f"已安排 {len(bookings_out)} 項跟進預約。")
+
+    if not (case.case_key == "lau_chest" and has_tests_or_prev):
+        parts_en.append("I will check in with you here in 3 days to see how you are recovering.")
+        parts_zh.append("我會喺 3 日後主動喺呢度跟進你嘅康復情況。")
 
     eg = dict(summary.get("exam_gate") or {})
     exam_done = eg.get("doctor_exam_status") == "completed"
-    divider_txt = (
+    divider_en = (
         f"{display_doc} completed your examination and signed your care plan"
         if exam_done
         else f"{display_doc} completed your clinical review"
+    )
+    divider_zh = (
+        f"{display_doc} 已完成檢查並簽署你的護理計劃"
+        if exam_done
+        else f"{display_doc} 已完成臨床審閱"
     )
     chat.append({
         "actor": "Clinic",
         "role": "system",
         "time": hhmm,
-        "text": divider_txt,
+        "text": divider_en,
+        "text_en": divider_en,
+        "text_zh": divider_zh,
         "trace_id": trace_id,
     })
 
@@ -3407,7 +3487,9 @@ def append_doctor_signed_chat_bubble(
         "actor": "Sam",
         "role": "assistant",
         "time": hhmm,
-        "text": " ".join(parts),
+        "text": " ".join(parts_en),
+        "text_en": " ".join(parts_en),
+        "text_zh": " ".join(parts_zh),
         "trace_id": trace_id,
         "care_plan": {
             "signed_by": display_doc,
@@ -3426,6 +3508,35 @@ def append_doctor_signed_chat_bubble(
             ],
         },
     })
+
+    # For Case 4 (lau_chest) after tests/preventive orders are confirmed, start a post-tests follow-up booking flow with Dr. Sarah Wong
+    already_booked = isinstance(summary.get("booked_appointment"), dict) and summary["booked_appointment"].get("status") == "confirmed"
+    if case.case_key == "lau_chest" and has_tests_or_prev and not already_booked:
+        followup_offer = select_booking_offer(
+            session,
+            case.tenant_id,
+            j_key="lau_chest",
+            patient_text="follow-up review after blood tests",
+        )
+        followup_en = (
+            "Once your blood tests and preventive checks are done, let's book a follow-up review with Dr. Sarah Wong to go over your results and blood pressure together. "
+            "Would you prefer Teleconsult or In-Clinic? Pick a suitable time with Dr. Wong below."
+        )
+        followup_zh = (
+            "等你完成抽血同預防檢查之後，我哋可以幫你預約黃莎拉醫生覆診一齊睇報告同跟進血壓。"
+            "你想揀視像診症定親臨診所？你可以喺下方揀選合適時間。"
+        )
+        chat.append({
+            "actor": "Sam",
+            "role": "assistant",
+            "time": hhmm,
+            "text": followup_en,
+            "text_en": followup_en,
+            "text_zh": followup_zh,
+            "trace_id": trace_id,
+            "booking_offer": followup_offer,
+        })
+
     summary["original_chat"] = chat
     summary.pop("_dynamic_suggested_replies", None)
     tasks = list(summary.get("scheduled_tasks") or [])

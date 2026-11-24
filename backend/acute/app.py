@@ -1945,6 +1945,7 @@ def create_acute_app(
                 trace_id=trace_id,
                 nurse_handover_only=nurse_handover_only,
                 nurse_assignee=nurse_assignee_lbl,
+                signed_orders=parsed_orders,
             )
             s.flush()
 
