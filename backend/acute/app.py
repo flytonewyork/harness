@@ -1087,8 +1087,16 @@ def create_acute_app(
             }
 
     @app.get("/api/v1/emr/overview")
-    def emr_overview(request: Request, patient_id: str | None = Query(default=None)):
-        """LoopBench-backed Simulated Clinic EMR snapshot + Live Multi-Agent Harness Inspector state + Additive EMR Addenda."""
+    def emr_overview(
+        request: Request,
+        patient_id: str | None = Query(default=None),
+        mode: str = Query(default="seeded"),
+    ):
+        """LoopBench-backed Simulated Clinic EMR snapshot + Live Multi-Agent Harness Inspector state + Additive EMR Addenda.
+
+        Supports `mode=live` for the 3-screen blank-start demo (`/emr?mode=live`), showing 0 patients until
+        a patient initiates on the phone or a doctor signs a plan, then populating strictly active live cases.
+        """
         tenant_id = DEMO_TENANT_1
         if not _is_demo_mode():
             claims = extract_claims(request, allowed_roles=("clinician", "nurse", "clinic_admin"))
@@ -1103,7 +1111,72 @@ def create_acute_app(
         for p in ov.get("patients") or []:
             if isinstance(p, dict):
                 p["emr_addenda"] = by_pat_addenda.get(str(p.get("id") or ""), [])
-        ov["emr_addenda"] = all_addenda
+
+        if mode == "live":
+            with database.tenant_session(tenant_id) as s:
+                live_cases = s.scalars(select(CaseLoop).where(CaseLoop.tenant_id == tenant_id)).all()
+                active_pids = {c.patient_id for c in live_cases}
+                existing_by_id = {
+                    str(p.get("id") or ""): p
+                    for p in (ov.get("patients") or [])
+                    if isinstance(p, dict)
+                }
+                live_patients_out: list[dict[str, Any]] = []
+                for c in live_cases:
+                    pid = c.patient_id
+                    if pid in existing_by_id:
+                        live_patients_out.append(existing_by_id[pid])
+                        continue
+                    pat = s.get(Patient, pid)
+                    pat_addenda = by_pat_addenda.get(pid, [])
+                    live_patients_out.append(
+                        {
+                            "id": pid,
+                            "source": "live_clinic",
+                            "badge": "Live Phone Case",
+                            "name_en": pat.name_en if pat else c.patient_name,
+                            "name_zh": pat.name_zh if pat else "",
+                            "sex": pat.sex if pat else (c.patient_age_sex[-1:] if c.patient_age_sex else "U"),
+                            "dob": pat.dob if pat else "",
+                            "age": int(c.patient_age_sex[:-1]) if c.patient_age_sex and c.patient_age_sex[:-1].isdigit() else None,
+                            "hkid_masked": pat.hkid_masked if pat else "HKID ****",
+                            "employer": "Central & Mid-Levels Family Medical",
+                            "phone_connected": True,
+                            "g6pd_deficient": bool(pat.g6pd_deficient) if pat else False,
+                            "allergies": list(pat.allergies_json or []) if pat else [],
+                            "current_meds": list(pat.current_meds_json or []) if pat else [],
+                            "egfr": pat.egfr if pat else None,
+                            "flu_vax_status": "up_to_date",
+                            "open_loops": [
+                                {
+                                    "id": c.id,
+                                    "title": c.ai_title,
+                                    "status": "closed" if c.state == "closed" else "open",
+                                    "state": c.state,
+                                }
+                            ],
+                            "documents": [
+                                {
+                                    "id": str(att.get("id") or "doc"),
+                                    "title": str(att.get("label") or "Verified Clinic Document"),
+                                    "summary": str(att.get("quote") or ""),
+                                    "verified_3pt": bool(att.get("verified_3pt", True)),
+                                }
+                                for att in ((c.summary_json or {}).get("attachments") or [])
+                                if isinstance(att, dict)
+                            ],
+                            "encounters": [],
+                            "prescriptions": [],
+                            "certificates": [],
+                            "emr_addenda": pat_addenda,
+                        }
+                    )
+                ov["patients"] = live_patients_out
+                ov["emr_addenda"] = [a for a in all_addenda if str(a.get("patient_id") or "") in active_pids]
+        else:
+            ov["emr_addenda"] = all_addenda
+
+        ov["mode"] = mode
         ov["emr_bridge"] = emr_adapter.bridge_metadata(database, tenant_id)
         return ov
 

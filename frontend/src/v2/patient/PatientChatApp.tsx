@@ -27,6 +27,7 @@ interface ChatMsg {
 
 interface JourneyMeta {
   key: string;
+  category?: "acute" | "chronic" | "family";
   patient_id: string;
   patient_name: string;
   patient_name_zh: string;
@@ -35,8 +36,15 @@ interface JourneyMeta {
   title_zh: string;
   subtitle: string;
   status: string;
+  baton?: string | null;
   message_count: number;
 }
+
+const JOURNEY_GROUPS: Array<{ key: "acute" | "chronic" | "family"; labelEn: string; labelZh: string }> = [
+  { key: "acute", labelEn: "Acute & Same-Day", labelZh: "即日急症及常見病" },
+  { key: "chronic", labelEn: "Hospital Follow-Up & Chronic", labelZh: "出院覆診及慢性病" },
+  { key: "family", labelEn: "Checkups & Family Care", labelZh: "驗身、家庭及常規" },
+];
 
 interface PatientChatAppProps {
   initialJourney?: string;
@@ -52,10 +60,14 @@ function renderBoldText(text: string) {
   });
 }
 
-function statusBadgeLabel(status: string, isZh: boolean): { text: string; live: boolean } {
+function statusBadgeLabel(status: string, baton: string | null | undefined, isZh: boolean): { text: string; live: boolean } {
+  if (status === "signed") {
+    return { text: isZh ? "醫生已簽署 ✓" : "Signed ✓", live: true };
+  }
+  if (baton === "with_nurse") {
+    return { text: isZh ? "護士核對中" : "Nurse Check", live: true };
+  }
   switch (status) {
-    case "signed":
-      return { text: isZh ? "醫生已簽署 ✓" : "Signed ✓", live: true };
     case "needs_decision":
       return { text: isZh ? "醫生審閱中" : "With Doctor", live: true };
     case "running":
@@ -198,6 +210,11 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
             return st.messages;
           });
           setCrisis(st.crisis || null);
+          if (Array.isArray(st.suggested_replies)) {
+            setSuggestedReplies((prev) =>
+              JSON.stringify(prev) === JSON.stringify(st.suggested_replies) ? prev : st.suggested_replies,
+            );
+          }
         }
         void refreshJourneys();
       } catch {
@@ -536,9 +553,11 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           <aside className="pc-drawer" data-testid="patient-journeys-drawer">
             <div className="pc-drawer-head">
               <div>
-                <div className="pc-drawer-title">{isZh ? "示範病人旅程" : "Patient Demo Journeys"}</div>
+                <div className="pc-drawer-title">
+                  {isZh ? `診所病人個案（${journeys.length} 位）` : `Patient Journeys (${journeys.length})`}
+                </div>
                 <div className="pc-drawer-sub">
-                  {isZh ? "選擇不同病人視角開始新對話" : "Select a patient perspective to start a new live case"}
+                  {isZh ? "選擇病人視角，從空白對話即時互動" : "Pick any patient to start a live conversation"}
                 </div>
               </div>
               <button type="button" className="pc-icon-btn" onClick={() => setDrawerOpen(false)} aria-label="Close sidebar">
@@ -547,55 +566,67 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
             </div>
 
             <div className="pc-drawer-list">
-              {journeys.map((j) => {
-                const isActive = j.key === journeyKey;
-                const badge = statusBadgeLabel(j.status, isZh);
+              {JOURNEY_GROUPS.map((grp) => {
+                const items = journeys.filter((j) => (j.category || "acute") === grp.key);
+                if (items.length === 0) return null;
                 return (
-                  <div
-                    key={j.key}
-                    className={`pc-journey-item ${isActive ? "is-active" : ""}`}
-                    onClick={() => handleSelectJourney(j.key, false)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleSelectJourney(j.key, false); }}
-                    data-testid={`journey-option-${j.key}`}
-                  >
-                    <div className="pc-journey-top">
-                      <span className="pc-journey-name">
-                        {isZh ? j.patient_name_zh : j.patient_name} ({j.age_sex})
-                      </span>
-                      <span className={`pc-journey-badge ${badge.live ? "is-live" : ""}`}>
-                        {badge.text}
-                      </span>
+                  <div key={grp.key} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div className="pc-drawer-section">
+                      <span>{isZh ? grp.labelZh : grp.labelEn}</span>
+                      <span>{items.length}</span>
                     </div>
-                    <div className="pc-journey-title">{isZh ? j.title_zh : j.title}</div>
-                    <div className="pc-journey-sub">{j.subtitle}</div>
-                    {j.status !== "not_started" && (
-                      <div style={{ marginTop: 4 }}>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectJourney(j.key, true);
-                          }}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            fontSize: 11.5,
-                            color: "var(--pc-jade)",
-                            background: "none",
-                            border: "none",
-                            padding: 0,
-                            cursor: "pointer",
-                            fontWeight: 600,
-                          }}
+                    {items.map((j) => {
+                      const isActive = j.key === journeyKey;
+                      const badge = statusBadgeLabel(j.status, j.baton, isZh);
+                      return (
+                        <div
+                          key={j.key}
+                          className={`pc-journey-item ${isActive ? "is-active" : ""}`}
+                          onClick={() => handleSelectJourney(j.key, false)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleSelectJourney(j.key, false); }}
+                          data-testid={`journey-option-${j.key}`}
                         >
-                          <RotateCcw size={11} />
-                          <span>{isZh ? "重新開始此對話" : "Start fresh from empty chat"}</span>
-                        </button>
-                      </div>
-                    )}
+                          <div className="pc-journey-top">
+                            <span className="pc-journey-name">
+                              {isZh ? j.patient_name_zh : j.patient_name} ({j.age_sex})
+                            </span>
+                            <span className={`pc-journey-badge ${badge.live ? "is-live" : ""}`}>
+                              {badge.text}
+                            </span>
+                          </div>
+                          <div className="pc-journey-title">{isZh ? j.title_zh : j.title}</div>
+                          <div className="pc-journey-sub">{j.subtitle}</div>
+                          {j.status !== "not_started" && (
+                            <div style={{ marginTop: 4 }}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectJourney(j.key, true);
+                                }}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontSize: 11.5,
+                                  color: "var(--pc-jade)",
+                                  background: "none",
+                                  border: "none",
+                                  padding: 0,
+                                  cursor: "pointer",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                <RotateCcw size={11} />
+                                <span>{isZh ? "重新開始此對話" : "Start fresh from empty chat"}</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}

@@ -273,8 +273,13 @@ export const v2Api = {
   demoReset: () => req<Record<string, any>>("/api/v1/demo/reset", { method: "POST" }),
   qrCheckin: (patientId: string, lang = "en") =>
     req<Record<string, any>>(`/api/v1/demo/qr-checkin/${encodeURIComponent(patientId)}?lang=${encodeURIComponent(lang)}`, { method: "POST" }),
-  emrOverview: (patientId?: string) =>
-    req<EmrOverview>(patientId ? `/api/v1/emr/overview?patient_id=${encodeURIComponent(patientId)}` : "/api/v1/emr/overview"),
+  emrOverview: (patientId?: string, mode?: "live" | "seeded") => {
+    const params = new URLSearchParams();
+    if (patientId) params.set("patient_id", patientId);
+    if (mode) params.set("mode", mode);
+    const qs = params.toString();
+    return req<EmrOverview>(qs ? `/api/v1/emr/overview?${qs}` : "/api/v1/emr/overview");
+  },
   emrResetUrti: (patientId: string) =>
     req<Record<string, any>>(`/api/v1/emr/patient/${encodeURIComponent(patientId)}/reset-urti`, { method: "POST" }),
   emrSimulateAuthorityProbe: (patientId: string) =>

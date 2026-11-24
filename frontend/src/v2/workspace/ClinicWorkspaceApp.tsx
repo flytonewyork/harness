@@ -2841,8 +2841,8 @@ export function ClinicWorkspaceApp() {
                     Trigger BP 146/92 Wake
                   </button>
                 )}
-                <a href="/emr" target="_blank" rel="noreferrer" className="ws-btn" style={{ textDecoration: "none" }}>
-                  Open Full EMR Inspector ↗
+                <a href="/emr?mode=live" target="_blank" rel="noreferrer" className="ws-btn" style={{ textDecoration: "none" }}>
+                  Open Live Clinic EMR ↗
                 </a>
               </div>
             </div>

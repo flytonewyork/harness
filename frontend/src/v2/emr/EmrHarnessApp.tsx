@@ -56,6 +56,9 @@ function authorityTagClass(auth: string): string {
 
 export function EmrHarnessApp() {
   const [data, setData] = useState<EmrOverview | null>(null);
+  const [emrMode, setEmrMode] = useState<"live" | "seeded">(() =>
+    new URLSearchParams(window.location.search).get("mode") === "live" ? "live" : "seeded"
+  );
   const [selectedId, setSelectedId] = useState<string>("pat_lam_urti_demo");
   const [emrTab, setEmrTab] = useState<"overview" | "docs" | "encounters" | "audit">("overview");
   const [inspectorTab, setInspectorTab] = useState<"tools" | "memory" | "context">("tools");
@@ -70,20 +73,23 @@ export function EmrHarnessApp() {
   const [copied, setCopied] = useState(false);
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
+  const emrModeRef = useRef(emrMode);
+  emrModeRef.current = emrMode;
 
-  const loadOverview = useCallback(async (pid?: string) => {
+  const loadOverview = useCallback(async (pid?: string, modeOverride?: "live" | "seeded") => {
     const target = pid || selectedIdRef.current;
     const queryPid = target.startsWith("lb_") ? undefined : target;
-    const res = await v2Api.emrOverview(queryPid);
+    const m = modeOverride || emrModeRef.current;
+    const res = await v2Api.emrOverview(queryPid, m);
     setData(res);
   }, []);
 
   useEffect(() => {
-    void loadOverview(selectedId);
+    void loadOverview(selectedId, emrMode);
     setSelectedDocIdx(0);
-  }, [selectedId, loadOverview]);
+  }, [selectedId, emrMode, loadOverview]);
 
-  // Real-time SSE sync across Phone (/p), Staff Console (/c), and Simulated EMR (/emr)
+  // Real-time SSE sync across Phone (/p/chat), Doctor Workspace (/workspace), and Clinic EMR (/emr)
   useEffect(() => {
     let es: EventSource | null = null;
     let closed = false;
@@ -116,6 +122,7 @@ export function EmrHarnessApp() {
       es.onopen = () => setSseStatus("live");
       [
         "phone.connected",
+        "case.updated",
         "agent.step",
         "tool.call",
         "memory.updated",
@@ -206,14 +213,81 @@ export function EmrHarnessApp() {
     }
   };
 
-  if (!data || !selectedPatient) {
+  if (!data) {
     return (
       <div className="emr-shell">
         <header className="emr-topbar">
-          <div className="emr-brand">ClinicSolution X · LoopBench Simulated EMR</div>
+          <div className="emr-brand">ClinicSolution X · Clinic EMR</div>
         </header>
         <div style={{ padding: 28 }} className="voice-assistant">
-          Loading simulated Hong Kong clinic EMR and multi-agent harness…
+          Loading Hong Kong clinic EMR…
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedPatient) {
+    return (
+      <div className="emr-shell" data-testid="emr-harness-app">
+        <header className="emr-topbar">
+          <div className="emr-topbar-left">
+            <div className="emr-brand">
+              <Activity size={16} color="#34D399" />
+              <span>{data.clinic.emr_profile}</span>
+              <span className="emr-brand-sub">{data.clinic.region}</span>
+            </div>
+            <span className="emr-live-pill" data-testid="emr-sse-status">
+              <span className="emr-live-dot" />
+              {sseStatus === "live" ? "SSE Live Sync" : sseStatus}
+            </span>
+          </div>
+          <div className="emr-topbar-right">
+            <button
+              type="button"
+              className="emr-top-btn"
+              onClick={() => setEmrMode(emrMode === "live" ? "seeded" : "live")}
+              data-testid="emr-mode-toggle"
+            >
+              {emrMode === "live" ? "Show All Sim Records" : "Switch to Live Session"}
+            </button>
+            <a className="emr-top-btn emr-top-btn-jade" href="/workspace" target="_blank" rel="noopener noreferrer">
+              <ClipboardList size={13} />
+              Doctor Workspace
+              <ExternalLink size={11} />
+            </a>
+          </div>
+        </header>
+        <div
+          style={{
+            maxWidth: 560,
+            margin: "72px auto",
+            padding: "28px 32px",
+            background: "#FFFFFF",
+            border: "1px solid #E5E7EB",
+            borderRadius: 16,
+            textAlign: "center",
+          }}
+          data-testid="emr-blank-waiting"
+        >
+          <div style={{ display: "inline-flex", padding: 12, borderRadius: 999, background: "#ECFDF5", color: "#059669", marginBottom: 14 }}>
+            <Activity size={24} />
+          </div>
+          <h2 style={{ margin: "0 0 8px", fontSize: 19, color: "#111827" }}>Clinic EMR Ready — Blank Live Session</h2>
+          <p style={{ margin: "0 0 18px", fontSize: 14, color: "#6B7280", lineHeight: 1.55 }}>
+            No live patient records or doctor-signed EMR addenda yet. Scan the clinic QR code on your phone to begin a patient conversation — charts and additive EMR addenda will populate here in real time (zero private AI chat leak).
+          </p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            <a className="emr-top-btn emr-top-btn-jade" href="/workspace">
+              Open Doctor Workspace & QR
+            </a>
+            <button
+              type="button"
+              className="emr-top-btn"
+              onClick={() => setEmrMode("seeded")}
+            >
+              Browse All Clinic Records
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -246,19 +320,27 @@ export function EmrHarnessApp() {
         </div>
 
         <div className="emr-topbar-right">
-          <a className="emr-top-btn" href={`/p/qr/${qrPatientId}`} target="_blank" rel="noopener noreferrer">
-            <Smartphone size={13} />
-            Open Phone View
+          <button
+            type="button"
+            className="emr-top-btn"
+            onClick={() => setEmrMode(emrMode === "live" ? "seeded" : "live")}
+            data-testid="emr-mode-toggle"
+          >
+            {emrMode === "live" ? "Mode: Live Session" : "Mode: All Records"}
+          </button>
+          <a className="emr-top-btn" href="/workspace" target="_blank" rel="noopener noreferrer">
+            <ClipboardList size={13} />
+            Doctor Workspace
             <ExternalLink size={11} />
           </a>
-          <a className="emr-top-btn emr-top-btn-jade" href="/c" target="_blank" rel="noopener noreferrer">
-            <ClipboardList size={13} />
-            Clinic Staff Console (Nurse / Dr)
+          <a className="emr-top-btn" href={`/p/chat`} target="_blank" rel="noopener noreferrer">
+            <Smartphone size={13} />
+            Patient Phone
             <ExternalLink size={11} />
           </a>
           <button type="button" className="emr-top-btn" disabled={busy} onClick={handleResetUrti} data-testid="emr-reset-urti-btn">
             <RefreshCw size={12} />
-            Reset URTI Demo
+            Reset Case
           </button>
         </div>
       </header>

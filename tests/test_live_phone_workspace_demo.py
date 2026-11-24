@@ -32,8 +32,11 @@ def test_blank_start_qr_scan_natural_chat_doctor_sign_undo_and_reset(tmp_path):
     ov0 = client.get("/api/v1/workspace/overview?mode=live").json()
     assert ov0["cases"] == []
     assert ov0["counts"] == {"needs_decision": 0, "running": 0, "scheduled": 0, "closed": 0}
-    assert len(ov0["live_session"]["journeys"]) == 5
+    assert len(ov0["live_session"]["journeys"]) == 12
     assert all(j["status"] == "not_started" for j in ov0["live_session"]["journeys"])
+    emr0 = client.get("/api/v1/emr/overview?mode=live").json()
+    assert emr0["patients"] == []
+    assert emr0["mode"] == "live"
 
     # 2. Physical phone scans QR -> starts LAM Wing-Yan journey -> clinic welcome & live thread on laptop
     r_start = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "wingyan", "lang": "en"})
@@ -223,4 +226,136 @@ def test_gemini_4_neon_and_hydrogen_clinical_reasoning_defaults(monkeypatch):
         {"text": "Avoid aspirin due to G6PD deficiency."},
     ])
     assert visible == "Avoid aspirin due to G6PD deficiency."
+
+
+def test_all_12_realistic_gp_episodes_blank_emr_and_post_sign_followup(tmp_path):
+    client = _make_client(tmp_path)
+    assert client.post("/api/v1/demo/live/reset").status_code == 200
+
+    # Verify all 12 episodes have clean clinic categories (4 acute, 4 chronic, 4 family)
+    j_meta = client.get("/api/v1/demo/live/journeys").json()["journeys"]
+    assert len(j_meta) == 12
+    cats = [j["category"] for j in j_meta]
+    assert cats.count("acute") == 4
+    assert cats.count("chronic") == 4
+    assert cats.count("family") == 4
+
+    # 6. TANG Ka-Yan: UTI + G6PD blocks Nitrofurantoin, stages Fosfomycin 3g
+    r_tang = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "tang_uti", "message": "Burning when I pee since yesterday, no fever — can I get Nitrofurantoin?", "lang": "en"},
+    ).json()
+    assert r_tang["case_state"] == "needs_decision"
+    assert "g6pd" in r_tang["reply"].lower() and "nitrofurantoin" in r_tang["reply"].lower()
+    assert r_tang["lint_report"]["passed"] is True
+
+    # 7. TSANG Chun-Hin: Turn 1 thin intake -> Turn 2 clarification upgrades cleanly
+    r_ts1 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "tsang_thin", "message": "Not feeling well since yesterday, can I get antibiotics?", "lang": "en"},
+    ).json()
+    assert r_ts1["lint_report"]["passed"] is True
+    ov_ts1 = client.get("/api/v1/workspace/overview?mode=live").json()
+    ts_case = next(c for c in ov_ts1["cases"] if c["case_key"] == "tsang_thin")
+    assert ts_case["summary"]["intake_sufficiency"] == "insufficient"
+    assert all(o["type"] != "rx" for iss in ts_case["summary"]["issues"] for o in iss.get("suggested_orders", []))
+
+    r_ts2 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "tsang_thin", "message": "Just mild fatigue and a stuffy nose, no fever or chest pain. 15-min slot today works.", "lang": "en"},
+    ).json()
+    assert r_ts2["lint_report"]["passed"] is True
+    ov_ts2 = client.get("/api/v1/workspace/overview?mode=live").json()
+    ts_case2 = next(c for c in ov_ts2["cases"] if c["case_key"] == "tsang_thin")
+    assert ts_case2["summary"]["intake_sufficiency"] == "sufficient"
+
+    # 8. HO Siu-Fong: Hypothyroidism + Levothyroxine-iron 4h spacing
+    r_ho = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "ho_thyroid", "message": "Still exhausted and cold, I take my iron tablet every morning. Do I need thyroid medicine?", "lang": "en"},
+    ).json()
+    assert r_ho["case_state"] == "needs_decision"
+    assert "4 hours" in r_ho["reply"].lower()
+    assert r_ho["lint_report"]["passed"] is True
+
+    # 9. KWOK Wing-Keung: Family proxy via daughter Joyce & helper Maria
+    r_kwok = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "kwok_proxy", "message": "Hi Sam, this is Joyce — our helper Maria said Dad felt dizzy standing up (BP 118/72). Should we stop Losartan?", "lang": "en"},
+    ).json()
+    assert r_kwok["case_state"] == "needs_decision"
+    assert r_kwok["lint_report"]["passed"] is True
+    ov_kwok = client.get("/api/v1/workspace/overview?mode=live").json()
+    kwok_case = next(c for c in ov_kwok["cases"] if c["case_key"] == "kwok_proxy")
+    assert kwok_case["summary"]["proxy_context"]["is_proxy"] is True
+
+    # 10. NG Siu-Lun: Real 2/3 ID mismatch quarantined strictly to Nurse Rachel in #clinic-team
+    r_ng = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "ng_quarantine", "message": "Hi Sam, TST private lab faxed my blood test yesterday — did Dr. Wong get it?", "lang": "en"},
+    ).json()
+    assert r_ng["baton"] == "with_nurse"
+    assert r_ng["lint_report"]["passed"] is True
+    ov_ng = client.get("/api/v1/workspace/overview?mode=live").json()
+    assert any(d["external_doc_ref"] == "TST-LAB-FAX-2026-67033" and d["match_status"] == "quarantined_nurse" for d in ov_ng["quarantined_documents"])
+
+    # 11. LAU Wai-Fong: Acute chest pain -> deterministic 999 exit
+    r_lau = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "lau_chest", "message": "I suddenly have crushing chest pain spreading to my left arm and short of breath.", "lang": "en"},
+    ).json()
+    assert r_lau["crisis"] is not None
+    assert r_lau["crisis"]["emergency_number"] == "999"
+
+    # 12. CHUI Ka-Ming: Cap. 134 Codeine guard -> explains controlled drug & stages non-opioid
+    r_chui = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "chui_cough", "message": "Dry cough for 4 nights, can you send me the strong codeine cough syrup?", "lang": "en"},
+    ).json()
+    assert r_chui["case_state"] == "needs_decision"
+    assert "cap. 134" in r_chui["reply"].lower()
+    assert r_chui["lint_report"]["passed"] is True
+
+    # Live EMR mode populates strictly active live patients
+    emr_live = client.get("/api/v1/emr/overview?mode=live").json()
+    live_pids = {p["id"] for p in emr_live["patients"]}
+    assert "pat_tang_uti" in live_pids
+    assert "pat_ho_thyroid" in live_pids
+    assert "pat_chui_cough" in live_pids
+
+    # Doctor signs TANG Ka-Yan plan -> post-sign follow-up loop works cleanly!
+    tang_case_id = r_tang["case_id"]
+    r_sign = client.post(
+        f"/api/v1/workspace/cases/{tang_case_id}/confirm",
+        json={
+            "actor_name": "Locum Dr. Sarah Wong",
+            "mchk_reg_no": "M61042",
+            "instruction_text": "Start Fosfomycin 3g STAT single dose (G6PD-safe)",
+            "orders": [
+                {"id": "tang_rx_fosfo", "type": "rx", "action": "start", "issue": "1. Acute uncomplicated cystitis (G6PD deficient)", "drug": "Fosfomycin 3g", "freq": "STAT", "days": "1d"},
+            ],
+        },
+    )
+    assert r_sign.status_code == 200
+
+    # Gentle post-sign follow-up stays quietly scheduled
+    r_post_ok = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "tang_uti", "message": "Got the doctor's care plan — thank you! When should I check back in?", "lang": "en"},
+    ).json()
+    assert r_post_ok["case_state"] == "scheduled"
+    assert r_post_ok["signed_plan"] is not None
+
+    # Worsening symptom after signing re-opens cleanly to needs_decision
+    r_post_worse = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "tang_uti", "message": "Actually I still have high fever and pain getting worse tonight.", "lang": "en"},
+    ).json()
+    assert r_post_worse["case_state"] == "needs_decision"
+
+    # Full reset wipes all 12 cases and live EMR back to blank!
+    assert client.post("/api/v1/demo/live/reset").status_code == 200
+    assert client.get("/api/v1/workspace/overview?mode=live").json()["cases"] == []
+    assert client.get("/api/v1/emr/overview?mode=live").json()["patients"] == []
+
 

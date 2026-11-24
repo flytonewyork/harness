@@ -44,6 +44,7 @@ from .db import (
     CaseLoop,
     Certificate,
     Database,
+    DocumentIngestion,
     Encounter,
     ExecutionTrace,
     Immunization,
@@ -58,6 +59,12 @@ from .db import (
 )
 from .emr_connector import ingest_external_document
 from .live_bus import LiveHarnessBus
+from .live_journeys_extra import (
+    EXTRA_LIVE_JOURNEYS,
+    build_extra_initial_summary,
+    compile_extra_journey_turn,
+    seed_extra_journey_prior_record,
+)
 from .practice_graph import (
     compute_cha2ds2_vasc,
     compute_cvd_10yr_tier,
@@ -71,6 +78,8 @@ from .workspace_engine import (
     _ensure_workspace_fk_entities,
     reset_workspace,
 )
+
+EXTRA_JOURNEY_KEYS: frozenset[str] = frozenset(j["key"] for j in EXTRA_LIVE_JOURNEYS)
 
 HKT = timezone(timedelta(hours=8))
 _CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf]")
@@ -88,18 +97,19 @@ def _is_zh(text: str, lang_hint: str = "en") -> bool:
     return bool(_CJK_RE.search(text or "")) or str(lang_hint or "").lower().startswith("zh")
 
 
-# -------------------------------------------------------------------------------------- Curated Demo Journeys
-LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
+# -------------------------------------------------------------------------------------- Curated 12 Realistic HK GP Journeys
+CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
     {
         "key": "wingyan",
+        "category": "acute",
         "patient_id": "pat_lam_urti_demo",
         "patient_name": "LAM Wing-Yan",
         "patient_name_zh": "林詠欣",
         "age_sex": "32F",
         "pathway_node_id": "ebm.pathway.low_ferritin_normal_hb",
-        "title": "Acute URTI, Sick Leave & Low Ferritin",
-        "title_zh": "上呼吸道感染、病假紙與低鐵蛋白",
-        "subtitle": "G6PD deficient · Penicillin allergy · KingMed Ferritin 14 · $0 flu pass",
+        "title": "Sore throat, fever & sick leave",
+        "title_zh": "喉嚨痛、發燒及病假紙",
+        "subtitle": "Recent KingMed blood panel on file · G6PD & penicillin alert",
         "welcome_en": (
             "Hi Wing-Yan, welcome to Central & Mid-Levels Family Medical. "
             "I'm Sam, the clinic's care assistant — I help our doctors and nurses coordinate your visit, "
@@ -123,14 +133,15 @@ LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "chan",
+        "category": "chronic",
         "patient_id": "pat_chan_warfarin",
         "patient_name": "CHAN Tai Man",
         "patient_name_zh": "陳大文",
         "age_sex": "62M",
         "pathway_node_id": "ebm.pathway.post_discharge_anticoag",
-        "title": "Post-QEH AFib Discharge & Med Check",
-        "title_zh": "伊利沙伯醫院出院覆診・薄血丸核對",
-        "subtitle": "Warfarin 5mg → 3mg · Statin switch · 11:30 follow-up · CHA₂DS₂-VASc",
+        "title": "Post-hospital AFib medication check",
+        "title_zh": "伊利沙伯醫院出院覆診・藥物核對",
+        "subtitle": "Discharged from QEH yesterday · 11:30 follow-up today",
         "welcome_en": (
             "Welcome home from Queen Elizabeth Hospital, Mr. Chan. "
             "I'm Sam, the care assistant at Central & Mid-Levels Family Medical — I help Dr. Wong and Nurse Rachel prepare for your follow-up today at 11:30.\n\n"
@@ -152,14 +163,15 @@ LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "wong",
+        "category": "chronic",
         "patient_id": "pat_wong_htn",
         "patient_name": "WONG Mei Ling",
         "patient_name_zh": "黃美玲",
         "age_sex": "58F",
         "pathway_node_id": "ebm.pathway.chronic_htn_home_bp",
-        "title": "Home Blood Pressure Check-In",
-        "title_zh": "高血壓家居血壓追蹤",
-        "subtitle": "Amlodipine 5mg OD · On-target quiet loop vs >140/90 doctor wake-up",
+        "title": "Day-7 home blood pressure check-in",
+        "title_zh": "高血壓第 7 日家居血壓追蹤",
+        "subtitle": "Amlodipine 5mg daily · routine check-in ahead of Dec visit",
         "welcome_en": (
             "Good morning Ms. Wong — this is Sam from Central & Mid-Levels Family Medical. "
             "It's Day 7 of your home blood pressure check-in on Amlodipine 5mg.\n\n"
@@ -180,14 +192,15 @@ LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "lee",
+        "category": "family",
         "patient_id": "pat_lee_ldl",
         "patient_name": "LEE Ming Kit",
         "patient_name_zh": "李明傑",
         "age_sex": "36M",
         "pathway_node_id": "ebm.pathway.borderline_ldl",
-        "title": "Borderline LDL Follow-Up & Thin Intake",
-        "title_zh": "輕微高膽固醇覆檢・簡短問診防護",
-        "subtitle": "LDL 3.6 mmol/L · Quiet blood-draw booking or vague-symptom safety guard",
+        "title": "Annual checkup — borderline cholesterol",
+        "title_zh": "年度驗身・輕微高膽固醇跟進",
+        "subtitle": "LDL 3.6 mmol/L · fasting blood draw & seasonal flu shot",
         "welcome_en": (
             "Hi Ming Kit, welcome to Central & Mid-Levels Family Medical. "
             "I'm Sam, the clinic's care assistant. Following up on your 2 Nov checkup (borderline LDL 3.6 mmol/L), "
@@ -208,14 +221,15 @@ LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "cheung",
+        "category": "chronic",
         "patient_id": "pat_cheung_t2dm",
         "patient_name": "CHEUNG Kwok-Wai",
         "patient_name_zh": "張國偉",
         "age_sex": "56M",
         "pathway_node_id": "ebm.pathway.t2dm_hba1c",
-        "title": "T2DM HbA1c 7.8% & Cantonese Red-Flag Test",
-        "title_zh": "二型糖尿病覆診・廣東話誇飾 vs 999警示",
-        "subtitle": "HbA1c 7.8%, eGFR 64 · Tests Cantonese hyperbole safe negation & 999 exit",
+        "title": "Diabetes blood test & persistent cough",
+        "title_zh": "糖尿病覆檢報告及持續咳嗽",
+        "subtitle": "HbA1c 7.8% on Metformin · pre-review check-in",
         "welcome_en": (
             "Hi Mr. Cheung, welcome to Central & Mid-Levels Family Medical. "
             "I'm Sam, the clinic's care assistant — I see your recent diabetes panel (HbA1c 7.8%, eGFR 64) is ready for your upcoming review.\n\n"
@@ -229,17 +243,32 @@ LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "suggested_replies_en": [
             "呢兩日咳到想死，但係完全冇氣促、冇心口痛、亦都冇發燒，想約醫生覆診順便睇吓血糖報告。",
             "My home glucose has been running around 8–9 mmol/L fasting. Should Dr. Wong adjust my Metformin?",
-            "我突然間心口好痛、唞唔到氣、標晒冷汗，好似就快暈低咁！",
         ],
         "suggested_replies_zh": [
             "呢兩日咳到想死，但係完全冇氣促、冇心口痛、亦都冇發燒，想約醫生覆診順便睇吓血糖報告。",
-            "我突然間心口好痛、唞唔到氣、標晒冷汗，好似就快暈低咁！",
+            "屋企空腹血糖大概 8 至 9 左右，請問黃醫生係咪需要加 Metformin 劑量？",
         ],
     },
 )
 
+LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (*CORE_LIVE_JOURNEYS, *EXTRA_LIVE_JOURNEYS)
 JOURNEY_BY_KEY: dict[str, dict[str, Any]] = {j["key"]: j for j in LIVE_JOURNEYS}
 JOURNEY_BY_PATIENT_ID: dict[str, dict[str, Any]] = {j["patient_id"]: j for j in LIVE_JOURNEYS}
+
+_POST_SIGN_REPLIES_EN: list[str] = [
+    "Got the doctor's care plan — thank you! When should I check back in if symptoms don't improve?",
+    "Thanks! Everything is clear — I'll follow the plan and let the clinic know if anything changes.",
+]
+_POST_SIGN_REPLIES_ZH: list[str] = [
+    "收到醫生嘅護理計劃，多謝！如果幾日後未好返應該幾時再聯絡診所？",
+    "明白晒，多謝醫生同診所安排——有咩變化我會再話你知。",
+]
+
+
+def _suggested_replies_for(j: dict[str, Any], is_zh: bool, has_signed: bool = False) -> list[str]:
+    if has_signed:
+        return list(_POST_SIGN_REPLIES_ZH if is_zh else _POST_SIGN_REPLIES_EN)
+    return list(j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"])
 
 
 def resolve_journey(key_or_patient_id: str | None) -> dict[str, Any]:
@@ -294,6 +323,9 @@ live_demo_coordinator = LiveDemoCoordinator()
 # -------------------------------------------------------------------------------------- Journey Case Builders (5/5 Linter Clean)
 def _seed_journey_prior_record(session: Session, tenant_id: str, j_key: str) -> tuple[str | None, str, str]:
     """Ensure the journey's verified historical EMR document & memory exist (returns doc_id, label, quote)."""
+    if j_key in EXTRA_JOURNEY_KEYS:
+        return seed_extra_journey_prior_record(session, tenant_id, j_key)
+
     if j_key == "wingyan":
         doc = ingest_external_document(
             session,
@@ -386,6 +418,8 @@ def _seed_journey_prior_record(session: Session, tenant_id: str, j_key: str) -> 
 def _build_initial_summary(j_key: str, doc_id: str | None, doc_label: str, doc_quote: str, welcome_msg: str) -> dict[str, Any]:
     """Initial clean 5/5-linted summary when patient scans QR & Sam starts welcoming them."""
     j = JOURNEY_BY_KEY[j_key]
+    if j_key in EXTRA_JOURNEY_KEYS:
+        return build_extra_initial_summary(j_key, j, doc_id, doc_label, doc_quote, welcome_msg, _hkt_hhmm())
     chat = [{"actor": "Sam", "time": _hkt_hhmm(), "text": welcome_msg, "lang": "zh-HK" if _CJK_RE.search(welcome_msg) else "en"}]
 
     if j_key == "wingyan":
@@ -674,6 +708,8 @@ def _extract_asked_drugs(text: str) -> list[str]:
         ("aspirin", ["aspirin", "阿士匹靈", "阿司匹靈"]),
         ("ibuprofen", ["ibuprofen", "布洛芬", "nsaid", "消炎止痛"]),
         ("amoxicillin", ["amoxicillin", "augmentin", "penicillin", "盤尼西林", "阿莫西林"]),
+        ("nitrofurantoin", ["nitrofurantoin", "macrobid", "呋喃妥因"]),
+        ("levothyroxine", ["levothyroxine", "thyroxine", "eltroxin", "甲狀腺藥", "甲狀腺素"]),
         ("codeine", ["codeine", "可待因"]),
         ("paracetamol", ["paracetamol", "panadol", "必理痛", "撲熱息痛"]),
         ("warfarin", ["warfarin", "薄血丸"]),
@@ -739,7 +775,7 @@ def _collect_live_tool_calls(live_bus: LiveHarnessBus, limit: int = 30) -> list[
 
 # -------------------------------------------------------------------------------------- Public Live Demo API Operations
 def get_live_journeys_status(db: Database, tenant_id: str, live_bus: LiveHarnessBus) -> dict[str, Any]:
-    """List all 5 demo patient journeys with live status for the phone sidebar & laptop QR launchpad."""
+    """List all 12 realistic HK GP patient journeys with live status for the phone sidebar & laptop QR launchpad."""
     with db.tenant_session(tenant_id) as session:
         cases = session.scalars(
             select(CaseLoop).where(CaseLoop.tenant_id == tenant_id)
@@ -751,15 +787,18 @@ def get_live_journeys_status(db: Database, tenant_id: str, live_bus: LiveHarness
             c = by_key.get(j["key"])
             if c is None:
                 status = "not_started"
+                baton = None
                 msg_count = 0
                 case_id = None
             else:
                 has_signed = bool(_build_signed_plan_snapshot(session, tenant_id, j["patient_id"]))
                 status = "signed" if has_signed else c.state
+                baton = c.baton
                 msg_count = len((c.summary_json or {}).get("original_chat") or [])
                 case_id = c.id
             items.append({
                 "key": j["key"],
+                "category": j.get("category", "acute"),
                 "patient_id": j["patient_id"],
                 "patient_name": j["patient_name"],
                 "patient_name_zh": j["patient_name_zh"],
@@ -768,6 +807,7 @@ def get_live_journeys_status(db: Database, tenant_id: str, live_bus: LiveHarness
                 "title_zh": j["title_zh"],
                 "subtitle": j["subtitle"],
                 "status": status,
+                "baton": baton,
                 "case_id": case_id,
                 "message_count": msg_count,
             })
@@ -872,6 +912,13 @@ def start_live_journey(
             session.execute(delete(Message).where(Message.tenant_id == tenant_id, Message.patient_id == pid))
             session.execute(delete(Certificate).where(Certificate.tenant_id == tenant_id, Certificate.patient_id == pid))
             session.execute(delete(Prescription).where(Prescription.tenant_id == tenant_id, Prescription.patient_id == pid))
+            if j_key == "ng_quarantine":
+                session.execute(
+                    delete(DocumentIngestion).where(
+                        DocumentIngestion.tenant_id == tenant_id,
+                        DocumentIngestion.external_doc_ref == "TST-LAB-FAX-2026-67033",
+                    )
+                )
             session.delete(existing)
             session.flush()
             existing = None
@@ -893,7 +940,7 @@ def start_live_journey(
                 graph_version_tag=graph["version_tag"],
                 state="running",
                 baton="with_patient",
-                risk_tier="high" if j_key == "chan" else "standard",
+                risk_tier="high" if j_key in ("chan", "lau_chest") else "standard",
                 ai_title=f"{j['title']} — Careline Active",
                 lead_line="Patient opened Clinic Careline chat; Sam loaded prior record and started intake.",
                 next_checkpoint_label="Careline active · live chat",
@@ -1002,6 +1049,7 @@ def start_live_journey(
         "case_state": case_state,
         "journey": {
             "key": j_key,
+            "category": j.get("category", "acute"),
             "patient_id": pid,
             "patient_name": j["patient_name"],
             "patient_name_zh": j["patient_name_zh"],
@@ -1017,7 +1065,7 @@ def start_live_journey(
             "age_sex": j["age_sex"],
         },
         "messages": messages,
-        "suggested_replies": j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"],
+        "suggested_replies": _suggested_replies_for(j, is_zh, has_signed=bool(signed)),
         "signed_plan": signed,
         "crisis": crisis,
     }
@@ -1049,7 +1097,7 @@ def get_live_chat_state(
                 "messages": [],
                 "signed_plan": None,
                 "crisis": None,
-                "suggested_replies": j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"],
+                "suggested_replies": _suggested_replies_for(j, is_zh, has_signed=False),
             }
 
         messages = list((case.summary_json or {}).get("original_chat") or [])
@@ -1066,12 +1114,14 @@ def get_live_chat_state(
             "messages": messages,
             "signed_plan": signed,
             "crisis": crisis,
-            "suggested_replies": j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"],
+            "suggested_replies": _suggested_replies_for(j, is_zh, has_signed=bool(signed)),
         }
 
 
 def _compile_journey_turn_update(
     *,
+    session: Session,
+    tenant_id: str,
     j_key: str,
     patient_text: str,
     existing_summary: dict[str, Any],
@@ -1079,6 +1129,7 @@ def _compile_journey_turn_update(
     cds_warnings: list[str],
     triage_out: dict[str, Any],
     is_zh: bool,
+    has_signed: bool = False,
 ) -> tuple[str, str, str, str, str, dict[str, Any], str, list[str]]:
     """Update the journey's CaseLoop fields + 5/5-linted summary and craft a natural fallback reply.
 
@@ -1103,6 +1154,66 @@ def _compile_journey_turn_update(
             re.I,
         )
     )
+
+    # Post-sign-off follow-up loop: preserve signed care plan and only wake doctor if worsening/new concern
+    if has_signed:
+        worsening = any(
+            k in low
+            for k in (
+                "worse", "worsening", "still fever", "high fever", "rash", "bleeding", "bruising",
+                "dizzy", "side effect", "not better", "pain", "更嚴重", "仲發燒", "高燒", "出疹",
+                "流血", "瘀傷", "頭暈", "副作用", "冇好轉",
+            )
+        )
+        if worsening or cds_blocked_drugs:
+            steps.append("LoopWatcher · Post-sign symptom update detected -> Re-opened case to #my-work for doctor review")
+            reply = (
+                "收到你嘅最新情況——由於你提及症狀變化或新顧慮，我已經將你嘅最新訊息重新置頂到黃莎拉醫生嘅工作台覆核。如果情況急劇惡化或者呼吸困難，請即刻致電 999 或去急症室。"
+                if is_zh
+                else "Thank you for letting us know right away — because you mentioned new or worsening symptoms after your care plan, I've flagged this back to Dr. Sarah Wong's active queue for review. If symptoms worsen sharply or you have trouble breathing, please call 999 or go straight to A&E."
+            )
+            return (
+                "needs_decision",
+                "with_doctor",
+                f"{JOURNEY_BY_KEY[j_key]['title']} — Post-Plan Follow-Up",
+                "Patient reported new or worsening symptoms after doctor sign-off; re-opened for review.",
+                "Follow-up review",
+                summary,
+                reply,
+                steps,
+            )
+
+        steps.append("CareAgent · Logged post-sign patient follow-up quietly (care plan remains active in Scheduled)")
+        reply = (
+            "多謝回覆！醫生簽署嘅護理計劃同相關文件已經保存喺對話入面。一般如果 48 至 72 小時內未見好轉，或者出現高燒、氣促或新症狀，隨時再透過呢個對話聯絡我哋——祝你早日康復！"
+            if is_zh
+            else "You're very welcome! Your doctor-signed care plan stays right here in this thread. As a general guide, please check back in if symptoms aren't improving within 48–72 hours, or right away if you develop high fever, shortness of breath, or any new warning signs. Wishing you a smooth recovery!"
+        )
+        return (
+            "scheduled",
+            "idle",
+            f"{JOURNEY_BY_KEY[j_key]['title']} — Plan Signed & Active",
+            "Doctor-signed care plan delivered; patient acknowledged follow-up loop.",
+            "Monitoring · post-plan",
+            summary,
+            reply,
+            steps,
+        )
+
+    if j_key in EXTRA_JOURNEY_KEYS:
+        return compile_extra_journey_turn(
+            session=session,
+            tenant_id=tenant_id,
+            j_key=j_key,
+            patient_text=patient_text,
+            existing_summary=existing_summary,
+            prior_patient_msgs=prior_patient_msgs,
+            is_followup_turn=is_followup_turn,
+            is_simple_ack=is_simple_ack,
+            cds_blocked_drugs=cds_blocked_drugs,
+            is_zh=is_zh,
+            hhmm=_hkt_hhmm(),
+        )
 
     # 1. LAM Wing-Yan (URTI + G6PD/Allergy + Ferritin 14 + Flu Shot)
     if j_key == "wingyan":
@@ -1518,6 +1629,8 @@ def _compile_journey_turn_update(
 
     # 5. CHEUNG Kwok-Wai (T2DM HbA1c 7.8% + Cantonese hyperbole safe negation)
     suppressed = (triage_out.get("triage_screen") or {}).get("suppressed_negations") or []
+    mentions_glucose_or_met = any(k in low for k in ("glucose", "metformin", "8", "9", "adjust", "dose", "血糖", "劑量", "加藥", "糖尿"))
+    mentions_slot = any(k in low for k in ("15:00", "3:00", "tomorrow", "morning", "今日", "聽朝", "三點"))
     summary["issues"] = [
         {
             "id": "iss_dm",
@@ -1540,16 +1653,36 @@ def _compile_journey_turn_update(
     if suppressed:
         steps.append(f"SafetySentinel · Cantonese hyperbole & explicit negation verified safe ({', '.join(str(x) for x in suppressed[:3])}) — zero false 999")
     steps.append("PracticeGraph · Traversed ebm.pathway.t2dm_hba1c (eGFR 64 Metformin renal check passed)")
-    reply_en = (
-        "Thank you for letting us know — glad to hear you have no shortness of breath, chest pain, or fever. "
-        "I've added your message and your latest diabetes panel (HbA1c 7.8%, eGFR 64) to Dr. Sarah Wong's review queue so she can assess your cough and discuss your Metformin plan together. "
-        "Would you prefer an in-clinic slot today at 15:00 or tomorrow morning?"
-    )
-    reply_zh = (
-        "多謝你講清楚——聽到你完全冇氣促、冇心口痛亦都冇發燒就放心好多。"
-        "我已經將你嘅情況連同最新糖尿病報告（HbA1c 7.8%，eGFR 64）整理好交畀黃莎拉醫生，等佢覆診時一併檢查你嘅乾咳同評估 Metformin 劑量調整。"
-        "你想約今日下午 3:00 定係聽朝嚟診所覆診？"
-    )
+
+    if is_simple_ack and is_followup_turn:
+        reply_en = "You're welcome — everything is ready in Dr. Sarah Wong's workspace for your review."
+        reply_zh = "唔使客氣——所有血糖記錄同驗血報告都已經交到黃莎拉醫生嘅工作台，等覆診時一齊傾。"
+    elif is_followup_turn and mentions_glucose_or_met and not suppressed:
+        reply_en = (
+            "Thanks for sharing your home fasting readings (8–9 mmol/L) — that matches your recent HbA1c of 7.8%. "
+            "Your kidney function (eGFR 64) is in the safe range for adjusting Metformin, so I've logged your home readings for Dr. Sarah Wong to review whether stepping up to 850mg twice daily with meals makes sense for you. "
+            "Have you had any stomach upset on your current 500mg dose?"
+        )
+        reply_zh = (
+            "多謝你提供屋企空腹血糖記錄（約 8 至 9 mmol/L），同你最新 HbA1c 7.8% 嘅趨勢吻合。"
+            "你嘅腎功能（eGFR 64）喺安全範圍內，我已經記低畀黃莎拉醫生評估係咪適合將 Metformin 調整至每日兩次 850mg（餐後服食）。"
+            "你而家食 500mg 有冇任何腸胃唔舒服？"
+        )
+    elif is_followup_turn and mentions_slot:
+        summary["scheduled_tasks"] = [{"status": "booked", "label": "Clinic GP Review · Diabetes & Cough Follow-Up (requested)"}]
+        reply_en = "Noted — I've held that clinic review slot for you with Dr. Sarah Wong and attached your latest diabetes panel so you can go through both your cough and glucose log together."
+        reply_zh = "收到——我已經幫你預留黃莎拉醫生嘅診所覆診時段，並附上最新驗血報告，方便一次過睇咳同傾血糖方案。"
+    else:
+        reply_en = (
+            "Thank you for letting us know — glad to hear you have no shortness of breath, chest pain, or fever. "
+            "I've added your message and your latest diabetes panel (HbA1c 7.8%, eGFR 64) to Dr. Sarah Wong's review queue so she can assess your cough and discuss your Metformin plan together. "
+            "Would you prefer an in-clinic slot today at 15:00 or tomorrow morning?"
+        )
+        reply_zh = (
+            "多謝你講清楚——聽到你完全冇氣促、冇心口痛亦都冇發燒就放心好多。"
+            "我已經將你嘅情況連同最新糖尿病報告（HbA1c 7.8%，eGFR 64）整理好交畀黃莎拉醫生，等佢覆診時一併檢查你嘅乾咳同評估 Metformin 劑量調整。"
+            "你想約今日下午 3:00 定係聽朝嚟診所覆診？"
+        )
     return (
         "needs_decision",
         "with_doctor",
@@ -1776,8 +1909,12 @@ def handle_live_chat_turn(
             })
 
         # 3. Compile Clinical Workspace Update (5/5 Linter Verified!)
+        signed = _build_signed_plan_snapshot(session, tenant_id, pid)
+        has_signed = bool(signed) or any(m.get("role") == "doctor" and m.get("care_plan") for m in chat)
         live_bus.update_patient_state(pid, active_agent="PresentationCompiler")
         new_state, new_baton, ai_title, lead_line, next_cp, updated_summary, fallback_reply, agent_steps = _compile_journey_turn_update(
+            session=session,
+            tenant_id=tenant_id,
             j_key=j_key,
             patient_text=text,
             existing_summary=summary,
@@ -1785,29 +1922,45 @@ def handle_live_chat_turn(
             cds_warnings=cds_warnings,
             triage_out=triage_out,
             is_zh=is_zh,
+            has_signed=has_signed,
         )
 
-        # 4. Optional Live LLM Conversational Polish (strictly bounded & output-screened!)
+        # 4. Real-Time Multi-Turn Live LLM Response (Gemini 4 Neon / Hydrogen — bounded & output-screened!)
         reply = fallback_reply
         if engine.get("live"):
             lang_directive = "Reply warmly and concisely in natural Hong Kong Traditional Chinese / Cantonese (繁體中文)." if is_zh else "Reply warmly and concisely in clear, natural English."
+            recent_turns = "\n".join(
+                f"- {m.get('actor', 'User')}: {str(m.get('text') or '')[:260]}"
+                for m in chat[-8:]
+            )
+            chart_facts = (
+                f"G6PD deficient={bool(pat.g6pd_deficient)}, "
+                f"Allergies={list(pat.allergies_json or [])}, "
+                f"Current Meds={list(pat.current_meds_json or [])}, "
+                f"eGFR={pat.egfr}"
+                if pat is not None
+                else "Verified clinic chart on file"
+            )
             sys_prompt = (
                 "You are Sam, the Clinic Careline AI assistant at Central & Mid-Levels Family Medical (Hong Kong). "
                 "NEVER claim to be a doctor, clinician, or resident; NEVER prescribe medications, promise reply SLAs, or diagnose definitively. "
-                "Keep your reply concise (2–4 natural sentences, like a helpful clinic message). "
+                "Respond directly and naturally to the patient's latest message while honoring every clinical safety rule below. "
+                "Do not repeat previous replies verbatim; advance the conversation naturally in 2–4 concise sentences. "
                 f"{lang_directive}"
             )
             user_prompt = (
                 f"Patient: {j['patient_name']} ({j['age_sex']})\n"
+                f"Verified chart facts: {chart_facts}\n"
                 f"Deterministic CDS findings: {cds_warnings or 'None'}\n"
+                f"Recent conversation:\n{recent_turns}\n\n"
                 f"Patient just wrote: {text}\n"
-                f"Clinic workflow guidance to convey naturally: {fallback_reply}"
+                f"Clinic safety & workflow facts you must convey accurately: {fallback_reply}"
             )
             llm_call = invoke_clinical_qa(
                 system_prompt=sys_prompt,
                 user_prompt=user_prompt,
                 temperature=0.2,
-                max_output_tokens=320,
+                max_output_tokens=360,
                 patient_names_for_scrub=[j["patient_name"]],
                 engine_override=engine,
             )
@@ -1903,10 +2056,11 @@ def handle_live_chat_turn(
         "baton": new_baton,
         "reply": reply,
         "messages": chat,
+        "signed_plan": signed,
         "crisis": None,
         "prompt_injection_detected": False,
         "lint_report": lint,
-        "suggested_replies": j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"],
+        "suggested_replies": _suggested_replies_for(j, is_zh, has_signed=has_signed),
     }
 
 
