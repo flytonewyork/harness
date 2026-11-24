@@ -608,4 +608,70 @@ def test_vertex_adc_header_and_fallback_cascade(tmp_path, monkeypatch):
     reset_llm_target_cache()
 
 
+def test_ai_generated_suggested_replies_replace_stale_static_chips_and_survive_polling(tmp_path, monkeypatch):
+    """Regression test for Tang Ka-Yan screenshot:
+    - Opening chat returns only the Turn-1 demo prompt (no premature Turn-2 'No chance of pregnancy').
+    - When live LLM replies without asking about pregnancy and returns `suggested_patient_replies`,
+      both the turn response AND /chat/state polling return those context-aware replies (and filter any false-999 chip).
+    """
+    import httpx
+    from backend.acute.agent_harness import reset_llm_target_cache
+
+    reset_llm_target_cache()
+    client = _make_client(tmp_path)
+    assert client.post("/api/v1/demo/live/reset").status_code == 200
+
+    # 1. Start Tang Ka-Yan -> only Turn-1 opening prompt shown (no premature 'No chance of pregnancy')
+    s0 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "tang_uti", "lang": "en"}).json()
+    assert len(s0["suggested_replies"]) == 1
+    assert "pregnancy" not in s0["suggested_replies"][0].lower()
+
+    # 2. Live Gemini 4 responds without asking about pregnancy, and supplies context-aware suggestions (+ one red-flag chip that must be filtered)
+    monkeypatch.setenv("AGENT_LLM_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gem-key")
+    real_post = httpx.Client.post
+
+    def fake_post(self, url, *args, headers=None, params=None, json=None, **kwargs):
+        if "googleapis.com" not in str(url):
+            return real_post(self, url, *args, headers=headers, params=params, json=json, **kwargs)
+        req = httpx.Request("POST", str(url))
+        payload_text = (
+            '{"patient_reply": "Thanks for sharing that — I have passed your symptoms to Dr. Sarah Wong to review. '
+            'Please let us know right away if you develop fever, chills, or back pain.", '
+            '"clinical_reasoning": "Uncomplicated dysuria; G6PD flagged clinician-side.", '
+            '"registrar_action": "escalate_to_doctor", '
+            '"suggested_patient_replies": ['
+            '"No chills or back pain right now — should I drink extra water while waiting?", '
+            '"I have crushing chest pain right now", '
+            '"How will I receive the prescription once Dr. Wong reviews?"'
+            ']}'
+        )
+        return httpx.Response(
+            200,
+            request=req,
+            json={"candidates": [{"content": {"parts": [{"text": payload_text}]}}]},
+        )
+
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    t1 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={
+            "journey_key": "tang_uti",
+            "message": "I've had burning when I pee and going to the toilet frequently since yesterday evening. No fever or back pain.",
+            "lang": "en",
+        },
+    ).json()
+    assert t1["llm_meta"]["live_reply_used"] is True
+    assert len(t1["suggested_replies"]) == 2
+    assert all("pregnancy" not in s.lower() for s in t1["suggested_replies"])
+    assert all("chest pain" not in s.lower() for s in t1["suggested_replies"])
+    assert "chills or back pain" in t1["suggested_replies"][0].lower()
+
+    # 3. Polling /chat/state preserves the AI-generated suggestions (never clobbers them with static chips!)
+    polled = client.get("/api/v1/demo/live/chat/state/tang_uti?lang=en").json()
+    assert polled["suggested_replies"] == t1["suggested_replies"]
+    reset_llm_target_cache()
+
+
+
 
