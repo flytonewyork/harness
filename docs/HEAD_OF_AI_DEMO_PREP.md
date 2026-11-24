@@ -39,6 +39,15 @@ uvicorn backend.acute.app:app_from_env --factory --host 0.0.0.0 --port 8080
 ```
 For the phone QR, the phone must reach the host: use the laptop's LAN IP or the staging URL, not `localhost`.
 
+**Real phone without a deploy (temporary public HTTPS URL):**
+```bash
+cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8080   # prints https://<random>.trycloudflare.com
+```
+Open `/emr` **through that URL**. Its QR uses `window.location.origin`, so it points phones at the public
+`/p/qr/pat_lam_urti_demo` (there's also an editable base-URL field). Caveat: quick tunnels buffer SSE, so the phone
+picks up a doctor's sign-off through its 4-second poll fallback (`PatientApp.tsx`), not instantly. The URL changes
+every time the tunnel restarts, and anyone with it can see the synthetic demo, so stop the tunnel after the demo.
+
 ## B. Pre-flight (T-15 min)
 
 1. `curl -s localhost:8080/api/v1/health` → 200. Open all four surfaces in separate tabs.
