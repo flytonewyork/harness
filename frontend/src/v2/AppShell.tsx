@@ -6,6 +6,7 @@ import type { StoredSession } from "./api";
 import { DemoDock } from "./DemoDock";
 import { EmrHarnessApp } from "./emr/EmrHarnessApp";
 import { PatientApp } from "./patient/PatientApp";
+import { PatientChatApp } from "./patient/PatientChatApp";
 import { StaffApp } from "./staff/StaffApp";
 import { ClinicWorkspaceApp } from "./workspace/ClinicWorkspaceApp";
 import "./tokens.css";
@@ -27,9 +28,27 @@ function extractQrPatientId(path: string): string | null {
   return m ? m[1] : null;
 }
 
-function getRoute(): { path: string; legacy: boolean; acutePortal: boolean; emrApp: boolean; workspaceApp: boolean; qrPatientId: string | null } {
+function extractChatJourney(path: string): string | null {
+  if (path === "/p/chat" || path === "/p/chat/") return "wingyan";
+  const m = /^\/p\/chat\/([A-Za-z0-9_-]+)/.exec(path);
+  if (m) return m[1];
+  const qrPid = extractQrPatientId(path);
+  if (qrPid) return qrPid;
+  return null;
+}
+
+function getRoute(): {
+  path: string;
+  legacy: boolean;
+  acutePortal: boolean;
+  emrApp: boolean;
+  workspaceApp: boolean;
+  qrPatientId: string | null;
+  chatJourney: string | null;
+} {
   const params = new URLSearchParams(window.location.search);
   const path = window.location.pathname || "/";
+  const classicPatient = params.get("mode") === "classic";
   return {
     path,
     legacy: params.get("mode") === "legacy",
@@ -37,6 +56,7 @@ function getRoute(): { path: string; legacy: boolean; acutePortal: boolean; emrA
     emrApp: path === "/emr" || path.startsWith("/emr/"),
     workspaceApp: path === "/workspace" || path.startsWith("/workspace/"),
     qrPatientId: extractQrPatientId(path),
+    chatJourney: classicPatient ? null : extractChatJourney(path),
   };
 }
 
@@ -97,16 +117,24 @@ export default function AppShell() {
     let active = true;
     (async () => {
       try {
+        const path = window.location.pathname || "/";
+        const params = new URLSearchParams(window.location.search);
+        const isChatRoute = params.get("mode") !== "classic" && Boolean(extractChatJourney(path));
+        if (
+          isChatRoute ||
+          path === "/emr" ||
+          path.startsWith("/emr/") ||
+          path === "/workspace" ||
+          path.startsWith("/workspace/")
+        ) {
+          // Pure phone chat, EMR simulator, and Executive Workspace boot directly
+          return;
+        }
+
         const h = await v2Api.health();
         const allowDemo = Boolean(h.runtime_toggles?.demo_controls_enabled ?? h.demo_mode);
         if (!active) return;
         setDemoEnabled(allowDemo);
-
-        const path = window.location.pathname || "/";
-        if (path === "/emr" || path.startsWith("/emr/") || path === "/workspace" || path.startsWith("/workspace/")) {
-          // Separate Simulated Clinic EMR & Executive Workspace UI boot directly
-          return;
-        }
 
         const qrPid = extractQrPatientId(path);
         if (qrPid && allowDemo) {
@@ -149,6 +177,10 @@ export default function AppShell() {
 
   if (route.workspaceApp) {
     return <ClinicWorkspaceApp />;
+  }
+
+  if (route.chatJourney) {
+    return <PatientChatApp initialJourney={route.chatJourney} />;
   }
 
   if (booting) {

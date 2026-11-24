@@ -327,7 +327,22 @@ export const v2Api = {
     req<Record<string, any>>(`/api/v1/admin/data-requests/${id}/resolve`, { method: "POST", body: JSON.stringify({ status: "completed", resolution_note: "Resolved via clinic settings" }) }, tok),
 
   // Execution Layer & 3-Layer Practice Knowledge Graph (Loops 1–5)
-  workspaceOverview: () => req<Record<string, any>>("/api/v1/workspace/overview"),
+  workspaceOverview: (mode: "live" | "seeded" = "live") =>
+    req<Record<string, any>>(`/api/v1/workspace/overview?mode=${encodeURIComponent(mode)}`),
+  liveDemoJourneys: () => req<Record<string, any>>("/api/v1/demo/live/journeys"),
+  liveChatStart: (journeyKey: string, lang: "en" | "zh-HK" = "en", forceRestart = false) =>
+    req<Record<string, any>>("/api/v1/demo/live/chat/start", {
+      method: "POST",
+      body: JSON.stringify({ journey_key: journeyKey, lang, force_restart: forceRestart }),
+    }),
+  liveChatState: (journeyKey: string, lang: "en" | "zh-HK" = "en") =>
+    req<Record<string, any>>(`/api/v1/demo/live/chat/state/${encodeURIComponent(journeyKey)}?lang=${encodeURIComponent(lang)}`),
+  liveChatTurn: (journeyKey: string, message: string, lang: "en" | "zh-HK" = "en") =>
+    req<Record<string, any>>("/api/v1/demo/live/chat/turn", {
+      method: "POST",
+      body: JSON.stringify({ journey_key: journeyKey, message, lang }),
+    }),
+  liveDemoReset: () => req<Record<string, any>>("/api/v1/demo/live/reset", { method: "POST" }),
   workspacePreview: (caseId: string, instructionText: string) =>
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/preview`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText }) }),
   workspaceAsk: (caseId: string, question: string, actorName = "Locum Dr. Sarah Wong") =>

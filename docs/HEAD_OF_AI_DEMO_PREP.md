@@ -17,11 +17,10 @@ Synthetic patients only. Feature freeze: polish, don't build.
 
 | Path | What it shows |
 | :--- | :--- |
-| `/workspace` | Clinician workspace: 14 widgets, empty Management Plan, `/` orders, Confirm & Sign |
-| `/emr` | Simulated clinic EMR + harness X-ray (tool calls, memory tiers, additive addenda, authority probe) |
-| `/p/qr/pat_lam_urti_demo` | Patient phone view (LAM Wing-Yan), live-updated over SSE on sign-off |
+| `/workspace` | Clinician workspace: starts **blank** with scannable Patient QR, populates live as phone chats, 14 widgets, empty Management Plan, `/` orders, Confirm & Sign, **Under the Hood** X-Ray, **Reset Demo** |
+| `/p/chat` (or `/p/qr/...`) | Pure mobile natural-language chat (empty → clinic typing bubble → welcome → AI chat + slide-over Patient Journeys sidebar + live doctor-signed MCHK PDF delivery) |
+| `/emr` | Simulated clinic EMR + deep-dive harness inspector (tool calls, memory tiers, additive addenda, authority probe) |
 | `/c` | Staff console: nurse prep, doctor sign-off, MCHK PDF receipt |
-| `/demo` | 3-act resident-agent shell (PR #64) |
 | `demo/ec-care-line/index.html?walk=kwok` | Static care-line walkthrough (offline-safe fallback) |
 
 **No staging URL is deployed yet.** To get one: `bash deploy/deploy_gcp_asia_east2.sh` (Cloud Run
@@ -43,45 +42,44 @@ For the phone QR, the phone must reach the host: use the laptop's LAN IP or the 
 ```bash
 cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8080   # prints https://<random>.trycloudflare.com
 ```
-Open `/emr` **through that URL**. Its QR uses `window.location.origin`, so it points phones at the public
-`/p/qr/pat_lam_urti_demo` (there's also an editable base-URL field). Caveat: quick tunnels buffer SSE, so the phone
-picks up a doctor's sign-off through its 4-second poll fallback (`PatientApp.tsx`), not instantly. The URL changes
-every time the tunnel restarts, and anyone with it can see the synthetic demo, so stop the tunnel after the demo.
+Open `/workspace` **through that URL** on the laptop. Its blank-start QR uses `window.location.origin`, so it points
+phones directly at `https://<random>.trycloudflare.com/p/chat` (also editable inline via `Edit host URL`). Both phone
+and laptop pair SSE with a 2–2.5s poll fallback, so quick-tunnel buffering never blocks live sync. Stop the tunnel
+after the demo.
 
 ## B. Pre-flight (T-15 min)
 
-1. `curl -s localhost:8080/api/v1/health` → 200. Open all four surfaces in separate tabs.
-2. Reset: `curl -X POST localhost:8080/api/v1/workspace/reset` and
-   `curl -X POST localhost:8080/api/v1/emr/patient/pat_lam_urti_demo/reset-urti`.
+1. `curl -s localhost:8080/api/v1/health` → 200. Open `/workspace` on the laptop.
+2. Click **`Reset Demo`** in `/workspace` (or `curl -X POST localhost:8080/api/v1/demo/live/reset`) so the laptop starts **completely blank** with the crisp QR code centered on screen.
 3. Decide the model mode and say it out loud. With no Vertex/Gemini credentials the runtime is
    **deterministic** (that's how the eval report ran). With credentials it prefers Vertex `gemini-2.5-flash` in
    `asia-east2`. The safety floor is identical either way.
-4. Phone on the same network, QR page open, screen lock off.
+4. Physical phone ready with camera open to scan the QR code on the laptop screen.
 5. Fallback if anything breaks: the static `demo/ec-care-line/index.html?walk=kwok`, then the grading report.
 
 ## C. Run-of-show (10 minutes, then stop)
 
-**Act 1: the workspace (4 min), `/workspace`**
-1. Four seeded cases: CHAN (post-QEH AFib, warfarin 5→3 mg + statin switch), LAM Wing-Yan (URTI, G6PD,
-   penicillin allergy, ferritin 14), WONG (home BP), LEE (borderline LDL).
-2. Open CHAN: MedDiff shows the switch as stop+start, so no false duplicate-statin alarm. CHA2DS2-VASc and HAS-BLED are
-   computed in Python, not by the model.
-3. Point out the Management Plan is **empty**. The agent proposes; the doctor adds with `+` or `/`.
-4. Open LAM. Type `/rx` and try aspirin → **422 from `rx_rules`** (G6PD). That's the deterministic floor.
-5. Add a 2-day `/cert` (employer copy omits diagnosis) → **Confirm & Sign Plan** → MCHK PDF receipt.
-6. Show the 10-second Undo; let it lapse.
+**Act 1: Physical Phone QR Scan → Natural Chat → Live Workspace Populates (4 min)**
+1. Laptop `/workspace` starts **blank** with the Patient QR code on screen.
+2. Scan QR on physical phone → `/p/chat` opens **empty** → animated clinic typing bubble → warm introduction from Sam (Clinic Care Assistant) for **LAM Wing-Yan (32F)**. Immediately on the laptop, a live thread appears in `Running · Today` showing `LoopWatcher` + `CareAgent` working!
+3. Message Sam naturally on the phone (English or Cantonese): sore throat + 38.2°C fever, asks *"can I take aspirin?"*, requests a 2-day sick note, asks about Ferritin 14.
+4. Sam immediately warns against Aspirin (G6PD deficiency from chart) and prepares the summary. Watch the laptop promote the thread live into **`# my-work` (`Needs Decision`)** with Ferritin trend, safety alerts, atomic issues, and an **empty** `Management Plan`.
+5. On laptop: test `/prescribe Aspirin` → deterministic **HTTP 422** from `rx_rules`. Then click `+` on Paracetamol + 2-day `/cert` → **Confirm & Sign Plan**. Show the 10-second Undo; let it lapse. Watch the **Doctor-Signed Care Plan + MCHK Sick Leave PDF button** arrive live in the phone chat!
 
-**Act 2: the record and the phone (3 min), `/emr` + phone**
-1. The phone updates live once the doctor signs.
-2. In `/emr` the plan appears as an **additive addendum**. The private Sam chat is not in it, ever.
-3. Run the authority probe: an agent tries `emr.write_signed_orders` → BLOCKED.
+**Act 2: Switch Patient Journeys from Phone Sidebar (3 min)**
+1. Tap `☰` on the physical phone to open the **Patient Demo Journeys** sidebar and select **CHAN Tai Man (62M)** (Post-QEH AFib discharge). Phone clears to empty chat → typing bubble → welcome. A **second independent thread** spawns live on the laptop! Chat about Warfarin 5→3mg / statin bags → laptop mounts `MedDiff`, Python `CHA₂DS₂-VASc` / `HAS-BLED`, and QEH ECG.
+2. Switch to **WONG Mei Ling (58F)** (Home BP): reply `128/78` → stays quietly in `Scheduled / Waiting` (zero doctor interruption, silent Sam gate!). Then reply `156/96 with headache` → wakes up live into `Needs Decision`!
+3. Optional: switch to **CHEUNG Kwok-Wai (56M)** to show Cantonese hyperbole (`「咳到想死但冇氣促冇胸痛」` → NOT 999) vs true cardiac red flag (`「心口好痛、唞唔到氣」` → instant 999 exit).
 
-**Act 3: governance and X-ray (3 min)**
-1. `# clinic-team`: Nurse Rachel resolves a document quarantined on a 2/3 ID match.
-2. Curator: playbook v2.4 → v2.5 diff, then rollback.
-3. Architecture X-ray: the context budget (about 2.5k of 4,096 tokens), nodes traversed, linter 5/5.
+**Act 3: Under the Hood & Full Reset (3 min)**
+1. Click **`Under the Hood`** in the `/workspace` top bar to reveal the technical X-Ray drawer:
+   - Live Agent Tool Stream (`LoopWatcher`, `SafetySentinel`, `ProtocolCDSAgent`, `PresentationCompiler` with authority tags)
+   - Click **`Probe Authority Guard (BLOCKED)`** (`emr.write_signed_orders` → `BLOCKED`)
+   - `<4,096`-token 5-slot Context Budget, 5/5 Presentation Linter, Practice Graph `v2.4`, Sole EMR SoT additive addenda (zero Sam chat leakage)
+   - Optional: open `/emr` tab or `# clinic-team` (3-pt ID quarantine) / `@ Clinic Playbook` (Curator v2.4 → v2.5 diff).
+2. Click **`Reset Demo`** → both laptop and phone reset cleanly back to blank.
 
-**Close:** "Every output from tonight's 20 cases is in the grading report. Grade any one you like."
+**Close:** "Every output from our 20-case benchmark is in the grading report. Grade any one you like."
 
 ## D. Head-of-AI Q&A
 

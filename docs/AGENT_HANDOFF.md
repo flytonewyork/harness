@@ -115,3 +115,23 @@ bash scripts/check.sh                                                          #
 | **Track 3 · Agentic Harness Runtime** | **COMMITTED** | `docs/research/track3_agentic_harness_runtime.md`, `agent_harness.py`, `triage.py`, `verification.py`, `workflows.py`, `workspace_engine.py` (51/51 pytest pass). |
 | **Track 4 · Demo Wiring, EMR & 20-Case Eval** | **COMPLETE** | `docs/research/track4_demo_emr_and_eval_suite.md`, `emr_connector.py`, `adapters.py`, `app.py`, `tests/test_practice_graph_loops.py` (77/77 pass), `../loopbench/` 20-case Founder Eval (`20/20` cases, `79/79` assertions, peak `2,534/4,096` tokens), `docs/research/founder_grading_report.{html,md}`. |
 
+---
+
+## 7. Live Phone-to-Workspace Chat Demo Checkpoint (24 Nov 2026)
+
+*Branch: `feat/live-demo-convergence` (harness + loopbench)*
+
+### Completed in This Checkpoint
+1. **Blank-Start Live Workspace (`/workspace`):** Defaults to `mode=live` (`GET /api/v1/workspace/overview?mode=live`), starting completely blank (`0` cases) with a centered, scannable Warm-Paper **QR Launchpad** (`<origin>/p/chat`, editable host URL for LAN / Cloudflare tunnel, copy link, live connection status). Seeded mode remains 100% backward-compatible at `GET /api/v1/workspace/overview` (`?mode=seeded` in UI) so all existing tests & 20-case Founder Eval stay green.
+2. **Pure Natural Chat Phone App (`/p/chat`, `/p/chat/<journey>`, `/p/qr/<patient_id>`):** Built `frontend/src/v2/patient/PatientChatApp.tsx` + `patientChat.css` — opens completely empty → animated clinic typing bubble → warm Clinic AI welcome & introduction → natural EN/Cantonese conversation with optional subtle demo reply chips.
+3. **Slide-Over Patient Journeys Sidebar (5 Demo Stories):** Switch patient perspectives anytime from the phone sidebar (`LAM Wing-Yan` URTI/G6PD/Ferritin, `CHAN Tai Man` Post-QEH Warfarin/Statin, `WONG Mei Ling` Home BP quiet vs wake-up, `LEE Ming Kit` LDL booking vs thin-intake guard, `CHEUNG Kwok-Wai` T2DM + Cantonese hyperbole vs 999 red-flag). Each new journey starts from an empty chat and spawns an independent live workflow thread on the laptop `/workspace`.
+4. **Live Agent Activity, Doctor Sign-Off → Phone PDF, 10s Undo & Under-the-Hood X-Ray:** Orchestrated in `backend/acute/live_demo.py` + `app.py` (`/api/v1/demo/live/{journeys,chat/start,chat/state/{key},chat/turn,reset}`). Doctor sign-offs push structured care plan cards + MCHK PDF download buttons directly into the phone chat; 10s Undo cleanly retracts them; **`Under the Hood`** drawer reveals live agent tool calls, 1-click Asymmetric Authority probe (`BLOCKED`), `<4,096`-token budget, and 5/5 linter; **`Reset Demo`** wipes everything back to blank and syncs across laptop + physical phone via `session_epoch` + `demo.reset`.
+5. **Hardened Cantonese Prompt Injection Detection:** Extended `backend/agentic/prompts.py` (`detect_prompt_injection_signals`) to catch colloquial HK Cantonese jailbreaks (`唔好理`, `假裝自己係`, `即刻開`, `跳過審批`), fixing `FG-16` detection.
+6. **Tests & Build:** `tests/test_live_phone_workspace_demo.py` + `tests/test_engine.py` passing; `npm --prefix frontend run build` clean (0 TS errors).
+
+### Ready for Next Agent Pickup (Disjoint Queue)
+1. **Live Browser / Mobile Viewport E2E Verification:** Spin up local server (`uvicorn backend.acute.app:app_from_env --factory --port 8080`) + Playwright/headless Chromium to visually verify the 2-screen choreography (`/workspace` blank QR → `/p/chat` empty → typing bubble → welcome → send message → `/workspace` live thread + sign-off → phone PDF → `Under the Hood` → `Reset Demo`) and fix any visual/UX rough edges.
+2. **Rebase / Merge `main` (PR #64 `/demo`) into `feat/live-demo-convergence` & Open Clean PRs:** PR #65 currently has a merge conflict with `main` (PR #64 touched `AppShell.tsx`, `DemoDock.tsx`, `api.ts`). Merge `origin/main` cleanly into `feat/live-demo-convergence`, re-run `bash scripts/check.sh`, and open clean PRs for both `harness` and `loopbench` (never push to `main`).
+3. **Optional Live LLM Polish & GCP `asia-east2` Staging Deploy:** Test natural multi-turn chat quality with live Vertex AI `gemini-2.5-flash` (`asia-east2`) if credentials are available, and verify `deploy/deploy_gcp_asia_east2.sh` readiness.
+
+

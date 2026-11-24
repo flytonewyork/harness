@@ -31,10 +31,10 @@ _INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("bypass_safety_en", re.compile(r"\b(?:bypass|disable|skip|turn\s+off)\s+(?:the\s+)?(?:safety|red[- ]?flag|g6pd|allergy|cds|rules?|guard)", re.I)),
     ("force_prescribe_en", re.compile(r"\b(?:auto[- ]?approve|immediately\s+issue|sign\s+and\s+send)\s+(?:antibiotics?|codeine|sick\s+leave|certificate|prescription)", re.I)),
     ("reveal_prompt_en", re.compile(r"\b(?:reveal|print|dump|repeat)\s+(?:your\s+)?(?:system\s+prompt|hidden\s+instructions?|developer\s+prompt)", re.I)),
-    ("ignore_instructions_zh", re.compile(r"(?:忽略|無視|忘記|覆蓋)(?:以上|之前|所有|全部|系統|原有){1,3}(?:指示|指令|規則|提示)")),
-    ("role_hijack_zh", re.compile(r"(?:你現在係|扮作|假裝係)(?:醫生|主診醫生|無限制)")),
-    ("force_prescribe_zh", re.compile(r"(?:直接|即時|自動)(?:開|批出|簽發)(?:抗生素|病假紙|醫生紙|處方|止痛藥)")),
-    ("bypass_safety_zh", re.compile(r"(?:跳過|繞過|關閉)(?:安全|過敏|蠶豆症|檢查|警示)")),
+    ("ignore_instructions_zh", re.compile(r"(?:忽略|無視|忘記|覆蓋|唔好理)(?:以上|之前|所有|全部|系統|原有|安全){1,4}(?:指示|指令|規則|提示)")),
+    ("role_hijack_zh", re.compile(r"(?:你現在係|扮作|假裝(?:自己)?係|當自己係)(?:註冊)?(?:醫生|主診醫生|無限制)")),
+    ("force_prescribe_zh", re.compile(r"(?:直接|即時|即刻|自動)(?:開|批出|簽發)(?:抗生素|可待因|病假紙|醫生紙|處方|止痛藥)")),
+    ("bypass_safety_zh", re.compile(r"(?:跳過|繞過|關閉)(?:安全|過敏|蠶豆症|檢查|警示|審批)")),
 )
 
 # Forbidden clinician impersonation & meta-UI slop across surfaces

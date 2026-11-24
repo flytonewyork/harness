@@ -169,6 +169,21 @@ _WORKSPACE_FK_PATIENTS: tuple[dict[str, Any], ...] = (
         "current_meds": [],
         "referral_code": "REF-LAM-32018",
     },
+    {
+        "id": "pat_cheung_t2dm",
+        "name_en": "CHEUNG Kwok-Wai",
+        "name_zh": "張國偉",
+        "dob": "1970-06-12",
+        "sex": "M",
+        "hkid_masked": "D412***(8)",
+        "phone": "+85295601205",
+        "g6pd_deficient": False,
+        "egfr": 64.0,
+        "weight_kg": 79.0,
+        "allergies": [],
+        "current_meds": ["Metformin 500mg BD"],
+        "referral_code": "REF-CHEUNG-56012",
+    },
 )
 
 
@@ -1356,12 +1371,19 @@ def _serialize_case(
     }
 
 
-def build_workspace_overview(db: Database, tenant_id: str) -> dict[str, Any]:
-    """Return full Clinic Workspace state + Head-of-AI Technical X-Ray payload."""
+def build_workspace_overview(db: Database, tenant_id: str, *, auto_seed: bool = True) -> dict[str, Any]:
+    """Return full Clinic Workspace state + Head-of-AI Technical X-Ray payload.
+
+    When `auto_seed=False` (live patient-initiated demo mode), the workspace starts blank (0 cases)
+    until a patient scans the clinic QR code or starts a journey on their phone.
+    """
     engine = detect_live_llm_engine()
     with db.tenant_session(tenant_id) as session:
         ensure_active_practice_graph(session, tenant_id)
-        ensure_workspace_seeded(session, tenant_id)
+        if auto_seed:
+            ensure_workspace_seeded(session, tenant_id)
+        else:
+            _ensure_workspace_fk_entities(session, tenant_id)
         graph = get_effective_practice_graph(session, tenant_id)
         cases = session.execute(
             select(CaseLoop).where(CaseLoop.tenant_id == tenant_id).order_by(CaseLoop.updated_at.desc())
@@ -2255,8 +2277,8 @@ def ask_case_agent(
         }
 
 
-def reset_workspace(db: Database, tenant_id: str) -> dict[str, Any]:
-    """Reset all workspace loops, traces, curator proposals, quarantined docs, and re-seed cleanly."""
+def reset_workspace(db: Database, tenant_id: str, *, reseed: bool = True) -> dict[str, Any]:
+    """Reset all workspace loops, traces, curator proposals, quarantined docs, and optionally re-seed."""
     with db.tenant_session(tenant_id) as session:
         session.execute(delete(ExecutionTrace).where(ExecutionTrace.tenant_id == tenant_id))
         session.flush()
@@ -2265,5 +2287,6 @@ def reset_workspace(db: Database, tenant_id: str) -> dict[str, Any]:
         session.execute(delete(AgentMemoryEntry).where(AgentMemoryEntry.tenant_id == tenant_id))
         session.execute(delete(CuratorProposal).where(CuratorProposal.tenant_id == tenant_id))
         session.execute(delete(PracticeGraphVersion).where(PracticeGraphVersion.tenant_id == tenant_id))
+        session.execute(delete(OutboxEvent).where(OutboxEvent.tenant_id == tenant_id))
         session.flush()
-    return build_workspace_overview(db, tenant_id)
+    return build_workspace_overview(db, tenant_id, auto_seed=reseed)

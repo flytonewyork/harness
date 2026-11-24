@@ -1,6 +1,6 @@
 # NOW
 
-The one queue for harness and loopbench. Keep it under 2 KB. Last updated 23 Nov 2026.
+The one queue for harness and loopbench. Keep it under 2 KB. Last updated 24 Nov 2026.
 
 **Focus until 26 Nov go/no-go:** written next step from EC Healthcare. **Feature freeze:** hone the working live demo (Tracks 1–4).
 
@@ -8,9 +8,8 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 23 Nov
 
 1. **EC discovery scope.** One-page scope for one EC clinic, no patient data (`docs/EC_DISCOVERY_SCOPE.md`).
    Fill the **[after Wed]** fields from the 11 Nov meeting (`docs/EC_MEETING_PREP.md`, `docs/EC_JULIE_CHEATSHEET.md`).
-2. **Hone working EC & Head-of-AI live demo (PR #65).** Specs: `docs/PRODUCT_DECISIONS.md`, `docs/CLINICAL_UI_DESIGN_SYSTEM.md`,
-   `docs/AGENT_HANDOFF.md` (Tracks 1–4: Knowledge Graph, 14-Widget UX, Live Model Harness, Demo/EMR/Founder Eval).
-   Live: `/workspace`, `/emr`, `/p/qr/pat_lam_urti_demo`, `/c`, `demo/ec-care-line/index.html?walk=kwok`.
+2. **Hone working EC & Head-of-AI live demo (PR #65 / `feat/live-demo-convergence`).** Specs: `docs/PRODUCT_DECISIONS.md`,
+   `docs/AGENT_HANDOFF.md` (§7), `docs/HEAD_OF_AI_DEMO_PREP.md`. Live: `/workspace` (blank QR), `/p/chat`, `/emr`, `/c`.
 3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. Service `com.tmrw.careline`
    stays off until Thomas restarts it.
 

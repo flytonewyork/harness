@@ -1,0 +1,618 @@
+/* Pure Native Mobile Chat Experience — Warm Editorial Paper Light Mode */
+:root {
+  --pc-bg: #f8f6f2;
+  --pc-surface: #ffffff;
+  --pc-line: #e7e2d9;
+  --pc-ink: #1a2128;
+  --pc-ink-2: #525d68;
+  --pc-ink-3: #838c95;
+  --pc-jade: #16695d;
+  --pc-jade-dark: #104f46;
+  --pc-jade-soft: #eef8f5;
+  --pc-jade-line: #bde2d9;
+  --pc-red: #b91c1c;
+  --pc-red-soft: #fef2f2;
+  --pc-red-line: #fecaca;
+}
+
+.pc-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--pc-bg);
+  color: var(--pc-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "PingFang HK", "Noto Sans TC", sans-serif;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--pc-line);
+}
+
+@media (max-width: 520px) {
+  .pc-shell {
+    max-width: 100%;
+    box-shadow: none;
+  }
+}
+
+/* Header */
+.pc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--pc-line);
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.pc-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pc-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--pc-line);
+  background: var(--pc-surface);
+  color: var(--pc-ink);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.pc-icon-btn:hover {
+  background: #f2efe9;
+}
+
+.pc-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--pc-jade);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pc-header-title-wrap {
+  min-width: 0;
+}
+
+.pc-header-title {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.2;
+  color: var(--pc-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pc-header-sub {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--pc-ink-2);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pc-online-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.pc-lang-btn {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--pc-line);
+  background: var(--pc-surface);
+  color: var(--pc-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Subtle active persona strip */
+.pc-persona-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 14px;
+  background: #f3efe8;
+  border-bottom: 1px solid var(--pc-line);
+  font-size: 12px;
+  color: var(--pc-ink-2);
+  flex-shrink: 0;
+}
+
+.pc-persona-strip button {
+  background: none;
+  border: none;
+  color: var(--pc-jade);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+/* Chat thread */
+.pc-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pc-date-pill {
+  align-self: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--pc-ink-3);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--pc-line);
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: 4px;
+}
+
+.pc-row {
+  display: flex;
+  flex-direction: column;
+  max-width: 86%;
+  animation: pcFadeUp 0.22s ease-out;
+}
+
+.pc-row.is-clinic {
+  align-self: flex-start;
+}
+
+.pc-row.is-patient {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.pc-row.is-doctor {
+  align-self: flex-start;
+  max-width: 94%;
+}
+
+.pc-sender-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pc-ink-3);
+  margin: 0 4px 4px;
+}
+
+.pc-bubble {
+  padding: 11px 14px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 1.48;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pc-row.is-clinic .pc-bubble {
+  background: var(--pc-surface);
+  color: var(--pc-ink);
+  border: 1px solid var(--pc-line);
+  border-bottom-left-radius: 6px;
+  box-shadow: 0 1px 2px rgba(20, 25, 31, 0.03);
+}
+
+.pc-row.is-patient .pc-bubble {
+  background: var(--pc-jade);
+  color: #ffffff;
+  border-bottom-right-radius: 6px;
+}
+
+.pc-bubble-time {
+  font-size: 10.5px;
+  color: var(--pc-ink-3);
+  margin: 4px 4px 0;
+}
+
+/* Typing indicator bubble */
+.pc-typing-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 13px 16px;
+  background: var(--pc-surface);
+  border: 1px solid var(--pc-line);
+  border-radius: 18px;
+  border-bottom-left-radius: 6px;
+  box-shadow: 0 1px 2px rgba(20, 25, 31, 0.03);
+}
+
+.pc-typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8c96a0;
+  animation: pcTypingBounce 1.2s infinite ease-in-out;
+}
+
+.pc-typing-dot:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.pc-typing-dot:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes pcTypingBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes pcFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Doctor-Signed Care Plan Bubble */
+.pc-doctor-card {
+  background: var(--pc-jade-soft);
+  border: 1px solid var(--pc-jade-line);
+  border-radius: 16px;
+  padding: 13px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 1px 3px rgba(22, 105, 93, 0.06);
+}
+
+.pc-doctor-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pc-jade-dark);
+}
+
+.pc-doctor-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--pc-ink);
+}
+
+.pc-doctor-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--pc-ink);
+}
+
+.pc-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 13px;
+  border-radius: 10px;
+  border: none;
+  background: var(--pc-jade);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.pc-pdf-btn:hover {
+  background: var(--pc-jade-dark);
+}
+
+/* Crisis 999 Emergency Bubble */
+.pc-crisis-card {
+  background: var(--pc-red-soft);
+  border: 1.5px solid var(--pc-red-line);
+  border-radius: 16px;
+  padding: 14px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pc-crisis-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pc-red);
+}
+
+.pc-crisis-call {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--pc-red);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+/* Subtle quick-reply suggestions */
+.pc-suggestions {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 14px 2px;
+  background: var(--pc-bg);
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+
+.pc-suggestions::-webkit-scrollbar {
+  display: none;
+}
+
+.pc-chip {
+  flex-shrink: 0;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--pc-line);
+  background: var(--pc-surface);
+  color: var(--pc-ink-2);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.pc-chip:hover {
+  border-color: var(--pc-jade);
+  color: var(--pc-jade-dark);
+}
+
+/* Composer */
+.pc-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--pc-surface);
+  border-top: 1px solid var(--pc-line);
+  flex-shrink: 0;
+}
+
+.pc-input {
+  flex: 1;
+  min-height: 40px;
+  max-height: 112px;
+  padding: 9px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--pc-line);
+  background: var(--pc-bg);
+  color: var(--pc-ink);
+  font-size: 16px; /* prevents iOS Safari auto-zoom */
+  line-height: 1.35;
+  outline: none;
+  font-family: inherit;
+  resize: none;
+}
+
+.pc-input:focus {
+  border-color: var(--pc-jade);
+  background: var(--pc-surface);
+}
+
+.pc-send-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--pc-jade);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.pc-send-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Slide-over Patient Journeys Sidebar */
+.pc-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 25, 31, 0.34);
+  z-index: 30;
+  animation: pcFadeIn 0.18s ease-out;
+}
+
+.pc-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: min(320px, 86vw);
+  background: var(--pc-surface);
+  border-right: 1px solid var(--pc-line);
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 8px 0 28px rgba(20, 25, 31, 0.14);
+  animation: pcSlideIn 0.2s ease-out;
+}
+
+@keyframes pcFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pcSlideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.pc-drawer-head {
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 12px;
+  border-bottom: 1px solid var(--pc-line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pc-drawer-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pc-ink);
+}
+
+.pc-drawer-sub {
+  font-size: 12px;
+  color: var(--pc-ink-3);
+  margin-top: 2px;
+}
+
+.pc-drawer-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pc-journey-item {
+  width: 100%;
+  text-align: left;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--pc-line);
+  background: var(--pc-bg);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.pc-journey-item.is-active {
+  background: var(--pc-jade-soft);
+  border-color: var(--pc-jade);
+}
+
+.pc-journey-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pc-journey-name {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--pc-ink);
+}
+
+.pc-journey-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--pc-line);
+  background: var(--pc-surface);
+  color: var(--pc-ink-2);
+  flex-shrink: 0;
+}
+
+.pc-journey-badge.is-live {
+  background: var(--pc-jade-soft);
+  border-color: var(--pc-jade-line);
+  color: var(--pc-jade-dark);
+}
+
+.pc-journey-title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--pc-ink-2);
+}
+
+.pc-journey-sub {
+  font-size: 11.5px;
+  color: var(--pc-ink-3);
+  line-height: 1.35;
+}
+
+.pc-drawer-foot {
+  padding: 12px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--pc-line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pc-reset-btn {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--pc-line);
+  background: var(--pc-bg);
+  color: var(--pc-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pc-reset-btn:hover {
+  background: #ece7de;
+  color: var(--pc-ink);
+}

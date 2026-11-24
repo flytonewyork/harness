@@ -74,6 +74,15 @@ from .workspace_engine import (
     simulate_patient_triage_turn,
     undo_case_execution,
 )
+from .live_demo import (
+    append_doctor_signed_chat_bubble,
+    get_live_chat_state,
+    get_live_journeys_status,
+    handle_live_chat_turn,
+    reset_live_demo,
+    retract_doctor_signed_chat_bubble,
+    start_live_journey,
+)
 from .db import (
     TENANT_SCOPED_TABLES,
     AgentRun,
@@ -432,6 +441,18 @@ class AgentTurnReq(BaseModel):
     action: str = Field(default="message", pattern="^(message|book_flu_slot|submit_urti_intake|ack_info_pack)$")
     message: str = Field(default="", max_length=2000)
     payload: dict[str, Any] = Field(default_factory=dict)
+    lang: str = Field(default="en", max_length=12)
+
+
+class LiveChatStartReq(BaseModel):
+    journey_key: str = Field(default="wingyan", max_length=64)
+    lang: str = Field(default="en", max_length=12)
+    force_restart: bool = False
+
+
+class LiveChatTurnReq(BaseModel):
+    journey_key: str = Field(default="wingyan", max_length=64)
+    message: str = Field(min_length=1, max_length=2000)
     lang: str = Field(default="en", max_length=12)
 
 
@@ -1192,12 +1213,73 @@ def create_acute_app(
             mchk = "M61042"
         return prac_id, mchk, clinic_name
 
+    # ================================================================================== LIVE PHONE-TO-WORKSPACE DEMO CHAT
+    @app.get("/api/v1/demo/live/journeys")
+    def demo_live_journeys(request: Request):
+        """List all 5 synthetic HK GP patient demo journeys and their live status."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        tenant_id = _workspace_tenant(request)
+        return get_live_journeys_status(database, tenant_id, live_bus)
+
+    @app.post("/api/v1/demo/live/chat/start")
+    def demo_live_chat_start(body: LiveChatStartReq, request: Request):
+        """Start or resume a patient journey from QR scan or phone sidebar -> opens live case thread in /workspace."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        tenant_id = _workspace_tenant(request)
+        return start_live_journey(
+            database,
+            tenant_id=tenant_id,
+            journey_key_or_pid=body.journey_key,
+            live_bus=live_bus,
+            lang=body.lang,
+            force_restart=body.force_restart,
+        )
+
+    @app.get("/api/v1/demo/live/chat/state/{journey_key}")
+    def demo_live_chat_state(journey_key: str, request: Request, lang: str = Query(default="en")):
+        """Poll current chat thread, doctor-signed care plan, MCHK PDFs & reset epoch for a patient journey."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        tenant_id = _workspace_tenant(request)
+        return get_live_chat_state(database, tenant_id=tenant_id, journey_key_or_pid=journey_key, lang=lang)
+
+    @app.post("/api/v1/demo/live/chat/turn")
+    def demo_live_chat_turn(body: LiveChatTurnReq, request: Request):
+        """Natural-language patient message -> pre-LLM safety & Rx CDS gates -> live /workspace agent thread update."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        tenant_id = _workspace_tenant(request)
+        try:
+            return handle_live_chat_turn(
+                database,
+                tenant_id=tenant_id,
+                journey_key_or_pid=body.journey_key,
+                message_text=body.message,
+                live_bus=live_bus,
+                lang=body.lang,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+
+    @app.post("/api/v1/demo/live/reset")
+    def demo_live_reset(request: Request):
+        """Completely reset the live demo environment (0 cases, blank workspace, empty phone chats, fresh epoch)."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        tenant_id = _workspace_tenant(request)
+        return reset_live_demo(database, tenant_id, live_bus)
+
     @app.get("/api/v1/workspace/overview")
-    def workspace_overview(request: Request):
+    def workspace_overview(request: Request, mode: str = Query(default="seeded")):
         """Executive Clinic Workspace + 4-State Case Loops + Head-of-AI Architecture X-Ray."""
         tenant_id = _workspace_tenant(request)
-        ov = build_workspace_overview(database, tenant_id)
+        auto_seed = str(mode or "seeded").lower() != "live"
+        ov = build_workspace_overview(database, tenant_id, auto_seed=auto_seed)
         ov.setdefault("xray", {})["emr_bridge"] = emr_adapter.bridge_metadata(database, tenant_id)
+        if _is_demo_mode():
+            ov["live_session"] = get_live_journeys_status(database, tenant_id, live_bus)
         return ov
 
     @app.post("/api/v1/workspace/cases/{case_id}/preview")
@@ -1593,6 +1675,16 @@ def create_acute_app(
                         body_text=" ".join(safe_parts),
                     )
                 )
+            append_doctor_signed_chat_bubble(
+                s,
+                case_id=case_id,
+                signed_by=body.actor_name,
+                mchk_reg_no=mchk_reg_no,
+                prescriptions_out=prescriptions_out,
+                certificates_out=certificates_out,
+                bookings_out=adapter_dispatches.get("bookings", []) + adapter_dispatches.get("vaccinations", []),
+                trace_id=trace_id,
+            )
             s.flush()
 
         trace_dict["emr_addendum"] = enriched_addendum
@@ -1720,22 +1812,22 @@ def create_acute_app(
         )
         rollback_res = workspace_dispatcher.rollback_trace(trace_id)
 
-        # Retract staged Certificate / Prescription DB rows bound to this undone trace
+        # Retract staged Certificate / Prescription DB rows bound to this undone trace & remove chat bubble
         retracted_artifacts: list[str] = []
-        if staged_artifact_ids:
-            with database.tenant_session(tenant_id) as s:
-                for aid in staged_artifact_ids:
-                    if aid.startswith("cert_"):
-                        c_row = s.get(Certificate, aid)
-                        if c_row is not None:
-                            s.delete(c_row)
-                            retracted_artifacts.append(aid)
-                    elif aid.startswith("rx_"):
-                        rx_row = s.get(Prescription, aid)
-                        if rx_row is not None:
-                            s.delete(rx_row)
-                            retracted_artifacts.append(aid)
-                s.flush()
+        with database.tenant_session(tenant_id) as s:
+            for aid in staged_artifact_ids:
+                if aid.startswith("cert_"):
+                    c_row = s.get(Certificate, aid)
+                    if c_row is not None:
+                        s.delete(c_row)
+                        retracted_artifacts.append(aid)
+                elif aid.startswith("rx_"):
+                    rx_row = s.get(Prescription, aid)
+                    if rx_row is not None:
+                        s.delete(rx_row)
+                        retracted_artifacts.append(aid)
+            retract_doctor_signed_chat_bubble(s, case_id=case_id, trace_id=trace_id)
+            s.flush()
 
         if patient_id:
             live_bus.update_patient_state(patient_id, workflow_stage="nurse_ready")

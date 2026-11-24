@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 import { v2Api } from "../api";
 import "./workspace.css";
 
@@ -635,10 +636,20 @@ function TrendSvg({ chart, goalSys, goalDia }: { chart: Record<string, any>; goa
 }
 
 export function ClinicWorkspaceApp() {
+  const workspaceMode: "live" | "seeded" = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("mode") === "seeded" ? "seeded" : "live";
+  }, []);
+
   const [data, setData] = useState<Record<string, any> | null>(null);
   const [view, setView] = useState<NavView>("my_work");
   const [role, setRole] = useState<"locum" | "nurse">("locum");
   const [showXray, setShowXray] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [publicBaseUrl, setPublicBaseUrl] = useState<string>(() => window.location.origin);
+  const [editingHost, setEditingHost] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [copiedQr, setCopiedQr] = useState(false);
   // Management Plan starts EMPTY by default per Clinical UI Design System (builds idempotently from clicked + pills)
   const [plans, setPlans] = useState<Record<string, PlanOrder[]>>({});
   const [goalOverrides, setGoalOverrides] = useState<Record<string, { sys: number; dia: number }>>({});
@@ -660,48 +671,74 @@ export function ClinicWorkspaceApp() {
 
   const sseRefreshTimer = useRef<number | null>(null);
 
+  const phoneQrUrl = useMemo(() => {
+    const cleanBase = publicBaseUrl.trim().replace(/\/+$/, "") || window.location.origin;
+    return `${cleanBase}/p/chat`;
+  }, [publicBaseUrl]);
+
+  useEffect(() => {
+    QRCode.toDataURL(phoneQrUrl, {
+      width: 240,
+      margin: 1,
+      color: { dark: "#162026", light: "#FFFFFF" },
+    })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [phoneQrUrl]);
+
   const refresh = useCallback(async () => {
-    const ov = await v2Api.workspaceOverview();
+    const ov = await v2Api.workspaceOverview(workspaceMode);
     setData(ov);
-  }, []);
+  }, [workspaceMode]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  // Live SSE EventSource subscription to /api/v1/live/stream (fails silently on disconnect)
+  // Live SSE EventSource + 2s poll fallback (reliable over Cloudflare quick tunnels & LAN)
   useEffect(() => {
-    if (typeof EventSource === "undefined") return;
+    let closed = false;
     let es: EventSource | null = null;
-    try {
-      es = new EventSource("/api/v1/live/stream");
-      const scheduleRefresh = () => {
-        if (sseRefreshTimer.current !== null) return;
-        sseRefreshTimer.current = window.setTimeout(() => {
-          sseRefreshTimer.current = null;
-          refresh().catch(() => {});
-        }, 250);
-      };
-      es.onopen = () => setSseConnected(true);
-      es.onerror = () => {
+    if (typeof EventSource !== "undefined") {
+      try {
+        es = new EventSource("/api/v1/live/stream");
+        const scheduleRefresh = () => {
+          if (sseRefreshTimer.current !== null) return;
+          sseRefreshTimer.current = window.setTimeout(() => {
+            sseRefreshTimer.current = null;
+            if (!closed) refresh().catch(() => {});
+          }, 220);
+        };
+        es.onopen = () => setSseConnected(true);
+        es.onerror = () => {
+          setSseConnected(false);
+        };
+        es.onmessage = () => scheduleRefresh();
+        const events = [
+          "phone.connected",
+          "agent.step",
+          "tool.call",
+          "workspace.committed",
+          "workspace.undone",
+          "emr.mutated",
+          "document.ingested",
+          "document.resolved",
+          "case.updated",
+          "patient.care_plan_delivered",
+          "patient.care_plan_retracted",
+          "demo.reset",
+        ];
+        events.forEach((ev) => es?.addEventListener(ev, scheduleRefresh));
+      } catch {
         setSseConnected(false);
-      };
-      es.onmessage = () => scheduleRefresh();
-      const events = [
-        "workspace.committed",
-        "workspace.undone",
-        "emr.mutated",
-        "document.ingested",
-        "document.resolved",
-        "case.updated",
-        "patient.care_plan_delivered",
-        "patient.care_plan_retracted",
-      ];
-      events.forEach((ev) => es?.addEventListener(ev, scheduleRefresh));
-    } catch {
-      setSseConnected(false);
+      }
     }
+    const poll = window.setInterval(() => {
+      if (!closed) refresh().catch(() => {});
+    }, 2000);
     return () => {
+      closed = true;
+      window.clearInterval(poll);
       if (sseRefreshTimer.current !== null) {
         window.clearTimeout(sseRefreshTimer.current);
         sseRefreshTimer.current = null;
@@ -710,19 +747,66 @@ export function ClinicWorkspaceApp() {
     };
   }, [refresh]);
 
-  useEffect(() => {
-    const hasUndo = data?.cases?.some((c: any) => c.traces?.some((t: any) => t.can_undo));
-    if (!hasUndo) return;
-    const t = setInterval(() => { refresh(); }, 1500);
-    return () => clearInterval(t);
-  }, [data, refresh]);
-
   const cases: Array<Record<string, any>> = data?.cases || [];
   const activeCase = cases.find((c) => c.id === view) || null;
   const graph = data?.practice_graph;
   const orderCatalog: Array<Record<string, any>> =
     graph?.order_catalog?.length ? graph.order_catalog : FALLBACK_SLASH_CATALOG;
   const aiName = data?.careline_profile?.name || "Sam";
+  const liveSession = data?.live_session || null;
+  const recentToolCalls: Array<Record<string, any>> = liveSession?.recent_tool_calls || [];
+
+  // If the currently viewed case disappeared (e.g., global reset triggered from phone), return cleanly to #my-work
+  useEffect(() => {
+    if (view !== "my_work" && view !== "clinic_team" && view !== "playbook" && data && !activeCase) {
+      setView("my_work");
+    }
+  }, [view, data, activeCase]);
+
+  const handleResetDemo = async () => {
+    setBusy(true);
+    try {
+      if (workspaceMode === "live") {
+        await v2Api.liveDemoReset();
+      } else {
+        await v2Api.workspaceReset();
+      }
+      setPlans({});
+      setGoalOverrides({});
+      setSamReadMap({});
+      setCdsFeedback({});
+      setOverrideReasonMap({});
+      setReceipts({});
+      setBanner(null);
+      setView("my_work");
+      setQrModalOpen(false);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const triggerAuthorityProbe = async () => {
+    setBusy(true);
+    try {
+      const targetPid = activeCase?.patient_id || "pat_lam_urti_demo";
+      await v2Api.emrSimulateAuthorityProbe(targetPid);
+      setBanner("Asymmetric Authority guardrail verified: AI attempt to call emr.write_signed_orders was BLOCKED.");
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyQrUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(phoneQrUrl);
+      setCopiedQr(true);
+      window.setTimeout(() => setCopiedQr(false), 1800);
+    } catch {
+      // clipboard unavailable
+    }
+  };
 
   const openCase = (caseId: string) => {
     setView(caseId);
@@ -1100,25 +1184,25 @@ export function ClinicWorkspaceApp() {
         <div className="ws-top-actions">
           <button type="button" className={role === "locum" ? "ws-btn ws-btn-active" : "ws-btn"} onClick={() => { setRole("locum"); setView("my_work"); }}>Locum Dr. Sarah</button>
           <button type="button" className={role === "nurse" ? "ws-btn ws-btn-active" : "ws-btn"} onClick={() => { setRole("nurse"); setView("clinic_team"); }}>Nurse Rachel</button>
+          <button
+            type="button"
+            className={qrModalOpen ? "ws-btn ws-btn-active" : "ws-btn"}
+            onClick={() => setQrModalOpen(true)}
+            data-testid="open-patient-qr-btn"
+          >
+            {liveSession?.phone_connected ? "Patient QR ●" : "Patient QR"}
+          </button>
           <button type="button" className={showXray ? "ws-btn ws-btn-active" : "ws-btn"} onClick={() => setShowXray((x) => !x)} data-testid="toggle-architecture-xray">
-            {showXray ? "Hide Architecture X-Ray" : "Architecture X-Ray"}
+            {showXray ? "Hide Under the Hood" : "Under the Hood"}
           </button>
           <button
             type="button"
             className="ws-btn-ghost"
-            onClick={async () => {
-              await v2Api.workspaceReset();
-              setPlans({});
-              setGoalOverrides({});
-              setSamReadMap({});
-              setCdsFeedback({});
-              setOverrideReasonMap({});
-              setReceipts({});
-              setBanner(null);
-              await refresh();
-            }}
+            disabled={busy}
+            onClick={handleResetDemo}
+            data-testid="workspace-reset-btn"
           >
-            Reset
+            Reset Demo
           </button>
         </div>
       </header>
@@ -1141,7 +1225,9 @@ export function ClinicWorkspaceApp() {
 
           <div className="ws-nav-group">
             <div className="ws-nav-heading"><span>Needs Decision</span><span>{data.counts.needs_decision}</span></div>
-            {data.grouped.needs_decision.map((c: any) => (
+            {data.grouped.needs_decision.length === 0 ? (
+              <div style={{ padding: "4px 8px", fontSize: 12, color: "var(--ws-ink-3)" }}>None pending</div>
+            ) : data.grouped.needs_decision.map((c: any) => (
               <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
                 <div style={{ minWidth: 0 }}>
                   <div>{c.patient_name} ({c.patient_age_sex})</div>
@@ -1155,12 +1241,21 @@ export function ClinicWorkspaceApp() {
           <div className="ws-nav-group">
             <div className="ws-nav-heading"><span>Running · Today</span><span>{data.counts.running}</span></div>
             {data.grouped.running.length === 0 ? (
-              <div style={{ padding: "4px 8px", fontSize: 12, color: "var(--ws-ink-3)" }}>None triggered today</div>
+              <div style={{ padding: "4px 8px", fontSize: 12, color: "var(--ws-ink-3)" }}>Waiting for patient</div>
             ) : data.grouped.running.map((c: any) => (
               <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
                 <div style={{ minWidth: 0 }}>
-                  <div>{c.patient_name} ({c.patient_age_sex})</div>
-                  <div className="ws-nav-sub">{c.baton === "with_nurse" ? "With Nurse Rachel" : "Dispatched today"}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span className="ws-live-dot" />
+                    <span>{c.patient_name} ({c.patient_age_sex})</span>
+                  </div>
+                  <div className="ws-nav-sub">
+                    {c.baton === "with_nurse"
+                      ? "With Nurse Rachel"
+                      : c.baton === "with_patient"
+                        ? "Careline active · agents working"
+                        : "Dispatched today"}
+                  </div>
                 </div>
               </button>
             ))}
@@ -1193,12 +1288,87 @@ export function ClinicWorkspaceApp() {
         <main className="ws-content">
           {banner && <div className="ws-safety-gap">{banner}</div>}
 
-          {view === "my_work" && (
+          {view === "my_work" && cases.length === 0 && (
+            <div className="ws-qr-stage" data-testid="workspace-blank-qr-stage">
+              <div className="ws-qr-card">
+                <div className="ws-section-kicker">Central Medical · Live Clinic Demo</div>
+                <h1 className="ws-ai-title" style={{ marginTop: 4 }}>Scan QR on your phone to begin</h1>
+                <p className="ws-lead" style={{ maxWidth: 480, textAlign: "center" }}>
+                  This workspace starts blank. Once a patient scans the QR code and starts messaging the clinic AI, live threads, clinical widgets, and agent workflows populate here in real time.
+                </p>
+
+                <div className="ws-qr-box">
+                  {qrDataUrl ? (
+                    <img src={qrDataUrl} alt="Scan to open Central Medical patient chat" width={220} height={220} />
+                  ) : (
+                    <div style={{ width: 220, height: 220, display: "grid", placeItems: "center", color: "var(--ws-ink-3)", fontSize: 13 }}>
+                      Generating QR…
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                  <span className="ws-pill ws-pill-jade" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span className="ws-live-dot" />
+                    <span>{liveSession?.phone_connected ? "Phone connected — starting thread…" : "Waiting for patient scan…"}</span>
+                  </span>
+                </div>
+
+                <div className="ws-qr-steps">
+                  <div><strong>1. Scan QR</strong><span>Opens empty chat → clinic typing bubble → welcome</span></div>
+                  <div><strong>2. Chat naturally</strong><span>English or Cantonese · switch stories in phone sidebar</span></div>
+                  <div><strong>3. Watch live here</strong><span>New threads &amp; agent workflows appear as patient talks</span></div>
+                </div>
+
+                <div className="ws-qr-url-bar">
+                  {editingHost ? (
+                    <div style={{ display: "flex", gap: 6, width: "100%", maxWidth: 460 }}>
+                      <input
+                        className="ws-text-input"
+                        value={publicBaseUrl}
+                        onChange={(e) => setPublicBaseUrl(e.target.value)}
+                        placeholder="https://your-tunnel.trycloudflare.com or http://192.168.x.x:8080"
+                        style={{ flex: 1, fontSize: 12.5 }}
+                      />
+                      <button type="button" className="ws-btn-primary" onClick={() => setEditingHost(false)}>Done</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                      <span className="ws-num" style={{ fontSize: 12, color: "var(--ws-ink-3)" }}>{phoneQrUrl}</span>
+                      <button type="button" className="ws-btn" style={{ fontSize: 12, padding: "4px 9px" }} onClick={() => setEditingHost(true)}>
+                        Edit host URL
+                      </button>
+                      <button type="button" className="ws-btn" style={{ fontSize: 12, padding: "4px 9px" }} onClick={copyQrUrl}>
+                        {copiedQr ? "Copied ✓" : "Copy link"}
+                      </button>
+                      <a
+                        href="/p/chat"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ws-btn"
+                        style={{ fontSize: 12, padding: "4px 9px", textDecoration: "none" }}
+                      >
+                        Open phone view ↗
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {view === "my_work" && cases.length > 0 && (
             <div style={{ maxWidth: 820, display: "flex", flexDirection: "column", gap: 14 }}>
-              <h1 className="ws-ai-title"># my-work</h1>
-              {data.grouped.needs_decision.length === 0 && <div className="ws-card">All pending decisions cleared.</div>}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <h1 className="ws-ai-title"># my-work</h1>
+                <span className="ws-pill ws-pill-jade" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span className="ws-live-dot" />
+                  <span>{cases.length} live patient {cases.length === 1 ? "thread" : "threads"}</span>
+                </span>
+              </div>
+
               {data.grouped.needs_decision.map((c: any) => (
-                <div key={c.id} className="ws-card">
+                <div key={c.id} className="ws-card" data-testid={`my-work-case-${c.case_key}`}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <span className="ws-num" style={{ fontSize: 12.5, color: "var(--ws-ink-3)" }}>{c.patient_name} ({c.patient_age_sex}) · {c.next_checkpoint_label}</span>
                     {c.summary?.alerts?.[0] && (
@@ -1209,9 +1379,48 @@ export function ClinicWorkspaceApp() {
                   </div>
                   <h2 className="ws-ai-title" style={{ fontSize: 17.5 }}>{c.ai_title}</h2>
                   <p className="ws-lead">{c.lead_line}</p>
+                  {c.timeline?.length > 0 && (
+                    <div style={{ fontSize: 12.5, color: "var(--ws-ink-2)", padding: "8px 10px", background: "var(--ws-paper)", borderRadius: 8, border: "1px solid var(--ws-line)" }}>
+                      <strong>Latest agent activity:</strong> {c.timeline[c.timeline.length - 1]?.label}
+                    </div>
+                  )}
                   <div><button type="button" className="ws-btn-primary" onClick={() => openCase(c.id)}>Open Case →</button></div>
                 </div>
               ))}
+
+              {data.grouped.running.length > 0 && (
+                <>
+                  <div className="ws-section-kicker" style={{ marginTop: 4 }}>Live Agent Threads · In Progress</div>
+                  {data.grouped.running.map((c: any) => (
+                    <div key={c.id} className="ws-card" data-testid={`running-case-${c.case_key}`}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 600 }}>
+                          <span className="ws-live-dot" />
+                          <span>{c.patient_name} ({c.patient_age_sex})</span>
+                        </span>
+                        <span className="ws-pill ws-pill-jade">Agents working live</span>
+                      </div>
+                      <p className="ws-lead">{c.lead_line}</p>
+                      {c.timeline?.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5, color: "var(--ws-ink-2)", padding: "8px 10px", background: "var(--ws-paper)", borderRadius: 8, border: "1px solid var(--ws-line)" }}>
+                          {c.timeline.slice(-3).map((t: any, i: number) => (
+                            <div key={i}><span className="ws-num" style={{ color: "var(--ws-ink-3)", marginRight: 6 }}>{t.date}</span>{t.label}</div>
+                          ))}
+                        </div>
+                      )}
+                      <div><button type="button" className="ws-btn" onClick={() => openCase(c.id)}>Watch Thread Live →</button></div>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {data.grouped.needs_decision.length === 0 && data.grouped.running.length === 0 && (
+                <div className="ws-card">
+                  <div className="ws-lead">
+                    All pending decisions cleared. {data.grouped.scheduled.length > 0 ? `${data.grouped.scheduled.length} patient loop(s) running quietly in Scheduled / Waiting.` : ""}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2574,17 +2783,95 @@ export function ClinicWorkspaceApp() {
             </div>
 
             <div className="ws-xray-card">
-              <div className="ws-xray-title">5. Live Engineering Probes</div>
+              <div className="ws-xray-title">5. Live Agent Tool Stream ({recentToolCalls.length})</div>
+              {recentToolCalls.length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--ws-ink-3)" }}>
+                  Tool calls will stream here in real time as the patient scans the QR code and chats with Sam.
+                </div>
+              ) : (
+                <div className="ws-tool-stream">
+                  {recentToolCalls.slice(0, 12).map((tc: any, idx: number) => (
+                    <div key={tc.id || idx} className="ws-tool-row">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                        <strong style={{ fontSize: 12 }}>{tc.agent}</strong>
+                        <span
+                          className={`ws-pill ${
+                            tc.authority === "BLOCKED"
+                              ? "ws-pill-red"
+                              : tc.authority === "SIGNED_WRITE"
+                                ? "ws-pill-jade"
+                                : tc.authority === "CDS"
+                                  ? "ws-pill-amber"
+                                  : ""
+                          }`}
+                          style={{ fontSize: 10.5, padding: "1px 6px" }}
+                        >
+                          {tc.authority || "READ"}
+                        </span>
+                      </div>
+                      <div className="ws-num" style={{ fontSize: 11.5, color: "var(--ws-ink-2)" }}>{tc.tool}</div>
+                      <div style={{ fontSize: 11.5, color: "var(--ws-ink-3)" }}>{tc.summary}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="ws-xray-card">
+              <div className="ws-xray-title">6. Live Engineering Probes &amp; Deep-Dive</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <button type="button" className="ws-btn" onClick={triggerMismatchProbe}>Test 3-Pt ID Mismatch → Nurse</button>
+                <button type="button" className="ws-btn" disabled={busy} onClick={triggerAuthorityProbe}>
+                  Probe Authority Guard (BLOCKED)
+                </button>
+                <button type="button" className="ws-btn" disabled={busy} onClick={triggerMismatchProbe}>
+                  Test 3-Pt ID Mismatch → Nurse
+                </button>
                 {activeCase?.case_key === "wong" && (
-                  <button type="button" className="ws-btn" onClick={() => runTick(activeCase.id, "bp_threshold_breach")}>Trigger BP 146/92 Wake</button>
+                  <button type="button" className="ws-btn" disabled={busy} onClick={() => runTick(activeCase.id, "bp_threshold_breach")}>
+                    Trigger BP 146/92 Wake
+                  </button>
                 )}
+                <a href="/emr" target="_blank" rel="noreferrer" className="ws-btn" style={{ textDecoration: "none" }}>
+                  Open Full EMR Inspector ↗
+                </a>
               </div>
             </div>
           </aside>
         )}
       </div>
+
+      {/* PATIENT QR MODAL OVERLAY (accessible anytime mid-demo via topbar button) */}
+      {qrModalOpen && (
+        <div className="ws-qr-modal-backdrop" onClick={() => setQrModalOpen(false)} data-testid="patient-qr-modal">
+          <div className="ws-qr-modal" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <div>
+                <div className="ws-section-kicker">Physical Phone Check-In</div>
+                <strong style={{ fontSize: 16 }}>Scan to open Clinic Patient Chat</strong>
+              </div>
+              <button type="button" className="ws-btn" onClick={() => setQrModalOpen(false)}>Close</button>
+            </div>
+            <div className="ws-qr-box">
+              {qrDataUrl && <img src={qrDataUrl} alt="Scan to open patient chat" width={220} height={220} />}
+            </div>
+            <div style={{ width: "100%", display: "flex", gap: 6 }}>
+              <input
+                className="ws-text-input"
+                value={publicBaseUrl}
+                onChange={(e) => setPublicBaseUrl(e.target.value)}
+                placeholder="https://your-tunnel.trycloudflare.com"
+                style={{ flex: 1, fontSize: 12.5 }}
+              />
+              <button type="button" className="ws-btn" onClick={copyQrUrl}>
+                {copiedQr ? "Copied ✓" : "Copy"}
+              </button>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ws-ink-3)", textAlign: "center" }}>
+              Scan on phone → opens empty chat → clinic typing bubble → welcome. Switch patient journeys anytime from the phone sidebar.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
