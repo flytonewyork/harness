@@ -1320,7 +1320,7 @@ export function ClinicWorkspaceApp() {
           </div>
 
           <div className="ws-nav-group">
-            <div className="ws-nav-heading"><span>Scheduled / Waiting</span><span>{data.counts.scheduled}</span></div>
+            <div className="ws-nav-heading"><span>Seen Today · Done</span><span>{data.counts.scheduled}</span></div>
             {data.grouped.scheduled.map((c: any) => (
               <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
                 <div style={{ minWidth: 0 }}>

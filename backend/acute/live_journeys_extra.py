@@ -313,13 +313,13 @@ def build_extra_initial_summary(
     if j_key == "tang_uti":
         return {
             "alerts": [
-                {"level": "high", "label": "G6PD Deficient", "detail": "Avoid Nitrofurantoin, Sulfonamides (Bactrim), Aspirin"},
+                {"level": "info", "label": "G6PD Deficient · Clinician note", "detail": "Avoid Nitrofurantoin & sulfonamides (Fosfomycin is safe)"},
             ],
             "scheduled_tasks": [{"status": "waiting", "label": "Careline conversation active with patient"}],
             "issues": [{
                 "id": "iss_tang_init",
                 "name": "1. Patient check-in — gathering history",
-                "bullets": ["Patient opened Careline chat; G6PD safety flag loaded from clinic record."],
+                "bullets": ["Patient opened Careline chat; awaiting symptom details."],
                 "safety_gap": None,
                 "suggested_orders": [],
             }],
