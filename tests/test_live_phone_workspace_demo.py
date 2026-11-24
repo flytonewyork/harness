@@ -32,8 +32,10 @@ def test_blank_start_qr_scan_natural_chat_doctor_sign_undo_and_reset(tmp_path):
     ov0 = client.get("/api/v1/workspace/overview?mode=live").json()
     assert ov0["cases"] == []
     assert ov0["counts"] == {"needs_decision": 0, "running": 0, "scheduled": 0, "closed": 0}
-    assert len(ov0["live_session"]["journeys"]) == 12
+    assert [j["key"] for j in ov0["live_session"]["journeys"]] == ["wingyan", "tang_uti", "chan", "lau_chest"]
     assert all(j["status"] == "not_started" for j in ov0["live_session"]["journeys"])
+    ov0_all = client.get("/api/v1/workspace/overview?mode=live&all=1").json()
+    assert len(ov0_all["live_session"]["journeys"]) == 12
     emr0 = client.get("/api/v1/emr/overview?mode=live").json()
     assert emr0["patients"] == []
     assert emr0["mode"] == "live"
@@ -235,13 +237,13 @@ def test_all_12_realistic_gp_episodes_blank_emr_and_post_sign_followup(tmp_path)
     client = _make_client(tmp_path)
     assert client.post("/api/v1/demo/live/reset").status_code == 200
 
-    # Verify all 12 episodes have clean clinic categories (4 acute, 4 chronic, 4 family)
-    j_meta = client.get("/api/v1/demo/live/journeys").json()["journeys"]
+    # Verify default exposes ONLY the 4 flagship HK GP cases, while ?all=1 exposes all 12 episodes
+    j_flagship = client.get("/api/v1/demo/live/journeys").json()["journeys"]
+    assert [j["key"] for j in j_flagship] == ["wingyan", "tang_uti", "chan", "lau_chest"]
+    j_meta = client.get("/api/v1/demo/live/journeys?all=1").json()["journeys"]
     assert len(j_meta) == 12
     cats = [j["category"] for j in j_meta]
-    assert cats.count("acute") == 4
-    assert cats.count("chronic") == 4
-    assert cats.count("family") == 4
+    assert set(cats) == {"acute", "chronic", "family"}
 
     # 6. TANG Ka-Yan: UTI -> colloquial patient reply (no G6PD/haemolysis jargon to patient); G6PD stays clinician-side
     r_tang = client.post(
@@ -606,6 +608,171 @@ def test_vertex_adc_header_and_fallback_cascade(tmp_path, monkeypatch):
     h_body = client.get("/api/v1/health").json()
     assert h_body["llm_warmup"]["warmed"] is True
     reset_llm_target_cache()
+
+
+def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_path):
+    """Verify all 4 flagship HK GP demo cases end-to-end:
+    1. wingyan (URTI): single Turn-0 starter chip, zero static Turn 1+ chips, zero '!', e-Rx PDF download, extra SL escalation, Day-3.
+    2. tang_uti (UTI): asks red flags + pregnancy, dynamic pregnancy alert clears on reply, Augmentin 375mg TDS x5d (ZERO Fosfomycin), zero jargon-free meta-commentary.
+    3. chan (AFib): Cantonese default (zh-HK), MedDiff + INR trend + CHA2DS2-VASc & HAS-BLED scores, Cantonese post-sign follow-up.
+    4. lau_chest (Cardiac): 10-Yr CVD risk score mounted, preventive care cards, ZERO Hs-Troponin in outpatient lab orders.
+    """
+    client = _make_client(tmp_path)
+    assert client.post("/api/v1/demo/live/reset").status_code == 200
+
+    # Default catalog exposes ONLY the 4 flagship cases in presentation order
+    j_resp = client.get("/api/v1/demo/live/journeys").json()
+    journeys = j_resp["journeys"]
+    assert [j["key"] for j in journeys] == ["wingyan", "tang_uti", "chan", "lau_chest"]
+    by_key = {j["key"]: j for j in journeys}
+    assert by_key["chan"]["default_lang"] == "zh-HK"
+
+    # ---- CASE 1: wingyan (Acute URTI) ----
+    s1 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "wingyan", "lang": "en"}).json()
+    assert len(s1["suggested_replies"]) == 1
+    assert "!" not in s1["messages"][0]["text"]
+    patient_tok = s1["token"]
+
+    t1 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": s1["suggested_replies"][0], "lang": "en"},
+    ).json()
+    assert t1["case_state"] == "needs_decision"
+    assert "!" not in t1["reply"]
+    # Turn 1+ MUST NOT fall back to hardcoded static chips when LLM isn't active
+    assert t1["suggested_replies"] == []
+    st1 = client.get("/api/v1/demo/live/chat/state/wingyan?lang=en").json()
+    assert st1["suggested_replies"] == []
+
+    ov1 = client.get("/api/v1/workspace/overview?mode=live").json()
+    wy_case = next(c for c in ov1["cases"] if c["case_key"] == "wingyan")
+    wy_orders = wy_case["summary"]["issues"][0]["suggested_orders"]
+    assert any(o["type"] == "book" for o in wy_orders)
+    assert any(o["type"] == "rx" and "paracetamol" in o["drug"].lower() for o in wy_orders)
+    assert any(o["type"] == "cert" and o["daysOff"] == 2 for o in wy_orders)
+    assert not any("amoxicillin" in str(o).lower() or "antibiotic" in str(o.get("drug", "")).lower() for o in wy_orders)
+
+    # Doctor signs URTI plan -> mints BOTH MCHK Sick Leave PDF AND Signed HK e-Prescription PDF
+    conf = client.post(
+        f"/api/v1/workspace/cases/{wy_case['id']}/confirm",
+        json={
+            "actor_name": "Locum Dr. Sarah Wong",
+            "mchk_reg_no": "M61042",
+            "instruction_text": "Book exam + Paracetamol 500mg QDS PRN x5d + 2d MCHK cert",
+            "orders": [
+                {"id": "wy_book_exam", "type": "book", "issue": "1. Acute viral URTI", "visitType": "Same-day In-Clinic GP Exam", "when": "Today 11:00"},
+                {"id": "wy_rx_para", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Paracetamol 500mg", "freq": "QDS PRN", "days": "5d"},
+                {"id": "wy_cert", "type": "cert", "issue": "1. Acute viral URTI", "days_off": 2, "start_date": "2026-11-24", "omit_employer_diagnosis": True},
+            ],
+        },
+    )
+    assert conf.status_code == 200
+    conf_body = conf.json()
+    assert len(conf_body["prescriptions"]) == 1
+    rx_out = conf_body["prescriptions"][0]
+    assert rx_out.get("vault_doc_id")
+    assert rx_out["items"][0]["quantity_to_dispense"]
+    assert rx_out["items"][0]["frequency_human"]
+    assert rx_out["dispensing_location"]
+
+    # Phone downloads Signed HK e-Prescription PDF via short-lived download token
+    dl_tok_resp = client.post(
+        f"/api/v1/patient/prescriptions/{rx_out['id']}/download-token",
+        headers={"Authorization": f"Bearer {patient_tok}"},
+    )
+    assert dl_tok_resp.status_code == 200
+    pdf_resp = client.get(
+        dl_tok_resp.json()["download_url"],
+        headers={"Authorization": f"Bearer {patient_tok}"},
+    )
+    assert pdf_resp.status_code == 200
+    assert pdf_resp.content.startswith(b"%PDF")
+
+    # Post-sign extra sick leave request escalates strictly to doctor
+    ext = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": "I'm still feeling unwell — could I request 1 extra day of sick leave?", "lang": "en"},
+    ).json()
+    assert ext["case_state"] == "needs_decision"
+    assert "!" not in ext["reply"]
+
+    # Day +3 autonomous check-in works cleanly without exclamation marks
+    d3 = client.post("/api/v1/demo/live/chat/checkin", json={"journey_key": "wingyan", "lang": "zh-HK"}).json()
+    assert "！" not in d3["messages"][-1]["text"]
+
+    # ---- CASE 2: tang_uti (Acute Uncomplicated UTI) ----
+    s2 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "tang_uti", "lang": "en"}).json()
+    assert len(s2["suggested_replies"]) == 1
+    t2_1 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "tang_uti", "message": s2["suggested_replies"][0], "lang": "en"},
+    ).json()
+    assert "pregnant" in t2_1["reply"].lower()
+    assert "fever" in t2_1["reply"].lower()
+    assert "g6pd" not in t2_1["reply"].lower()
+    assert "!" not in t2_1["reply"]
+    assert t2_1["suggested_replies"] == []  # NO premature "No chance of pregnancy" static chip!
+
+    ov2_1 = client.get("/api/v1/workspace/overview?mode=live").json()
+    tang_case_1 = next(c for c in ov2_1["cases"] if c["case_key"] == "tang_uti")
+    assert any("pregnancy" in a["label"].lower() for a in tang_case_1["summary"]["alerts"])
+    assert tang_case_1["summary"]["issues"][0]["safety_gap"] is not None
+
+    # Turn 2: Patient answers red flags + pregnancy -> pregnancy alert AND safety_gap clear!
+    t2_2 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "tang_uti", "message": "No fever, chills, or back pain, and no chance of pregnancy.", "lang": "en"},
+    ).json()
+    assert t2_2["lint_report"]["passed"] is True
+    ov2_2 = client.get("/api/v1/workspace/overview?mode=live").json()
+    tang_case_2 = next(c for c in ov2_2["cases"] if c["case_key"] == "tang_uti")
+    assert not any("pregnancy" in a["label"].lower() for a in tang_case_2["summary"]["alerts"])
+    assert tang_case_2["summary"]["issues"][0]["safety_gap"] is None
+    tang_blob = str(tang_case_2["summary"]).lower()
+    assert "fosfomycin" not in tang_blob
+    assert "augmentin" in tang_blob
+    assert "jargon-free" not in tang_blob
+
+    # ---- CASE 3: chan (Post-Discharge AFib — Cantonese default) ----
+    s3 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "chan", "lang": "zh-HK"}).json()
+    assert len(s3["suggested_replies"]) == 1
+    assert s3["journey"]["default_lang"] == "zh-HK"
+    t3 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "chan", "message": s3["suggested_replies"][0], "lang": "zh-HK"},
+    ).json()
+    assert t3["case_state"] == "needs_decision"
+    assert "！" not in t3["reply"] and "!" not in t3["reply"]
+    assert t3["suggested_replies"] == []
+    ov3 = client.get("/api/v1/workspace/overview?mode=live").json()
+    chan_case = next(c for c in ov3["cases"] if c["case_key"] == "chan")
+    assert len(chan_case["summary"]["clinical_scores"]) == 2
+    assert chan_case["summary"]["med_diff"]["rows"]
+    assert chan_case["summary"]["trend_chart"]["kind"] == "inr"
+
+    # ---- CASE 4: lau_chest (Cardiac Chronic Disease & Prevention) ----
+    s4 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "lau_chest", "lang": "en"}).json()
+    assert len(s4["suggested_replies"]) == 1
+    t4 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "lau_chest", "message": s4["suggested_replies"][0], "lang": "en"},
+    ).json()
+    assert t4["case_state"] == "needs_decision"
+    assert t4["lint_report"]["passed"] is True
+    assert "!" not in t4["reply"]
+    assert t4["suggested_replies"] == []
+    ov4 = client.get("/api/v1/workspace/overview?mode=live").json()
+    lau_case = next(c for c in ov4["cases"] if c["case_key"] == "lau_chest")
+    lau_sum = lau_case["summary"]
+    assert len(lau_sum.get("clinical_scores") or []) >= 1
+    assert lau_sum["clinical_scores"][0]["id"] == "hk_cvd_10yr"
+    assert len(lau_sum.get("preventive_care") or []) >= 2
+    assert "troponin" not in str(lau_sum).lower()
+    assert any(
+        o["type"] == "lab" and "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)" in o.get("testName", "")
+        for o in lau_sum["issues"][0]["suggested_orders"]
+    )
+
 
 
 

@@ -311,6 +311,8 @@ export const v2Api = {
   },
   certDownloadToken: (certId: string, tok: string) =>
     req<{ download_url: string }>(`/api/v1/patient/certificates/${certId}/download-token`, { method: "POST" }, tok),
+  rxDownloadToken: (rxId: string, tok: string) =>
+    req<{ download_url: string }>(`/api/v1/patient/prescriptions/${rxId}/download-token`, { method: "POST" }, tok),
   downloadVaultPdf: async (downloadUrl: string, tok: string, filename = "HK_Medical_Certificate.pdf") => {
     const res = await fetch(downloadUrl, { headers: { Authorization: `Bearer ${tok}` } });
     if (!res.ok) {
@@ -363,6 +365,20 @@ export const v2Api = {
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/preview`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText }) }),
   workspaceAsk: (caseId: string, question: string, actorName = "Locum Dr. Sarah Wong") =>
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/ask`, { method: "POST", body: JSON.stringify({ instruction_text: question, actor_name: actorName }) }),
+  workspaceRecordExam: (
+    caseId: string,
+    body: {
+      stage: "nurse" | "doctor";
+      actor_name: string;
+      exam_note: string;
+      modality?: "in_person" | "live_video";
+      vitals?: Array<{ label: string; val: string }>;
+    },
+  ) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/record-exam`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   workspaceCommit: (caseId: string, instructionText: string, actorName = "Locum Dr. Sarah Wong") =>
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/commit`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText, actor_name: actorName }) }),
   workspaceUndo: (caseId: string, traceId: string) =>

@@ -625,3 +625,370 @@ def issue_certificate_from_order_primitive(
         }
     )
     return result
+
+
+# ======================================================================================
+# Hong Kong MCHK-Compliant Signed e-Prescription Enrichment & Encrypted PDF Generator
+# ======================================================================================
+
+_FREQ_HUMAN: dict[str, tuple[str, int]] = {
+    "OD": ("Once daily", 1),
+    "OD PRN": ("Once daily when required", 1),
+    "OM": ("Once every morning", 1),
+    "ON": ("Once nightly at bedtime", 1),
+    "NOCTE": ("Once nightly at bedtime", 1),
+    "BD": ("Twice daily (every 12 hours)", 2),
+    "BID": ("Twice daily (every 12 hours)", 2),
+    "BD PRN": ("Twice daily when required", 2),
+    "TDS": ("Three times daily (every 8 hours)", 3),
+    "TID": ("Three times daily (every 8 hours)", 3),
+    "TDS PRN": ("Three times daily when required", 3),
+    "QDS": ("Four times daily (every 6 hours)", 4),
+    "QID": ("Four times daily (every 6 hours)", 4),
+    "QDS PRN": ("Every 6 hours when required (max 4 doses in 24h)", 4),
+    "QID PRN": ("Every 6 hours when required (max 4 doses in 24h)", 4),
+    "PRN": ("When required", 2),
+}
+
+_DRUG_CLINICAL_GUIDANCE: dict[str, dict[str, str]] = {
+    "paracetamol": {
+        "form": "tablet",
+        "route": "Oral (PO)",
+        "indication": "Fever & pain relief (antipyretic / analgesic)",
+        "caution": "Max 4g (8 × 500mg tablets) in 24h. Avoid other paracetamol-containing cold remedies. G6PD-safe.",
+        "caution_zh": "24小時內最多服 4克（8粒）。切勿同時服用其他含撲熱息痛傷風藥。",
+    },
+    "cetirizine": {
+        "form": "tablet",
+        "route": "Oral (PO)",
+        "indication": "Runny nose / upper respiratory symptom relief",
+        "caution": "Non-drowsy antihistamine, though may cause mild drowsiness in some people — use caution driving.",
+        "caution_zh": "一般較少引起睡意，但個別人士服後仍可能略感疲倦，駕駛前請留意。",
+    },
+    "oseltamivir": {
+        "form": "capsule",
+        "route": "Oral (PO)",
+        "indication": "Influenza antiviral therapy (complete full course)",
+        "caution": "Take with food to reduce nausea. Complete the full 5-day course even if fever settles earlier.",
+        "caution_zh": "建議飽肚服用以減少胃部不適，請完成整個 5 日療程。",
+    },
+    "ibuprofen": {
+        "form": "tablet",
+        "route": "Oral (PO)",
+        "indication": "Anti-inflammatory & fever relief",
+        "caution": "Take after food. Stop and seek care if epigastric pain, black stools, or rash develops.",
+        "caution_zh": "請於飯後服用；如出現胃痛、黑便或紅疹請立即停服及求醫。",
+    },
+    "amoxicillin": {
+        "form": "capsule",
+        "route": "Oral (PO)",
+        "indication": "Antibacterial therapy (complete full course)",
+        "caution": "Complete the full course. Seek urgent care if rash, facial swelling, or breathing difficulty occurs.",
+        "caution_zh": "請按指示完成整個抗生素療程；如出現紅疹或面腫請即求醫。",
+    },
+    "amoxicillin-clavulanate": {
+        "form": "tablet",
+        "route": "Oral (PO)",
+        "indication": "Acute uncomplicated UTI / bacterial infection (HK CHP IMPACT first-line, G6PD-safe)",
+        "caution": "Take at the start of a meal to reduce stomach upset. Complete the full 5-day course. Seek urgent care if rash or facial swelling occurs.",
+        "caution_zh": "建議餐前或進餐時服用以減少腸胃不適，請完成整個 5 日療程；如出現紅疹或面腫請即求醫。",
+    },
+    "augmentin": {
+        "form": "tablet",
+        "route": "Oral (PO)",
+        "indication": "Acute uncomplicated UTI / bacterial infection (HK CHP IMPACT first-line, G6PD-safe)",
+        "caution": "Take at the start of a meal to reduce stomach upset. Complete the full 5-day course. Seek urgent care if rash or facial swelling occurs.",
+        "caution_zh": "建議餐前或進餐時服用以減少腸胃不適，請完成整個 5 日療程；如出現紅疹或面腫請即求醫。",
+    },
+    "chlorpheniramine": {
+        "form": "tablet",
+        "route": "Oral (PO)",
+        "indication": "Nasal congestion / allergy symptom relief",
+        "caution": "May cause drowsiness — do not drive or operate machinery after taking.",
+        "caution_zh": "此藥可引致睡意，服後切勿駕駛或操作機械。",
+    },
+    "dextromethorphan": {
+        "form": "tablet",
+        "route": "Oral (PO)",
+        "indication": "Dry cough suppression",
+        "caution": "Do not exceed recommended dose. Avoid alcohol or sedating medicines.",
+        "caution_zh": "切勿超量服用；服藥期間請避免飲酒。",
+    },
+}
+
+
+def enrich_prescription_item_for_patient(item: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a signed Rx item into full clinical dosing, frequency, duration, quantity & cautionary fields."""
+    import re as _re
+
+    raw_drug = str(item.get("canonical_drug") or item.get("drug") or item.get("display") or "Medication").strip()
+    low_full = raw_drug.lower()
+    low_key = low_full.split()[0]
+    guide = (
+        _DRUG_CLINICAL_GUIDANCE.get("amoxicillin-clavulanate")
+        if ("clavulanate" in low_full or "augmentin" in low_full)
+        else _DRUG_CLINICAL_GUIDANCE.get(low_key, {})
+    )
+
+    display = str(item.get("display") or raw_drug).strip()
+    display_zh = str(item.get("display_zh") or "").strip()
+
+    # Extract dose_mg cleanly from field or display text
+    dose_mg = item.get("dose_mg")
+    if dose_mg is None:
+        m_mg = _re.search(r"(\d+(?:\.\d+)?)\s*mg", display, _re.I)
+        if m_mg:
+            dose_mg = float(m_mg.group(1))
+    form = guide.get("form", "tablet")
+    dose_str = (
+        f"{int(dose_mg) if float(dose_mg).is_integer() else dose_mg} mg (1 {form})"
+        if dose_mg is not None
+        else f"1 {form} as directed"
+    )
+
+    raw_freq = str(item.get("frequency") or item.get("freq") or "OD").strip().upper()
+    freq_human, doses_per_day = _FREQ_HUMAN.get(raw_freq, (raw_freq or "As directed", 2))
+
+    raw_days = item.get("days")
+    if isinstance(raw_days, str):
+        m_d = _re.search(r"(\d+)", raw_days)
+        days_int = int(m_d.group(1)) if m_d else 5
+    elif isinstance(raw_days, (int, float)) and raw_days > 0:
+        days_int = int(raw_days)
+    else:
+        days_int = 5
+
+    qty_units = max(1, doses_per_day * days_int)
+    plural = f"{form}s" if qty_units != 1 else form
+    qty_text = str(item.get("quantity_to_dispense") or f"{qty_units} {plural}")
+
+    raw_sched = str(item.get("hk_schedule") or "PART_I_POISON").upper()
+    sched_label = (
+        "HK OTC"
+        if raw_sched == "OTC"
+        else "HK Cap. 138 Part I Poison (Dispense under Doctor/Pharmacist)"
+        if raw_sched == "PART_I_POISON"
+        else raw_sched
+    )
+
+    indication = str(item.get("indication") or item.get("note") or guide.get("indication") or "As directed by prescribing doctor").strip()
+    caution = str(item.get("caution") or guide.get("caution") or "Follow prescribing doctor's label. Stop and contact clinic if adverse reaction occurs.").strip()
+    caution_zh = str(item.get("caution_zh") or guide.get("caution_zh") or "請按醫生指示服藥；如出現不適或過敏請即停服並聯絡診所。").strip()
+    route = str(item.get("route") or guide.get("route") or "Oral (PO)").strip()
+
+    return {
+        **item,
+        "drug": raw_drug,
+        "display": display,
+        "display_zh": display_zh,
+        "dose_mg": dose_mg,
+        "dose_text": dose_str,
+        "route": route,
+        "frequency": raw_freq,
+        "frequency_human": freq_human,
+        "duration_days": days_int,
+        "duration_text": f"{days_int} day{'s' if days_int != 1 else ''}",
+        "quantity_to_dispense": qty_text,
+        "indication": indication,
+        "caution": caution,
+        "caution_zh": caution_zh,
+        "hk_schedule": raw_sched,
+        "hk_schedule_label": sched_label,
+    }
+
+
+def generate_prescription_pdf(
+    *,
+    rx_id: str,
+    mchk_reg_no: str,
+    doctor_name: str,
+    clinic_name: str,
+    clinic_address: str,
+    patient_name: str,
+    patient_dob: str,
+    hkid_masked: str,
+    allergies: list[str],
+    g6pd_deficient: bool,
+    items: list[dict[str, Any]],
+    dispensing_mode: str = "pickup",
+    dispensing_location: str = "Central & Mid-Levels Family Medical In-House Dispensary, Suite 1402, Central Tower, 28 Queen's Road Central, HK",
+    dispensing_hours: str = "Mon–Sat 08:30–20:00 HKT",
+    fulfilment_ref: str = "",
+    doctor_exam_note: str = "",
+    issued_at: datetime | None = None,
+) -> tuple[bytes, str]:
+    """Generate an MCHK-compliant Hong Kong Signed e-Prescription PDF with full dosing & dispensing details."""
+    if not valid_mchk_reg(mchk_reg_no):
+        raise ValueError(f"Invalid or missing MCHK registration number: {mchk_reg_no!r}")
+    norm_mchk = mchk_reg_no.strip().upper()
+    now_hkt = (issued_at or datetime.now(timezone.utc)).astimezone(HKT)
+    issued_iso = now_hkt.isoformat()
+    enriched = [enrich_prescription_item_for_patient(it) for it in (items or [])]
+
+    canonical = {
+        "rx_id": rx_id,
+        "mchk_reg_no": norm_mchk,
+        "doctor_name": doctor_name.strip(),
+        "clinic_name": clinic_name.strip(),
+        "patient_name": patient_name.strip(),
+        "hkid_masked": hkid_masked.strip(),
+        "items": [
+            {
+                "drug": it["drug"],
+                "dose_text": it["dose_text"],
+                "route": it["route"],
+                "frequency": it["frequency"],
+                "duration_days": it["duration_days"],
+                "quantity_to_dispense": it["quantity_to_dispense"],
+            }
+            for it in enriched
+        ],
+        "issued_at": issued_iso,
+    }
+    verification_hash = hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=14)
+    pdf.add_page()
+
+    import os as _os
+    has_cjk = _os.path.exists(_CJK_FONT_REGULAR) and _os.path.exists(_CJK_FONT_BOLD)
+    if has_cjk:
+        pdf.add_font("NotoCJK", "", _CJK_FONT_REGULAR)
+        pdf.add_font("NotoCJK", "B", _CJK_FONT_BOLD)
+
+    def write_line(style: str, size: float, text: str, h: float = 5.5, color: tuple[int, int, int] = (24, 24, 27)) -> None:
+        pdf.set_text_color(*color)
+        txt = _pdf_text(pdf, style, size, text, has_cjk)
+        pdf.multi_cell(0, h, txt, new_x="LMARGIN", new_y="NEXT")
+
+    # Header
+    write_line("B", 15, clinic_name, 7, (15, 107, 88))
+    write_line("", 9, clinic_address, 4.5, (90, 90, 90))
+    pdf.ln(2)
+    pdf.set_draw_color(15, 107, 88)
+    pdf.set_line_width(0.6)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(3)
+
+    write_line("B", 13, "SIGNED MEDICAL e-PRESCRIPTION  |  香港註冊醫生簽署電子處方", 6.5)
+    write_line("", 9, f"Prescription ID: {rx_id}   |   Issued: {now_hkt.strftime('%Y-%m-%d %H:%M HKT')}   |   Dispensing Ref: {fulfilment_ref or rx_id}", 5, (75, 75, 75))
+    pdf.ln(2)
+
+    # Patient & Safety Box
+    pdf.set_fill_color(247, 245, 240)
+    pdf.set_draw_color(210, 204, 194)
+    y0 = pdf.get_y()
+    pdf.rect(10, y0, 190, 22, style="DF")
+    pdf.set_xy(13, y0 + 2.5)
+    allergy_txt = ", ".join(allergies) if allergies else "NKDA (No Known Drug Allergies)"
+    g6pd_txt = "G6PD DEFICIENT (Avoid haemolytic triggers)" if g6pd_deficient else "Normal / Not reported"
+    write_line("B", 10, f"Patient: {patient_name}    |    DOB: {patient_dob or 'On file'}    |    HKID: {hkid_masked}", 5.5)
+    pdf.set_x(13)
+    write_line("B", 9.5, f"Drug Allergies: {allergy_txt}    |    G6PD Status: {g6pd_txt}", 5.5, (180, 35, 24) if (allergies or g6pd_deficient) else (24, 24, 27))
+    if doctor_exam_note:
+        pdf.set_x(13)
+        write_line("", 8.5, f"Clinical Assessment: {doctor_exam_note[:140]}", 4.8, (75, 75, 75))
+    pdf.set_y(y0 + 25)
+
+    # Medications Section
+    write_line("B", 11, "PRESCRIBED MEDICATIONS (Rx)", 6.5, (15, 107, 88))
+    for idx, it in enumerate(enriched, start=1):
+        box_y = pdf.get_y()
+        pdf.set_draw_color(215, 212, 206)
+        pdf.set_fill_color(255, 255, 255)
+        write_line("B", 10.5, f"{idx}. {it['display']}" + (f"  ({it['display_zh']})" if it.get("display_zh") else ""), 5.5)
+        write_line("B", 9.5, f"   Dose: {it['dose_text']}   |   Route: {it['route']}   |   Frequency: {it['frequency']} ({it['frequency_human']})", 5)
+        write_line("", 9.2, f"   Duration: {it['duration_text']}   |   Quantity to Dispense: {it['quantity_to_dispense']}   |   Schedule: {it['hk_schedule_label']}", 5, (45, 45, 45))
+        write_line("", 8.8, f"   Indication: {it['indication']}", 4.8, (60, 60, 60))
+        write_line("", 8.8, f"   Cautions & Label: {it['caution']}", 4.8, (155, 70, 10))
+        pdf.set_draw_color(230, 226, 220)
+        pdf.line(10, pdf.get_y() + 1, 200, pdf.get_y() + 1)
+        pdf.ln(3)
+
+    # Dispensing & Pharmacy Block
+    pdf.ln(1)
+    write_line("B", 10.5, "DISPENSING & COLLECTION DETAILS (配藥及取藥資料)", 6, (15, 107, 88))
+    mode_lbl = "Clinic In-House Dispensary Pickup" if dispensing_mode == "pickup" else "Partner Pharmacy Courier Delivery (HK)"
+    write_line("", 9.2, f"Dispensing Channel: {mode_lbl}", 5)
+    write_line("", 9.2, f"Dispensary Location: {dispensing_location}", 5)
+    write_line("", 9.2, f"Dispensing Hours: {dispensing_hours}", 5)
+    write_line("", 8.8, "Instructions: Present this signed e-Prescription PDF (or Dispensing Ref) with HKID verification at the dispensary counter. Valid for 14 days from issue under HK Cap. 138 Pharmacy & Poisons Ordinance.", 4.8, (70, 70, 70))
+
+    # MCHK Signature & Hash Footer
+    pdf.ln(5)
+    pdf.set_draw_color(24, 24, 27)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(3)
+    write_line("B", 10, f"Prescribing Doctor: {doctor_name}   |   HK MCHK Reg. No.: {norm_mchk}", 5.5)
+    write_line("", 8.8, "Attestation: Prescribed following real-time clinical examination by a Hong Kong Registered Medical Practitioner.", 4.8, (60, 60, 60))
+    write_line("", 8, f"SHA-256 Verification Hash: {verification_hash}", 4.5, (100, 100, 100))
+
+    pdf_bytes = bytes(pdf.output())
+    return pdf_bytes, verification_hash
+
+
+def issue_encrypted_prescription_pdf(
+    vault: DocumentVault,
+    tenant_id: str,
+    *,
+    rx_id: str,
+    mchk_reg_no: str,
+    doctor_name: str,
+    clinic_name: str,
+    patient_name: str,
+    patient_dob: str,
+    hkid_masked: str,
+    allergies: list[str],
+    g6pd_deficient: bool,
+    items: list[dict[str, Any]],
+    dispensing_mode: str = "pickup",
+    fulfilment_ref: str = "",
+    doctor_exam_note: str = "",
+) -> dict[str, Any]:
+    """Generate a full HK MCHK e-Prescription PDF and store it encrypted inside DocumentVault."""
+    clinic_addr = "Suite 1402, Central Tower, 28 Queen's Road Central, Hong Kong · Tel: +852 2810 4820"
+    disp_loc = f"{clinic_name} Dispensary — Suite 1402, Central Tower, 28 Queen's Road Central, Hong Kong"
+    disp_hrs = "Mon–Sat 08:30–20:00 HKT"
+    enriched = [enrich_prescription_item_for_patient(it) for it in (items or [])]
+    pdf_bytes, verification_hash = generate_prescription_pdf(
+        rx_id=rx_id,
+        mchk_reg_no=mchk_reg_no,
+        doctor_name=doctor_name,
+        clinic_name=clinic_name,
+        clinic_address=clinic_addr,
+        patient_name=patient_name,
+        patient_dob=patient_dob,
+        hkid_masked=hkid_masked,
+        allergies=allergies,
+        g6pd_deficient=g6pd_deficient,
+        items=enriched,
+        dispensing_mode=dispensing_mode,
+        dispensing_location=disp_loc,
+        dispensing_hours=disp_hrs,
+        fulfilment_ref=fulfilment_ref,
+        doctor_exam_note=doctor_exam_note,
+    )
+    safe_rx = "".join(ch for ch in rx_id if ch.isalnum() or ch in ("-", "_")) or "rx"
+    filename = f"hk_eprescription_{safe_rx}.pdf"
+    stored = vault.store(
+        tenant_id=tenant_id,
+        content=pdf_bytes,
+        content_type="application/pdf",
+        filename=filename,
+    )
+    return {
+        "vault_doc_id": stored.doc_id,
+        "verification_hash": verification_hash,
+        "pdf_sha256": stored.sha256,
+        "filename": filename,
+        "enriched_items": enriched,
+        "dispensing_mode": dispensing_mode,
+        "dispensing_location": disp_loc,
+        "dispensing_hours": disp_hrs,
+        "fulfilment_ref": fulfilment_ref or f"RXHK-{safe_rx[-6:].upper()}",
+        "dispensing_instructions": "Present this signed e-Prescription PDF or Dispensing Ref with HKID at the clinic dispensary counter (valid 14 days under HK Cap. 138).",
+    }
+

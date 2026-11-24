@@ -138,6 +138,8 @@ def build_gemini_generation_config(
             "temperature": temperature,
             "maxOutputTokens": max_output_tokens,
         }
+        if "2.5-flash" in (model or "").lower() and (thinking_level or "").strip().upper() in ("LOW", "MINIMAL", "OFF", "NONE"):
+            cfg["thinkingConfig"] = {"thinkingBudget": 0}
     if expect_json:
         cfg["responseMimeType"] = "application/json"
     return cfg

@@ -3,6 +3,39 @@ import { ArrowUp, FileText, Menu, RotateCcw, Sparkles, X } from "lucide-react";
 import { v2Api } from "../api";
 import "./patientChat.css";
 
+interface StructuredRxItem {
+  drug: string;
+  display: string;
+  display_zh?: string;
+  dose_text?: string;
+  route?: string;
+  frequency?: string;
+  frequency_human?: string;
+  duration_text?: string;
+  quantity_to_dispense?: string;
+  indication?: string;
+  caution?: string;
+  caution_zh?: string;
+  hk_schedule?: string;
+  hk_schedule_label?: string;
+}
+
+interface StructuredPrescription {
+  id: string;
+  vault_doc_id?: string;
+  verification_hash?: string;
+  mchk_reg_no?: string;
+  signed_by?: string;
+  signed_at?: string;
+  fulfilment_mode?: string;
+  fulfilment_status?: string;
+  fulfilment_ref?: string;
+  dispensing_location?: string;
+  dispensing_hours?: string;
+  dispensing_instructions?: string;
+  items: StructuredRxItem[];
+}
+
 interface ChatMsg {
   actor: string;
   role?: "doctor" | "assistant" | "patient" | "system";
@@ -16,6 +49,7 @@ interface ChatMsg {
     mchk_reg_no: string;
     ai_followup_note?: string;
     rx_lines?: string[];
+    prescriptions?: StructuredPrescription[];
     certificates?: Array<{
       id: string;
       days_off: number;
@@ -25,6 +59,8 @@ interface ChatMsg {
     }>;
   };
 }
+
+const CORE_4_DEMO_KEYS = ["wingyan", "tang_uti", "chan", "lau_chest"] as const;
 
 interface JourneyMeta {
   key: string;
@@ -42,10 +78,9 @@ interface JourneyMeta {
   message_count: number;
 }
 
-const JOURNEY_GROUPS: Array<{ key: "acute" | "chronic" | "family"; labelEn: string; labelZh: string }> = [
-  { key: "acute", labelEn: "Acute & Same-Day", labelZh: "即日急症及常見病" },
-  { key: "chronic", labelEn: "Hospital Follow-Up & Chronic", labelZh: "出院覆診及慢性病" },
-  { key: "family", labelEn: "Checkups & Family Care", labelZh: "驗身、家庭及常規" },
+const JOURNEY_GROUPS: Array<{ key: "acute" | "chronic"; labelEn: string; labelZh: string }> = [
+  { key: "acute", labelEn: "Acute Care (URTI & UTI)", labelZh: "即日急症（感冒及尿道炎）" },
+  { key: "chronic", labelEn: "Post-Discharge & Chronic Cardiac", labelZh: "出院覆診及心臟慢病管理" },
 ];
 
 interface PatientChatAppProps {
@@ -149,8 +184,8 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
       setConsentDone(false);
       setIdMode(targetKey === "wingyan" ? "new_case" : "existing");
 
-      // Step 1: Empty chat interface pause before clinic typing bubble appears
-      await new Promise((r) => window.setTimeout(r, 420));
+      // Brief render tick before typing bubble appears
+      await new Promise((r) => window.setTimeout(r, 60));
       if (bootGenRef.current !== gen) return;
 
       // Step 2: Clinic typing bubble appears while backend creates live thread in /workspace
@@ -160,8 +195,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
         const res = await v2Api.liveChatStart(targetKey, targetLang, forceRestart);
         if (bootGenRef.current !== gen) return;
 
-        // Ensure realistic typing cadence on brand-new start
-        const minTypingMs = res.already_started && !forceRestart ? 260 : 920;
+        const minTypingMs = res.already_started && !forceRestart ? 80 : 180;
         const elapsed = Date.now() - tStart;
         if (elapsed < minTypingMs) {
           await new Promise((r) => window.setTimeout(r, minTypingMs - elapsed));
@@ -277,21 +311,18 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
     setErrorNote(null);
     setSending(true);
 
-    // Optimistic patient bubble on right
+    // Optimistic patient bubble on right & fire request immediately (0ms dead wait)
     const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
     const patName = activeJourneyInfo?.patient_name || "You";
     setMessages((prev) => [...prev, { actor: patName, role: "patient", time: nowTime, text: txt }]);
-
-    // Brief natural pause before clinic typing bubble
-    await new Promise((r) => window.setTimeout(r, 260));
     setTyping(true);
     const t0 = Date.now();
 
     try {
       const res = await v2Api.liveChatTurn(journeyKey, txt, lang);
       const elapsed = Date.now() - t0;
-      if (elapsed < 720) {
-        await new Promise((r) => window.setTimeout(r, 720 - elapsed));
+      if (elapsed < 120) {
+        await new Promise((r) => window.setTimeout(r, 120 - elapsed));
       }
       setMessages(Array.isArray(res.messages) ? res.messages : []);
       setCrisis(res.crisis || null);
@@ -341,6 +372,16 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
       await v2Api.downloadVaultPdf(tok.download_url, patientToken, `HK_MCHK_Sick_Leave_${certId}.pdf`);
     } catch (e: any) {
       setErrorNote(e?.message || "Unable to download certificate PDF.");
+    }
+  };
+
+  const handleDownloadRxPdf = async (rxId: string) => {
+    if (!patientToken) return;
+    try {
+      const tok = await v2Api.rxDownloadToken(rxId, patientToken);
+      await v2Api.downloadVaultPdf(tok.download_url, patientToken, `HK_MCHK_ePrescription_${rxId}.pdf`);
+    } catch (e: any) {
+      setErrorNote(e?.message || "Unable to download e-Prescription PDF.");
     }
   };
 
@@ -446,18 +487,132 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           const isPatient = !isDoctorCard && !isClinic;
 
           if (isDoctorCard && m.care_plan) {
+            const prescriptions = m.care_plan.prescriptions || [];
             return (
               <div key={idx} className="pc-row is-doctor" data-testid="chat-doctor-signed-card">
                 <span className="pc-sender-label">Sam · {isZh ? "診所助手" : "Clinic AI"}</span>
                 <div className="pc-doctor-card">
                   <div style={{ fontSize: 14, lineHeight: 1.48 }}>{m.text}</div>
-                  {m.care_plan.rx_lines && m.care_plan.rx_lines.length > 0 && (
-                    <ul className="pc-doctor-list">
-                      {m.care_plan.rx_lines.map((line, i) => (
-                        <li key={i}>{line}</li>
-                      ))}
-                    </ul>
+
+                  {/* Full Signed HK e-Prescription Card (Dosing, Route, Frequency, Duration, Quantity, Dispensing & PDF Download) */}
+                  {prescriptions.length > 0 ? (
+                    prescriptions.map((rx) => (
+                      <div
+                        key={rx.id}
+                        data-testid="chat-signed-prescription-card"
+                        style={{
+                          marginTop: 10,
+                          border: "1px solid #d6d3d1",
+                          borderRadius: 11,
+                          background: "#fafaf9",
+                          padding: "11px 12px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 9,
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, borderBottom: "1px solid #e7e5e4", paddingBottom: 6 }}>
+                          <strong style={{ fontSize: 12.5, color: "#0f6b58", letterSpacing: "0.02em", textTransform: "uppercase" }}>
+                            {isZh ? "香港註冊醫生電子處方" : "Signed HK e-Prescription"}
+                          </strong>
+                          <span style={{ fontSize: 11, fontFamily: "ui-monospace, monospace", color: "#57534e" }}>
+                            {rx.fulfilment_ref || rx.id}
+                          </span>
+                        </div>
+
+                        {(rx.items || []).map((it, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              background: "#ffffff",
+                              border: "1px solid #e7e5e4",
+                              borderRadius: 8,
+                              padding: "8px 10px",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 4,
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+                              <strong style={{ fontSize: 13.5, color: "#1c1917" }}>
+                                {it.display}
+                                {it.display_zh ? ` (${it.display_zh})` : ""}
+                              </strong>
+                              {it.hk_schedule && (
+                                <span style={{ fontSize: 10.5, padding: "1px 6px", borderRadius: 999, background: "#f5f5f4", border: "1px solid #d6d3d1", color: "#44403c" }}>
+                                  {it.hk_schedule === "OTC" ? "HK OTC" : "HK Cap. 138 Part I"}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 12.5, color: "#292524", lineHeight: 1.4 }}>
+                              <strong>{isZh ? "劑量及途徑：" : "Dose & Route: "}</strong>
+                              {it.dose_text || "As directed"} · {it.route || "Oral (PO)"}
+                            </div>
+                            <div style={{ fontSize: 12.5, color: "#292524", lineHeight: 1.4 }}>
+                              <strong>{isZh ? "服法及次數：" : "Frequency: "}</strong>
+                              {it.frequency} {it.frequency_human ? `— ${it.frequency_human}` : ""}
+                            </div>
+                            <div style={{ fontSize: 12.5, color: "#292524", lineHeight: 1.4 }}>
+                              <strong>{isZh ? "療程及配藥量：" : "Duration & Qty: "}</strong>
+                              {it.duration_text || "5 days"} · {isZh ? "配發 " : "Dispense "}
+                              <strong>{it.quantity_to_dispense || "See label"}</strong>
+                            </div>
+                            {it.indication && (
+                              <div style={{ fontSize: 12, color: "#57534e" }}>
+                                <strong>{isZh ? "用途：" : "Indication: "}</strong>
+                                {it.indication}
+                              </div>
+                            )}
+                            {(isZh ? it.caution_zh || it.caution : it.caution) && (
+                              <div style={{ fontSize: 11.5, color: "#9a3412", background: "#fff7ed", borderLeft: "2px solid #ea580c", padding: "4px 7px", borderRadius: "0 4px 4px 0", marginTop: 2 }}>
+                                {isZh ? it.caution_zh || it.caution : it.caution}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* Dispensing & Prescriber Details */}
+                        <div style={{ fontSize: 11.8, color: "#44403c", lineHeight: 1.45, borderTop: "1px solid #e7e5e4", paddingTop: 7 }}>
+                          <div>
+                            <strong>{isZh ? "配藥地點：" : "Dispensing: "}</strong>
+                            {rx.dispensing_location || "Central & Mid-Levels Family Medical Dispensary"}
+                          </div>
+                          <div>
+                            <strong>{isZh ? "配藥時間：" : "Hours: "}</strong>
+                            {rx.dispensing_hours || "Mon–Sat 08:30–20:00 HKT"} ·{" "}
+                            <strong>{isZh ? "處方醫生：" : "Prescriber: "}</strong>
+                            {rx.signed_by || m.care_plan?.signed_by} (MCHK {rx.mchk_reg_no || m.care_plan?.mchk_reg_no})
+                          </div>
+                          {rx.dispensing_instructions && (
+                            <div style={{ color: "#57534e", marginTop: 2 }}>{rx.dispensing_instructions}</div>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="pc-pdf-btn"
+                          onClick={() => handleDownloadRxPdf(rx.id)}
+                          data-testid="chat-download-rx-pdf"
+                        >
+                          <FileText size={15} />
+                          <span>
+                            {isZh
+                              ? "下載醫生簽署電子處方 (PDF)"
+                              : "Download Signed e-Prescription (PDF)"}
+                          </span>
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    m.care_plan.rx_lines && m.care_plan.rx_lines.length > 0 && (
+                      <ul className="pc-doctor-list">
+                        {m.care_plan.rx_lines.map((line, i) => (
+                          <li key={i}>{line}</li>
+                        ))}
+                      </ul>
+                    )
                   )}
+
                   {m.care_plan.certificates && m.care_plan.certificates.map((cert) => (
                     <button
                       key={cert.id}
@@ -620,50 +775,25 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           </div>
         )}
 
-        {/* Journey-specific first demo prompt + generic clinic function chips after consent */}
-        {consentDone && messages.length === 1 && !typing && (
+        {/* Journey-specific single scripted starter prompt on Turn 0 */}
+        {consentDone && messages.length === 1 && !typing && suggestedReplies[0] && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
-            {suggestedReplies[0] && (
-              <button
-                type="button"
-                className="pc-chip"
-                style={{
-                  border: "1.5px solid #0f766e",
-                  background: "#eef7f5",
-                  color: "#0f6b58",
-                  fontWeight: 600,
-                  textAlign: "left",
-                  whiteSpace: "normal",
-                }}
-                onClick={() => void handleSend(suggestedReplies[0])}
-                data-testid="suggested-first-demo-prompt"
-              >
-                ✦ {suggestedReplies[0]}
-              </button>
-            )}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {(isZh
-                ? [
-                    "預約或更改診症時間",
-                    "跟進驗血報告或藥物",
-                    "查詢或申請病假紙",
-                  ]
-                : [
-                    "Book or reschedule an appointment",
-                    "Follow up on a test result or medication",
-                    "I need a sick-leave certificate",
-                  ]
-              ).map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  className="pc-chip"
-                  onClick={() => void handleSend(opt)}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              className="pc-chip"
+              style={{
+                border: "1.5px solid #0f766e",
+                background: "#eef7f5",
+                color: "#0f6b58",
+                fontWeight: 600,
+                textAlign: "left",
+                whiteSpace: "normal",
+              }}
+              onClick={() => void handleSend(suggestedReplies[0])}
+              data-testid="suggested-first-demo-prompt"
+            >
+              ✦ {suggestedReplies[0]}
+            </button>
           </div>
         )}
 
@@ -826,38 +956,42 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
         </button>
       </form>
 
-      {/* Slide-Over Patient Journeys Sidebar */}
-      {drawerOpen && (
-        <>
-          <div className="pc-drawer-backdrop" onClick={() => setDrawerOpen(false)} />
-          <aside className="pc-drawer" data-testid="patient-journeys-drawer">
-            <div className="pc-drawer-head">
-              <div>
-                <div className="pc-drawer-title">
-                  {isZh ? `診所病人個案（${journeys.length} 位）` : `Patient Journeys (${journeys.length})`}
+      {/* Slide-Over Patient Journeys Sidebar (Focused 4 Core Real-Time Demo Cases) */}
+      {drawerOpen && (() => {
+        const visibleJourneys = CORE_4_DEMO_KEYS
+          .map((k) => journeys.find((j) => j.key === k))
+          .filter((j): j is JourneyMeta => Boolean(j));
+        return (
+          <>
+            <div className="pc-drawer-backdrop" onClick={() => setDrawerOpen(false)} />
+            <aside className="pc-drawer" data-testid="patient-journeys-drawer">
+              <div className="pc-drawer-head">
+                <div>
+                  <div className="pc-drawer-title">
+                    {isZh ? `核心示範個案（${visibleJourneys.length} 位）` : `Core Demo Cases (${visibleJourneys.length})`}
+                  </div>
+                  <div className="pc-drawer-sub">
+                    {isZh ? "URTI · UTI · 出院房顫 · 心臟慢病" : "URTI · UTI · Post-Discharge AFib · Cardiac"}
+                  </div>
                 </div>
-                <div className="pc-drawer-sub">
-                  {isZh ? "選擇病人視角，從空白對話即時互動" : "Pick any patient to start a live conversation"}
-                </div>
+                <button type="button" className="pc-icon-btn" onClick={() => setDrawerOpen(false)} aria-label="Close sidebar">
+                  <X size={16} />
+                </button>
               </div>
-              <button type="button" className="pc-icon-btn" onClick={() => setDrawerOpen(false)} aria-label="Close sidebar">
-                <X size={16} />
-              </button>
-            </div>
 
-            <div className="pc-drawer-list">
-              {JOURNEY_GROUPS.map((grp) => {
-                const items = journeys.filter((j) => (j.category || "acute") === grp.key);
-                if (items.length === 0) return null;
-                return (
-                  <div key={grp.key} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div className="pc-drawer-section">
-                      <span>{isZh ? grp.labelZh : grp.labelEn}</span>
-                      <span>{items.length}</span>
-                    </div>
-                    {items.map((j) => {
-                      const isActive = j.key === journeyKey;
-                      const badge = statusBadgeLabel(j.status, j.baton, isZh);
+              <div className="pc-drawer-list">
+                {JOURNEY_GROUPS.map((grp) => {
+                  const items = visibleJourneys.filter((j) => (j.category || "acute") === grp.key);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={grp.key} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div className="pc-drawer-section">
+                        <span>{isZh ? grp.labelZh : grp.labelEn}</span>
+                        <span>{items.length}</span>
+                      </div>
+                      {items.map((j) => {
+                        const isActive = j.key === journeyKey;
+                        const badge = statusBadgeLabel(j.status, j.baton, isZh);
                       return (
                         <div
                           key={j.key}
@@ -919,7 +1053,8 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
             </div>
           </aside>
         </>
-      )}
+        );
+      })()}
     </div>
   );
 }

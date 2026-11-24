@@ -1720,17 +1720,6 @@ export function ClinicWorkspaceApp() {
                 {activeCase.summary?.vitals_exam?.items?.length > 0 && (() => {
                   const ve = activeCase.summary.vitals_exam;
                   const ctxLabel = ve.encounter_context || (activeCase.state === "scheduled" ? "Post-Care Follow-Up" : "Inbound Case");
-                  const nurseExamOrder = normalizeOrder(
-                    {
-                      id: `ord_nurse_exam_${activeCase.id}`,
-                      type: "nurse",
-                      issue: "Physical Examination",
-                      nurseTask: "In-clinic vitals & focused physical exam prep (BP, HR, Temp, SpO₂)",
-                      assignee: "Nurse Rachel (RN)",
-                    },
-                    "Physical Examination",
-                  );
-                  const nurseExamInPlan = activeOrders.some((x) => x.id === nurseExamOrder.id);
                   return (
                     <div className="ws-card" style={{ padding: "11px 13px", gap: 8 }} data-testid="physical-exam-vitals-card">
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1744,16 +1733,6 @@ export function ClinicWorkspaceApp() {
                             <span className="ws-vital-val">{v.val}</span>
                           </div>
                         ))}
-                      </div>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 4, borderTop: "1px solid var(--ws-line)" }}>
-                        <button
-                          type="button"
-                          className={`ws-add-pill ${nurseExamInPlan ? "is-added" : ""}`}
-                          onClick={() => toggleOrderInPlan(activeCase.id, nurseExamOrder)}
-                        >
-                          <span className="ws-add-pill-icon">{nurseExamInPlan ? "✓" : "+"}</span>
-                          <span>{nurseExamInPlan ? "Nurse Vitals Exam in Plan" : "Hand over to Nurse for Vitals / Exam"}</span>
-                        </button>
                       </div>
                     </div>
                   );
@@ -2762,7 +2741,13 @@ export function ClinicWorkspaceApp() {
                     <span style={{ fontSize: 12, color: "var(--ws-ink-3)" }}>
                       Syncs confirmed orders additively to Clinic EMR (Sole SoT)
                     </span>
-                    <button type="button" className="ws-btn-primary" disabled={busy || selectedCount === 0} onClick={() => signPlan(activeCase.id)}>
+                    <button
+                      type="button"
+                      className="ws-btn-primary"
+                      disabled={busy || selectedCount === 0}
+                      onClick={() => signPlan(activeCase.id)}
+                      data-testid="confirm-sign-plan-btn"
+                    >
                       Confirm &amp; Sign Plan ({selectedCount})
                     </button>
                   </div>

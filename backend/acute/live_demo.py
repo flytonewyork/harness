@@ -41,6 +41,7 @@ from .agent_harness import (
 )
 
 logger = logging.getLogger(__name__)
+from .certificates import enrich_prescription_item_for_patient
 from .security import mint_jwt
 from .curator import ensure_active_practice_graph, get_effective_practice_graph
 from .db import (
@@ -115,23 +116,21 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "喉嚨痛、發燒及病假紙",
         "subtitle": "Simple acute URTI · sick leave & symptomatic care",
         "welcome_en": (
-            "Hello! I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How can I help you today?"
+            "Hello, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How can I help you today?"
         ),
         "welcome_zh": (
-            "你好！我係中環及半山家庭醫務中心嘅護理助手 Sam。今日有咩可以幫到你？"
+            "你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。今日有咩可以幫到你？"
         ),
         "suggested_replies_en": [
-            "I woke up with a sore throat and fever.",
-            "It's 38.2°C since this morning — no chest pain or shortness of breath. Could I get a 2-day sick note and something for the fever?",
-            "Thank you — is there anything else I should watch out for?",
+            "I woke up with a sore throat and 38.2°C fever — no chest pain or shortness of breath. Could I book a quick exam and ask about a 2-day sick note?",
         ],
         "suggested_replies_zh": [
-            "我今朝起身覺得喉嚨痛同發燒。",
-            "今朝開始燒到 38.2 度，冇氣促亦冇心口痛。想攞兩日病假紙同退燒藥可以嗎？",
+            "我今朝起身覺得喉嚨痛同發燒 38.2 度，冇心口痛亦冇氣促。請問可唔可以約醫生檢查，同埋攞兩日病假紙？",
         ],
     },
     {
         "key": "chan",
+        "default_lang": "zh-HK",
         "category": "chronic",
         "patient_id": "pat_chan_warfarin",
         "patient_name": "CHAN Tai Man",
@@ -149,11 +148,9 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         ),
         "suggested_replies_en": [
             "I just got discharged from QEH yesterday — they gave me Warfarin 3mg and Atorvastatin, but I still have 5mg Warfarin and Simvastatin at home. Which should I take?",
-            "No bruising or bleeding at all. Can I take ibuprofen for a mild headache?",
         ],
         "suggested_replies_zh": [
-            "尋日喺伊利沙伯醫院出院，醫院開咗3mg薄血丸同新降膽固醇藥，但我屋企仲有之前診所5mg同舊藥，應該食邊隻？",
-            "冇瘀傷亦都冇流牙血。頭有少少痛，可唔可以食布洛芬止痛？",
+            "尋日喺伊利沙伯醫院出院，醫院開咗 3mg 薄血丸同新降膽固醇藥，但我屋企仲有之前診所 5mg 同舊藥，應該食邊隻？",
         ],
     },
     {
@@ -164,9 +161,9 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "patient_name_zh": "黃美玲",
         "age_sex": "58F",
         "pathway_node_id": "ebm.pathway.chronic_htn_home_bp",
-        "title": "Day-7 home blood pressure check-in",
-        "title_zh": "高血壓第 7 日家居血壓追蹤",
-        "subtitle": "Amlodipine 5mg daily · routine check-in ahead of Dec visit",
+        "title": "Cardiovascular risk & chronic BP management",
+        "title_zh": "心血管風險及慢性高血壓管理",
+        "subtitle": "Amlodipine 5mg OD · CVD risk score, lipid labs & preventive checkups",
         "welcome_en": (
             "Hi Ms. Wong, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you feeling today, and what can I help with?"
         ),
@@ -175,11 +172,9 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         ),
         "suggested_replies_en": [
             "Checking in with my home blood pressure — today's reading is 128/78 and I'm feeling fine.",
-            "Actually I rechecked this evening and it's 156/96 with a mild headache.",
         ],
         "suggested_replies_zh": [
             "想記錄今日家居血壓：今朝量係 128/78，感覺好好，冇頭暈冇腳腫。",
-            "頭先再量高咗，係 156/96，仲有少少頭痛。",
         ],
     },
     {
@@ -201,11 +196,9 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         ),
         "suggested_replies_en": [
             "I'd like to confirm Friday 12 Feb at 08:00 for my fasting cholesterol blood test — can I bundle my flu shot too?",
-            "I've just been feeling vaguely unwell since yesterday, can I get antibiotics?",
         ],
         "suggested_replies_zh": [
             "我想確認 2 月 12 號星期五朝早 8 點空腹抽血，可唔可以順便打埋流感針？",
-            "我琴日開始覺得個人唔係好舒服，可唔可以直接開抗生素？",
         ],
     },
     {
@@ -228,11 +221,9 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         ),
         "suggested_replies_en": [
             "呢兩日咳到想死，但係完全冇氣促、冇心口痛、亦都冇發燒，想約醫生覆診順便睇吓血糖報告。",
-            "My home glucose has been running around 8–9 mmol/L fasting. Should Dr. Wong adjust my Metformin?",
         ],
         "suggested_replies_zh": [
             "呢兩日咳到想死，但係完全冇氣促、冇心口痛、亦都冇發燒，想約醫生覆診順便睇吓血糖報告。",
-            "屋企空腹血糖大概 8 至 9 左右，請問黃醫生係咪需要加 Metformin 劑量？",
         ],
     },
 )
@@ -241,22 +232,42 @@ LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (*CORE_LIVE_JOURNEYS, *EXTRA_LIVE_JO
 JOURNEY_BY_KEY: dict[str, dict[str, Any]] = {j["key"]: j for j in LIVE_JOURNEYS}
 JOURNEY_BY_PATIENT_ID: dict[str, dict[str, Any]] = {j["patient_id"]: j for j in LIVE_JOURNEYS}
 
+# Flagship 4 HK GP demo cases exposed by default in the UI picker (?all=1 exposes all 12 for test/eval)
+FLAGSHIP_4_JOURNEY_KEYS: tuple[str, ...] = ("wingyan", "tang_uti", "chan", "lau_chest")
+
 _POST_SIGN_REPLIES_EN: list[str] = [
-    "Got the prescription and certificate — thank you! Anything else I should watch out for?",
-    "Thanks, everything is clear!",
+    "I'm still feeling quite unwell — could I request 1 extra day of sick leave?",
+    "Got the prescription and certificate, thank you. Anything else I should watch out for?",
 ]
 _POST_SIGN_REPLIES_ZH: list[str] = [
-    "收到處方同病假紙，多謝！仲有冇咩需要注意？",
-    "明白晒，多謝安排！",
+    "我仲係覺得好唔舒服，可唔可以申請延長多一日病假紙？",
+    "收到處方同病假紙，多謝。仲有冇咩需要注意？",
+]
+_POST_SIGN_CHAN_REPLIES_ZH: list[str] = [
+    "收到藥單同抽血安排，多謝。食緊薄血丸期間有咩出血跡象需要注意，同埋 7 日後覆驗 INR 要唔要空腹？",
+    "明白晒，我會只食 3mg 薄血丸同新降膽固醇藥，多謝安排。",
+]
+_POST_SIGN_CHAN_REPLIES_EN: list[str] = [
+    "Got the updated plan, thank you. What bleeding signs should I watch for on Warfarin, and do I need to fast for the 7-day INR check?",
+    "Understood — I'll stick to Warfarin 3mg and Atorvastatin only.",
 ]
 _DAY3_REPLIES_EN: list[str] = [
-    "Feeling much better, thank you! Yes — could I book a flu shot next week, and also arrange a routine visit because I've been feeling a bit tired lately?",
-    "All recovered now — no follow-up needed, thanks for checking in!",
+    "Feeling much better, thank you. Yes — could I book a flu shot next week, and also arrange a routine visit because I've been feeling a bit tired lately?",
+    "All recovered now — no follow-up needed, thanks for checking in.",
 ]
 _DAY3_REPLIES_ZH: list[str] = [
-    "好返晒啦多謝！我想預約下星期打流感針，順便想約醫生傾吓最近覺得容易攰。",
-    "完全康復咗，唔使覆診，多謝關心！",
+    "好返晒啦多謝。我想預約下星期打流感針，順便想約醫生傾吓最近覺得容易攰。",
+    "完全康復咗，唔使覆診，多謝關心。",
 ]
+
+
+def _has_patient_turns(messages: list[dict[str, Any]] | None) -> bool:
+    for m in messages or []:
+        actor = str(m.get("actor") or "")
+        role = str(m.get("role") or "")
+        if actor not in ("Sam", "Assistant", "Clinic", "System") and role not in ("assistant", "doctor", "system"):
+            return True
+    return False
 
 
 def _suggested_replies_for(
@@ -264,12 +275,21 @@ def _suggested_replies_for(
     is_zh: bool,
     has_signed: bool = False,
     has_day3: bool = False,
+    *,
+    has_patient_turns: bool = False,
+    dynamic_replies: list[str] | None = None,
 ) -> list[str]:
     if has_day3:
         return list(_DAY3_REPLIES_ZH if is_zh else _DAY3_REPLIES_EN)
     if has_signed:
+        if j.get("key") == "chan":
+            return list(_POST_SIGN_CHAN_REPLIES_ZH if is_zh else _POST_SIGN_CHAN_REPLIES_EN)
         return list(_POST_SIGN_REPLIES_ZH if is_zh else _POST_SIGN_REPLIES_EN)
-    return list(j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"])
+    if has_patient_turns:
+        # Turn 1+ -> pure LLM contextual suggestions ONLY; NEVER fall back to static_list[1:]!
+        return [str(x).strip() for x in (dynamic_replies or []) if str(x).strip()][:2]
+    static_list = list(j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"])
+    return static_list[:1]
 
 
 def resolve_journey(key_or_patient_id: str | None) -> dict[str, Any]:
@@ -531,6 +551,9 @@ def _build_initial_summary(j_key: str, doc_id: str | None, doc_label: str, doc_q
 
     if j_key == "wong":
         return {
+            "clinical_scores": [
+                compute_cvd_10yr_tier(age=58, smoker=False, systolic_bp=152, ldl_mmol_l=3.8),
+            ],
             "alerts": [
                 {"level": "info", "label": "BP Target: < 135/85 mmHg", "detail": "Amlodipine 5mg OD · Routine review booked 21 Dec"},
             ],
@@ -542,23 +565,46 @@ def _build_initial_summary(j_key: str, doc_id: str | None, doc_label: str, doc_q
                     "detail": "Age 44–69 HK guideline · Bundle imaging request ahead of 21 Dec visit",
                     "order": {"id": "ord_prev_mammo", "type": "imaging", "issue": "Preventive Care", "modality": "Bilateral Screening Mammogram", "indication": "HK biennial breast screening (58F)", "priority": "Routine"},
                 },
+                {
+                    "id": "prev_wong_flu",
+                    "title": "Seasonal Influenza Vaccine (CV Priority)",
+                    "badge": "Recommended",
+                    "detail": "ESC / HK CHP priority for cardiovascular risk reduction · Bundle with nurse check",
+                    "order": {"id": "ord_wong_flu", "type": "book", "issue": "Preventive Care", "visitType": "10-min Nurse Flu Shot", "when": "At 21 Dec review"},
+                },
+                {
+                    "id": "prev_wong_fit",
+                    "title": "HK Colorectal FIT Screening",
+                    "badge": "Eligible (50–75)",
+                    "detail": "HK Government Colorectal Cancer Screening Programme · Nurse kit dispatch",
+                    "order": {"id": "ord_wong_fit", "type": "lab", "issue": "Preventive Care", "testName": "HK Colorectal FIT Kit", "lab": "Clinic / Govt Programme", "fasting": False, "when": "At 21 Dec review"},
+                },
             ],
             "scheduled_tasks": [
-                {"status": "booked", "label": "Mon 21 Dec 10:00 · Routine GP Hypertension Review"},
-                {"status": "auto", "label": "Day-7 home BP check-in sent via Careline"},
+                {"status": "booked", "label": "Mon 21 Dec 10:00 · Routine GP Cardiovascular & BP Review"},
+                {"status": "auto", "label": "Day-7 home BP & preventive check-in sent via Careline"},
             ],
             "issues": [
                 {
                     "id": "iss_htn_live",
-                    "name": "1. Essential hypertension — awaiting Day-7 reading",
+                    "name": "1. Essential hypertension & cardiovascular risk — awaiting Day-7 reading",
                     "bullets": [
-                        "On Amlodipine 5mg OD; Sam sent Day-7 home blood pressure prompt.",
+                        "On Amlodipine 5mg OD with elevated baseline LDL; Sam sent Day-7 home blood pressure check-in.",
                         "Case stays quiet unless readings breach > 140/90 mmHg or symptoms are reported.",
                     ],
                     "safety_gap": None,
                     "suggested_orders": [],
                 }
             ],
+            "lab_panel": {
+                "source": "KingMed Cardiovascular & Renal Baseline · 18 Oct 2026",
+                "rows": [
+                    {"test": "LDL-Cholesterol", "val": "3.8 mmol/L", "ref": "< 2.6 (CV risk)", "flag": "HIGH"},
+                    {"test": "HbA1c", "val": "5.8 %", "ref": "< 6.0", "flag": "Normal"},
+                    {"test": "eGFR", "val": "82 mL/min", "ref": "> 60", "flag": "Normal"},
+                    {"test": "Urine ACR", "val": "1.4 mg/mmol", "ref": "< 2.5", "flag": "Normal"},
+                ],
+            },
             "trend_chart": {
                 "kind": "bp",
                 "title": "BP Trajectory (mmHg)",
@@ -569,7 +615,13 @@ def _build_initial_summary(j_key: str, doc_id: str | None, doc_label: str, doc_q
             },
             "attachments": [{"id": doc_id or "att_bp", "label": doc_label, "quote": doc_quote, "verified_3pt": True}],
             "sam_proactive_insight": None,
-            "agent_thread": [],
+            "agent_thread": [
+                {
+                    "actor": "Sam",
+                    "time": _hkt_hhmm(),
+                    "text": "Computed deterministic 10-year CVD risk score from age, systolic BP, and LDL baseline. Flagged three age-appropriate HK preventive gaps (biennial mammogram, seasonal flu shot, and colorectal FIT screening) for automated scheduling ahead of the 21 Dec review.",
+                }
+            ],
             "patient_chat_label": f"{j['patient_name']} ↔ Sam Careline Chat",
             "original_chat": chat,
         }
@@ -713,6 +765,26 @@ def _build_signed_plan_snapshot(session: Session, tenant_id: str, patient_id: st
     ).all()
     if not certs and not rxs:
         return None
+    rx_snapshots: list[dict[str, Any]] = []
+    for r in rxs:
+        events = list(r.tracking_events_json or [])
+        pdf_meta = next((e for e in reversed(events) if isinstance(e, dict) and e.get("vault_doc_id")), {})
+        rx_snapshots.append(
+            {
+                "id": r.id,
+                "rx_number": r.id.upper(),
+                "items": [enrich_prescription_item_for_patient(it) for it in (r.items_json or []) if isinstance(it, dict)],
+                "fulfilment_status": r.fulfilment_status,
+                "vault_doc_id": pdf_meta.get("vault_doc_id"),
+                "verification_hash": pdf_meta.get("verification_hash"),
+                "dispensing_location": "Central & Mid-Levels Family Medical Dispensary · Suite 1204, Central Building, 1–3 Pedder St, Central, HK",
+                "dispensing_hours": "Mon–Fri 08:30–19:00 · Sat 09:00–13:00",
+                "dispensing_note": "Present HKID and this signed e-Prescription at the clinic dispensary counter, or at any HK Registered Pharmacy (Cap. 138).",
+                "prescriber_name": "Locum Dr. Sarah Wong",
+                "mchk_reg_no": "M61042",
+                "clinic_name": "Central & Mid-Levels Family Medical",
+            }
+        )
     return {
         "certificates": [
             {
@@ -725,14 +797,7 @@ def _build_signed_plan_snapshot(session: Session, tenant_id: str, patient_id: st
             }
             for c in certs
         ],
-        "prescriptions": [
-            {
-                "id": r.id,
-                "items": list(r.items_json or []),
-                "fulfilment_status": r.fulfilment_status,
-            }
-            for r in rxs
-        ],
+        "prescriptions": rx_snapshots,
     }
 
 
@@ -747,8 +812,19 @@ def _collect_live_tool_calls(live_bus: LiveHarnessBus, limit: int = 30) -> list[
 
 
 # -------------------------------------------------------------------------------------- Public Live Demo API Operations
-def get_live_journeys_status(db: Database, tenant_id: str, live_bus: LiveHarnessBus) -> dict[str, Any]:
-    """List all 12 realistic HK GP patient journeys with live status for the phone sidebar & laptop QR launchpad."""
+def get_live_journeys_status(
+    db: Database,
+    tenant_id: str,
+    live_bus: LiveHarnessBus,
+    *,
+    include_all: bool = False,
+) -> dict[str, Any]:
+    """List flagship 4 HK GP patient journeys by default (or all 12 when include_all=True / ?all=1)."""
+    visible_journeys = (
+        list(LIVE_JOURNEYS)
+        if include_all
+        else [JOURNEY_BY_KEY[k] for k in FLAGSHIP_4_JOURNEY_KEYS if k in JOURNEY_BY_KEY]
+    )
     with db.tenant_session(tenant_id) as session:
         cases = session.scalars(
             select(CaseLoop).where(CaseLoop.tenant_id == tenant_id)
@@ -756,7 +832,7 @@ def get_live_journeys_status(db: Database, tenant_id: str, live_bus: LiveHarness
         by_key = {c.case_key: c for c in cases}
 
         items: list[dict[str, Any]] = []
-        for j in LIVE_JOURNEYS:
+        for j in visible_journeys:
             c = by_key.get(j["key"])
             if c is None:
                 status = "not_started"
@@ -1001,6 +1077,7 @@ def start_live_journey(
         case_id = case.id
         case_state = case.state
         crisis = (case.summary_json or {}).get("_active_crisis")
+        dynamic_replies = list((case.summary_json or {}).get("_dynamic_suggested_replies") or [])
 
     live_bus.publish(
         "phone.connected",
@@ -1040,7 +1117,14 @@ def start_live_journey(
             "age_sex": j["age_sex"],
         },
         "messages": messages,
-        "suggested_replies": _suggested_replies_for(j, is_zh, has_signed=bool(signed)),
+        "suggested_replies": _suggested_replies_for(
+            j,
+            is_zh,
+            has_signed=bool(signed),
+            has_day3=any(m.get("role") == "system" and m.get("time") == "Day +3" for m in messages),
+            has_patient_turns=_has_patient_turns(messages),
+            dynamic_replies=dynamic_replies,
+        ),
         "signed_plan": signed,
         "crisis": crisis,
     }
@@ -1072,12 +1156,13 @@ def get_live_chat_state(
                 "messages": [],
                 "signed_plan": None,
                 "crisis": None,
-                "suggested_replies": _suggested_replies_for(j, is_zh, has_signed=False),
+                "suggested_replies": _suggested_replies_for(j, is_zh, has_signed=False, has_patient_turns=False),
             }
 
-        messages = list((case.summary_json or {}).get("original_chat") or [])
+        summary = case.summary_json or {}
+        messages = list(summary.get("original_chat") or [])
         signed = _build_signed_plan_snapshot(session, tenant_id, pid)
-        crisis = (case.summary_json or {}).get("_active_crisis")
+        crisis = summary.get("_active_crisis")
         return {
             "session_epoch": live_demo_coordinator.epoch,
             "started": True,
@@ -1089,7 +1174,14 @@ def get_live_chat_state(
             "messages": messages,
             "signed_plan": signed,
             "crisis": crisis,
-            "suggested_replies": _suggested_replies_for(j, is_zh, has_signed=bool(signed)),
+            "suggested_replies": _suggested_replies_for(
+                j,
+                is_zh,
+                has_signed=bool(signed),
+                has_day3=any(m.get("role") == "system" and m.get("time") == "Day +3" for m in messages),
+                has_patient_turns=_has_patient_turns(messages),
+                dynamic_replies=summary.get("_dynamic_suggested_replies") or [],
+            ),
         }
 
 
@@ -1202,17 +1294,17 @@ def _compile_journey_turn_update(
         if has_day3:
             steps.append("CareAgent · Patient declined extra Day-3 booking; closed check-in warmly (doctor kept out of loop)")
             reply = (
-                "明白，冇問題！好開心知道你康復得順利——之後幾時有需要預約、打針或者問診，隨時喺度搵我就得。"
+                "明白，冇問題。好開心知道你康復得順利——之後幾時有需要預約、打針或者問診，隨時喺度搵我就得。"
                 if is_zh
-                else "No problem at all — glad you're recovering smoothly! Just message here anytime if you ever need a future visit, vaccine, or anything else."
+                else "No problem at all — glad you're recovering smoothly. Just message here anytime if you ever need a future visit, vaccine, or anything else."
             )
             return ("scheduled", "idle", current_title, current_lead, "Check-in complete", summary, reply, steps)
         if has_signed:
             steps.append("CareAgent · Patient has no further post-sign questions; keeping loop quiet")
             reply = (
-                "明白，一切清楚就好！記得多休息，我會喺 3 日後再問候你康復進度——期間有咩變化隨時話我知。"
+                "明白，一切清楚就好。記得多休息，我會喺 3 日後再問候你康復進度——期間有咩變化隨時話我知。"
                 if is_zh
-                else "Sounds good — glad everything is clear! Get plenty of rest, and I'll check in with you in 3 days. Message anytime if anything changes."
+                else "Sounds good — glad everything is clear. Get plenty of rest, and I'll check in with you in 3 days. Message anytime if anything changes."
             )
             return ("scheduled", "idle", current_title, current_lead, current_cp, summary, reply, steps)
         if is_followup_turn and any(k in last_sam_text for k in ("bruising", "bleeding", "瘀", "流牙血")):
@@ -1242,9 +1334,9 @@ def _compile_journey_turn_update(
 
         steps.append("CareAgent · Patient indicated no questions right now; keeping thread quiet")
         reply = (
-            "冇問題！如果你之後對身體狀況、用藥、報告或者覆診有任何疑問，隨時喺呢度搵我就得。"
+            "冇問題。如果你之後對身體狀況、用藥、報告或者覆診有任何疑問，隨時喺呢度搵我就得。"
             if is_zh
-            else "No problem at all! I'm right here whenever you have a question about symptoms, medications, results, or appointments."
+            else "No problem at all. I'm right here whenever you have a question about symptoms, medications, results, or appointments."
         )
         return (
             current_state,
@@ -1261,9 +1353,9 @@ def _compile_journey_turn_update(
         if has_signed:
             steps.append("CareAgent · Warmly closed post-sign patient acknowledgement (care plan active)")
             reply = (
-                "唔使客氣！你嘅處方同文件會一直保存喺對話入面，祝你早日康復——有任何變化隨時喺度搵我。"
+                "唔使客氣。你嘅處方同文件會一直保存喺對話入面，祝你早日康復——有任何變化隨時喺度搵我。"
                 if is_zh
-                else "You're very welcome! Your plan and documents stay right here in this chat — wishing you a smooth recovery, and message anytime if anything comes up."
+                else "You're very welcome. Your plan and documents stay right here in this chat — wishing you a smooth recovery, and message anytime if anything comes up."
             )
             return ("scheduled", "idle", current_title, current_lead, current_cp, summary, reply, steps)
         steps.append("CareAgent · Acknowledged patient reply cleanly")
@@ -1275,9 +1367,9 @@ def _compile_journey_turn_update(
             )
         else:
             reply = (
-                "好呀！隨時話我知多啲你嘅症狀或者想安排嘅事項，我即刻幫你跟進。"
+                "好呀，隨時話我知多啲你嘅症狀或者想安排嘅事項，我即刻幫你跟進。"
                 if is_zh
-                else "Sounds good! Whenever you're ready, just share a bit more about what you need and I'll get it lined up for you."
+                else "Sounds good. Whenever you're ready, just share a bit more about what you need and I'll get it lined up for you."
             )
         return (current_state, current_baton, current_title, current_lead, current_cp, summary, reply, steps)
 
@@ -1297,9 +1389,9 @@ def _compile_journey_turn_update(
         if is_confused:
             steps.append("CareAgent · Apologized for misunderstanding and invited clarification")
             reply = (
-                "唔好意思，頭先可能誤會咗你嘅意思！請問你而家係想延長病假紙、問用藥問題，定係想約覆診？話我知我即刻幫你處理或者轉交黃莎拉醫生。"
+                "唔好意思，頭先可能誤會咗你嘅意思。請問你而家係想延長病假紙、問用藥問題，定係想約覆診？話我知我即刻幫你處理或者轉交黃莎拉醫生。"
                 if is_zh
-                else "Sorry about that — I may have misread your last message! What can I help with right now — extending your sick-leave certificate, a medication question, or booking a follow-up? Tell me and I'll handle or route it straight to Dr. Sarah Wong."
+                else "Sorry about that — I may have misread your last message. What can I help with right now — extending your sick-leave certificate, a medication question, or booking a follow-up? Tell me and I'll handle or route it straight to Dr. Sarah Wong."
             )
             return (
                 current_state,
@@ -1437,13 +1529,13 @@ def _compile_journey_turn_update(
             )
             if mentioned_feeling_better:
                 reply = (
-                    "好呀！聽到你好返好多就好放心。我已經幫你安排下星期嘅護士接種／覆診時段，並通知前台同事確認時間——暫時唔需要打擾醫生，有時間表確認會即刻喺呢度通知你。"
+                    "好呀，聽到你好返好多就好放心。我已經幫你安排下星期嘅護士接種／覆診時段，並通知前台同事確認時間——暫時唔需要打擾醫生，有時間表確認會即刻喺呢度通知你。"
                     if is_zh
-                    else "Glad to hear you're feeling better! I've queued a nurse preventive / follow-up slot for next week and routed it to our clinic admin team to confirm the time — no need to interrupt Dr. Wong. I'll drop the confirmed slot right here once locked in."
+                    else "Glad to hear you're feeling better. I've queued a nurse preventive / follow-up slot for next week and routed it to our clinic admin team to confirm the time — no need to interrupt Dr. Wong. I'll drop the confirmed slot right here once locked in."
                 )
             else:
                 reply = (
-                    "冇問題！我已經幫你預留護士／覆診時段，並交畀診所前台同事確認時間——暫時唔需要打擾黃醫生，確認好會即刻喺呢度通知你。"
+                    "冇問題，我已經幫你預留護士／覆診時段，並交畀診所前台同事確認時間——暫時唔需要打擾黃醫生，確認好會即刻喺呢度通知你。"
                     if is_zh
                     else "Sure — I've queued a nurse / follow-up slot and routed it to our clinic admin team to confirm the time — no need to interrupt Dr. Wong. I'll drop the confirmed slot right here once locked in."
                 )
@@ -1489,9 +1581,9 @@ def _compile_journey_turn_update(
             )
         else:
             reply = (
-                "收到，謝謝你通知我哋！你嘅護理計劃同文件會一直留喺對話入面，3 日後我會自動問候你康復進度——期間有咩需要隨時搵我。"
+                "收到，謝謝你通知我哋。你嘅護理計劃同文件會一直留喺對話入面，3 日後我會自動問候你康復進度——期間有咩需要隨時搵我。"
                 if is_zh
-                else "Noted — thanks for letting us know! Your plan and documents stay right here in this chat, and I'll check in with you in 3 days. Message anytime if anything comes up before then."
+                else "Noted — thanks for letting us know. Your plan and documents stay right here in this chat, and I'll check in with you in 3 days. Message anytime if anything comes up before then."
             )
         return (
             "scheduled",
@@ -1619,13 +1711,13 @@ def _compile_journey_turn_update(
                 "name": "1. Acute viral URTI",
                 "bullets": [
                     f"Sore throat and fever ({temp_val if has_temp else '38.2 °C'}) since this morning; denies shortness of breath or chest pain.",
-                    f"Requesting symptomatic relief and a {days_off}-day medical sick-leave certificate.",
+                    f"Requesting same-day clinic examination, symptomatic relief, and a {days_off}-day medical sick-leave certificate (no antibiotics indicated).",
                 ],
                 "safety_gap": None,
                 "suggested_orders": [
+                    {"id": "wy_book_exam", "type": "book", "issue": "1. Acute viral URTI", "visitType": "Same-day In-Clinic GP Exam", "when": "Today 11:00", "durationMin": 15},
+                    {"id": "wy_rx_para", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Paracetamol 500mg", "freq": "QDS PRN", "days": "5d", "note": "Antipyretic / analgesic — symptomatic URTI care"},
                     {"id": "wy_cert", "type": "cert", "issue": "1. Acute viral URTI", "daysOff": days_off, "dates": "24–25 Nov 2026" if days_off == 2 else f"{days_off} days from 24 Nov 2026", "omitDx": True},
-                    {"id": "wy_rx_para", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Paracetamol 500mg", "freq": "QDS PRN", "days": "5d", "note": "Antipyretic / analgesic"},
-                    {"id": "wy_rx_cet", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Cetirizine 10mg", "freq": "OD PRN", "days": "5d", "note": "Symptomatic relief"},
                 ],
             }
         ]
@@ -1633,7 +1725,7 @@ def _compile_journey_turn_update(
             agent_thread.append({
                 "actor": "Sam",
                 "time": _hkt_hhmm(),
-                "text": f"Registrar reasoning: Confirmed onset + temp ({temp_val if has_temp else '38.2 °C'}) + negative respiratory/cardiac red flags → Packaged 1-issue URTI summary with {days_off}d sick leave & symptomatic options for Dr. Sarah Wong.",
+                "text": f"Registrar reasoning: Confirmed onset + temp ({temp_val if has_temp else '38.2 °C'}) + negative respiratory/cardiac red flags → Packaged 1-issue URTI summary with same-day clinic exam, Paracetamol 500mg, and {days_off}d MCHK sick leave for Dr. Sarah Wong (no antibiotics indicated).",
             })
         summary["agent_thread"] = agent_thread[-4:]
         steps.append("PracticeGraph · Compiled single-issue Acute URTI summary for doctor review")
@@ -1641,28 +1733,28 @@ def _compile_journey_turn_update(
 
         if asked_watch_out:
             reply = (
-                "好問題——記得多飲溫水同多休息。如果高燒超過 39 度、超過 3 日未退燒，或者出現呼吸困難、心口痛或吞嚥劇痛，請即刻通知我哋或去急症室。黃醫生審閱完就會即刻喺度送出處方同病假紙。"
+                "好問題——記得多飲溫水同多休息。如果高燒超過 39 度、超過 3 日未退燒，或者出現呼吸困難、心口痛或吞嚥劇痛，請即刻通知我哋或去急症室。黃醫生審閱後就會確認今日診症檢查、紓緩藥物同病假紙安排。"
                 if is_zh
                 else "Good question — rest and stay hydrated. Please reach out promptly or seek urgent care if your fever rises above 39°C, hasn't improved after 3 days, or you develop shortness of breath, chest pain, or trouble swallowing. Dr. Sarah Wong is reviewing your summary now."
             )
         elif (is_simple_ack and is_followup_turn) or already_sent_summary:
             reply = (
-                "收到，已經幫你補充到黃莎拉醫生嘅摘要度——醫生一確認處方同病假紙就會即時喺呢度彈出。"
+                "收到，已經幫你補充到黃莎拉醫生嘅摘要度——醫生確認今日檢查、處方同病假紙後就會即時喺呢度通知你。"
                 if is_zh
-                else "Got it — I've added that to Dr. Sarah Wong's notes. As soon as she signs off, your prescription and sick-leave certificate will appear right here."
+                else "Got it — I've added that to Dr. Sarah Wong's notes. As soon as she confirms your clinic exam, prescription, and sick-leave certificate, they will appear right here."
             )
         else:
             reply = (
-                f"多謝你提供資料——我已經記低你嘅症狀（{temp_val if has_temp else '38.2 °C'}、冇氣促或心口痛）同埋 {days_off} 日病假紙申請，並整理咗簡潔摘要交畀黃莎拉醫生審閱。醫生一確認就會喺呢度通知你。"
+                f"多謝你提供資料——我已經記低你嘅症狀（{temp_val if has_temp else '38.2 °C'}、冇氣促或心口痛）同埋今日醫生檢查及 {days_off} 日病假紙申請，並整理咗摘要交畀黃莎拉醫生審閱。醫生一確認就會喺呢度通知你。"
                 if is_zh
-                else f"Thanks for sharing those details — I've noted your sore throat and fever ({temp_val if has_temp else '38.2 °C'}, no red-flag symptoms) along with your {days_off}-day sick-leave request, and sent a concise summary to Dr. Sarah Wong to review. I'll update you right here as soon as she signs off."
+                else f"Thanks for sharing those details — I've noted your sore throat and fever ({temp_val if has_temp else '38.2 °C'}, no red-flag symptoms) along with your request for a same-day clinic exam and a {days_off}-day sick-leave note, and sent a concise summary to Dr. Sarah Wong to review. I'll update you right here once she confirms."
             )
 
         return (
             "needs_decision",
             "with_doctor",
             "Acute Viral URTI — Sick Leave & Symptomatic Care",
-            f"Sore throat and fever ({temp_val if has_temp else '38.2 °C'}), requesting {days_off}-day sick leave and symptomatic relief.",
+            f"Sore throat and fever ({temp_val if has_temp else '38.2 °C'}), requesting clinic exam, {days_off}-day sick leave, and symptomatic relief.",
             "Ready for sign-off",
             summary,
             reply,
@@ -1686,7 +1778,7 @@ def _compile_journey_turn_update(
         if not (asked_nsaid or asked_meds or asked_appt or mentioned_no_bleed):
             steps.append("CareAgent · Replied to patient's message and offered help with visit or medications")
             reply = (
-                "收到！請問你今日想查詢邊方面——係醫院出院後嘅用藥安排、身體有冇唔舒服，定係想確認今日 11:30 嘅覆診？"
+                "收到。請問你今日想查詢邊方面——係醫院出院後嘅用藥安排、身體有冇唔舒服，定係想確認今日 11:30 嘅覆診？"
                 if is_zh
                 else "Got it — how can I best help you right now? I can help check your medications, note any symptoms for Dr. Sarah Wong, or confirm your visit details."
             )
@@ -1695,7 +1787,7 @@ def _compile_journey_turn_update(
         if asked_appt and not (asked_nsaid or asked_meds):
             steps.append("CareAgent · Confirmed 11:30 post-discharge follow-up details")
             reply = (
-                "你嘅覆診安排喺今日上午 11:30，由黃莎拉醫生同陳護士跟進。麻煩記得帶齊你屋企所有醫院新藥袋同舊藥過嚟核對！"
+                "你嘅覆診安排喺今日上午 11:30，由黃莎拉醫生同陳護士跟進。麻煩記得帶齊你屋企所有醫院新藥袋同舊藥過嚟核對。"
                 if is_zh
                 else "Your follow-up is booked for today at 11:30 with Dr. Sarah Wong and Nurse Rachel. Please bring all of your current medicine bags with you so we can review them together."
             )
@@ -1775,25 +1867,32 @@ def _compile_journey_turn_update(
             steps,
         )
 
-    # 3. WONG Mei Ling (Home BP: Quiet Scheduled vs >140/90 Wake-Up!)
+    # 3. WONG Mei Ling (Cardiovascular Chronic Disease: CVD Risk Score + Home BP Quiet Loop vs >140/90 Wake-Up + Preventive Checkups)
     if j_key == "wong":
         bp_m = _BP_RE.search(patient_text)
         mentions_bp_context = bool(bp_m) or any(
-            k in low for k in ("bp", "blood pressure", "reading", "high", "headache", "dizzy", "dizziness", "amlodipine", "血壓", "頭痛", "頭暈", "腳腫")
+            k in low
+            for k in (
+                "bp", "blood pressure", "reading", "high", "headache", "dizzy", "dizziness", "amlodipine",
+                "checkup", "vaccine", "flu", "mammogram", "screening", "cholesterol", "cvd",
+                "血壓", "頭痛", "頭暈", "腳腫", "檢查", "預防針", "流感", "乳房",
+            )
         )
         if not mentions_bp_context:
-            steps.append("CareAgent · Invited patient's blood pressure reading or clinic question")
+            steps.append("CareAgent · Invited patient's blood pressure reading or preventive checkup question")
             reply = (
-                "收到！如果你想記錄今日嘅家居血壓，可以直接話我知讀數（例如 128/78）；或者話我知你有咩身體狀況或預約問題想跟進。"
+                "收到。如果你想記錄今日嘅家居血壓，可以直接話我知讀數（例如 128/78）；或者話我知你想安排常規身體檢查、流感針定係覆診。"
                 if is_zh
-                else "Got it — if you'd like to log a home blood pressure reading, just type the numbers (for example 128/78), or let me know what else I can help with today."
+                else "Got it — if you'd like to log a home blood pressure reading, just share the numbers (for example 128/78), or let me know if you'd like to arrange your routine preventive checkups."
             )
-            return (current_state, current_baton, current_title or "Home Blood Pressure Check-In", current_lead, current_cp, summary, reply, steps)
+            return (current_state, current_baton, current_title or "Cardiovascular Risk & Chronic BP Review", current_lead, current_cp, summary, reply, steps)
 
         sys_v = int(bp_m.group(1)) if bp_m else (156 if any(k in low for k in ("high", "headache", "高", "頭痛")) else 128)
         dia_v = int(bp_m.group(2)) if bp_m else (96 if sys_v >= 140 else 78)
         breached = sys_v >= 140 or dia_v >= 90
 
+        cvd_score = compute_cvd_10yr_tier(age=58, smoker=False, systolic_bp=sys_v, ldl_mmol_l=3.8)
+        summary["clinical_scores"] = [cvd_score]
         summary["vitals_exam"] = {
             "source": f"Home BP Careline · Today {_hkt_hhmm()}",
             "items": [
@@ -1814,46 +1913,62 @@ def _compile_journey_turn_update(
                 {"label": "Today", "sys": sys_v, "dia": dia_v},
             ],
         }
+        agent_thread = list(summary.get("agent_thread") or [])
         if breached:
             summary["alerts"] = [
                 {"level": "high", "label": f"Home BP Threshold Breach ({sys_v}/{dia_v})", "detail": "Exceeds > 140/90 wake-up gate · Escalated to #my-work"},
+                {"level": "info", "label": f"10-Yr CVD Risk: {cvd_score.get('tier', 'Moderate')}", "detail": "LDL above target + elevated SBP · Review titration & statin"},
             ]
             summary["issues"] = [
                 {
                     "id": "iss_htn_breach",
-                    "name": "1. Essential hypertension — home BP elevated",
+                    "name": "1. Essential hypertension & cardiovascular risk — home BP elevated",
                     "bullets": [
-                        "Patient logged an elevated home reading above clinic target via Careline (see BP Trajectory).",
-                        "No emergency red flags reported; requires clinician review of Amlodipine titration vs repeat check.",
+                        "Patient logged an elevated home reading above clinic target via Careline (see BP Trajectory & 10-Yr CVD Risk Score).",
+                        "No emergency red flags reported; review Amlodipine titration, lipid target, and overdue HK preventive checkups.",
                     ],
                     "safety_gap": "Confirm seated 5-minute rest technique and screen for vision changes or chest discomfort.",
                     "suggested_orders": [
-                        {"id": "wg_rx_amlo", "type": "rx", "action": "update", "issue": "1. Essential hypertension — home BP elevated", "drug": "Amlodipine 10mg", "freq": "OD", "days": "30d", "note": "Consider titration if confirmed"},
-                        {"id": "wg_book_rev", "type": "book", "issue": "1. Essential hypertension — home BP elevated", "visitType": "15-min GP BP Review", "when": "Within 48 hours"},
-                        {"id": "wg_nurse_bp", "type": "nurse", "issue": "1. Essential hypertension — home BP elevated", "assignee": "Nurse Rachel", "task": "BP / INR follow-up call", "due": "Tomorrow morning"},
+                        {"id": "wg_rx_amlo", "type": "rx", "action": "update", "issue": "1. Essential hypertension & cardiovascular risk — home BP elevated", "drug": "Amlodipine 10mg", "freq": "OD", "days": "30d", "note": "Consider titration if clinic BP confirms"},
+                        {"id": "wg_book_rev", "type": "book", "issue": "1. Essential hypertension & cardiovascular risk — home BP elevated", "visitType": "15-min GP Cardiovascular & BP Review", "when": "Within 48 hours"},
+                        {"id": "wg_nurse_bp", "type": "nurse", "issue": "1. Essential hypertension & cardiovascular risk — home BP elevated", "assignee": "Nurse Rachel", "task": "BP follow-up call & preventive bundle", "due": "Tomorrow morning"},
                     ],
                 }
             ]
             summary["sam_proactive_insight"] = (
-                f"NICE NG136 / HK HTN Reference Framework: Home BP {sys_v}/{dia_v} mmHg exceeds the 140/90 wake-up threshold "
-                "(target < 135/85). Case moved automatically from Scheduled into Needs Decision."
+                f"NICE NG136 / HK HTN Reference Framework: Home BP {sys_v}/{dia_v} mmHg breaches the 140/90 wake-up gate "
+                f"({cvd_score.get('name', '10-Yr CVD Risk')}: {cvd_score.get('score_label', '')}). "
+                "Consider Amlodipine titration and bundling due HK biennial mammogram, CV-priority flu vaccine, and colorectal FIT kit."
             )
+            agent_thread.append({
+                "actor": "Sam",
+                "time": _hkt_hhmm(),
+                "text": (
+                    f"Registrar reasoning: Home BP {sys_v}/{dia_v} mmHg crossed >140/90 threshold with mild headache; "
+                    f"recomputed deterministic 10-year CVD risk ({cvd_score.get('score_label', 'elevated')}) alongside baseline lipid panel. "
+                    "Escalated to Dr. Wong for BP titration/statin review and staged preventive checkup bundle (mammogram, flu vaccine, FIT kit)."
+                ),
+            })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append(f"PracticeGraph · Recomputed Python 10-Yr CVD Risk Score ({cvd_score.get('score_label', '')}) for SBP {sys_v}")
             steps.append(f"LoopWatcher · BP threshold breach detected ({sys_v}/{dia_v} > 140/90) -> Woke loop to Needs Decision")
             reply_en = (
-                f"Thank you for sharing that reading ({sys_v}/{dia_v} mmHg). Because that's above your target of 135/85, "
-                "I've escalated your BP log directly into Dr. Sarah Wong's active review queue right now so she can check whether to adjust your plan or bring forward your visit.\n\n"
-                "Please rest seated for 5 minutes and let me know straight away if you develop severe headache, chest pain, shortness of breath, or vision changes (if so, please call 999 or go to A&E immediately)."
+                f"Thank you for sharing that reading ({sys_v}/{dia_v} mmHg). Because that is above your target of 135/85, "
+                "I have escalated your BP log and updated cardiovascular risk summary to Dr. Sarah Wong's active review queue so she can decide whether to adjust your medication or bring forward your visit.\n\n"
+                "On preventive checkups, you are also due for your biennial mammogram, seasonal flu vaccine, and HK colorectal FIT screening — I have flagged these so we can bundle them cleanly at your next clinic visit. "
+                "Please rest seated for 5 minutes and seek urgent care (call 999) straight away if you develop severe headache, chest pain, shortness of breath, or vision changes."
             )
             reply_zh = (
                 f"多謝你即時匯報（{sys_v}/{dia_v} mmHg）。由於讀數高於你嘅目標 135/85，"
-                "我已經即時將你嘅血壓記錄提升至黃莎拉醫生嘅優先覆核清單，等醫生決定係咪需要調整藥量或者提早覆診。\n\n"
+                "我已經即時將你嘅血壓記錄同心血管風險評估提升至黃莎拉醫生嘅優先覆核清單，等醫生決定係咪需要調整藥量或者提早覆診。\n\n"
+                "預防性檢查方面，你亦到期安排兩年一度乳房造影、季節性流感疫苗及香港大腸癌篩查（FIT），我已經一併標記方便下次覆診順便安排。"
                 "請先坐低休息 5 分鐘；如果出現劇烈頭痛、心口痛、氣促或者視力模糊，請立即致電 999 或前往急症室。"
             )
             return (
                 "needs_decision",
                 "with_doctor",
-                "Essential Hypertension — Home BP Breach Review",
-                f"Home BP {sys_v}/{dia_v} mmHg breached >140/90 wake-up rule; escalated to doctor queue.",
+                "Cardiovascular Risk & Hypertension — Home BP Breach",
+                f"Home BP {sys_v}/{dia_v} mmHg breached >140/90 wake-up rule; CVD risk score & preventive checkups staged.",
                 "Escalated · review today",
                 summary,
                 reply_zh if is_zh else reply_en,
@@ -1863,38 +1978,51 @@ def _compile_journey_turn_update(
         # On-target quiet loop (ZERO doctor interruption!)
         summary["alerts"] = [
             {"level": "info", "label": "BP Target: < 135/85 mmHg", "detail": "On target · Routine review remains scheduled 21 Dec"},
+            {"level": "info", "label": f"10-Yr CVD Risk: {cvd_score.get('tier', 'Moderate')}", "detail": "Preventive checkups & flu shot eligible ahead of 21 Dec visit"},
         ]
         summary["issues"] = [
             {
                 "id": "iss_htn",
-                "name": "1. Essential hypertension — on target",
+                "name": "1. Essential hypertension & cardiovascular risk — on target",
                 "bullets": [
-                    "Asymptomatic and well controlled on Amlodipine 5mg OD within home target (see BP Trajectory).",
-                    "Routine GP review remains scheduled for 21 Dec; zero unscheduled doctor interruption needed.",
+                    "Asymptomatic and well controlled on Amlodipine 5mg OD within home target (see BP Trajectory & 10-Yr CVD Risk Score).",
+                    "Routine GP review remains scheduled for 21 Dec; automated AI offered due preventive screenings without interrupting the doctor.",
                 ],
                 "safety_gap": None,
                 "suggested_orders": [
-                    {"id": "wg_goal", "type": "goal", "issue": "1. Essential hypertension — on target", "metric": "Blood Pressure", "targetSys": 135, "targetDia": 85},
-                    {"id": "wg_lab_ren", "type": "lab", "issue": "1. Essential hypertension — on target", "testName": "Renal Function & Electrolytes (U&E)", "lab": "KingMed", "fasting": False, "when": "1 week before 21 Dec review"},
+                    {"id": "wg_goal", "type": "goal", "issue": "1. Essential hypertension & cardiovascular risk — on target", "metric": "Blood Pressure", "targetSys": 135, "targetDia": 85},
+                    {"id": "wg_lab_ren", "type": "lab", "issue": "1. Essential hypertension & cardiovascular risk — on target", "testName": "Renal Function & Electrolytes (U&E)", "lab": "KingMed", "fasting": False, "when": "1 week before 21 Dec review"},
                 ],
             }
         ]
         summary["sam_proactive_insight"] = None  # Strict R5 high-signal gate: stay silent when on-target!
+        agent_thread.append({
+            "actor": "Sam",
+            "time": _hkt_hhmm(),
+            "text": (
+                f"Registrar reasoning: Home BP {sys_v}/{dia_v} mmHg is well within <135/85 target on Amlodipine 5mg OD; "
+                f"recomputed 10-year CVD risk ({cvd_score.get('score_label', '')}). Kept loop quietly in Scheduled (zero doctor interruption) "
+                "and reminded patient of due biennial mammogram, CV-priority seasonal flu shot, and pre-visit U&E blood test."
+            ),
+        })
+        summary["agent_thread"] = agent_thread[-4:]
+        steps.append(f"PracticeGraph · Recomputed Python 10-Yr CVD Risk Score ({cvd_score.get('score_label', '')}) for SBP {sys_v}")
         steps.append(f"LoopWatcher · Evaluated Home BP {sys_v}/{dia_v} (< 135/85 target) -> Routed quietly to Scheduled (0 doctor interruption)")
         reply_en = (
-            f"Great news — {sys_v}/{dia_v} mmHg is right inside your < 135/85 target! "
-            "I've logged it into your clinic trend chart. Since everything is steady and you're feeling well, "
-            "your routine hypertension review stays set for Mon 21 Dec at 10:00 — message me anytime if a reading goes up."
+            f"That reading ({sys_v}/{dia_v} mmHg) is right inside your < 135/85 target, and I have logged it onto your clinic trend chart. "
+            "Since everything is steady and you are feeling well, your routine cardiovascular review stays set for Mon 21 Dec at 10:00.\n\n"
+            "As a quick preventive reminder, you are also due for your biennial mammogram, seasonal flu vaccine, and a pre-visit kidney/electrolyte blood check — let me know if you would like me to bundle those with Nurse Rachel ahead of 21 Dec."
         )
         reply_zh = (
-            f"太好喇！{sys_v}/{dia_v} mmHg 完全喺你 < 135/85 嘅目標範圍內！"
-            "我已經幫你記錄咗喺血壓趨勢圖。由於血壓穩定而且感覺良好，你嘅常規覆診維持喺 12 月 21 日（星期一）上午 10:00——如果之後量到偏高隨時話我知。"
+            f"呢個讀數（{sys_v}/{dia_v} mmHg）完全喺你 < 135/85 嘅目標範圍內，我已經幫你記錄咗喺血壓趨勢圖。"
+            "由於血壓穩定而且感覺良好，你嘅常規心血管覆診維持喺 12 月 21 日（星期一）上午 10:00。\n\n"
+            "順帶提醒，你亦到期安排兩年一度乳房造影、季節性流感疫苗及覆診前腎功能抽血——如果想我幫你提前同陳護士一併預約，隨時話我知。"
         )
         return (
             "scheduled",
             "idle",
-            "Essential Hypertension — Routine Review 21 Dec",
-            f"Home BP {sys_v}/{dia_v} mmHg on target on Amlodipine 5mg OD; stays quietly scheduled.",
+            "Cardiovascular Risk & Hypertension — Routine Review 21 Dec",
+            f"Home BP {sys_v}/{dia_v} mmHg on target on Amlodipine 5mg OD; preventive checkups queued quietly.",
             "21 Dec review",
             summary,
             reply_zh if is_zh else reply_en,
@@ -2091,8 +2219,13 @@ _MD_EMPHASIS_RE = re.compile(r"\*\*(.+?)\*\*|__(.+?)__", re.S)
 
 
 def _plain_chat_text(text: str) -> str:
-    """Patient bubbles are plain-text (WhatsApp style): strip markdown emphasis that live models may emit."""
-    return _MD_EMPHASIS_RE.sub(lambda m: m.group(1) or m.group(2) or "", text or "")
+    """Patient bubbles are plain-text (WhatsApp style): strip markdown emphasis and awkward exclamation marks."""
+    cleaned = _MD_EMPHASIS_RE.sub(lambda m: m.group(1) or m.group(2) or "", text or "")
+    cleaned = re.sub(r"!+", ".", cleaned)
+    cleaned = re.sub(r"！+", "。", cleaned)
+    cleaned = re.sub(r"\.{2,}", ".", cleaned)
+    cleaned = re.sub(r"。{2,}", "。", cleaned)
+    return cleaned.strip()
 
 
 def handle_live_chat_turn(
@@ -2340,6 +2473,7 @@ def handle_live_chat_turn(
         llm_latency_ms = 0
         llm_attempts = 0
         llm_error: str | None = None
+        dynamic_replies: list[str] = []
 
         if engine.get("live"):
             lang_directive = "Write patient_reply warmly and concisely in natural Hong Kong Traditional Chinese / Cantonese (繁體中文)." if is_zh else "Write patient_reply warmly and concisely in clear, natural English."
@@ -2396,15 +2530,18 @@ def handle_live_chat_turn(
                 '  "registrar_action": "keep_in_patient_loop" | "escalate_to_doctor" | "route_to_admin" | "close_quietly",\n'
                 '  "extracted_vitals": [{"label": string, "val": string}],\n'
                 '  "issue_summary_update": string,\n'
-                '  "admin_task": string\n'
+                '  "admin_task": string,\n'
+                '  "dynamic_suggested_replies": [string]\n'
                 "}\n"
-                "Rules for patient_reply: 100% warm, natural, colloquial patient language (1–3 concise sentences); answer DIRECTLY what the patient JUST wrote and respect the CURRENT LIFECYCLE PHASE; "
+                "Rules for patient_reply: Calm, empathetic, composed Hong Kong clinic voice (1–3 concise sentences); NEVER use exclamation marks (! or ！) — use plain periods and question marks; "
+                "answer DIRECTLY what the patient JUST wrote and respect the CURRENT LIFECYCLE PHASE; "
                 "do NOT re-ask facts the patient already told you (e.g. if they said 'woke up with', don't ask when it started); "
-                "if the patient expresses confusion ('whaat?', 'what?'), apologize warmly and clarify directly; "
+                "if the patient expresses confusion ('whaat?', 'what?'), apologize calmly and clarify directly; "
                 "NEVER congratulate the patient on 'feeling better' unless they actually said they feel better; "
                 "NEVER mention internal medical alerts or technical jargon (such as G6PD, haemolysis, nitrofurantoin, or drug-class mechanisms) to the patient — keep those strictly in clinical_reasoning for the doctor; "
                 "NEVER claim to be a doctor or repeat any prior Sam message verbatim. "
-                "Rules for clinical_reasoning: 1–2 concise sentences for the doctor summarizing your registrar thinking steps (phase, red-flag screen, home vitals/history check, safety checks, and why you chose registrar_action). "
+                "Rules for clinical_reasoning: 1–2 concise clinical sentences written registrar-to-attending-GP (red-flag screen, vitals/history, HK guideline & safety checks, routing rationale). NEVER write meta-commentary about chat formatting (never say 'patient chat kept simple and jargon-free'). "
+                "Rules for dynamic_suggested_replies: Optional array of 0–2 short, natural patient replies that DIRECTLY answer the specific question you just asked in patient_reply (in the same language as patient_reply). Return [] if you did not ask the patient a question. "
                 f"{lang_directive}"
             )
             user_prompt = (
@@ -2421,11 +2558,11 @@ def handle_live_chat_turn(
             llm_call = invoke_structured_json(
                 system_prompt=sys_prompt,
                 user_prompt=user_prompt,
-                temperature=0.25,
-                max_output_tokens=640,
+                temperature=0.2,
+                max_output_tokens=420,
                 patient_names_for_scrub=[j["patient_name"]],
                 engine_override=chat_engine,
-                timeout_seconds=20.0,
+                timeout_seconds=16.0,
                 thinking_level="LOW",
             )
             llm_provider_used = llm_call.provider
@@ -2447,6 +2584,12 @@ def handle_live_chat_turn(
                     ][:4]
                 issue_update = str(obj.get("issue_summary_update") or "").strip()
                 admin_task = str(obj.get("admin_task") or "").strip()
+                if isinstance(obj.get("dynamic_suggested_replies"), list):
+                    dynamic_replies = [
+                        _plain_chat_text(str(s)).strip()
+                        for s in obj["dynamic_suggested_replies"]
+                        if str(s).strip()
+                    ][:2]
 
                 screened = screen_agent_output(parsed_reply, channel="patient_careline")
                 if screened.passed and parsed_reply:
@@ -2561,9 +2704,11 @@ def handle_live_chat_turn(
                 else "Got it — I've noted that update. If you'd like to request a sick-leave extension, ask about your medications, or arrange a follow-up, just let me know and I'll handle or route it right away."
             )
 
+        reply = _plain_chat_text(reply)
         chat = list(updated_summary.get("original_chat") or [])
-        chat.append({"actor": "Sam", "time": hhmm, "text": _plain_chat_text(reply), "lang": "zh-HK" if is_zh else "en"})
+        chat.append({"actor": "Sam", "time": hhmm, "text": reply, "lang": "zh-HK" if is_zh else "en"})
         updated_summary["original_chat"] = chat
+        updated_summary["_dynamic_suggested_replies"] = dynamic_replies
         updated_summary.pop("_active_crisis", None)
 
         lint = validate_case_presentation(updated_summary)
@@ -2667,6 +2812,8 @@ def handle_live_chat_turn(
             is_zh,
             has_signed=has_signed,
             has_day3=any(m.get("role") == "system" and m.get("time") == "Day +3" for m in chat),
+            has_patient_turns=True,
+            dynamic_replies=dynamic_replies,
         ),
     }
 
@@ -2681,9 +2828,16 @@ def append_doctor_signed_chat_bubble(
     certificates_out: list[dict[str, Any]],
     bookings_out: list[dict[str, Any]],
     trace_id: str,
+    nurse_handover_only: bool = False,
+    nurse_assignee: str = "Nurse Rachel (RN)",
 ) -> None:
-    """Append a doctor-in-the-loop system event + Sam's resident handback into `CaseLoop.summary_json['original_chat']`
-    so the physical phone chat clearly shows doctor involvement followed by Sam delivering the care plan & 3-day AI check-in."""
+    """Append a clinically accurate status event + Sam's message into `CaseLoop.summary_json['original_chat']`.
+
+    - When `nurse_handover_only=True`: notifies patient that Nurse Rachel will perform vitals/exam first
+      (NEVER claims clinical review is complete and NEVER attaches sick leave or prescriptions).
+    - Otherwise: delivers full structured e-Prescription details (dose, route, frequency, duration, quantity,
+      dispensing details, PDF download ID) and MCHK Sick-Leave PDF.
+    """
     case = session.get(CaseLoop, case_id)
     if case is None:
         return
@@ -2691,34 +2845,88 @@ def append_doctor_signed_chat_bubble(
     chat = list(summary.get("original_chat") or [])
     hhmm = _hkt_hhmm()
     display_doc = re.sub(r"^Locum\s+", "", signed_by or "Dr. Sarah Wong", flags=re.I).strip()
+
+    if nurse_handover_only and not prescriptions_out and not certificates_out:
+        eg = dict(summary.get("exam_gate") or {"exam_required": True})
+        eg["nurse_exam_status"] = "handed_over"
+        summary["exam_gate"] = eg
+        case.state = "running"
+        case.baton = "with_nurse"
+        case.next_checkpoint_label = f"Nurse exam ({nurse_assignee})"
+        chat.append({
+            "actor": "Clinic",
+            "role": "system",
+            "time": hhmm,
+            "text": f"Handed over to {nurse_assignee} for vitals and physical examination",
+            "trace_id": trace_id,
+        })
+        chat.append({
+            "actor": "Sam",
+            "role": "assistant",
+            "time": hhmm,
+            "text": (
+                f"{display_doc} has asked {nurse_assignee} to check your vitals and carry out a brief assessment first "
+                f"before your consultation with the doctor. Your prescription and sick-leave certificate will be confirmed once your examination is complete."
+            ),
+            "trace_id": trace_id,
+        })
+        summary["original_chat"] = chat
+        case.summary_json = summary
+        flag_modified(case, "summary_json")
+        return
+
     rx_lines: list[str] = []
+    structured_prescriptions: list[dict[str, Any]] = []
     for rx in prescriptions_out:
-        for it in rx.get("items") or []:
-            rx_lines.append(it.get("display") or f"{it.get('drug', '')} {it.get('dose_mg', '')}mg {it.get('frequency', '')}".strip())
+        enriched_items = [enrich_prescription_item_for_patient(it) for it in (rx.get("items") or [])]
+        for it in enriched_items:
+            rx_lines.append(
+                f"{it['display']} — {it['dose_text']}, {it['route']}, {it['frequency']} ({it['frequency_human']}), {it['duration_text']} · Dispense {it['quantity_to_dispense']}"
+            )
+        structured_prescriptions.append({
+            "id": rx["id"],
+            "vault_doc_id": rx.get("vault_doc_id"),
+            "verification_hash": rx.get("verification_hash"),
+            "mchk_reg_no": rx.get("mchk_reg_no") or mchk_reg_no,
+            "signed_by": display_doc,
+            "signed_at": rx.get("signed_at"),
+            "fulfilment_mode": rx.get("fulfilment_mode") or "pickup",
+            "fulfilment_status": rx.get("fulfilment_status") or "signed",
+            "fulfilment_ref": rx.get("fulfilment_ref") or f"RXHK-{str(rx['id'])[-6:].upper()}",
+            "dispensing_location": rx.get("dispensing_location") or "Central & Mid-Levels Family Medical Dispensary, Suite 1402, Central Tower, 28 Queen's Road Central, HK",
+            "dispensing_hours": rx.get("dispensing_hours") or "Mon–Sat 08:30–20:00 HKT",
+            "dispensing_instructions": rx.get("dispensing_instructions") or "Present this signed e-Prescription PDF or Dispensing Ref with HKID at the clinic dispensary counter (valid 14 days under HK Cap. 138).",
+            "items": enriched_items,
+        })
 
     parts: list[str] = []
-    if rx_lines and certificates_out:
-        parts.append("Here is your prescription and sick-leave certificate.")
-    elif rx_lines:
-        parts.append("Here is your prescription.")
+    if structured_prescriptions and certificates_out:
+        parts.append("Your signed e-prescription and MCHK sick-leave certificate are ready below.")
+    elif structured_prescriptions:
+        parts.append("Your signed e-prescription is ready below with full dosing and dispensing details.")
     elif certificates_out:
-        parts.append("Your sick-leave certificate is ready below.")
+        parts.append("Your MCHK sick-leave certificate is ready below.")
     else:
-        parts.append("Your care plan is ready below.")
+        parts.append("Your care plan has been confirmed below.")
     if bookings_out:
         parts.append(f"{len(bookings_out)} follow-up booking(s) queued.")
-    parts.append("I'll check in with you here in 3 days to see how you're recovering.")
+    parts.append("I will check in with you here in 3 days to see how you are recovering.")
 
-    # Beat 1: Clean single system status divider showing Doctor completed clinical review
+    eg = dict(summary.get("exam_gate") or {})
+    exam_done = eg.get("doctor_exam_status") == "completed"
+    divider_txt = (
+        f"{display_doc} completed your examination and signed your care plan"
+        if exam_done
+        else f"{display_doc} completed your clinical review"
+    )
     chat.append({
         "actor": "Clinic",
         "role": "system",
         "time": hhmm,
-        "text": f"{display_doc} completed your clinical review",
+        "text": divider_txt,
         "trace_id": trace_id,
     })
 
-    # Beat 2: Sam comes back cleanly with prescriptions, sick leave PDF button, and natural follow-up message
     chat.append({
         "actor": "Sam",
         "role": "assistant",
@@ -2729,6 +2937,7 @@ def append_doctor_signed_chat_bubble(
             "signed_by": display_doc,
             "mchk_reg_no": mchk_reg_no,
             "rx_lines": rx_lines,
+            "prescriptions": structured_prescriptions,
             "certificates": [
                 {
                     "id": c["id"],
@@ -2748,6 +2957,101 @@ def append_doctor_signed_chat_bubble(
     summary["scheduled_tasks"] = tasks
     case.summary_json = summary
     flag_modified(case, "summary_json")
+
+
+def record_case_clinical_exam(
+    session: Session,
+    *,
+    case_id: str,
+    stage: str,
+    actor_name: str,
+    exam_note: str,
+    modality: str = "in_person",
+    vitals: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    """Record a completed Nurse Vitals/Exam or Doctor Clinical Examination on a CaseLoop before signing Rx/cert."""
+    case = session.get(CaseLoop, case_id)
+    if case is None:
+        raise ValueError("Case not found.")
+    summary = copy.deepcopy(case.summary_json or {})
+    chat = list(summary.get("original_chat") or [])
+    timeline = list(case.timeline_json or [])
+    hhmm = _hkt_hhmm()
+    eg = dict(
+        summary.get("exam_gate")
+        or {
+            "exam_required": True,
+            "nurse_exam_status": "not_started",
+            "nurse_exam_note": "",
+            "doctor_exam_status": "not_started",
+            "doctor_exam_note": "",
+            "doctor_exam_modality": "in_person",
+        }
+    )
+
+    if stage == "nurse":
+        clean_vitals = vitals or [
+            {"label": "Temp (clinic)", "val": "38.1 °C (tympanic)"},
+            {"label": "BP / HR", "val": "116/74 mmHg · 86/min"},
+            {"label": "SpO₂", "val": "99% on room air"},
+        ]
+        summary["vitals_exam"] = {
+            "source": f"{actor_name} · Verified Clinic Vitals ({hhmm})",
+            "encounter_context": "In-Clinic Nurse Assessment",
+            "items": clean_vitals,
+        }
+        eg["nurse_exam_status"] = "completed"
+        eg["nurse_exam_note"] = exam_note.strip() or "Clinic vitals measured and verified; patient stable and ready for doctor examination."
+        eg["nurse_examined_by"] = actor_name
+        eg["nurse_examined_at"] = utcnow().isoformat()
+        case.state = "needs_decision"
+        case.baton = "with_doctor"
+        case.next_checkpoint_label = "Ready for doctor exam"
+        chat.append({
+            "actor": "Clinic",
+            "role": "system",
+            "time": hhmm,
+            "text": f"{actor_name} completed your vitals and pre-exam check — ready for Dr. Sarah Wong",
+        })
+        timeline.append({
+            "date": f"Today {hhmm}",
+            "label": f"{actor_name} · Recorded verified clinic vitals & handed back to doctor.",
+            "agent": "NurseExam",
+        })
+    else:
+        display_doc = re.sub(r"^Locum\s+", "", actor_name or "Dr. Sarah Wong", flags=re.I).strip()
+        mod_label = "live video consultation" if modality == "live_video" else "in-person physical examination"
+        eg["doctor_exam_status"] = "completed"
+        eg["doctor_exam_modality"] = modality
+        eg["doctor_exam_note"] = exam_note.strip() or "Alert, well-hydrated; pharynx mildly injected, no tonsillar exudate, chest clear bilaterally."
+        eg["doctor_examined_by"] = display_doc
+        eg["doctor_examined_at"] = utcnow().isoformat()
+        case.state = "needs_decision"
+        case.baton = "with_doctor"
+        case.next_checkpoint_label = "Exam complete · Ready to sign"
+        timeline.append({
+            "date": f"Today {hhmm}",
+            "label": f"{display_doc} · Completed {mod_label} (MCHK clinical assessment verified).",
+            "agent": "DoctorExam",
+        })
+
+    summary["exam_gate"] = eg
+    summary["original_chat"] = chat
+    case.summary_json = summary
+    case.timeline_json = timeline
+    flag_modified(case, "summary_json")
+    flag_modified(case, "timeline_json")
+    case.updated_at = utcnow()
+    session.flush()
+    return {
+        "ok": True,
+        "case_id": case.id,
+        "stage": stage,
+        "exam_gate": eg,
+        "vitals_exam": summary.get("vitals_exam"),
+        "state": case.state,
+        "baton": case.baton,
+    }
 
 
 def retract_doctor_signed_chat_bubble(session: Session, *, case_id: str, trace_id: str) -> None:
@@ -2793,7 +3097,7 @@ def trigger_post_sign_checkin(
             "text": "3 days later · Autonomous AI post-visit check-in (no doctor interruption)",
         })
         checkin_text = (
-            "你好！距離你上次覆診已經過咗 3 日，想問候一下你嘅喉嚨痛同發燒好返晒未？另外等你完全康復之後，需唔需要我幫你安排季節性流感疫苗接種，或者預約其他常規檢查呢？"
+            "你好，距離你上次覆診已經過咗 3 日，想問候一下你嘅喉嚨痛同發燒好返晒未？另外等你完全康復之後，需唔需要我幫你安排季節性流感疫苗接種，或者預約其他常規檢查呢？"
             if is_zh
             else "Hi there — just checking in 3 days after your visit. How are your sore throat and fever feeling now? Once you're back to normal, would you like me to help book a seasonal flu vaccine or arrange a visit for anything else?"
         )
@@ -2814,17 +3118,7 @@ def trigger_post_sign_checkin(
         case_id = case.id
 
     live_bus.publish("case.updated", patient_id=pid, data={"case_id": case_id, "journey_key": j_key, "state": "scheduled"})
-    day3_replies = (
-        [
-            "好返晒啦多謝！我想預約下星期打流感針，順便想約醫生傾吓最近覺得容易攰。",
-            "完全康復咗，唔使覆診，多謝關心！",
-        ]
-        if is_zh
-        else [
-            "Feeling much better, thank you! Yes — could I book a flu shot next week, and also arrange a routine visit because I've been feeling a bit tired lately?",
-            "All recovered now — no follow-up needed, thanks for checking in!",
-        ]
-    )
+    day3_replies = list(_DAY3_REPLIES_ZH if is_zh else _DAY3_REPLIES_EN)
     return {
         "ok": True,
         "session_epoch": live_demo_coordinator.epoch,

@@ -40,12 +40,10 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
             "嘉欣你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日身體有咩唔舒服？"
         ),
         "suggested_replies_en": [
-            "I've had burning when I pee and going to the toilet frequently since yesterday evening. No fever or back pain.",
-            "No chance of pregnancy, drinking plenty of water, and no chills or flank pain. Can Dr. Wong arrange something for me today?",
+            "I've had burning when I pee and going to the toilet frequently since yesterday evening.",
         ],
         "suggested_replies_zh": [
-            "琴晚開始小便刺痛同成日急尿，冇發燒亦都冇腰痛，請問醫生可以點幫我？",
-            "冇懷孕，飲緊好多水，冇發冷冇背痛。今日可以安排醫生開藥嗎？",
+            "琴晚開始小便刺痛同成日急尿，請問醫生可以點幫我？",
         ],
     },
     {
@@ -67,24 +65,22 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         ),
         "suggested_replies_en": [
             "Not feeling well since yesterday, super busy with work — can the doctor just send me some antibiotics?",
-            "Just mild fatigue and a stuffy nose since yesterday, no fever, no cough, no chest pain. A 15-min slot later today works.",
         ],
         "suggested_replies_zh": [
             "琴日開始覺得個人唔係好舒服，返工好忙，可唔可以直接開啲抗生素？",
-            "主要係少少攰同鼻塞，冇發燒、冇咳亦都冇心口痛，今日晏晝約 15 分鐘睇醫生都可以。",
         ],
     },
     {
         "key": "lau_chest",
-        "category": "acute",
+        "category": "chronic",
         "patient_id": "pat_lau_chest",
         "patient_name": "LAU Wai-Fong",
         "patient_name_zh": "劉慧芳",
         "age_sex": "64F",
         "pathway_node_id": "ebm.pathway.chronic_htn_home_bp",
-        "title": "Chest tightness & rising home BP",
-        "title_zh": "行斜路心口翳悶及血壓偏高",
-        "subtitle": "On Perindopril & Rosuvastatin · full cardiac canvas & red-flag screen",
+        "title": "Cardiac chronic disease & prevention",
+        "title_zh": "心血管慢性病管理及預防檢查",
+        "subtitle": "Perindopril & Rosuvastatin · CVD risk score, BP trend & preventive checkups",
         "welcome_en": (
             "Hello Ms. Lau, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you feeling today?"
         ),
@@ -92,14 +88,10 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
             "劉女士你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日覺得點樣？"
         ),
         "suggested_replies_en": [
-            "I've noticed mild chest tightness when walking uphill this week, and my home BP has been around 148/92. I feel completely fine sitting at rest right now.",
-            "No pain at rest, no sweating or shortness of breath right now. Should I come in for an ECG and blood pressure check today?",
-            "Actually I suddenly have crushing chest pain spreading to my left arm and I'm short of breath.",
+            "My home blood pressure has been creeping up to around 148/92 this week on Perindopril 4mg — no chest pain or shortness of breath. Could Dr. Wong review my blood pressure, cholesterol, and any routine checkups I'm due for?",
         ],
         "suggested_replies_zh": [
-            "呢個星期行斜路覺得心口少少翳悶，屋企血壓大約 148/92，而家坐喺度休息就完全冇痛。",
-            "而家靜止冇痛亦冇標冷汗，今日應唔應該返診所做心電圖同覆檢血壓？",
-            "我突然間心口好痛、唞唔到氣、標晒冷汗，好似就快暈低咁！",
+            "今個星期食住 Perindopril 4mg 屋企血壓升到大約 148/92，冇心口痛亦冇氣促。請問黃醫生需唔需要覆核血壓藥、膽固醇，同埋我有冇常規檢查到期？",
         ],
     },
     # ---- Hospital Follow-Up & Chronic Care ----
@@ -313,7 +305,7 @@ def build_extra_initial_summary(
     if j_key == "tang_uti":
         return {
             "alerts": [
-                {"level": "info", "label": "G6PD Deficient · Clinician note", "detail": "Avoid Nitrofurantoin & sulfonamides (Fosfomycin is safe)"},
+                {"level": "info", "label": "G6PD Deficient · Clinician note", "detail": "Avoid Nitrofurantoin & Co-trimoxazole · NKDA (Augmentin is G6PD-safe)"},
             ],
             "scheduled_tasks": [{"status": "waiting", "label": "Careline conversation active with patient"}],
             "issues": [{
@@ -378,13 +370,32 @@ def build_extra_initial_summary(
             "original_chat": chat,
         }
 
-    # tsang_thin, lau_chest, ng_quarantine, chui_cough
+    if j_key == "lau_chest":
+        return {
+            "clinical_scores": [
+                compute_cvd_10yr_tier(age=64, smoker=False, systolic_bp=148, ldl_mmol_l=2.9),
+            ],
+            "alerts": [
+                {"level": "info", "label": "Cardiovascular Risk Profile", "detail": "On Perindopril 4mg + Rosuvastatin 10mg · Baseline ECG & Echo on file"},
+            ],
+            "scheduled_tasks": [{"status": "waiting", "label": "Careline conversation active with patient"}],
+            "issues": [{
+                "id": "iss_lau_chest_init",
+                "name": "1. Cardiovascular chronic care check-in — gathering history",
+                "bullets": ["Patient opened Careline chat; awaiting symptom & home BP details."],
+                "safety_gap": None,
+                "suggested_orders": [],
+            }],
+            "attachments": base_att,
+            "sam_proactive_insight": None,
+            "agent_thread": [],
+            "patient_chat_label": f"{j_meta['patient_name']} ↔ Sam Careline Chat",
+            "original_chat": chat,
+        }
+
+    # tsang_thin, ng_quarantine, chui_cough
     return {
-        "alerts": (
-            [{"level": "info", "label": "Cardiovascular Risk Profile", "detail": "On Perindopril 4mg + Rosuvastatin 10mg"}]
-            if j_key == "lau_chest"
-            else [{"level": "info", "label": "No Known Drug Allergies", "detail": "Standard clinic profile loaded"}]
-        ),
+        "alerts": [{"level": "info", "label": "No Known Drug Allergies", "detail": "Standard clinic profile loaded"}],
         "scheduled_tasks": [{"status": "waiting", "label": "Careline conversation active with patient"}],
         "issues": [{
             "id": f"iss_{j_key}_init",
@@ -422,29 +433,94 @@ def compile_extra_journey_turn(
     summary = copy.deepcopy(existing_summary)
     steps: list[str] = []
 
-    # 6. TANG Ka-Yan (Acute Uncomplicated UTI — subtle G6PD glance on doctor side only, 100% colloquial to patient!)
+    # 2. TANG Ka-Yan (Acute Uncomplicated UTI — pregnancy + pyelonephritis red flags + G6PD check -> HK GP Augmentin 375mg TDS x 5d)
     if j_key == "tang_uti":
-        confirmed_no_preg = "no pregnancy" in all_low or "no chance of pregnancy" in all_low or "冇懷孕" in all_text
+        confirmed_no_preg = any(
+            k in all_low or k in all_text
+            for k in (
+                "no pregnancy", "not pregnant", "no chance of pregnancy", "definitely not pregnant",
+                "negative pregnancy", "isn't pregnant", "cannot be pregnant", "can't be pregnant",
+                "冇懷孕", "無懷孕", "冇可能懷孕", "唔係懷孕", "冇大肚",
+            )
+        )
+        confirmed_preg = (not confirmed_no_preg) and any(
+            k in all_low or k in all_text
+            for k in ("i am pregnant", "i'm pregnant", "might be pregnant", "could be pregnant", "positive pregnancy", "懷孕咗", "有咗身孕", "大肚")
+        )
+        preg_answered = confirmed_no_preg or confirmed_preg
+        confirmed_no_red_flags = any(
+            k in all_low or k in all_text
+            for k in (
+                "no fever", "no back pain", "no flank pain", "no chills", "no vomiting", "no nausea",
+                "afebrile", "none of those", "no red flags", "冇發燒", "冇腰痛", "冇背痛", "冇發冷", "冇作嘔",
+            )
+        )
         summary["vitals_exam"] = {
             "source": f"Patient Careline · Today {hhmm}",
             "encounter_context": "Inbound Remote · Self-Reported",
             "items": [
                 {"label": "Symptoms", "val": "Dysuria & frequency (<24h)"},
-                {"label": "Red flags", "val": "Afebrile · No flank pain or chills"},
-                {"label": "Pregnancy", "val": "Denies pregnancy" if confirmed_no_preg else "Confirm before Rx"},
+                {"label": "Red flags", "val": "Afebrile · No flank pain, chills, or vomiting" if confirmed_no_red_flags else "Pending red-flag screen (fever / chills / flank pain / vomiting)"},
+                {"label": "Pregnancy", "val": ("Pregnant — confirm trimester" if confirmed_preg else ("Denies pregnancy" if confirmed_no_preg else "Pending confirmation"))},
             ],
         }
+        uti_alerts: list[dict[str, str]] = [
+            {
+                "level": "info",
+                "label": "G6PD Deficient · Clinician note",
+                "detail": "Avoid Nitrofurantoin & Co-trimoxazole · NKDA (Augmentin 375mg TDS × 5d or Cefuroxime 250mg BD × 5d safe)",
+            },
+        ]
+        if confirmed_preg:
+            uti_alerts.insert(0, {
+                "level": "high",
+                "label": "Pregnancy Reported",
+                "detail": "Confirm gestational age & MSU culture; Augmentin / Cefuroxime require antenatal clinician sign-off.",
+            })
+        elif not preg_answered:
+            uti_alerts.append({
+                "level": "high",
+                "label": "Confirm Pregnancy Status",
+                "detail": "Awaiting patient confirmation of pregnancy status before antibiotic sign-off.",
+            })
+        summary["alerts"] = uti_alerts
+
+        if confirmed_preg:
+            safety_gap: str | None = "Patient reported possible pregnancy — confirm gestational age and MSU culture before prescribing."
+        elif not preg_answered and not confirmed_no_red_flags:
+            safety_gap = "Confirm pregnancy status and screen pyelonephritis red flags (fever, chills, flank pain, vomiting) before prescribing."
+        elif not preg_answered:
+            safety_gap = "Confirm pregnancy status before prescribing."
+        elif not confirmed_no_red_flags:
+            safety_gap = "Confirm absence of fever, chills, flank pain, or vomiting before prescribing."
+        else:
+            safety_gap = None
+
         summary["issues"] = [{
             "id": "iss_uti",
             "name": "1. Acute uncomplicated cystitis",
             "bullets": [
-                "Acute burning on urination and frequency since yesterday evening; no fever or back/flank pain.",
-                "G6PD deficiency noted on file — single-dose Fosfomycin 3g staged as safe first-line option.",
+                (
+                    "Acute burning on urination and urinary frequency since yesterday evening; denies fever, chills, flank pain, or vomiting."
+                    if confirmed_no_red_flags
+                    else "Acute burning on urination and urinary frequency since yesterday evening; screening for fever, chills, flank pain, and vomiting."
+                ),
+                "G6PD deficiency on chart (Nitrofurantoin & Co-trimoxazole contraindicated) · NKDA · Augmentin (Amoxicillin-Clavulanate) 375 mg TDS × 5 days staged (alternative: Cefuroxime 250 mg BD × 5 days).",
             ],
-            "safety_gap": "Confirm no pregnancy before prescribing." if not confirmed_no_preg else None,
+            "safety_gap": safety_gap,
             "suggested_orders": [
-                {"id": "tang_rx_fosfo", "type": "rx", "action": "start", "issue": "1. Acute uncomplicated cystitis", "drug": "Fosfomycin 3g", "freq": "STAT single dose", "days": "1d", "note": "G6PD-safe first-line uncomplicated UTI"},
-                {"id": "tang_lab_msu", "type": "lab", "issue": "1. Acute uncomplicated cystitis", "testName": "Urine Dipstick / MSU Culture", "lab": "Clinic / KingMed", "fasting": False, "when": "If symptoms persist >48h"},
+                {
+                    "id": "tang_rx_augmentin",
+                    "type": "rx",
+                    "action": "start",
+                    "issue": "1. Acute uncomplicated cystitis",
+                    "drug": "Amoxicillin-Clavulanate (Augmentin) 375mg",
+                    "dose_mg": 375,
+                    "freq": "TDS",
+                    "days": "5d",
+                    "note": "HK private GP G6PD-safe choice (alternative: Cefuroxime 250mg BD × 5d); NKDA",
+                },
+                {"id": "tang_lab_msu", "type": "lab", "issue": "1. Acute uncomplicated cystitis", "testName": "Urine Dipstick / MSU Culture", "lab": "Clinic / KingMed", "fasting": False, "when": "Before starting Abx or if >48h"},
                 {
                     "id": "tang_leaflet",
                     "type": "goal",
@@ -453,48 +529,58 @@ def compile_extra_journey_turn(
                     "leaflet_id": "uti_hydration_hk",
                     "title": "Acute UTI Hydration & Red-Flag Care Leaflet",
                     "template": "Central Medical · Uncomplicated Cystitis Care Sheet",
-                    "target_text": "Drink 2L water daily; finish single-dose treatment; return promptly if fever, chills, or flank pain develop.",
+                    "target_text": "Drink 2L water daily; complete the full 5-day Augmentin course; seek urgent review if fever, chills, vomiting, or flank pain develop.",
                 },
             ],
         }]
         summary["sam_proactive_insight"] = (
-            "Private clinical note: G6PD deficiency is on file (avoid Nitrofurantoin / sulfonamides). "
-            "Single-dose Fosfomycin 3g is safe first-line for uncomplicated afebrile cystitis — patient chat kept simple and jargon-free."
+            "G6PD deficiency is recorded on chart (Nitrofurantoin and Co-trimoxazole contraindicated); NKDA. "
+            "Augmentin (Amoxicillin-Clavulanate) 375 mg TDS × 5 days is staged as the G6PD-safe HK private GP option (Cefuroxime 250 mg BD × 5 days as alternative)."
         )
         agent_thread = list(summary.get("agent_thread") or [])
-        if not any("UTI intake" in str(x.get("text", "")) for x in agent_thread):
-            agent_thread.append({
-                "actor": "Sam",
-                "time": hhmm,
-                "text": "Registrar reasoning: UTI intake clear of pyelonephritis red flags (afebrile, no flank pain) → cross-checked chart safety (G6PD flag kept clinician-facing only) → staged Fosfomycin 3g + clinic UTI leaflet for Dr. Wong.",
-            })
+        preg_note = (
+            "Pregnancy denied" if confirmed_no_preg
+            else ("Possible pregnancy reported" if confirmed_preg else "Pregnancy status requested")
+        )
+        rf_note = "pyelonephritis red flags denied (afebrile, no flank pain/chills/vomiting)" if confirmed_no_red_flags else "screening pyelonephritis red flags"
+        uti_reason = (
+            f"UTI intake: {rf_note}; {preg_note}. Cross-checked G6PD deficiency (Nitrofurantoin & Co-trimoxazole blocked) and NKDA → staged Augmentin 375 mg TDS × 5 days (Cefuroxime 250 mg BD × 5 days alternative)."
+        )
+        agent_thread = [x for x in agent_thread if not str(x.get("text", "")).startswith("UTI intake:")]
+        agent_thread.append({"actor": "Sam", "time": hhmm, "text": uti_reason})
         summary["agent_thread"] = agent_thread[-4:]
-        steps.append("PracticeGraph · Traversed ebm.pathway.acute_uti + clinician-side G6PD check")
-        steps.append("PresentationCompiler · Staged Fosfomycin 3g + AI-personalized UTI leaflet (5/5 linter pass)")
+        steps.append("PracticeGraph · Traversed ebm.pathway.acute_uti (HK GP G6PD-safe Augmentin 375mg TDS x5d)")
+        steps.append("PresentationCompiler · Staged Augmentin 375mg TDS x5d + UTI leaflet (5/5 linter pass)")
 
         if is_simple_ack and is_followup_turn:
             reply = (
-                "唔使客氣——黃醫生一確認處方就會即刻喺呢度通知你，記得多飲清水。"
+                "唔使客氣，黃醫生審閱同確認處方之後就會喺呢度通知你，記得多飲清水。"
                 if is_zh
-                else "You're very welcome — as soon as Dr. Wong confirms your prescription, it'll appear right here. Keep drinking plenty of water in the meantime."
+                else "You are welcome. As soon as Dr. Wong reviews and confirms your prescription, it will appear right here. Keep drinking plenty of water in the meantime."
             )
-        elif not confirmed_no_preg:
+        elif confirmed_preg:
             reply = (
-                "明白，小便刺痛同尿頻真係好唔舒服。冇發燒同冇腰痛係好消息——我已經整理好資料交畀黃醫生，幫你安排合適嘅治療。想順便確認一下，你有冇機會懷孕？"
+                "多謝你話我知可能懷孕。我已經即時通知黃醫生，等醫生確認懷孕週數同埋安排適合孕婦使用嘅安全治療及小便化驗。期間記得多飲清水，如果出現發燒、發冷或腰背痛，請即刻通知我哋。"
                 if is_zh
-                else "Sorry you're dealing with that — burning and frequent urination can be really uncomfortable. It's reassuring you have no fever or back pain. I'm sharing this with Dr. Wong so she can arrange the right treatment today — just to check quickly, is there any chance you could be pregnant?"
+                else "Thank you for letting me know you may be pregnant. I have flagged this straight to Dr. Wong so she can review your gestational stage, arrange a urine test, and select a pregnancy-safe antibiotic. Please keep up your fluids and let us know straight away if you develop fever, chills, vomiting, or lower back pain."
+            )
+        elif not preg_answered or not confirmed_no_red_flags:
+            reply = (
+                "明白，小便刺痛同尿頻真係好唔舒服。為咗幫黃醫生安全安排治療，想先確認兩件事：第一，你有冇發燒、發冷、腰背痛或者作嘔？第二，你有冇機會懷孕？"
+                if is_zh
+                else "Sorry you are dealing with that. Before I pass your summary to Dr. Wong, could you confirm two quick things: are you having any fever, chills, lower back pain, or vomiting, and is there any chance you could be pregnant?"
             )
         else:
             reply = (
-                "多謝你確認——我已經更新畀黃醫生，醫生好快就會確認處方。記得多飲清水；如果期間出現發燒、發冷或者腰背痛，請即刻通知我哋。"
+                "多謝你確認。我已經將你嘅症狀同安全核對結果整理畀黃醫生，醫生審閱後就會確認合適嘅抗生素處方。記得多飲清水，如果出現發燒、發冷或腰背痛，請即刻通知我哋。"
                 if is_zh
-                else "Thanks for confirming — I've passed everything along to Dr. Wong so she can send through your prescription shortly. Keep up your fluids, and let us know straight away if you develop any fever, chills, or lower back pain."
+                else "Thank you for confirming. I have passed your details to Dr. Wong so she can review and arrange an appropriate antibiotic prescription. Keep up your fluids, and let us know straight away if you develop fever, chills, vomiting, or lower back pain."
             )
         return (
             "needs_decision",
             "with_doctor",
             "Acute Uncomplicated UTI",
-            "Burning urination & frequency (<24h), afebrile; safe first-line option staged for doctor review.",
+            "Burning urination & frequency (<24h); G6PD-safe Augmentin 375mg TDS x5d staged.",
             "Today · doctor review",
             summary,
             reply,
@@ -838,17 +924,23 @@ def compile_extra_journey_turn(
             steps,
         )
 
-    # 11. LAU Wai-Fong — Rich Cardiac Dynamic Canvas Showcase (BP trend, MedDiff, ECG, Labs, Referral, Preventive Care)
+    # 11. LAU Wai-Fong — Cardiac Chronic Disease & Prevention Canvas (CVD risk score, BP trend, MedDiff, ECG/Echo, Labs, Preventive Care)
     if j_key == "lau_chest":
+        cvd_score = compute_cvd_10yr_tier(age=64, smoker=False, systolic_bp=148, ldl_mmol_l=2.9, sex="F", on_bp_treatment=True)
+        summary["clinical_scores"] = [cvd_score]
         summary["vitals_exam"] = {
             "source": f"Patient Careline · Today {hhmm}",
             "encounter_context": "Inbound Remote · Home BP Logged",
             "items": [
-                {"label": "Home BP", "val": "148/92 mmHg (trending up)"},
-                {"label": "Rest status", "val": "Pain-free at rest · No diaphoresis"},
-                {"label": "Exertional", "val": "Mild chest tightness walking uphill (1 wk)"},
+                {"label": "Home BP", "val": "148/92 mmHg (upward trend)"},
+                {"label": "Current Rx", "val": "Perindopril 4mg OM · Rosuvastatin 10mg ON"},
+                {"label": "Red flags", "val": "Denies chest pain, dyspnoea, or diaphoresis"},
             ],
         }
+        summary["alerts"] = [
+            {"level": "high", "label": "Upward Home BP Drift (132 → 148/92)", "detail": "Above <135/85 home target on Perindopril 4mg · Review titration & clinic BP"},
+            {"level": "info", "label": f"10-Yr CVD Risk: {cvd_score.get('value', '5–10%')} ({cvd_score.get('band', 'Borderline')})", "detail": "LDL 2.9 mmol/L on Rosuvastatin 10mg (target < 2.6) · Preventive checkups due"},
+        ]
         summary["trend_chart"] = {
             "kind": "bp",
             "title": "Home Systolic BP Trend (mmHg)",
@@ -900,57 +992,76 @@ def compile_extra_journey_turn(
                 "id": "prev_lau_flu",
                 "title": "Seasonal Influenza Vaccine (CV Risk Priority)",
                 "badge": "Recommended",
-                "detail": "Reduces major adverse cardiovascular events in hypertensive patients (ESC Guideline)",
-                "order": {"id": "ord_lau_flu", "type": "book", "issue": "Preventive Care", "visitType": "10-min Nurse Flu Shot", "when": "At today's clinic visit"},
+                "detail": "Reduces major adverse cardiovascular events in hypertensive patients (ESC / HK CHP Guideline)",
+                "order": {"id": "ord_lau_flu", "type": "book", "issue": "Preventive Care", "visitType": "10-min Nurse Flu Shot", "when": "At clinic review"},
+            },
+            {
+                "id": "prev_lau_mammo",
+                "title": "Biennial Breast Mammogram",
+                "badge": "Due (Age 64)",
+                "detail": "HK Cancer Expert Working Group age 44–69 biennial screening · Bundle referral at routine checkup",
+                "order": {"id": "ord_lau_mammo", "type": "imaging", "issue": "Preventive Care", "modality": "Bilateral Screening Mammogram", "indication": "HK biennial breast screening (64F)", "priority": "Routine"},
+            },
+            {
+                "id": "prev_lau_lipid",
+                "title": "Fasting Lipid & HbA1c Recheck",
+                "badge": "Target LDL < 2.6",
+                "detail": "Reassess cardiovascular risk profile & statin response in 8–12 weeks",
+                "order": {"id": "ord_lau_lipid", "type": "lab", "issue": "Preventive Care", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "fasting": True, "when": "In 8 weeks"},
             },
         ]
         summary["issues"] = [{
             "id": "iss_lau_cardiac",
-            "name": "1. New exertional chest tightness & upward BP drift",
+            "name": "1. Chronic hypertension & cardiovascular risk optimization",
             "bullets": [
-                "1-week history of mild exertional chest tightness walking uphill, relieved at rest; currently pain-free with no rest diaphoresis.",
-                "Home BP drifted from 132/82 → 148/92 mmHg on Perindopril 4mg; LDL 2.9 mmol/L on Rosuvastatin 10mg.",
+                "Home BP drifted upward over 8 weeks on Perindopril 4mg; asymptomatic at rest with no chest pain or dyspnoea.",
+                "LDL remains above high-risk target on Rosuvastatin 10mg alongside mild baseline LVH on Oct ECG (see 10-Yr CVD Risk Score & BP Trend).",
             ],
-            "safety_gap": "Same-day 12-lead ECG & in-clinic assessment required; 999 red-flag advice given if rest pain recurs.",
+            "safety_gap": "Confirm seated 5-minute home BP technique & medication adherence before Perindopril titration.",
             "suggested_orders": [
-                {"id": "lau_book", "type": "book", "issue": "1. New exertional chest tightness & upward BP drift", "visitType": "Same-day In-Clinic GP + 12-Lead ECG", "when": "Today 14:00 (Priority)"},
-                {"id": "lau_refer", "type": "refer", "issue": "1. New exertional chest tightness & upward BP drift", "specialty": "Cardiology (Fast-Track Chest Pain)", "clinical_question": "New exertional chest tightness in 64F with HTN/hyperlipidaemia; please assess for stress echo / CTCA.", "urgency": "urgent", "attach_labs": True},
-                {"id": "lau_lab", "type": "lab", "issue": "1. New exertional chest tightness & upward BP drift", "testName": "Fasting Lipid Profile + Hs-Troponin / Renal Panel", "lab": "KingMed Urgent", "fasting": False, "when": "Today"},
-                {"id": "lau_rx_perind", "type": "rx", "action": "update", "issue": "1. New exertional chest tightness & upward BP drift", "drug": "Perindopril 8mg", "freq": "OM daily", "days": "30d", "note": "Consider titration after clinic BP & ECG"},
+                {"id": "lau_book", "type": "book", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "visitType": "In-Clinic GP Cardiovascular Review & Repeat ECG", "when": "This week (15 min)"},
+                {"id": "lau_rx_perind", "type": "rx", "action": "update", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "drug": "Perindopril 8mg", "freq": "OM daily", "days": "30d", "note": "Consider titration after confirming clinic BP & renal panel"},
+                {"id": "lau_lab", "type": "lab", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "fasting": True, "when": "Before clinic review"},
+                {"id": "lau_goal_bp", "type": "goal", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "metric": "Blood Pressure", "targetSys": 135, "targetDia": 85},
             ],
         }]
         summary["sam_proactive_insight"] = (
-            "Private clinical note: New exertional chest tightness + systolic BP drift (132 → 148 mmHg) + LDL 2.9 in 64F warrants same-day 12-lead ECG "
-            "and fast-track Cardiology referral consideration. Patient is pain-free at rest; clear 999 safety-netting delivered."
+            f"10-year CVD risk ({cvd_score.get('value', '5–10%')} · {cvd_score.get('band', 'Borderline')}) with upward home BP drift (132 → 148 mmHg on Perindopril 4mg), "
+            "LDL above target on Rosuvastatin 10mg, and mild LVH on baseline ECG. Consider Perindopril titration after RFT/eGFR check and bundle due CV-priority flu shot & biennial mammogram."
         )
         agent_thread = list(summary.get("agent_thread") or [])
-        if not any("Exertional chest" in str(x.get("text", "")) for x in agent_thread):
+        if not any("10-year CVD risk" in str(x.get("text", "")) for x in agent_thread):
             agent_thread.append({
                 "actor": "Sam",
                 "time": hhmm,
-                "text": "Registrar reasoning: Screened acute ACS red flags (currently pain-free at rest, no diaphoresis) → pulled BP trend, Perindopril/Rosuvastatin meds, Oct ECG & lipid panel → staged same-day ECG slot + fast-track Cardiology referral for Dr. Wong.",
+                "text": (
+                    f"Registrar reasoning: Confirmed asymptomatic at rest (no chest pain or dyspnoea) → computed deterministic 10-year CVD risk ({cvd_score.get('value', '5–10%')} · {cvd_score.get('band', 'Borderline')}) "
+                    "and mounted BP trend, Perindopril/Rosuvastatin profile, Oct ECG/Echo, and cardiovascular labs → staged clinic BP review, Perindopril titration option, Fasting Lipid + HbA1c + RFT/eGFR panel, and preventive checkups (CV-priority flu shot & biennial mammogram)."
+                ),
             })
         summary["agent_thread"] = agent_thread[-4:]
-        steps.append("PracticeGraph · Mounted full Cardiovascular Dynamic Canvas (BP trend, MedDiff, ECG, Labs, Referral)")
+        steps.append(f"PracticeGraph · Computed Python 10-Yr CVD Risk ({cvd_score.get('value', '5–10%')}) & mounted Cardiac Prevention Canvas")
 
-        if is_followup_turn and any(k in low for k in ("ecg", "check", "today", "adjust", "心電圖", "血壓", "覆檢")):
+        if is_followup_turn and any(k in low for k in ("ecg", "check", "today", "adjust", "vaccine", "flu", "mammogram", "book", "心電圖", "血壓", "覆檢", "預防", "預約")):
             reply = (
-                "好呀——我已經幫你預留今日下午 2:00 優先診症同心電圖檢查，並整理好你嘅血壓記錄同過往心電圖畀黃醫生對比。期間如果有任何靜止時心口痛、壓迫感、氣促或標冷汗，請立即致電 999 或去急症室。"
+                "好呀——我已經幫你整理好血壓趨勢、過往心電圖及抽血記錄畀黃醫生覆核，並標記咗季節性流感疫苗、兩年一度乳房造影同空腹血脂／腎功能抽血，等覆診時可以一併安排。期間如果出現任何心口痛、氣促、頭暈或劇烈頭痛，請即刻通知我哋或致電 999。"
                 if is_zh
-                else "Yes — bringing you in today for an ECG and blood pressure check is the safest next step. I've held a priority 14:00 slot with Dr. Wong and pulled your prior ECG and blood pressure trend for her to compare. If any chest tightness, shortness of breath, or sweating comes on at rest before then, please call 999 or go straight to A&E."
+                else "Sounds good — I have pulled your BP trend, prior ECG/Echo, and recent lipid panel for Dr. Wong, and flagged your CV-priority seasonal flu shot, biennial mammogram, and fasting lipid/renal blood panel so we can bundle them cleanly. If you ever develop chest discomfort, shortness of breath, dizziness, or severe headache, please let us know promptly or call 999."
             )
         else:
             reply = (
-                "多謝你話我知，行斜路心口翳悶加上血壓升到 148/92 值得今日安排醫生親身檢查同做心電圖。聽到你而家坐喺度完全冇痛就好少少——請問你有冇氣促、頭暈或者標冷汗？如果突然靜止時心口痛，請即刻致電 999。"
+                "多謝你定期記錄血壓。由於屋企血壓由 132 慢慢升到 148/92（高於 135/85 目標），加上你上次膽固醇稍微高於理想水平，我已經整理好你嘅血壓趨勢、心血管風險評估同過往心電圖畀黃醫生覆核，睇吓需唔需要調整 Perindopril 劑量同覆驗空腹血脂及腎功能。\n\n"
+                "預防檢查方面，你亦到期接種心血管保護優先嘅季節性流感疫苗同安排兩年一度乳房造影檢查——請問你每日有冇準時食藥，同埋想唔想一併預約今個星期覆診同預防檢查？"
                 if is_zh
-                else "Thank you for sharing that — mild chest tightness walking uphill along with a home BP of 148/92 is definitely worth checking in clinic with an ECG today. I'm glad you're comfortable sitting at rest right now. Just to be sure, do you have any shortness of breath, dizziness, or sweating at rest? If any rest pain starts, please call 999 straight away."
+                else "Thank you for keeping track of your readings. Because your home BP has drifted up toward 148/92 (above your < 135/85 target) alongside slightly elevated LDL, I have compiled your BP trend, 10-year cardiovascular risk profile, and baseline ECG/Echo for Dr. Wong to review whether to adjust your Perindopril and repeat your fasting lipids and renal panel.\n\n"
+                "On preventive care, you are also due for your cardiovascular-priority seasonal flu shot and biennial breast mammogram. Have you been taking your Perindopril and Rosuvastatin every day without side effects, and would you like us to bundle those checkups with your review visit?"
             )
         return (
             "needs_decision",
             "with_doctor",
-            "Exertional Chest Tightness & Rising BP (148/92)",
-            "64F on Perindopril + Rosuvastatin reports 1-week exertional tightness & upward BP drift; full cardiac canvas staged.",
-            "Today 14:00 · Priority ECG",
+            "Cardiac Chronic Disease & Prevention — BP Drift & CVD Risk",
+            "64F on Perindopril + Rosuvastatin with upward home BP drift (148/92); 10-Yr CVD risk score, ECG/Echo & preventive checkups staged.",
+            "This week · CV Review",
             summary,
             reply,
             steps,
