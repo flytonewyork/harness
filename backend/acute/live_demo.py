@@ -2129,10 +2129,10 @@ def handle_live_chat_turn(
             current_cp=case.next_checkpoint_label or "Patient messaging Sam",
         )
 
-        # 4. Real-Time Multi-Turn Live LLM Response (Gemini 4 Neon / Hydrogen — bounded & output-screened!)
+        # 4. Real-Time Multi-Turn Live LLM Response (Gemini 4 Hydrogen with thinking -> colloquial patient reply + Private Doctor reasoning trace!)
         reply = fallback_reply
         if engine.get("live"):
-            lang_directive = "Reply warmly and concisely in natural Hong Kong Traditional Chinese / Cantonese (繁體中文)." if is_zh else "Reply warmly and concisely in clear, natural English."
+            lang_directive = "Write patient_reply warmly and concisely in natural Hong Kong Traditional Chinese / Cantonese (繁體中文)." if is_zh else "Write patient_reply warmly and concisely in clear, natural English."
             recent_turns = "\n".join(
                 f"- {m.get('actor', 'User')}: {str(m.get('text') or '')[:260]}"
                 for m in chat[-8:]
@@ -2142,23 +2142,25 @@ def handle_live_chat_turn(
                 f"Allergies={list(pat.allergies_json or [])}, "
                 f"Current Meds={list(pat.current_meds_json or [])}, "
                 f"eGFR={pat.egfr}"
-                if pat is not None
-                else "Verified clinic chart on file"
+                if (pat is not None and j_key != "wingyan")
+                else "New / minimal intake (no prior chart alerts loaded)"
             )
             sys_prompt = (
-                "You are Sam, the Clinic Careline AI assistant at Central & Mid-Levels Family Medical (Hong Kong). "
-                "Always answer directly and naturally to what the patient JUST wrote — never ignore their message or dump unrelated clinical history they did not ask about. "
-                "NEVER claim to be a doctor, clinician, or resident; NEVER prescribe medications, promise reply SLAs, or diagnose definitively. "
-                "Do not repeat previous replies verbatim; advance the conversation naturally in 1–3 concise sentences. "
+                "You are Sam, the Clinic Careline AI assistant at Central & Mid-Levels Family Medical (Hong Kong), acting like a calm clinical registrar during intake. "
+                "Respond ONLY in valid JSON with two keys: {\"patient_reply\": string, \"clinical_reasoning\": string}. "
+                "Rules for patient_reply: 100% colloquial patient language; answer directly to what the patient JUST wrote; ask open registrar-style clarifying questions (including home BP/pulse/temp if relevant) before escalating; "
+                "NEVER mention technical medical alerts or jargon (such as G6PD, haemolysis, nitrofurantoin, or drug-class mechanisms) to the patient — keep those strictly in clinical_reasoning for the doctor; "
+                "NEVER claim to be a doctor, clinician, or resident; NEVER prescribe medications, promise reply SLAs, or repeat previous replies verbatim (1–3 concise sentences). "
+                "Rules for clinical_reasoning: 1–2 concise sentences for the doctor summarizing your registrar thinking steps (red-flag screen, missing history/home vitals, safety checks, and whether to keep in patient loop vs escalate to doctor/admin). "
                 f"{lang_directive}"
             )
             user_prompt = (
                 f"Patient: {j['patient_name']} ({j['age_sex']})\n"
-                f"Verified chart facts: {chart_facts}\n"
-                f"Deterministic CDS findings: {cds_warnings or 'None'}\n"
+                f"Clinician-side chart context (do NOT dump to patient): {chart_facts}\n"
+                f"Deterministic CDS findings (clinician-side only): {cds_warnings or 'None'}\n"
                 f"Recent conversation:\n{recent_turns}\n\n"
                 f"Patient's latest message: {text}\n"
-                f"Suggested clinic facts/actions (only include what fits the patient's latest message): {fallback_reply}"
+                f"Reference clinic guidance (use only what fits the patient's message): {fallback_reply}"
             )
             chat_engine = dict(engine)
             if chat_engine.get("provider") in ("gemini", "vertex") and chat_engine.get("model") == "gemini-4-neon":
@@ -2167,16 +2169,35 @@ def handle_live_chat_turn(
                 system_prompt=sys_prompt,
                 user_prompt=user_prompt,
                 temperature=0.2,
-                max_output_tokens=360,
+                max_output_tokens=480,
                 patient_names_for_scrub=[j["patient_name"]],
                 engine_override=chat_engine,
                 timeout_seconds=20.0,
                 thinking_level="LOW",
             )
             if llm_call.ok and llm_call.text.strip():
-                screened = screen_agent_output(llm_call.text.strip(), channel="patient_careline")
-                if screened.passed:
-                    reply = llm_call.text.strip()
+                raw_out = llm_call.text.strip()
+                parsed_reply = raw_out
+                parsed_reasoning = ""
+                try:
+                    cleaned_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_out, flags=re.I).strip()
+                    obj = __import__("json").loads(cleaned_json)
+                    if isinstance(obj, dict) and obj.get("patient_reply"):
+                        parsed_reply = str(obj["patient_reply"]).strip()
+                        parsed_reasoning = str(obj.get("clinical_reasoning") or "").strip()
+                except Exception:
+                    pass
+                screened = screen_agent_output(parsed_reply, channel="patient_careline")
+                if screened.passed and parsed_reply:
+                    reply = parsed_reply
+                if parsed_reasoning:
+                    at = list(updated_summary.get("agent_thread") or [])
+                    at.append({
+                        "actor": f"Sam · {chat_engine.get('model', 'Gemini 4')}",
+                        "time": hhmm,
+                        "text": parsed_reasoning,
+                    })
+                    updated_summary["agent_thread"] = at[-5:]
 
         chat = list(updated_summary.get("original_chat") or [])
         chat.append({"actor": "Sam", "time": hhmm, "text": _plain_chat_text(reply), "lang": "zh-HK" if is_zh else "en"})

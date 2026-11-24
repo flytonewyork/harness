@@ -1,0 +1,93 @@
+name: deploy-staging-asia-east2
+
+on:
+  push:
+    branches:
+      - feat/live-demo-convergence
+      - main
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "skills/**"
+      - "deploy/**"
+      - "pyproject.toml"
+      - ".github/workflows/deploy-staging.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging-asia-east2
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build & Deploy to Cloud Run (asia-east2 · Vertex AI Gemini 4)
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      GCP_REGION: asia-east2
+      CLOUD_RUN_SERVICE: clinic-ai-harness-staging
+      CLOUDSQL_INSTANCE_NAME: tmrw-acute-pg15
+
+    steps:
+      - name: Check GCP CI/CD secrets configured
+        id: check_secrets
+        shell: bash
+        run: |
+          if [[ -z "${GCP_PROJECT_ID:-}" || -z "${GCP_SA_KEY:-}" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "GCP_PROJECT_ID or GCP_SA_KEY secret not set yet — skipping staging deploy cleanly."
+            echo "Run once from your laptop: GCP_PROJECT_ID=<your-project> bash deploy/bootstrap_cicd_gcp.sh"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout repository
+        if: steps.check_secrets.outputs.configured == 'true'
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        if: steps.check_secrets.outputs.configured == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        if: steps.check_secrets.outputs.configured == 'true'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build & Deploy via Cloud Build (frontend + backend + Vertex AI asia-east2)
+        if: steps.check_secrets.outputs.configured == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          CLOUDSQL_CONN="${GCP_PROJECT_ID}:${GCP_REGION}:${CLOUDSQL_INSTANCE_NAME}"
+          VAULT_BUCKET="${GCP_PROJECT_ID}-tmrw-vault-hk"
+          SHORT_SHA="${GITHUB_SHA::7}"
+
+          gcloud builds submit \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --config=deploy/cloudbuild.acute.yaml \
+            --substitutions="_REGION=${GCP_REGION},_SERVICE=${CLOUD_RUN_SERVICE},_CLOUDSQL_INSTANCE=${CLOUDSQL_CONN},_VAULT_BUCKET=${VAULT_BUCKET},SHORT_SHA=${SHORT_SHA}" \
+            .
+
+      - name: Verify live Cloud Run health & print permanent demo URL
+        if: steps.check_secrets.outputs.configured == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICE_URL="$(gcloud run services describe "${CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='value(status.url)')"
+          echo "Deployed URL: ${SERVICE_URL}"
+          HEALTH_JSON="$(curl -fsS --retry 6 --retry-delay 3 "${SERVICE_URL}/api/v1/health")"
+          echo "${HEALTH_JSON}" | jq .
+          {
+            echo "### Live Cloud Run Staging Deployed (asia-east2)"
+            echo "- **Clinician Workspace (QR):** ${SERVICE_URL}/workspace"
+            echo "- **Phone Chat:** ${SERVICE_URL}/p/chat"
+            echo "- **Simulated EMR:** ${SERVICE_URL}/emr?mode=live"
+            echo "- **Health:** \`$(echo "${HEALTH_JSON}" | jq -c '{ok, db, region, ai_mode: .runtime_toggles.ai_inference_mode}')\`"
+          } >> "$GITHUB_STEP_SUMMARY"
