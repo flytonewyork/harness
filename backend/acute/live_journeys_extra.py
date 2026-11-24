@@ -141,7 +141,7 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         ),
         "suggested_replies_en": [
             "Hi Sam, this is Joyce (his daughter) — our helper Maria said Dad felt slightly lightheaded standing up after his morning BP pills (118/72). Should we stop his Losartan?",
-            "我係佢個女 Joyce，姐姐 Maria 話爸爸今朝食完血壓藥起身有少少頭暈（血壓 118/72），冇跌親亦冇心口痛，係咪要停藥？",
+            "Got it — he's resting and drinking water now. Could we book a review with Dr. Wong this week and check his kidney function?",
         ],
         "suggested_replies_zh": [
             "我係佢個女 Joyce，姐姐 Maria 話爸爸今朝食完血壓藥起身有少少頭暈（血壓 118/72），冇跌親亦冇心口痛，係咪要停藥？",

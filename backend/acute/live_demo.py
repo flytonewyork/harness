@@ -77,7 +77,7 @@ from .practice_graph import (
     validate_case_presentation,
 )
 from .rx_rules import check_prescription_safety
-from .triage import classify_bilingual_async_triage
+from .triage import classify_bilingual_async_triage, screen_acute_message
 from .workspace_engine import (
     _compile_5slot_context_snapshot,
     _ensure_workspace_fk_entities,
@@ -270,14 +270,32 @@ def _has_patient_turns(messages: list[dict[str, Any]] | None) -> bool:
     return False
 
 
+def _extract_dynamic_suggested_replies(summary: dict[str, Any] | None, is_zh: bool) -> list[str]:
+    """Read AI-generated context-aware suggested replies persisted on CaseLoop.summary_json for the active language."""
+    if not isinstance(summary, dict):
+        return []
+    dyn = summary.get("_dynamic_suggested_replies")
+    if isinstance(dyn, list):
+        return [str(x).strip() for x in dyn if isinstance(x, str) and str(x).strip()][:2]
+    if not isinstance(dyn, dict):
+        return []
+    want_lang = "zh-HK" if is_zh else "en"
+    if str(dyn.get("lang") or "") != want_lang:
+        return []
+    raw = dyn.get("replies")
+    if not isinstance(raw, list):
+        return []
+    return [str(x).strip() for x in raw if isinstance(x, str) and str(x).strip()][:2]
+
+
 def _suggested_replies_for(
     j: dict[str, Any],
     is_zh: bool,
     has_signed: bool = False,
     has_day3: bool = False,
     *,
-    has_patient_turns: bool = False,
     dynamic_replies: list[str] | None = None,
+    has_patient_turns: bool = False,
 ) -> list[str]:
     if has_day3:
         return list(_DAY3_REPLIES_ZH if is_zh else _DAY3_REPLIES_EN)
@@ -285,9 +303,11 @@ def _suggested_replies_for(
         if j.get("key") == "chan":
             return list(_POST_SIGN_CHAN_REPLIES_ZH if is_zh else _POST_SIGN_CHAN_REPLIES_EN)
         return list(_POST_SIGN_REPLIES_ZH if is_zh else _POST_SIGN_REPLIES_EN)
+    if dynamic_replies:
+        return [str(x).strip() for x in dynamic_replies if str(x).strip()][:2]
     if has_patient_turns:
         # Turn 1+ -> pure LLM contextual suggestions ONLY; NEVER fall back to static_list[1:]!
-        return [str(x).strip() for x in (dynamic_replies or []) if str(x).strip()][:2]
+        return []
     static_list = list(j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"])
     return static_list[:1]
 
@@ -1073,11 +1093,14 @@ def start_live_journey(
         pat = session.get(Patient, pid)
         tok = mint_jwt(subject_id=pid, role="patient", tenant_id=tenant_id, step_up_verified=True)
         signed = _build_signed_plan_snapshot(session, tenant_id, pid)
-        messages = list((case.summary_json or {}).get("original_chat") or [])
+        case_summary = case.summary_json or {}
+        messages = list(case_summary.get("original_chat") or [])
         case_id = case.id
         case_state = case.state
-        crisis = (case.summary_json or {}).get("_active_crisis")
-        dynamic_replies = list((case.summary_json or {}).get("_dynamic_suggested_replies") or [])
+        crisis = case_summary.get("_active_crisis")
+        start_dyn_replies = _extract_dynamic_suggested_replies(case_summary, is_zh)
+        start_has_patient = _has_patient_turns(messages)
+        start_has_day3 = any(m.get("role") == "system" and m.get("time") == "Day +3" for m in messages)
 
     live_bus.publish(
         "phone.connected",
@@ -1121,9 +1144,9 @@ def start_live_journey(
             j,
             is_zh,
             has_signed=bool(signed),
-            has_day3=any(m.get("role") == "system" and m.get("time") == "Day +3" for m in messages),
-            has_patient_turns=_has_patient_turns(messages),
-            dynamic_replies=dynamic_replies,
+            has_day3=start_has_day3,
+            dynamic_replies=start_dyn_replies,
+            has_patient_turns=start_has_patient,
         ),
         "signed_plan": signed,
         "crisis": crisis,
@@ -1159,10 +1182,13 @@ def get_live_chat_state(
                 "suggested_replies": _suggested_replies_for(j, is_zh, has_signed=False, has_patient_turns=False),
             }
 
-        summary = case.summary_json or {}
-        messages = list(summary.get("original_chat") or [])
+        case_summary = case.summary_json or {}
+        messages = list(case_summary.get("original_chat") or [])
         signed = _build_signed_plan_snapshot(session, tenant_id, pid)
-        crisis = summary.get("_active_crisis")
+        crisis = case_summary.get("_active_crisis")
+        dyn_replies = _extract_dynamic_suggested_replies(case_summary, is_zh)
+        has_patient = _has_patient_turns(messages)
+        has_day3 = any(m.get("role") == "system" and m.get("time") == "Day +3" for m in messages)
         return {
             "session_epoch": live_demo_coordinator.epoch,
             "started": True,
@@ -1178,9 +1204,9 @@ def get_live_chat_state(
                 j,
                 is_zh,
                 has_signed=bool(signed),
-                has_day3=any(m.get("role") == "system" and m.get("time") == "Day +3" for m in messages),
-                has_patient_turns=_has_patient_turns(messages),
-                dynamic_replies=summary.get("_dynamic_suggested_replies") or [],
+                has_day3=has_day3,
+                dynamic_replies=dyn_replies,
+                has_patient_turns=has_patient,
             ),
         }
 
@@ -2473,7 +2499,7 @@ def handle_live_chat_turn(
         llm_latency_ms = 0
         llm_attempts = 0
         llm_error: str | None = None
-        dynamic_replies: list[str] = []
+        dynamic_suggested_replies: list[str] = []
 
         if engine.get("live"):
             lang_directive = "Write patient_reply warmly and concisely in natural Hong Kong Traditional Chinese / Cantonese (繁體中文)." if is_zh else "Write patient_reply warmly and concisely in clear, natural English."
@@ -2531,7 +2557,7 @@ def handle_live_chat_turn(
                 '  "extracted_vitals": [{"label": string, "val": string}],\n'
                 '  "issue_summary_update": string,\n'
                 '  "admin_task": string,\n'
-                '  "dynamic_suggested_replies": [string]\n'
+                '  "suggested_patient_replies": [string, string]\n'
                 "}\n"
                 "Rules for patient_reply: Calm, empathetic, composed Hong Kong clinic voice (1–3 concise sentences); NEVER use exclamation marks (! or ！) — use plain periods and question marks; "
                 "answer DIRECTLY what the patient JUST wrote and respect the CURRENT LIFECYCLE PHASE; "
@@ -2541,7 +2567,8 @@ def handle_live_chat_turn(
                 "NEVER mention internal medical alerts or technical jargon (such as G6PD, haemolysis, nitrofurantoin, or drug-class mechanisms) to the patient — keep those strictly in clinical_reasoning for the doctor; "
                 "NEVER claim to be a doctor or repeat any prior Sam message verbatim. "
                 "Rules for clinical_reasoning: 1–2 concise clinical sentences written registrar-to-attending-GP (red-flag screen, vitals/history, HK guideline & safety checks, routing rationale). NEVER write meta-commentary about chat formatting (never say 'patient chat kept simple and jargon-free'). "
-                "Rules for dynamic_suggested_replies: Optional array of 0–2 short, natural patient replies that DIRECTLY answer the specific question you just asked in patient_reply (in the same language as patient_reply). Return [] if you did not ask the patient a question. "
+                "Rules for suggested_patient_replies: 0–2 short, realistic next messages (<=90 chars each, same language as patient_reply) that the patient could tap to reply DIRECTLY to YOUR patient_reply above. "
+                "ONLY answer questions or reference topics you ACTUALLY mentioned in patient_reply — NEVER invent unrelated topics (for example, do NOT mention pregnancy, bruising, or appointment slots unless you explicitly asked about them in patient_reply). Keep them calm and non-emergency. "
                 f"{lang_directive}"
             )
             user_prompt = (
@@ -2559,7 +2586,7 @@ def handle_live_chat_turn(
                 system_prompt=sys_prompt,
                 user_prompt=user_prompt,
                 temperature=0.2,
-                max_output_tokens=420,
+                max_output_tokens=560,
                 patient_names_for_scrub=[j["patient_name"]],
                 engine_override=chat_engine,
                 timeout_seconds=16.0,
@@ -2584,12 +2611,29 @@ def handle_live_chat_turn(
                     ][:4]
                 issue_update = str(obj.get("issue_summary_update") or "").strip()
                 admin_task = str(obj.get("admin_task") or "").strip()
-                if isinstance(obj.get("dynamic_suggested_replies"), list):
-                    dynamic_replies = [
-                        _plain_chat_text(str(s)).strip()
-                        for s in obj["dynamic_suggested_replies"]
-                        if str(s).strip()
-                    ][:2]
+                raw_sug_list = obj.get("suggested_patient_replies")
+                if not isinstance(raw_sug_list, list):
+                    raw_sug_list = obj.get("dynamic_suggested_replies")
+                if isinstance(raw_sug_list, list):
+                    already_sent = {
+                        str(m.get("text") or "").strip().lower()
+                        for m in chat
+                        if m.get("actor") not in ("Sam", "Assistant", "Clinic")
+                    }
+                    seen_sug: set[str] = set()
+                    for raw_s in raw_sug_list:
+                        if not isinstance(raw_s, str):
+                            continue
+                        cand_s = _plain_chat_text(raw_s).strip()
+                        low_s = cand_s.lower()
+                        if not cand_s or len(cand_s) > 140 or low_s in already_sent or low_s in seen_sug:
+                            continue
+                        if screen_acute_message(cand_s).kind is not None:
+                            continue
+                        seen_sug.add(low_s)
+                        dynamic_suggested_replies.append(cand_s)
+                        if len(dynamic_suggested_replies) >= 2:
+                            break
 
                 screened = screen_agent_output(parsed_reply, channel="patient_careline")
                 if screened.passed and parsed_reply:
@@ -2598,6 +2642,14 @@ def handle_live_chat_turn(
                 else:
                     llm_error = f"output_screen_blocked:{[v.get('code') for v in screened.violations]}"
                     logger.warning("Live registrar reply blocked by output screen (%s); using fallback", llm_error)
+
+                if dynamic_suggested_replies and live_reply_used:
+                    updated_summary["_dynamic_suggested_replies"] = {
+                        "lang": "zh-HK" if is_zh else "en",
+                        "replies": dynamic_suggested_replies,
+                    }
+                elif live_reply_used:
+                    updated_summary.pop("_dynamic_suggested_replies", None)
 
                 # Execute the live registrar's chosen harness action (never weakening CDS safety blocks or MCHK doctor escalation!)
                 if reg_action in ("keep_in_patient_loop", "escalate_to_doctor", "route_to_admin", "close_quietly"):
@@ -2708,7 +2760,13 @@ def handle_live_chat_turn(
         chat = list(updated_summary.get("original_chat") or [])
         chat.append({"actor": "Sam", "time": hhmm, "text": reply, "lang": "zh-HK" if is_zh else "en"})
         updated_summary["original_chat"] = chat
-        updated_summary["_dynamic_suggested_replies"] = dynamic_replies
+        if live_reply_used and dynamic_suggested_replies:
+            updated_summary["_dynamic_suggested_replies"] = {
+                "lang": "zh-HK" if is_zh else "en",
+                "replies": dynamic_suggested_replies,
+            }
+        else:
+            updated_summary.pop("_dynamic_suggested_replies", None)
         updated_summary.pop("_active_crisis", None)
 
         lint = validate_case_presentation(updated_summary)
@@ -2812,8 +2870,8 @@ def handle_live_chat_turn(
             is_zh,
             has_signed=has_signed,
             has_day3=any(m.get("role") == "system" and m.get("time") == "Day +3" for m in chat),
+            dynamic_replies=dynamic_suggested_replies if live_reply_used else None,
             has_patient_turns=True,
-            dynamic_replies=dynamic_replies,
         ),
     }
 
@@ -2951,6 +3009,7 @@ def append_doctor_signed_chat_bubble(
         },
     })
     summary["original_chat"] = chat
+    summary.pop("_dynamic_suggested_replies", None)
     tasks = list(summary.get("scheduled_tasks") or [])
     if not any("3-day AI" in str(t.get("label", "")) for t in tasks):
         tasks.append({"status": "auto", "label": "Day 3 · Autonomous AI Careline post-visit check-in (zero doctor workload)"})
@@ -3096,11 +3155,18 @@ def trigger_post_sign_checkin(
             "time": "Day +3",
             "text": "3 days later · Autonomous AI post-visit check-in (no doctor interruption)",
         })
-        checkin_text = (
-            "你好，距離你上次覆診已經過咗 3 日，想問候一下你嘅喉嚨痛同發燒好返晒未？另外等你完全康復之後，需唔需要我幫你安排季節性流感疫苗接種，或者預約其他常規檢查呢？"
-            if is_zh
-            else "Hi there — just checking in 3 days after your visit. How are your sore throat and fever feeling now? Once you're back to normal, would you like me to help book a seasonal flu vaccine or arrange a visit for anything else?"
-        )
+        if j_key == "wingyan":
+            checkin_text = (
+                "你好，距離你上次覆診已經過咗 3 日，想問候一下你嘅喉嚨痛同發燒好返晒未？另外等你完全康復之後，需唔需要我幫你安排季節性流感疫苗接種，或者預約其他常規檢查呢？"
+                if is_zh
+                else "Hi there — just checking in 3 days after your visit. How are your sore throat and fever feeling now? Once you're back to normal, would you like me to help book a seasonal flu vaccine or arrange a visit for anything else?"
+            )
+        else:
+            checkin_text = (
+                "你好，距離你上次覆診已經過咗 3 日，想問候一下你最近身體感覺好返啲未？如果已經穩定返，需唔需要我幫你安排季節性流感疫苗接種或者常規覆診呢？"
+                if is_zh
+                else "Hi there — just checking in 3 days after your visit. How are you feeling now? Once you're feeling back to normal, would you like me to help book a seasonal flu vaccine or arrange a follow-up visit?"
+            )
         chat.append({
             "actor": "Sam",
             "role": "assistant",
@@ -3109,6 +3175,7 @@ def trigger_post_sign_checkin(
             "lang": "zh-HK" if is_zh else "en",
         })
         summary["original_chat"] = chat
+        summary.pop("_dynamic_suggested_replies", None)
         case.summary_json = summary
         case.state = "scheduled"
         case.baton = "idle"

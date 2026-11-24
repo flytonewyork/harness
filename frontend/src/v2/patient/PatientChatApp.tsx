@@ -775,28 +775,6 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           </div>
         )}
 
-        {/* Journey-specific single scripted starter prompt on Turn 0 */}
-        {consentDone && messages.length === 1 && !typing && suggestedReplies[0] && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
-            <button
-              type="button"
-              className="pc-chip"
-              style={{
-                border: "1.5px solid #0f766e",
-                background: "#eef7f5",
-                color: "#0f6b58",
-                fontWeight: 600,
-                textAlign: "left",
-                whiteSpace: "normal",
-              }}
-              onClick={() => void handleSend(suggestedReplies[0])}
-              data-testid="suggested-first-demo-prompt"
-            >
-              ✦ {suggestedReplies[0]}
-            </button>
-          </div>
-        )}
-
         {typing && (
           <div className="pc-row is-clinic" data-testid="clinic-typing-bubble">
             <span className="pc-sender-label">Sam · {isZh ? "診所助手" : "Clinic AI"}</span>
@@ -862,7 +840,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
         );
       })()}
 
-      {/* Optional Subtle Suggested Replies (for smooth live stage demoing — full free-text always works!) */}
+      {/* Bottom Suggested Demo Prompts & Context-Aware Replies (always anchored above composer — full free-text always works!) */}
       {(() => {
         const sentSet = new Set(
           messages
@@ -870,21 +848,22 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
             .map((m) => m.text.trim().toLowerCase()),
         );
         const remainingSuggestions = suggestedReplies.filter((p) => !sentSet.has(p.trim().toLowerCase()));
-        if (!consentDone || !showPrompts || remainingSuggestions.length === 0 || messages.length <= 1 || typing || crisis?.active) {
+        if (!consentDone || !showPrompts || remainingSuggestions.length === 0 || messages.length === 0 || typing || crisis?.active) {
           return null;
         }
+        const isOpeningTurn = messages.length === 1;
         return (
           <div className="pc-suggestions" aria-label="Suggested demo replies">
             {remainingSuggestions.map((prompt, i) => (
               <button
                 key={prompt}
                 type="button"
-                className="pc-chip"
+                className={`pc-chip${isOpeningTurn && i === 0 ? " is-demo-first" : ""}`}
                 onClick={() => void handleSend(prompt)}
                 title={prompt}
-                data-testid={`suggested-reply-${i}`}
+                data-testid={isOpeningTurn && i === 0 ? "suggested-first-demo-prompt" : `suggested-reply-${i}`}
               >
-                {prompt}
+                {isOpeningTurn && i === 0 ? `✦ ${prompt}` : prompt}
               </button>
             ))}
           </div>
