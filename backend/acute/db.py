@@ -555,8 +555,8 @@ class Database:
     def __init__(self, admin_url: str | None = None, app_url: str | None = None):
         self.admin_url = admin_url or os.environ.get("DATABASE_ADMIN_URL") or os.environ.get("DATABASE_URL") or DEFAULT_ADMIN_URL
         self.app_url = app_url or os.environ.get("DATABASE_APP_URL") or os.environ.get("DATABASE_URL") or DEFAULT_APP_URL
-        self.admin_engine = create_engine(self.admin_url, pool_pre_ping=True, future=True)
-        self.app_engine = create_engine(self.app_url, pool_pre_ping=True, future=True)
+        self.admin_engine = create_engine(self.admin_url, pool_pre_ping=True, pool_recycle=1800, future=True)
+        self.app_engine = create_engine(self.app_url, pool_pre_ping=True, pool_recycle=1800, future=True)
         self._admin_sm = sessionmaker(bind=self.admin_engine, expire_on_commit=False)
         self._app_sm = sessionmaker(bind=self.app_engine, expire_on_commit=False)
 

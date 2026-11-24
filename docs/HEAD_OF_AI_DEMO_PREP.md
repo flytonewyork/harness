@@ -49,7 +49,7 @@ after the demo.
 
 ## B. Pre-flight (T-15 min)
 
-1. `curl -s localhost:8080/api/v1/health` → 200. Open `/workspace` on the laptop.
+1. `bash scripts/demo_watchdog.sh --status` (or `curl -s localhost:8080/api/v1/health` → 200). Keep `tmux` session `watchdog` running (`bash scripts/demo_watchdog.sh`) to auto-heal Postgres, Uvicorn, or the tunnel in <20s without touching a healthy QR URL. Open `/workspace` on the laptop.
 2. Click **`Reset Demo`** in `/workspace` (or `curl -X POST localhost:8080/api/v1/demo/live/reset`) so the laptop starts **completely blank** with the crisp QR code centered on screen.
 3. Decide the model mode and say it out loud. With no Vertex/Gemini credentials the runtime is
    **deterministic** (that's how the eval report ran). With credentials it defaults to **Gemini 4 Neon**
