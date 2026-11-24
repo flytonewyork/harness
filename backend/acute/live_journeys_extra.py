@@ -40,12 +40,12 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
             "嘉欣你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日身體有咩唔舒服？"
         ),
         "suggested_replies_en": [
-            "I've had burning when I pee and going to the toilet frequently since yesterday evening. No fever or back pain — can I get Nitrofurantoin?",
-            "No pregnancy, drinking plenty of water, and no flank pain or chills. Can Dr. Wong arrange a safe antibiotic today?",
+            "I've had burning when I pee and going to the toilet frequently since yesterday evening. No fever or back pain.",
+            "No chance of pregnancy, drinking plenty of water, and no chills or flank pain. Can Dr. Wong arrange something for me today?",
         ],
         "suggested_replies_zh": [
-            "琴晚開始小便刺痛同成日急尿，冇發燒亦都冇腰痛，可唔可以開 Nitrofurantoin 消炎藥？",
-            "冇懷孕，飲緊好多水，冇發冷冇背痛。今日可以安排醫生開安全嘅藥嗎？",
+            "琴晚開始小便刺痛同成日急尿，冇發燒亦都冇腰痛，請問醫生可以點幫我？",
+            "冇懷孕，飲緊好多水，冇發冷冇背痛。今日可以安排醫生開藥嗎？",
         ],
     },
     {
@@ -82,9 +82,9 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "patient_name_zh": "劉慧芳",
         "age_sex": "64F",
         "pathway_node_id": "ebm.pathway.chronic_htn_home_bp",
-        "title": "Chest tightness & feeling unwell",
-        "title_zh": "心口翳悶不適",
-        "subtitle": "On Perindopril & Rosuvastatin · urgent symptom screening",
+        "title": "Chest tightness & rising home BP",
+        "title_zh": "行斜路心口翳悶及血壓偏高",
+        "subtitle": "On Perindopril & Rosuvastatin · full cardiac canvas & red-flag screen",
         "welcome_en": (
             "Hello Ms. Lau, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you feeling today?"
         ),
@@ -92,12 +92,14 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
             "劉女士你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日覺得點樣？"
         ),
         "suggested_replies_en": [
-            "I suddenly have crushing chest pain spreading to my left arm, short of breath and breaking out in a cold sweat.",
-            "我突然間心口好痛、唞唔到氣、標晒冷汗，好似就快暈低咁！",
+            "I've noticed mild chest tightness when walking uphill this week, and my home BP has been around 148/92. I feel completely fine sitting at rest right now.",
+            "No pain at rest, no sweating or shortness of breath right now. Should I come in for an ECG and blood pressure check today?",
+            "Actually I suddenly have crushing chest pain spreading to my left arm and I'm short of breath.",
         ],
         "suggested_replies_zh": [
+            "呢個星期行斜路覺得心口少少翳悶，屋企血壓大約 148/92，而家坐喺度休息就完全冇痛。",
+            "而家靜止冇痛亦冇標冷汗，今日應唔應該返診所做心電圖同覆檢血壓？",
             "我突然間心口好痛、唞唔到氣、標晒冷汗，好似就快暈低咁！",
-            "頭先心口突然翳痛同唞唔到氣，仲標冷汗。",
         ],
     },
     # ---- Hospital Follow-Up & Chronic Care ----
@@ -420,109 +422,192 @@ def compile_extra_journey_turn(
     summary = copy.deepcopy(existing_summary)
     steps: list[str] = []
 
-    # 6. TANG Ka-Yan (Acute Uncomplicated UTI + G6PD Deficiency)
+    # 6. TANG Ka-Yan (Acute Uncomplicated UTI — subtle G6PD glance on doctor side only, 100% colloquial to patient!)
     if j_key == "tang_uti":
-        asked_nitro = "nitrofurantoin" in cds_blocked_drugs or "nitrofurantoin" in low or "macrobid" in low or "呋喃妥因" in low
+        confirmed_no_preg = "no pregnancy" in all_low or "no chance of pregnancy" in all_low or "冇懷孕" in all_text
         summary["vitals_exam"] = {
             "source": f"Patient Careline · Today {hhmm}",
+            "encounter_context": "Inbound Remote · Self-Reported",
             "items": [
                 {"label": "Symptoms", "val": "Dysuria & frequency (<24h)"},
                 {"label": "Red flags", "val": "Afebrile · No flank pain or chills"},
-                {"label": "Pregnancy", "val": "Denies pregnancy" if ("no pregnancy" in all_low or "冇懷孕" in all_text) else "Confirm before Rx"},
+                {"label": "Pregnancy", "val": "Denies pregnancy" if confirmed_no_preg else "Confirm before Rx"},
             ],
         }
         summary["issues"] = [{
             "id": "iss_uti",
-            "name": "1. Acute uncomplicated cystitis (G6PD deficient)",
+            "name": "1. Acute uncomplicated cystitis",
             "bullets": [
-                "Acute dysuria and urinary frequency since yesterday evening without fever or flank pain.",
-                "Nitrofurantoin and sulfonamides are contraindicated due to G6PD deficiency; single-dose Fosfomycin is G6PD-safe.",
+                "Acute burning on urination and frequency since yesterday evening; no fever or back/flank pain.",
+                "G6PD deficiency noted on file — single-dose Fosfomycin 3g staged as safe first-line option.",
             ],
-            "safety_gap": "Confirm no pregnancy and absence of flank pain before prescribing." if not ("no pregnancy" in all_low or "冇懷孕" in all_text) else None,
+            "safety_gap": "Confirm no pregnancy before prescribing." if not confirmed_no_preg else None,
             "suggested_orders": [
-                {"id": "tang_rx_fosfo", "type": "rx", "action": "start", "issue": "1. Acute uncomplicated cystitis (G6PD deficient)", "drug": "Fosfomycin 3g", "freq": "STAT single dose", "days": "1d", "note": "G6PD-safe first-line uncomplicated UTI"},
-                {"id": "tang_lab_msu", "type": "lab", "issue": "1. Acute uncomplicated cystitis (G6PD deficient)", "testName": "Urine Dipstick / MSU Culture", "lab": "Clinic / KingMed", "fasting": False, "when": "If symptoms persist >48h"},
-                {"id": "tang_goal", "type": "goal", "issue": "1. Acute uncomplicated cystitis (G6PD deficient)", "metric": "UTI Hydration & Red Flags", "target_text": "Hydration + seek care if fever/flank pain", "leaflet_id": "uti_hydration_hk"},
+                {"id": "tang_rx_fosfo", "type": "rx", "action": "start", "issue": "1. Acute uncomplicated cystitis", "drug": "Fosfomycin 3g", "freq": "STAT single dose", "days": "1d", "note": "G6PD-safe first-line uncomplicated UTI"},
+                {"id": "tang_lab_msu", "type": "lab", "issue": "1. Acute uncomplicated cystitis", "testName": "Urine Dipstick / MSU Culture", "lab": "Clinic / KingMed", "fasting": False, "when": "If symptoms persist >48h"},
+                {
+                    "id": "tang_leaflet",
+                    "type": "goal",
+                    "issue": "1. Acute uncomplicated cystitis",
+                    "metric": "UTI Hydration & Red-Flag Leaflet",
+                    "leaflet_id": "uti_hydration_hk",
+                    "title": "Acute UTI Hydration & Red-Flag Care Leaflet",
+                    "template": "Central Medical · Uncomplicated Cystitis Care Sheet",
+                    "target_text": "Drink 2L water daily; finish single-dose treatment; return promptly if fever, chills, or flank pain develop.",
+                },
             ],
         }]
         summary["sam_proactive_insight"] = (
-            "HK CHP Antibiotic Stewardship + G6PD Safety Floor: Nitrofurantoin is contraindicated in G6PD deficiency "
-            "(haemolysis risk). Fosfomycin 3g single oral dose is G6PD-safe first-line for uncomplicated afebrile cystitis."
+            "Private clinical note: G6PD deficiency is on file (avoid Nitrofurantoin / sulfonamides). "
+            "Single-dose Fosfomycin 3g is safe first-line for uncomplicated afebrile cystitis — patient chat kept simple and jargon-free."
         )
-        steps.append("PracticeGraph · Traversed ebm.pathway.acute_uti + ebm.safety.g6pd_allergy_floor")
-        steps.append("PresentationCompiler · Staged G6PD-safe Fosfomycin 3g option (5/5 linter pass)")
+        agent_thread = list(summary.get("agent_thread") or [])
+        if not any("UTI intake" in str(x.get("text", "")) for x in agent_thread):
+            agent_thread.append({
+                "actor": "Sam",
+                "time": hhmm,
+                "text": "Registrar reasoning: UTI intake clear of pyelonephritis red flags (afebrile, no flank pain) → cross-checked chart safety (G6PD flag kept clinician-facing only) → staged Fosfomycin 3g + clinic UTI leaflet for Dr. Wong.",
+            })
+        summary["agent_thread"] = agent_thread[-4:]
+        steps.append("PracticeGraph · Traversed ebm.pathway.acute_uti + clinician-side G6PD check")
+        steps.append("PresentationCompiler · Staged Fosfomycin 3g + AI-personalized UTI leaflet (5/5 linter pass)")
 
         if is_simple_ack and is_followup_turn:
             reply = (
-                "唔使客氣——黃莎拉醫生一簽署處方就會即時送過嚟呢個對話，記得多飲清水。"
+                "唔使客氣——黃醫生一確認處方就會即刻喺呢度通知你，記得多飲清水。"
                 if is_zh
-                else "You're welcome — as soon as Dr. Sarah Wong reviews and signs your prescription, it'll show up right here. Keep drinking plenty of water in the meantime."
+                else "You're very welcome — as soon as Dr. Wong confirms your prescription, it'll appear right here. Keep drinking plenty of water in the meantime."
             )
-        elif asked_nitro:
+        elif not confirmed_no_preg:
             reply = (
-                "先提醒一下：你嘅診所病歷記錄咗你有蠶豆症（G6PD 缺乏症），所以唔可以食 Nitrofurantoin（有機會引致溶血反應）。\n\n"
-                "好消息係冇發燒同冇腰痛嘅單純性尿道炎有對蠶豆症安全嘅選擇（例如單次劑量 Fosfomycin）。我已經將你嘅症狀同 G6PD 提示放上黃莎拉醫生嘅工作台——請問你有冇機會懷孕？"
+                "明白，小便刺痛同尿頻真係好唔舒服。冇發燒同冇腰痛係好消息——我已經整理好資料交畀黃醫生，幫你安排合適嘅治療。想順便確認一下，你有冇機會懷孕？"
                 if is_zh
-                else "Important heads-up from your clinic record: because you have G6PD deficiency, we must avoid Nitrofurantoin (it can trigger haemolysis).\n\nThe good news is there are G6PD-safe options for uncomplicated UTI (such as single-dose Fosfomycin). I've flagged your symptoms and G6PD status for Dr. Sarah Wong right now — just to help her review safely, is there any chance you could be pregnant?"
+                else "Sorry you're dealing with that — burning and frequent urination can be really uncomfortable. It's reassuring you have no fever or back pain. I'm sharing this with Dr. Wong so she can arrange the right treatment today — just to check quickly, is there any chance you could be pregnant?"
             )
         else:
             reply = (
-                "多謝你確認冇懷孕亦都冇發燒腰痛。我已經更新咗你嘅個案，黃莎拉醫生會盡快審閱並安排對蠶豆症安全嘅尿道炎處方；如果期間出現發燒、發冷或者後腰痛，請即刻求醫。"
+                "多謝你確認——我已經更新畀黃醫生，醫生好快就會確認處方。記得多飲清水；如果期間出現發燒、發冷或者腰背痛，請即刻通知我哋。"
                 if is_zh
-                else "Thank you for confirming — I've updated Dr. Sarah Wong's chart with your clear red-flag check and G6PD profile so she can sign off a safe treatment plan shortly. If you develop fever, chills, or back/flank pain at any point, please seek prompt in-person care."
+                else "Thanks for confirming — I've passed everything along to Dr. Wong so she can send through your prescription shortly. Keep up your fluids, and let us know straight away if you develop any fever, chills, or lower back pain."
             )
         return (
             "needs_decision",
             "with_doctor",
-            "Acute Uncomplicated UTI (G6PD Deficient)",
-            "Dysuria & frequency (<24h), afebrile; G6PD blocks Nitrofurantoin — Fosfomycin 3g option prepared.",
+            "Acute Uncomplicated UTI",
+            "Burning urination & frequency (<24h), afebrile; safe first-line option staged for doctor review.",
             "Today · doctor review",
             summary,
             reply,
             steps,
         )
 
-    # 7. TSANG Chun-Hin (Thin/Vague Intake -> Dynamic Clarification!)
+    # 7. TSANG Chun-Hin (Autonomous Registrar Intake Clarification — responds to actual intent, zero nurse-questionnaire button!)
     if j_key == "tsang_thin":
+        asked_antibiotics = any(k in low for k in ("antibiotic", "amoxicillin", "抗生素", "消炎藥"))
+        asked_results_or_med = any(k in low for k in ("test result", "blood test", "result", "medication", "prescription", "refill", "報告", "驗血", "藥物"))
+        asked_booking = any(k in low for k in ("book", "reschedule", "appointment", "slot", "預約", "改期"))
         gave_specifics = any(k in low for k in ("nose", "stuffy", "fatigue", "cough", "throat", "fever", "stomach", "slot", "鼻塞", "攰", "咳", "喉嚨", "發燒", "15"))
-        if not gave_specifics:
-            summary["intake_sufficiency"] = "insufficient"
-            summary["issues"] = [{
-                "id": "iss_thin",
-                "name": "1. Undifferentiated unwellness — thin intake",
-                "bullets": [
-                    "Patient reported feeling generally unwell since yesterday and asked for antibiotics without specifying symptoms.",
-                    "No prescriptions or sick-leave orders staged pending clarifying history and doctor assessment.",
-                ],
-                "safety_gap": "Clarify symptom site, fever, duration, and red flags before any prescribing decision.",
-                "suggested_orders": [
-                    {"id": "tsang_book", "type": "book", "issue": "1. Undifferentiated unwellness — thin intake", "visitType": "15-min GP Assessment", "when": "Next available slot today"},
-                    {"id": "tsang_preq", "type": "nurse", "issue": "1. Undifferentiated unwellness — thin intake", "protocol": "pre_visit_questionnaire", "assignee": "Nurse Rachel", "task": "Send structured pre-visit symptom & red-flag questionnaire via Sam", "due": "Before consult"},
-                ],
-            }]
-            summary["sam_proactive_insight"] = None
-            steps.append("IntakeGuard · Flagged intake_sufficiency='insufficient' (0 premature Rx/certs staged)")
+
+        agent_thread = list(summary.get("agent_thread") or [])
+
+        if asked_results_or_med and not asked_antibiotics and not gave_specifics:
+            agent_thread.append({
+                "actor": "Sam",
+                "time": hhmm,
+                "text": "Registrar reasoning: Patient selected test-result / medication follow-up → clarifying which lab report or medication they're asking about in the patient loop before involving Dr. Wong.",
+            })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("CareAgent · Clarifying test result / medication follow-up autonomously in patient loop")
             reply = (
-                "明白你返工好忙，不過抗生素必須先由醫生了解具體症狀先可以決定，唔可以直接透過對話開藥。\n\n"
-                "可以話我知多啲嗎——你主要係邊度唔舒服（例如鼻塞、喉嚨痛、咳、發燒定腸胃唔舒服）？有冇心口痛或者氣促？我亦可以幫你睇吓今日晏晝有冇 15 分鐘診症時段。"
+                "好呀！請問你想跟進邊一份驗血／檢查報告，或者邊一種藥物？如果有外間報告相片或詳情，都可以直接喺度話我知，我幫你整理好再交畀醫生。"
                 if is_zh
-                else "I hear you on a busy workday — antibiotics need a doctor's clinical assessment first, so we can't send them automatically over chat.\n\nTo help Dr. Sarah Wong figure out what you actually need, could you share what specific symptoms you're having (like fever, sore throat, stuffy nose, cough, or stomach upset) and confirm you have no chest pain or shortness of breath? We also have quick 15-minute slots later today."
+                else "Of course! Which test result or medication would you like to follow up on? Feel free to share the details or any symptoms you've noticed, and I'll line it up for Dr. Wong."
             )
             return (
-                "needs_decision",
-                "with_doctor",
-                "Undifferentiated Unwellness — Insufficient Intake",
-                "Brief symptom message requesting antibiotics; thin-intake guard active (zero premature Rx staged).",
-                "Clarification pending",
+                "running",
+                "with_patient",
+                "Test Result / Medication Follow-Up — Clarifying",
+                "Sam is clarifying which result or medication the patient is following up on.",
+                "Careline intake",
                 summary,
                 reply,
                 steps,
             )
 
-        # Turn 2: Patient provided clear specifics -> promote cleanly!
+        if asked_booking and not gave_specifics:
+            agent_thread.append({
+                "actor": "Sam",
+                "time": hhmm,
+                "text": "Registrar reasoning: Patient requested appointment booking/rescheduling → handling logistics autonomously in patient loop without interrupting doctor.",
+            })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("CareAgent · Handling appointment logistics autonomously")
+            reply = (
+                "冇問題！我們今日下午 16:15 有 15 分鐘診症時段，聽日朝早亦有空檔。你想預約邊個時間，以及大約係睇邊方面？"
+                if is_zh
+                else "Happy to help with that! We have a 15-minute slot today at 16:15 or openings tomorrow morning. Which works better for you, and what would you like to be seen for?"
+            )
+            return (
+                "running",
+                "with_patient",
+                "Appointment Request — Scheduling",
+                "Sam is confirming preferred slot and visit reason autonomously.",
+                "Careline scheduling",
+                summary,
+                reply,
+                steps,
+            )
+
+        if not gave_specifics:
+            summary["intake_sufficiency"] = "insufficient"
+            summary["issues"] = [{
+                "id": "iss_thin",
+                "name": "1. Undifferentiated unwellness — gathering history",
+                "bullets": [
+                    f"Patient messaged: “{patient_text.strip()}”.",
+                    "Sam is autonomously running structured symptom & red-flag clarification in the patient loop before escalating to Dr. Wong.",
+                ],
+                "safety_gap": "Clarify symptom site, fever, duration, and red flags before any prescribing decision.",
+                "suggested_orders": [
+                    {"id": "tsang_book", "type": "book", "issue": "1. Undifferentiated unwellness — gathering history", "visitType": "15-min GP Assessment", "when": "Today 16:15"},
+                ],
+            }]
+            summary["sam_proactive_insight"] = None
+            agent_thread.append({
+                "actor": "Sam",
+                "time": hhmm,
+                "text": "Registrar reasoning: Thin intake received → holding autonomously in patient loop to gather symptom site, onset, fever/home vitals, and red flags (zero premature Rx or nurse handoff).",
+            })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("IntakeGuard · Autonomous registrar clarification in patient loop (0 premature Rx)")
+            if asked_antibiotics:
+                reply = (
+                    "明白你返工好忙，不過抗生素需要先由醫生了解具體症狀先可以決定。可以簡單講吓你主要邊度唔舒服（例如鼻塞、喉嚨痛、咳定發燒），以及有冇氣促或心口痛嗎？我亦可以幫你預留今日 15 分鐘時段。"
+                    if is_zh
+                    else "I hear you on a busy workday — antibiotics need a quick symptom check and doctor review first. Could you share what specific symptoms you're having (like fever, sore throat, stuffy nose, or cough) and confirm you have no chest pain or shortness of breath? We also have quick 15-minute slots later today."
+                )
+            else:
+                reply = (
+                    "明白，想幫你安排最合適嘅跟進——可以簡單講多啲你而家有咩唔舒服、持續咗幾耐，以及有冇發燒、氣促或心口痛嗎？"
+                    if is_zh
+                    else "Got it — to make sure we get you the right care quickly, could you share a bit more about what symptoms you're experiencing, how long they've lasted, and whether you have any fever, shortness of breath, or chest pain?"
+                )
+            return (
+                "running",
+                "with_patient",
+                "Feeling Unwell — Autonomous Registrar Intake",
+                "Sam is autonomously clarifying symptoms & red flags before packaging for doctor review.",
+                "Careline intake",
+                summary,
+                reply,
+                steps,
+            )
+
+        # Turn 2: Patient provided clear specifics -> promote cleanly to doctor!
         summary["intake_sufficiency"] = "sufficient"
         summary["vitals_exam"] = {
             "source": f"Patient Careline · Today {hhmm}",
+            "encounter_context": "Inbound Remote · Clarified",
             "items": [
                 {"label": "Symptoms", "val": "Mild fatigue & nasal congestion (1d)"},
                 {"label": "Fever / Cough", "val": "Denies fever or cough"},
@@ -543,11 +628,17 @@ def compile_extra_journey_turn(
             ],
         }]
         summary["sam_proactive_insight"] = None
+        agent_thread.append({
+            "actor": "Sam",
+            "time": hhmm,
+            "text": "Registrar reasoning: Structured symptom & red-flag screen complete (1d mild congestion/fatigue, afebrile, no red flags) → promoted to Dr. Wong with 16:15 consult slot.",
+        })
+        summary["agent_thread"] = agent_thread[-4:]
         steps.append("IntakeGuard · Clarifying details received -> intake_sufficiency upgraded to 'sufficient'")
         reply = (
-            "多謝你講得咁清楚——冇發燒亦冇氣促或心口痛係好消息。我已經幫你記低畀黃莎拉醫生，並預留今日下午 4:15 嘅 15 分鐘診症時段，等醫生親身評估需唔需要用藥。"
+            "多謝你講得咁清楚——冇發燒亦冇氣促或心口痛係好消息。我已經幫你記低畀黃醫生，並預留今日下午 4:15 嘅 15 分鐘診症時段，等醫生親身評估需唔需要用藥。"
             if is_zh
-            else "Thanks for sharing those details — having no fever or warning signs is reassuring. I've updated Dr. Sarah Wong's notes and held a 15-minute slot at 16:15 today so she can assess you and confirm the right treatment."
+            else "Thanks for sharing those details — having no fever or warning signs is reassuring. I've updated Dr. Wong's notes and held a 15-minute slot at 16:15 today so she can assess you and confirm the right treatment."
         )
         return (
             "needs_decision",
@@ -747,20 +838,119 @@ def compile_extra_journey_turn(
             steps,
         )
 
-    # 11. LAU Wai-Fong (Fallback only if patient sends non-999 message; 999 messages exit earlier in handle_live_chat_turn!)
+    # 11. LAU Wai-Fong — Rich Cardiac Dynamic Canvas Showcase (BP trend, MedDiff, ECG, Labs, Referral, Preventive Care)
     if j_key == "lau_chest":
-        steps.append("SafetySentinel · No acute 999 keywords in message; standard cardiac precaution advice given")
-        reply = (
-            "多謝劉女士聯絡診所。我已經幫你記低畀黃莎拉醫生跟進；不過如果你有任何心口痛、壓迫感、氣促或者標冷汗，請唔好等覆訊，立即致電 999 或去急症室。"
-            if is_zh
-            else "Thank you Ms. Lau — I've noted this for Dr. Sarah Wong to review. As an important precaution, if you notice any chest pain, tightness, shortness of breath, or cold sweats, please don't wait for a clinic message — call 999 or go straight to A&E."
+        summary["vitals_exam"] = {
+            "source": f"Patient Careline · Today {hhmm}",
+            "encounter_context": "Inbound Remote · Home BP Logged",
+            "items": [
+                {"label": "Home BP", "val": "148/92 mmHg (trending up)"},
+                {"label": "Rest status", "val": "Pain-free at rest · No diaphoresis"},
+                {"label": "Exertional", "val": "Mild chest tightness walking uphill (1 wk)"},
+            ],
+        }
+        summary["trend_chart"] = {
+            "kind": "bp",
+            "title": "Home Systolic BP Trend (mmHg)",
+            "unit": "mmHg",
+            "target_label": "Target < 135",
+            "target_value": 135,
+            "points": [
+                {"label": "Sep", "v": 132},
+                {"label": "Oct", "v": 138},
+                {"label": "Nov W2", "v": 144},
+                {"label": "Today", "v": 148},
+            ],
+        }
+        summary["med_diff"] = {
+            "rows": [
+                {"drug": "Perindopril", "qeh": "4 mg PO daily", "clinic": "4 mg PO daily", "tag": "Sub-optimal BP control"},
+                {"drug": "Rosuvastatin", "qeh": "10 mg PO nocte", "clinic": "10 mg PO nocte", "tag": "LDL 2.9 · Review target"},
+            ],
+            "qeh": ["Perindopril 4mg PO daily", "Rosuvastatin 10mg PO nocte"],
+            "clinic": ["Perindopril 4mg PO daily", "Rosuvastatin 10mg PO nocte"],
+        }
+        summary["lab_panel"] = {
+            "source": "KingMed Cardiovascular Panel · 12 Oct 2026",
+            "rows": [
+                {"test": "LDL-Cholesterol", "val": "2.9 mmol/L", "ref": "< 2.6 (high risk)", "flag": "HIGH"},
+                {"test": "HbA1c", "val": "5.9 %", "ref": "< 6.0", "flag": "Normal"},
+                {"test": "eGFR", "val": "78 mL/min", "ref": "> 60", "flag": "Normal"},
+                {"test": "Potassium (K+)", "val": "4.3 mmol/L", "ref": "3.5–5.1", "flag": "Normal"},
+            ],
+        }
+        summary["imaging_studies"] = [
+            {
+                "id": "img_lau_ecg",
+                "modality": "Baseline 12-Lead ECG",
+                "date": "12 Oct 2026 · Clinic",
+                "summary": "Normal sinus rhythm (68 bpm). Mild LVH voltage criteria; no prior ischaemic ST-T changes.",
+                "status": "Baseline for comparison",
+            },
+            {
+                "id": "img_lau_echo",
+                "modality": "Transthoracic Echocardiogram",
+                "date": "Mar 2025 · HKSH",
+                "summary": "Preserved LVEF 62%, Grade 1 diastolic dysfunction, no regional wall motion abnormality.",
+                "status": "Prior baseline",
+            },
+        ]
+        summary["preventive_care"] = [
+            {
+                "id": "prev_lau_flu",
+                "title": "Seasonal Influenza Vaccine (CV Risk Priority)",
+                "badge": "Recommended",
+                "detail": "Reduces major adverse cardiovascular events in hypertensive patients (ESC Guideline)",
+                "order": {"id": "ord_lau_flu", "type": "book", "issue": "Preventive Care", "visitType": "10-min Nurse Flu Shot", "when": "At today's clinic visit"},
+            },
+        ]
+        summary["issues"] = [{
+            "id": "iss_lau_cardiac",
+            "name": "1. New exertional chest tightness & upward BP drift",
+            "bullets": [
+                "1-week history of mild exertional chest tightness walking uphill, relieved at rest; currently pain-free with no rest diaphoresis.",
+                "Home BP drifted from 132/82 → 148/92 mmHg on Perindopril 4mg; LDL 2.9 mmol/L on Rosuvastatin 10mg.",
+            ],
+            "safety_gap": "Same-day 12-lead ECG & in-clinic assessment required; 999 red-flag advice given if rest pain recurs.",
+            "suggested_orders": [
+                {"id": "lau_book", "type": "book", "issue": "1. New exertional chest tightness & upward BP drift", "visitType": "Same-day In-Clinic GP + 12-Lead ECG", "when": "Today 14:00 (Priority)"},
+                {"id": "lau_refer", "type": "refer", "issue": "1. New exertional chest tightness & upward BP drift", "specialty": "Cardiology (Fast-Track Chest Pain)", "clinical_question": "New exertional chest tightness in 64F with HTN/hyperlipidaemia; please assess for stress echo / CTCA.", "urgency": "urgent", "attach_labs": True},
+                {"id": "lau_lab", "type": "lab", "issue": "1. New exertional chest tightness & upward BP drift", "testName": "Fasting Lipid Profile + Hs-Troponin / Renal Panel", "lab": "KingMed Urgent", "fasting": False, "when": "Today"},
+                {"id": "lau_rx_perind", "type": "rx", "action": "update", "issue": "1. New exertional chest tightness & upward BP drift", "drug": "Perindopril 8mg", "freq": "OM daily", "days": "30d", "note": "Consider titration after clinic BP & ECG"},
+            ],
+        }]
+        summary["sam_proactive_insight"] = (
+            "Private clinical note: New exertional chest tightness + systolic BP drift (132 → 148 mmHg) + LDL 2.9 in 64F warrants same-day 12-lead ECG "
+            "and fast-track Cardiology referral consideration. Patient is pain-free at rest; clear 999 safety-netting delivered."
         )
+        agent_thread = list(summary.get("agent_thread") or [])
+        if not any("Exertional chest" in str(x.get("text", "")) for x in agent_thread):
+            agent_thread.append({
+                "actor": "Sam",
+                "time": hhmm,
+                "text": "Registrar reasoning: Screened acute ACS red flags (currently pain-free at rest, no diaphoresis) → pulled BP trend, Perindopril/Rosuvastatin meds, Oct ECG & lipid panel → staged same-day ECG slot + fast-track Cardiology referral for Dr. Wong.",
+            })
+        summary["agent_thread"] = agent_thread[-4:]
+        steps.append("PracticeGraph · Mounted full Cardiovascular Dynamic Canvas (BP trend, MedDiff, ECG, Labs, Referral)")
+
+        if is_followup_turn and any(k in low for k in ("ecg", "check", "today", "adjust", "心電圖", "血壓", "覆檢")):
+            reply = (
+                "好呀——我已經幫你預留今日下午 2:00 優先診症同心電圖檢查，並整理好你嘅血壓記錄同過往心電圖畀黃醫生對比。期間如果有任何靜止時心口痛、壓迫感、氣促或標冷汗，請立即致電 999 或去急症室。"
+                if is_zh
+                else "Yes — bringing you in today for an ECG and blood pressure check is the safest next step. I've held a priority 14:00 slot with Dr. Wong and pulled your prior ECG and blood pressure trend for her to compare. If any chest tightness, shortness of breath, or sweating comes on at rest before then, please call 999 or go straight to A&E."
+            )
+        else:
+            reply = (
+                "多謝你話我知，行斜路心口翳悶加上血壓升到 148/92 值得今日安排醫生親身檢查同做心電圖。聽到你而家坐喺度完全冇痛就好少少——請問你有冇氣促、頭暈或者標冷汗？如果突然靜止時心口痛，請即刻致電 999。"
+                if is_zh
+                else "Thank you for sharing that — mild chest tightness walking uphill along with a home BP of 148/92 is definitely worth checking in clinic with an ECG today. I'm glad you're comfortable sitting at rest right now. Just to be sure, do you have any shortness of breath, dizziness, or sweating at rest? If any rest pain starts, please call 999 straight away."
+            )
         return (
             "needs_decision",
             "with_doctor",
-            "Cardiovascular Check-In — Doctor Review",
-            "64F on Perindopril + Rosuvastatin messaged clinic; red-flag precautions reinforced.",
-            "Today · doctor review",
+            "Exertional Chest Tightness & Rising BP (148/92)",
+            "64F on Perindopril + Rosuvastatin reports 1-week exertional tightness & upward BP drift; full cardiac canvas staged.",
+            "Today 14:00 · Priority ECG",
             summary,
             reply,
             steps,

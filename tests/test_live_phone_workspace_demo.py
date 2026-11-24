@@ -243,13 +243,14 @@ def test_all_12_realistic_gp_episodes_blank_emr_and_post_sign_followup(tmp_path)
     assert cats.count("chronic") == 4
     assert cats.count("family") == 4
 
-    # 6. TANG Ka-Yan: UTI + G6PD blocks Nitrofurantoin, stages Fosfomycin 3g
+    # 6. TANG Ka-Yan: UTI -> colloquial patient reply (no G6PD/haemolysis jargon to patient); G6PD stays clinician-side
     r_tang = client.post(
         "/api/v1/demo/live/chat/turn",
-        json={"journey_key": "tang_uti", "message": "Burning when I pee since yesterday, no fever — can I get Nitrofurantoin?", "lang": "en"},
+        json={"journey_key": "tang_uti", "message": "Burning when I pee since yesterday, no fever — can Dr. Wong help?", "lang": "en"},
     ).json()
     assert r_tang["case_state"] == "needs_decision"
-    assert "g6pd" in r_tang["reply"].lower() and "nitrofurantoin" in r_tang["reply"].lower()
+    assert "haemolysis" not in r_tang["reply"].lower() and "g6pd" not in r_tang["reply"].lower()
+    assert "pregnant" in r_tang["reply"].lower()
     assert r_tang["lint_report"]["passed"] is True
 
     # 7. TSANG Chun-Hin: Turn 1 thin intake -> Turn 2 clarification upgrades cleanly

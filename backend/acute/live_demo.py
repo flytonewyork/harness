@@ -238,16 +238,31 @@ JOURNEY_BY_KEY: dict[str, dict[str, Any]] = {j["key"]: j for j in LIVE_JOURNEYS}
 JOURNEY_BY_PATIENT_ID: dict[str, dict[str, Any]] = {j["patient_id"]: j for j in LIVE_JOURNEYS}
 
 _POST_SIGN_REPLIES_EN: list[str] = [
-    "Got the doctor's care plan — thank you! When should I check back in if symptoms don't improve?",
-    "Thanks! Everything is clear — I'll follow the plan and let the clinic know if anything changes.",
+    "Got the prescription and certificate — thank you! Anything else I should watch out for?",
+    "Thanks, everything is clear!",
 ]
 _POST_SIGN_REPLIES_ZH: list[str] = [
-    "收到醫生嘅護理計劃，多謝！如果幾日後未好返應該幾時再聯絡診所？",
-    "明白晒，多謝醫生同診所安排——有咩變化我會再話你知。",
+    "收到處方同病假紙，多謝！仲有冇咩需要注意？",
+    "明白晒，多謝安排！",
+]
+_DAY3_REPLIES_EN: list[str] = [
+    "Feeling much better, thank you! Yes — could I book a flu shot next week, and also arrange a routine visit because I've been feeling a bit tired lately?",
+    "All recovered now — no follow-up needed, thanks for checking in!",
+]
+_DAY3_REPLIES_ZH: list[str] = [
+    "好返晒啦多謝！我想預約下星期打流感針，順便想約醫生傾吓最近覺得容易攰。",
+    "完全康復咗，唔使覆診，多謝關心！",
 ]
 
 
-def _suggested_replies_for(j: dict[str, Any], is_zh: bool, has_signed: bool = False) -> list[str]:
+def _suggested_replies_for(
+    j: dict[str, Any],
+    is_zh: bool,
+    has_signed: bool = False,
+    has_day3: bool = False,
+) -> list[str]:
+    if has_day3:
+        return list(_DAY3_REPLIES_ZH if is_zh else _DAY3_REPLIES_EN)
     if has_signed:
         return list(_POST_SIGN_REPLIES_ZH if is_zh else _POST_SIGN_REPLIES_EN)
     return list(j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"])
@@ -1271,17 +1286,28 @@ def _compile_journey_turn_update(
                 steps,
             )
 
-        steps.append("CareAgent · Logged post-sign patient follow-up quietly (care plan remains active in Scheduled)")
-        reply = (
-            "多謝回覆！醫生簽署嘅護理計劃同相關文件已經保存喺對話入面。我會喺 3 日後自動再問候你康復進度——期間如有高燒、氣促或任何變化，隨時喺度聯絡我哋！"
-            if is_zh
-            else "Glad to hear that! Your signed care plan stays right here in this thread, and I'll check in automatically in 3 days to see how you're recovering. If anything worsens before then, just message me anytime."
+        asked_med_or_watch = any(
+            k in low
+            for k in ("how", "when", "take", "dose", "watch", "warning", "fever", "water", "work", "點食", "幾時", "注意", "發燒")
         )
+        steps.append("CareAgent · Logged post-sign patient follow-up quietly (care plan remains active in Scheduled)")
+        if asked_med_or_watch:
+            reply = (
+                "你可以按處方指示服食退燒止痛藥，多飲溫水同多休息。一般如果 48 至 72 小時內仲未退燒，或者出現高燒超過 39 度、呼吸困難或喉嚨劇痛，就隨時再搵我哋。3 日後我亦會自動問候你康復進度。"
+                if is_zh
+                else "Follow the dosing on your care plan, stay well hydrated, and rest. Please reach out right away if your fever rises above 39°C, hasn't improved after 48–72 hours, or you notice trouble breathing or worsening pain. Otherwise I'll check in with you in 3 days."
+            )
+        else:
+            reply = (
+                "收到，謝謝你通知我哋！你嘅護理計劃同文件會一直留喺對話入面，3 日後我會自動問候你康復進度——期間有咩需要隨時搵我。"
+                if is_zh
+                else "Noted — thanks for letting us know! Your plan and documents stay right here in this chat, and I'll check in with you in 3 days. Message anytime if anything comes up before then."
+            )
         return (
             "scheduled",
             "idle",
             f"{JOURNEY_BY_KEY[j_key]['title']} — Plan Signed & Active",
-            "Doctor-signed care plan delivered; 3-day AI check-in scheduled.",
+            "Care plan delivered; 3-day AI check-in scheduled.",
             "3-day AI check-in",
             summary,
             reply,
@@ -1319,6 +1345,8 @@ def _compile_journey_turn_update(
             for k in ("sick", "note", "cert", "med", "medicine", "panadol", "paracetamol", "teleconsult", "doctor", "病假", "藥", "睇醫生")
         )
         mentions_urti = any(k in all_text.lower() for k in ("sore throat", "fever", "cough", "cold", "throat", "runny", "喉嚨", "發燒", "咳", "傷風"))
+        asked_watch_out = any(k in low for k in ("watch out", "anything else", "warning", "when should", "注意", "仲有咩"))
+        already_sent_summary = any("sent a concise summary" in m.lower() or "整理咗簡潔摘要" in m for m in prior_sam_msgs)
 
         # Keep Case 1 ultra-clean: zero alerts, zero preventive care, zero lab panels, zero clinical guidance box
         summary["alerts"] = []
@@ -1328,8 +1356,11 @@ def _compile_journey_turn_update(
         summary["attachments"] = []
         summary["sam_proactive_insight"] = None
 
-        # Open registrar-style questioning on Turn 1 when patient hasn't yet shared temp/red-flags/request
-        if not is_followup_turn and not has_temp and not mentions_sick_or_med and mentions_urti:
+        # Autonomous registrar reasoning trace (visible in Private Doctor & Sam panel)
+        agent_thread = list(summary.get("agent_thread") or [])
+
+        # Open registrar-style questioning whenever patient hasn't yet shared temp/red-flags/request
+        if not has_temp and not mentions_sick_or_med and mentions_urti:
             summary["vitals_exam"] = None
             summary["issues"] = [
                 {
@@ -1337,15 +1368,21 @@ def _compile_journey_turn_update(
                     "name": "1. Acute URTI — gathering brief history",
                     "bullets": [
                         f"Patient reported: “{patient_text.strip()}”.",
-                        "Sam asked open follow-up questions (temperature, onset, red flags, and whether a sick note or visit is needed).",
+                        "Sam autonomously asked open registrar questions (temperature, onset, red flags, available home BP/pulse, and visit/sick-note intent).",
                     ],
                     "safety_gap": None,
                     "suggested_orders": [],
                 }
             ]
-            steps.append("CareAgent · Registrar-style open history + proactive home vitals check (no chart dump)")
+            agent_thread.append({
+                "actor": "Sam",
+                "time": _hkt_hhmm(),
+                "text": "Registrar reasoning: Screened red flags (none reported) → holding in patient loop to clarify fever reading, onset, breathing/chest red flags, and any available home vitals before waking Dr. Wong.",
+            })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("CareAgent · Registrar-style open history + autonomous home vitals check (no chart dump)")
             reply = (
-                "明白，聽到你喉嚨痛同發燒真係辛苦。想先了解少少：你大概燒到幾多度、幾時開始唔舒服，有冇氣促或者心口痛？如果屋企有體溫計、血壓計或者脈搏機，都可以順便話我知讀數。另外今日需唔需要醫生診症、紓緩藥物或者病假紙呢？"
+                "明白，聽到你喉嚨痛同發燒真係辛苦。想先了解少少：你大概燒到幾多度、幾時開始唔舒服，有冇氣促或者心口痛？如果屋企有體溫計或血壓／脈搏機，都可以順便話我知讀數。另外今日需唔需要醫生診症、紓緩藥物或者病假紙呢？"
                 if is_zh
                 else "Sorry to hear you're not feeling well. Just to help prepare for the doctor — roughly how high has your fever been, when did symptoms start, and is your breathing comfortable with no chest pain? If you have a thermometer or home BP/pulse monitor handy, feel free to share those readings too. Let me know if you'd like a doctor review, symptom relief, or a sick-leave note today."
             )
@@ -1365,7 +1402,7 @@ def _compile_journey_turn_update(
             "encounter_context": "Inbound Remote · Self-Measured",
             "items": [
                 {"label": "Temp (home)", "val": temp_val if has_temp else "38.2 °C"},
-                {"label": "BP / Pulse (home)", "val": "Not yet measured"},
+                {"label": "BP / Pulse (home)", "val": "Not measured at home"},
                 {"label": "Red flags", "val": "Denies shortness of breath or chest pain"},
             ],
         }
@@ -1391,14 +1428,27 @@ def _compile_journey_turn_update(
                 ],
             }
         ]
+        if not any("Packaged 1-issue URTI" in str(x.get("text", "")) for x in agent_thread):
+            agent_thread.append({
+                "actor": "Sam",
+                "time": _hkt_hhmm(),
+                "text": f"Registrar reasoning: Confirmed onset + temp ({temp_val if has_temp else '38.2 °C'}) + negative respiratory/cardiac red flags → Packaged 1-issue URTI summary with {days_off}d sick leave & symptomatic options for Dr. Sarah Wong.",
+            })
+        summary["agent_thread"] = agent_thread[-4:]
         steps.append("PracticeGraph · Compiled single-issue Acute URTI summary for doctor review")
         steps.append("PresentationCompiler · Compiled clean 1-issue workspace brief (5/5 linter pass)")
 
-        if is_simple_ack and is_followup_turn:
+        if asked_watch_out:
             reply = (
-                "唔使客氣——資料已經送交黃莎拉醫生審閱，醫生一簽署你嘅處方同病假紙就會即刻喺呢度彈出。"
+                "好問題——記得多飲溫水同多休息。如果高燒超過 39 度、超過 3 日未退燒，或者出現呼吸困難、心口痛或吞嚥劇痛，請即刻通知我哋或去急症室。黃醫生審閱完就會即刻喺度送出處方同病假紙。"
                 if is_zh
-                else "You're very welcome — Dr. Sarah Wong has your summary now. As soon as she signs off, your care plan and sick-leave certificate will appear right here."
+                else "Good question — rest and stay hydrated. Please reach out promptly or seek urgent care if your fever rises above 39°C, hasn't improved after 3 days, or you develop shortness of breath, chest pain, or trouble swallowing. Dr. Sarah Wong is reviewing your summary now."
+            )
+        elif (is_simple_ack and is_followup_turn) or already_sent_summary:
+            reply = (
+                "收到，已經幫你補充到黃莎拉醫生嘅摘要度——醫生一確認處方同病假紙就會即時喺呢度彈出。"
+                if is_zh
+                else "Got it — I've added that to Dr. Sarah Wong's notes. As soon as she signs off, your prescription and sick-leave certificate will appear right here."
             )
         else:
             reply = (
@@ -2219,7 +2269,12 @@ def handle_live_chat_turn(
         "crisis": None,
         "prompt_injection_detected": False,
         "lint_report": lint,
-        "suggested_replies": _suggested_replies_for(j, is_zh, has_signed=has_signed),
+        "suggested_replies": _suggested_replies_for(
+            j,
+            is_zh,
+            has_signed=has_signed,
+            has_day3=any(m.get("role") == "system" and m.get("time") == "Day +3" for m in chat),
+        ),
     }
 
 
@@ -2242,30 +2297,35 @@ def append_doctor_signed_chat_bubble(
     summary = copy.deepcopy(case.summary_json or {})
     chat = list(summary.get("original_chat") or [])
     hhmm = _hkt_hhmm()
-    parts: list[str] = [f"{signed_by} has reviewed your case and signed off on your plan."]
+    display_doc = re.sub(r"^Locum\s+", "", signed_by or "Dr. Sarah Wong", flags=re.I).strip()
     rx_lines: list[str] = []
     for rx in prescriptions_out:
         for it in rx.get("items") or []:
             rx_lines.append(it.get("display") or f"{it.get('drug', '')} {it.get('dose_mg', '')}mg {it.get('frequency', '')}".strip())
-    if rx_lines:
-        parts.append("Prescription: " + "; ".join(rx_lines) + ".")
-    if certificates_out:
-        c0 = certificates_out[0]
-        parts.append(f"Your medical sick-leave certificate ({c0['days_off']} day(s), {c0['start_date']} to {c0['end_date']}) is ready below.")
-    if bookings_out:
-        parts.append(f"{len(bookings_out)} follow-up / preventive booking(s) queued.")
-    parts.append("I've also scheduled a quick 3-day check-in right here to see how you're recovering.")
 
-    # Beat 1: Subtle system status divider showing Doctor stepped into the loop
+    parts: list[str] = []
+    if rx_lines and certificates_out:
+        parts.append("Here is your prescription and sick-leave certificate.")
+    elif rx_lines:
+        parts.append("Here is your prescription.")
+    elif certificates_out:
+        parts.append("Your sick-leave certificate is ready below.")
+    else:
+        parts.append("Your care plan is ready below.")
+    if bookings_out:
+        parts.append(f"{len(bookings_out)} follow-up booking(s) queued.")
+    parts.append("I'll check in with you here in 3 days to see how you're recovering.")
+
+    # Beat 1: Clean single system status divider showing Doctor completed clinical review
     chat.append({
         "actor": "Clinic",
         "role": "system",
         "time": hhmm,
-        "text": f"{signed_by} (MCHK {mchk_reg_no}) completed clinical review & signed your plan",
+        "text": f"{display_doc} completed your clinical review",
         "trace_id": trace_id,
     })
 
-    # Beat 2: Sam (Resident AI) comes back with the signed plan, PDF button, and 3-day AI follow-up
+    # Beat 2: Sam comes back cleanly with prescriptions, sick leave PDF button, and natural follow-up message
     chat.append({
         "actor": "Sam",
         "role": "assistant",
@@ -2273,10 +2333,9 @@ def append_doctor_signed_chat_bubble(
         "text": " ".join(parts),
         "trace_id": trace_id,
         "care_plan": {
-            "signed_by": signed_by,
+            "signed_by": display_doc,
             "mchk_reg_no": mchk_reg_no,
             "rx_lines": rx_lines,
-            "ai_followup_note": "3-day AI post-visit check-in scheduled",
             "certificates": [
                 {
                     "id": c["id"],

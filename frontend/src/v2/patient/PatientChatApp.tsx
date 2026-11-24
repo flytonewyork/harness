@@ -450,12 +450,6 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
               <div key={idx} className="pc-row is-doctor" data-testid="chat-doctor-signed-card">
                 <span className="pc-sender-label">Sam · {isZh ? "診所助手" : "Clinic AI"}</span>
                 <div className="pc-doctor-card">
-                  <div className="pc-doctor-kicker">
-                    {m.care_plan.signed_by} · MCHK {m.care_plan.mchk_reg_no} · {isZh ? "已簽署" : "Signed Plan"}
-                  </div>
-                  <div className="pc-doctor-title">
-                    {isZh ? "醫生已完成審閱 — 你的護理計劃已就緒" : "Doctor-Signed Care Plan"}
-                  </div>
                   <div style={{ fontSize: 14, lineHeight: 1.48 }}>{m.text}</div>
                   {m.care_plan.rx_lines && m.care_plan.rx_lines.length > 0 && (
                     <ul className="pc-doctor-list">
@@ -463,22 +457,6 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
                         <li key={i}>{line}</li>
                       ))}
                     </ul>
-                  )}
-                  {m.care_plan.ai_followup_note && (
-                    <div
-                      style={{
-                        marginTop: 8,
-                        padding: "6px 10px",
-                        borderRadius: 8,
-                        background: "#eef7f5",
-                        border: "1px solid #c9e5dd",
-                        color: "#0f6b58",
-                        fontSize: 12.5,
-                        fontWeight: 500,
-                      }}
-                    >
-                      {isZh ? "AI 護理追蹤：3 日後自動問候康復進度" : `AI Follow-Up: ${m.care_plan.ai_followup_note}`}
-                    </div>
                   )}
                   {m.care_plan.certificates && m.care_plan.certificates.map((cert) => (
                     <button
@@ -642,32 +620,50 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           </div>
         )}
 
-        {/* Menu of what Sam can help with right after consent */}
+        {/* Journey-specific first demo prompt + generic clinic function chips after consent */}
         {consentDone && messages.length === 1 && !typing && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2 }}>
-            {(isZh
-              ? [
-                  "我今日身體唔舒服，想睇醫生",
-                  "想查詢或申請病假紙",
-                  "預約或更改診症時間",
-                  "跟進驗血報告或藥物",
-                ]
-              : [
-                  "I woke up with a sore throat and fever.",
-                  "I need a sick-leave certificate",
-                  "Book or reschedule an appointment",
-                  "Follow up on a test result or medication",
-                ]
-            ).map((opt) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+            {suggestedReplies[0] && (
               <button
-                key={opt}
                 type="button"
                 className="pc-chip"
-                onClick={() => void handleSend(opt)}
+                style={{
+                  border: "1.5px solid #0f766e",
+                  background: "#eef7f5",
+                  color: "#0f6b58",
+                  fontWeight: 600,
+                  textAlign: "left",
+                  whiteSpace: "normal",
+                }}
+                onClick={() => void handleSend(suggestedReplies[0])}
+                data-testid="suggested-first-demo-prompt"
               >
-                {opt}
+                ✦ {suggestedReplies[0]}
               </button>
-            ))}
+            )}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {(isZh
+                ? [
+                    "預約或更改診症時間",
+                    "跟進驗血報告或藥物",
+                    "查詢或申請病假紙",
+                  ]
+                : [
+                    "Book or reschedule an appointment",
+                    "Follow up on a test result or medication",
+                    "I need a sick-leave certificate",
+                  ]
+              ).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  className="pc-chip"
+                  onClick={() => void handleSend(opt)}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -776,11 +772,40 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
         <button
           type="button"
           className="pc-icon-btn"
-          style={{ width: 34, height: 34, borderRadius: "50%", color: showPrompts ? "var(--pc-jade)" : "var(--pc-ink-3)" }}
-          title={showPrompts ? "Hide demo reply chips" : "Show demo reply chips"}
-          onClick={() => setShowPrompts((v) => !v)}
+          style={{ width: 34, height: 34, borderRadius: "50%", color: "var(--pc-jade)", background: "#eef7f5" }}
+          title={isZh ? "填入下一個示範對話" : "Fill next demo prompt"}
+          data-testid="next-demo-prompt-btn"
+          onClick={() => {
+            if (!consentDone) setConsentDone(true);
+            setShowPrompts(true);
+            const sentSet = new Set(
+              messages
+                .filter((m) => m.actor !== "Sam" && m.role !== "assistant" && m.role !== "doctor" && m.role !== "system")
+                .map((m) => m.text.trim().toLowerCase()),
+            );
+            const nextPrompt = suggestedReplies.find((p) => !sentSet.has(p.trim().toLowerCase()));
+            if (nextPrompt) {
+              setInput(nextPrompt);
+            }
+          }}
         >
           <Sparkles size={15} />
+        </button>
+        <button
+          type="button"
+          className="pc-icon-btn"
+          style={{ width: 32, height: 32, borderRadius: "50%", color: "var(--pc-ink-2)", fontWeight: 600, fontSize: 16 }}
+          title={isZh ? "附上化驗報告或相片" : "Attach photo or lab report"}
+          onClick={() => {
+            if (!consentDone) setConsentDone(true);
+            setInput(
+              isZh
+                ? "我附上了最近嘅化驗報告／家居血壓讀數相片，請幫我交畀醫生參考。"
+                : "I've attached a photo of my recent lab report / home reading for the doctor to review.",
+            );
+          }}
+        >
+          +
         </button>
         <input
           className="pc-input"
