@@ -2337,6 +2337,8 @@ def handle_live_chat_turn(
         llm_provider_used = str(engine.get("provider") or "deterministic")
         llm_model_used = str(engine.get("model") or "clinic-harness-tool-engine-v1")
         llm_region_used = str(engine.get("region") or "local")
+        llm_latency_ms = 0
+        llm_attempts = 0
         llm_error: str | None = None
 
         if engine.get("live"):
@@ -2429,6 +2431,8 @@ def handle_live_chat_turn(
             llm_provider_used = llm_call.provider
             llm_model_used = llm_call.model
             llm_region_used = llm_call.region
+            llm_latency_ms = llm_call.latency_ms
+            llm_attempts = llm_call.attempts_tried
             if llm_call.ok and isinstance(llm_call.json_payload, dict) and llm_call.json_payload.get("patient_reply"):
                 obj = llm_call.json_payload
                 parsed_reply = str(obj["patient_reply"]).strip()
@@ -2654,6 +2658,8 @@ def handle_live_chat_turn(
             "provider": llm_provider_used,
             "model": llm_model_used,
             "region": llm_region_used,
+            "latency_ms": llm_latency_ms,
+            "attempts_tried": llm_attempts,
             "error": llm_error,
         },
         "suggested_replies": _suggested_replies_for(

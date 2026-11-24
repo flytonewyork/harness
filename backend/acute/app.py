@@ -715,11 +715,33 @@ def create_acute_app(
                 except asyncio.TimeoutError:
                     continue
 
+        warmup_task: asyncio.Task[None] | None = None
         if outbox_worker_enabled:
             worker_task = asyncio.create_task(_worker_loop())
+        if not os.environ.get("PYTEST_CURRENT_TEST"):
+            async def _startup_warmup() -> None:
+                try:
+                    from .agent_harness import warmup_live_llm
+                    await asyncio.to_thread(multi_agent._get_loopbench_sim_data)
+                    res = await asyncio.to_thread(warmup_live_llm)
+                    logger.info(
+                        "Startup LLM warmup complete: warmed=%s target=%s/%s/%s latency_ms=%s skipped=%s",
+                        res.get("warmed"),
+                        res.get("provider"),
+                        res.get("region"),
+                        res.get("model"),
+                        res.get("latency_ms"),
+                        res.get("skipped_targets"),
+                    )
+                except Exception as exc:
+                    logger.warning("Startup LLM warmup skipped/failed: %s", exc)
+
+            warmup_task = asyncio.create_task(_startup_warmup())
         try:
             yield
         finally:
+            if warmup_task is not None and not warmup_task.done():
+                warmup_task.cancel()
             if worker_task is not None:
                 stop_event.set()
                 worker_task.cancel()
@@ -892,7 +914,7 @@ def create_acute_app(
             t_count = s.scalar(select(func.count(Tenant.id))) or 0
             t1 = s.get(Tenant, DEMO_TENANT_1)
             ai_enabled = bool(t1.ai_enabled) if t1 else True
-        from .agent_harness import detect_live_llm_engine
+        from .agent_harness import detect_live_llm_engine, get_llm_warmup_state
         return {
             "ok": True,
             "status": "ok",
@@ -905,6 +927,7 @@ def create_acute_app(
             "tenants_count": int(t_count),
             "outbox_worker_enabled": outbox_worker_enabled,
             "live_llm": detect_live_llm_engine(),
+            "llm_warmup": get_llm_warmup_state(),
             "runtime_toggles": runtime_toggles(),
             "compliance": ["HK-PDPO-Cap486", "MCHK-Telemedicine", "HL7-FHIR-R4", "ISO-27799"],
         }
@@ -1363,6 +1386,15 @@ def create_acute_app(
             raise HTTPException(404, "Demo endpoints disabled in production")
         tenant_id = _workspace_tenant(request)
         return reset_live_demo(database, tenant_id, live_bus)
+
+    @app.post("/api/v1/demo/live/warmup")
+    def demo_live_warmup(request: Request, force: bool = Query(default=False)):
+        """Pre-warm live LLM connection, model endpoint, LoopBench EMR cache, and failed-target skip cache."""
+        if not _is_demo_mode():
+            raise HTTPException(404, "Demo endpoints disabled in production")
+        from .agent_harness import warmup_live_llm
+        multi_agent._get_loopbench_sim_data()
+        return {"ok": True, "llm_warmup": warmup_live_llm(force=force)}
 
     @app.get("/api/v1/workspace/overview")
     def workspace_overview(request: Request, mode: str = Query(default="seeded")):

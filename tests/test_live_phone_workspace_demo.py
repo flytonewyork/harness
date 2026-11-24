@@ -509,19 +509,28 @@ def test_post_sign_sick_leave_extension_escalates_to_doctor_and_never_misroutes_
     assert "sorry" in t5["reply"].lower()
 
 
-def test_vertex_adc_header_and_fallback_cascade(monkeypatch):
-    """Verify Vertex AI calls include required `x-goog-user-project` header for user ADC
-    and cleanly cascade from asia-east2 -> Vertex global (with PHI scrub) -> Gemini API key on 404/403."""
+def test_vertex_adc_header_and_fallback_cascade(tmp_path, monkeypatch):
+    """Verify Vertex AI calls include required `x-goog-user-project` header for user ADC,
+    cleanly cascade from asia-east2 -> Vertex global (with PHI scrub), cache failed targets so
+    Turn 2 hits the working endpoint on Attempt 1, and expose warmup status in /api/v1/health."""
     import httpx
-    from backend.acute.agent_harness import MultiAgentHarness, invoke_structured_json
+    from backend.acute.agent_harness import (
+        MultiAgentHarness,
+        invoke_structured_json,
+        reset_llm_target_cache,
+    )
 
+    reset_llm_target_cache()
     monkeypatch.delenv("AGENT_LLM_PROVIDER", raising=False)
     monkeypatch.setenv("GEMINI_API_KEY", "test-gem-key")
     monkeypatch.setattr(MultiAgentHarness, "_vertex_adc_token", staticmethod(lambda _proj=None: ("tok-adc", "tmrw-hk-prod")))
 
     seen_calls: list[dict] = []
+    real_post = httpx.Client.post
 
-    def fake_post(self, url, headers=None, params=None, json=None):
+    def fake_post(self, url, *args, headers=None, params=None, json=None, **kwargs):
+        if "googleapis.com" not in str(url):
+            return real_post(self, url, *args, headers=headers, params=params, json=json, **kwargs)
         seen_calls.append({"url": str(url), "headers": dict(headers or {}), "json": json})
         req = httpx.Request("POST", str(url))
         # 1st call (asia-east2 gemini-4-hydrogen) -> 404; 2nd call (global gemini-4-hydrogen) -> 200
@@ -545,23 +554,25 @@ def test_vertex_adc_header_and_fallback_cascade(monkeypatch):
         )
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
+    override = {
+        "live": True,
+        "provider": "vertex",
+        "model": "gemini-4-hydrogen",
+        "region": "asia-east2",
+        "project": "tmrw-hk-prod",
+    }
     res = invoke_structured_json(
         system_prompt="You are Sam.",
         user_prompt="Patient LAM Wing-Yan asks for 1 more day of sick leave.",
         patient_names_for_scrub=["LAM Wing-Yan"],
-        engine_override={
-            "live": True,
-            "provider": "vertex",
-            "model": "gemini-4-hydrogen",
-            "region": "asia-east2",
-            "project": "tmrw-hk-prod",
-        },
+        engine_override=override,
         thinking_level="LOW",
     )
     assert res.ok is True
     assert res.provider == "vertex"
     assert res.region == "global"
     assert res.fallback_used is True
+    assert res.attempts_tried == 2
     assert res.phi_scrubbed is True
     assert res.json_payload is not None
     assert res.json_payload["registrar_action"] == "escalate_to_doctor"
@@ -572,5 +583,29 @@ def test_vertex_adc_header_and_fallback_cascade(monkeypatch):
     # Ensure PHI was scrubbed before leaving asia-east2 for the global endpoint
     sent_user_text = seen_calls[1]["json"]["contents"][0]["parts"][0]["text"]
     assert "LAM Wing-Yan" not in sent_user_text
+
+    # Call 2: failed asia-east2 target is now cached -> skips dead hop and succeeds on Attempt 1!
+    res2 = invoke_structured_json(
+        system_prompt="You are Sam.",
+        user_prompt="Follow-up question.",
+        engine_override=override,
+        thinking_level="LOW",
+    )
+    assert res2.ok is True
+    assert res2.attempts_tried == 1
+    assert len(seen_calls) == 3
+
+    # Warmup endpoint + health status
+    client = _make_client(tmp_path)
+    w_resp = client.post("/api/v1/demo/live/warmup?force=true")
+    assert w_resp.status_code == 200
+    w_body = w_resp.json()
+    assert w_body["ok"] is True
+    assert w_body["llm_warmup"]["warmed"] is True
+
+    h_body = client.get("/api/v1/health").json()
+    assert h_body["llm_warmup"]["warmed"] is True
+    reset_llm_target_cache()
+
 
 

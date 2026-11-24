@@ -428,6 +428,78 @@ def detect_live_llm_engine() -> dict[str, Any]:
     }
 
 
+_FAILED_TARGET_TTL_SECONDS = 600.0
+_FAILED_LLM_TARGETS: dict[tuple[str, str, str], tuple[float, str]] = {}
+_SHARED_LLM_CLIENT: httpx.Client | None = None
+_WARMUP_STATE: dict[str, Any] = {
+    "warmed": False,
+    "in_progress": False,
+    "provider": None,
+    "model": None,
+    "region": None,
+    "latency_ms": None,
+    "attempts_tried": 0,
+    "skipped_targets": [],
+    "error": None,
+    "warmed_at": None,
+}
+
+
+def reset_llm_target_cache() -> None:
+    """Clear cached failed LLM targets & warmup state (for tests or manual re-probe)."""
+    _FAILED_LLM_TARGETS.clear()
+    _WARMUP_STATE.update({
+        "warmed": False,
+        "in_progress": False,
+        "provider": None,
+        "model": None,
+        "region": None,
+        "latency_ms": None,
+        "attempts_tried": 0,
+        "skipped_targets": [],
+        "error": None,
+        "warmed_at": None,
+    })
+
+
+def get_llm_warmup_state() -> dict[str, Any]:
+    """Return current live LLM warmup status and cached skipped endpoints for /api/v1/health."""
+    now = time.time()
+    active_skips = [
+        f"{p}/{r}/{m}"
+        for (p, r, m), (exp, _err) in list(_FAILED_LLM_TARGETS.items())
+        if exp > now
+    ]
+    st = dict(_WARMUP_STATE)
+    st["skipped_targets"] = active_skips
+    return st
+
+
+def _get_shared_llm_client() -> httpx.Client:
+    """Reuse a keep-alive httpx.Client across live LLM turns to eliminate per-turn TLS cold handshakes."""
+    global _SHARED_LLM_CLIENT
+    if _SHARED_LLM_CLIENT is None or _SHARED_LLM_CLIENT.is_closed:
+        _SHARED_LLM_CLIENT = httpx.Client(
+            limits=httpx.Limits(max_connections=16, max_keepalive_connections=8, keepalive_expiry=120.0),
+        )
+    return _SHARED_LLM_CLIENT
+
+
+def _is_target_cached_failed(key: tuple[str, str, str]) -> bool:
+    entry = _FAILED_LLM_TARGETS.get(key)
+    if entry is None:
+        return False
+    exp, _ = entry
+    if time.time() >= exp:
+        _FAILED_LLM_TARGETS.pop(key, None)
+        return False
+    return True
+
+
+def _mark_target_failed(key: tuple[str, str, str], reason: str) -> None:
+    _FAILED_LLM_TARGETS[key] = (time.time() + _FAILED_TARGET_TTL_SECONDS, reason[:180])
+
+
 @dataclass
 class ModelCallResult:
     """Unified telemetry & output envelope for every live or offline-fallback clinical LLM call."""
@@ -444,6 +516,7 @@ class ModelCallResult:
     prompt_tokens: int | None = None
     output_tokens: int | None = None
     fallback_used: bool = False
+    attempts_tried: int = 0
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -458,6 +531,7 @@ class ModelCallResult:
             "prompt_tokens": self.prompt_tokens,
             "output_tokens": self.output_tokens,
             "fallback_used": self.fallback_used,
+            "attempts_tried": self.attempts_tried,
             "error": self.error,
         }
 
@@ -556,6 +630,11 @@ def _invoke_live_provider(
             if alt_prov == "gemini" and alt_mdl == DEFAULT_GEMINI_REASONING_MODEL:
                 _add_attempt("gemini", alt_reg, DEFAULT_GEMINI_FAST_MODEL, None)
 
+    # Skip targets recently proven broken (400/403/404) so subsequent turns hit the working model on Attempt 1
+    healthy_attempts = [a for a in attempts if not _is_target_cached_failed((a[0], a[1], a[2]))]
+    if healthy_attempts:
+        attempts = healthy_attempts
+
     scrubbed_cache: tuple[str, str, list[str]] | None = None
 
     def _prompts_for_region(attempt_region: str) -> tuple[str, str, bool, list[str]]:
@@ -575,158 +654,153 @@ def _invoke_live_provider(
     used_region = region
     used_phi_scrub = False
     used_redacted: list[str] = []
+    attempts_tried = 0
 
     try:
-        with httpx.Client(timeout=timeout_seconds) as client:
-            for idx, (att_prov, att_reg, att_mdl, att_proj) in enumerate(attempts):
-                used_provider = att_prov
-                used_model = att_mdl
-                used_region = att_reg
-                sys_txt, usr_txt, phi_scrubbed, redacted_cats = _prompts_for_region(att_reg)
-                used_phi_scrub = phi_scrubbed
-                used_redacted = redacted_cats
+        client = _get_shared_llm_client()
+        for idx, (att_prov, att_reg, att_mdl, att_proj) in enumerate(attempts):
+            attempts_tried += 1
+            target_key = (att_prov, att_reg, att_mdl)
+            used_provider = att_prov
+            used_model = att_mdl
+            used_region = att_reg
+            sys_txt, usr_txt, phi_scrubbed, redacted_cats = _prompts_for_region(att_reg)
+            used_phi_scrub = phi_scrubbed
+            used_redacted = redacted_cats
 
-                prompt_tok: int | None = None
-                out_tok: int | None = None
-                txt = ""
+            prompt_tok: int | None = None
+            out_tok: int | None = None
+            txt = ""
 
-                try:
-                    if att_prov in ("vertex", "gemini"):
-                        if att_prov == "vertex":
-                            token, project = MultiAgentHarness._vertex_adc_token(att_proj)
-                            url = build_vertex_generate_content_url(region=att_reg, project=project, model=att_mdl)
-                            headers = {
-                                "Authorization": f"Bearer {token}",
-                                "x-goog-user-project": project,
-                                "Content-Type": "application/json",
-                                "X-Vertex-Zero-Data-Retention": "true",
-                                "X-No-Training": "true",
-                            }
-                            params: dict[str, str] = {}
-                        else:
-                            url = f"https://generativelanguage.googleapis.com/v1beta/models/{att_mdl}:generateContent"
-                            headers = {"Content-Type": "application/json"}
-                            params = {"key": os.environ["GEMINI_API_KEY"]}
-
-                        gen_cfg = build_gemini_generation_config(
-                            att_mdl,
-                            temperature=temperature,
-                            max_output_tokens=max_output_tokens,
-                            expect_json=expect_json,
-                            thinking_level=thinking_level or engine.get("thinking_level"),
-                        )
-                        req_body: dict[str, Any] = {
-                            "systemInstruction": {"parts": [{"text": sys_txt}]},
-                            "contents": [{"role": "user", "parts": [{"text": usr_txt}]}],
-                            "generationConfig": gen_cfg,
+            try:
+                if att_prov in ("vertex", "gemini"):
+                    if att_prov == "vertex":
+                        token, project = MultiAgentHarness._vertex_adc_token(att_proj)
+                        url = build_vertex_generate_content_url(region=att_reg, project=project, model=att_mdl)
+                        headers = {
+                            "Authorization": f"Bearer {token}",
+                            "x-goog-user-project": project,
+                            "Content-Type": "application/json",
+                            "X-Vertex-Zero-Data-Retention": "true",
+                            "X-No-Training": "true",
                         }
-                        if att_prov == "vertex":
-                            req_body["labels"] = {
-                                "zero_retention": "true",
-                                "no_training": "true",
-                                "pdpo_dpp3": "enforced",
-                            }
+                        params: dict[str, str] = {}
+                    else:
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{att_mdl}:generateContent"
+                        headers = {"Content-Type": "application/json"}
+                        params = {"key": os.environ["GEMINI_API_KEY"]}
 
-                        resp = client.post(url, headers=headers, params=params, json=req_body)
-                        if resp.status_code != 200:
-                            err_snippet = re.sub(r"\s+", " ", (resp.text or ""))[:220]
-                            last_error = f"{att_prov}({att_reg}/{att_mdl})_http_{resp.status_code}: {err_snippet}"
-                            continue
-                        data = resp.json()
-                        cand = (data.get("candidates") or [{}])[0]
-                        parts = (cand.get("content") or {}).get("parts") or []
-                        txt = extract_gemini_visible_text(parts)
-                        usage = data.get("usageMetadata") or {}
-                        prompt_tok = usage.get("promptTokenCount")
-                        out_tok = usage.get("candidatesTokenCount")
+                    gen_cfg = build_gemini_generation_config(
+                        att_mdl,
+                        temperature=temperature,
+                        max_output_tokens=max_output_tokens,
+                        expect_json=expect_json,
+                        thinking_level=thinking_level or engine.get("thinking_level"),
+                    )
+                    req_body: dict[str, Any] = {
+                        "systemInstruction": {"parts": [{"text": sys_txt}]},
+                        "contents": [{"role": "user", "parts": [{"text": usr_txt}]}],
+                        "generationConfig": gen_cfg,
+                    }
+                    if att_prov == "vertex":
+                        req_body["labels"] = {
+                            "zero_retention": "true",
+                            "no_training": "true",
+                            "pdpo_dpp3": "enforced",
+                        }
 
-                    elif att_prov == "anthropic":
-                        resp = client.post(
-                            "https://api.anthropic.com/v1/messages",
-                            headers={
-                                "x-api-key": os.environ["ANTHROPIC_API_KEY"],
-                                "anthropic-version": "2023-06-01",
-                                "content-type": "application/json",
-                            },
-                            json={
-                                "model": att_mdl,
-                                "max_tokens": max_output_tokens,
-                                "temperature": temperature,
-                                "system": sys_txt,
-                                "messages": [{"role": "user", "content": usr_txt}],
-                            },
-                        )
-                        if resp.status_code != 200:
-                            err_snippet = re.sub(r"\s+", " ", (resp.text or ""))[:220]
-                            last_error = f"anthropic_http_{resp.status_code}: {err_snippet}"
-                            continue
-                        data = resp.json()
-                        blocks = data.get("content") or []
-                        txt = " ".join(str(b.get("text", "")) for b in blocks if b.get("type") == "text").strip()
-                        usage = data.get("usage") or {}
-                        prompt_tok = usage.get("input_tokens")
-                        out_tok = usage.get("output_tokens")
+                    resp = client.post(url, headers=headers, params=params, json=req_body, timeout=timeout_seconds)
+                    if resp.status_code != 200:
+                        err_snippet = re.sub(r"\s+", " ", (resp.text or ""))[:220]
+                        last_error = f"{att_prov}({att_reg}/{att_mdl})_http_{resp.status_code}: {err_snippet}"
+                        if resp.status_code in (400, 401, 403, 404):
+                            _mark_target_failed(target_key, last_error)
+                        continue
+                    data = resp.json()
+                    cand = (data.get("candidates") or [{}])[0]
+                    parts = (cand.get("content") or {}).get("parts") or []
+                    txt = extract_gemini_visible_text(parts)
+                    usage = data.get("usageMetadata") or {}
+                    prompt_tok = usage.get("promptTokenCount")
+                    out_tok = usage.get("candidatesTokenCount")
 
-                    elif att_prov == "openai":
-                        oai_body: dict[str, Any] = {
+                elif att_prov == "anthropic":
+                    resp = client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={
+                            "x-api-key": os.environ["ANTHROPIC_API_KEY"],
+                            "anthropic-version": "2023-06-01",
+                            "content-type": "application/json",
+                        },
+                        json={
                             "model": att_mdl,
                             "max_tokens": max_output_tokens,
                             "temperature": temperature,
-                            "store": False,
-                            "messages": [
-                                {"role": "system", "content": sys_txt},
-                                {"role": "user", "content": usr_txt},
-                            ],
-                        }
-                        if expect_json:
-                            oai_body["response_format"] = {"type": "json_object"}
-                        resp = client.post(
-                            "https://api.openai.com/v1/chat/completions",
-                            headers={
-                                "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
-                                "Content-Type": "application/json",
-                            },
-                            json=oai_body,
-                        )
-                        if resp.status_code != 200:
-                            err_snippet = re.sub(r"\s+", " ", (resp.text or ""))[:220]
-                            last_error = f"openai_http_{resp.status_code}: {err_snippet}"
-                            continue
-                        data = resp.json()
-                        txt = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
-                        usage = data.get("usage") or {}
-                        prompt_tok = usage.get("prompt_tokens")
-                        out_tok = usage.get("completion_tokens")
-                    else:
-                        last_error = f"unsupported_provider:{att_prov}"
-                        continue
-                except Exception as exc:
-                    last_error = f"{att_prov}({att_reg}/{att_mdl}) {type(exc).__name__}: {exc}"
-                    continue
-
-                latency_ms = max(1, int((time.perf_counter() - t0) * 1000))
-                if expect_json:
-                    parsed = _extract_json_object(txt)
-                    if parsed is None:
-                        last_error = f"{att_prov}({att_reg}/{att_mdl}): invalid_json_output"
-                        continue
-                    return ModelCallResult(
-                        ok=True,
-                        provider=att_prov,
-                        model=att_mdl,
-                        region=att_reg,
-                        text=txt,
-                        json_payload=parsed,
-                        latency_ms=latency_ms,
-                        phi_scrubbed=phi_scrubbed,
-                        redacted_categories=redacted_cats,
-                        prompt_tokens=prompt_tok,
-                        output_tokens=out_tok,
-                        fallback_used=(idx > 0),
+                            "system": sys_txt,
+                            "messages": [{"role": "user", "content": usr_txt}],
+                        },
+                        timeout=timeout_seconds,
                     )
+                    if resp.status_code != 200:
+                        err_snippet = re.sub(r"\s+", " ", (resp.text or ""))[:220]
+                        last_error = f"anthropic_http_{resp.status_code}: {err_snippet}"
+                        if resp.status_code in (401, 403, 404):
+                            _mark_target_failed(target_key, last_error)
+                        continue
+                    data = resp.json()
+                    blocks = data.get("content") or []
+                    txt = " ".join(str(b.get("text", "")) for b in blocks if b.get("type") == "text").strip()
+                    usage = data.get("usage") or {}
+                    prompt_tok = usage.get("input_tokens")
+                    out_tok = usage.get("output_tokens")
 
-                if not txt:
-                    last_error = f"{att_prov}({att_reg}/{att_mdl}): empty_model_response"
+                elif att_prov == "openai":
+                    oai_body: dict[str, Any] = {
+                        "model": att_mdl,
+                        "max_tokens": max_output_tokens,
+                        "temperature": temperature,
+                        "store": False,
+                        "messages": [
+                            {"role": "system", "content": sys_txt},
+                            {"role": "user", "content": usr_txt},
+                        ],
+                    }
+                    if expect_json:
+                        oai_body["response_format"] = {"type": "json_object"}
+                    resp = client.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
+                            "Content-Type": "application/json",
+                        },
+                        json=oai_body,
+                        timeout=timeout_seconds,
+                    )
+                    if resp.status_code != 200:
+                        err_snippet = re.sub(r"\s+", " ", (resp.text or ""))[:220]
+                        last_error = f"openai_http_{resp.status_code}: {err_snippet}"
+                        if resp.status_code in (401, 403, 404):
+                            _mark_target_failed(target_key, last_error)
+                        continue
+                    data = resp.json()
+                    txt = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+                    usage = data.get("usage") or {}
+                    prompt_tok = usage.get("prompt_tokens")
+                    out_tok = usage.get("completion_tokens")
+                else:
+                    last_error = f"unsupported_provider:{att_prov}"
+                    continue
+            except Exception as exc:
+                last_error = f"{att_prov}({att_reg}/{att_mdl}) {type(exc).__name__}: {exc}"
+                if "ADC credentials unavailable" in str(exc):
+                    _mark_target_failed(target_key, last_error)
+                continue
+
+            latency_ms = max(1, int((time.perf_counter() - t0) * 1000))
+            if expect_json:
+                parsed = _extract_json_object(txt)
+                if parsed is None:
+                    last_error = f"{att_prov}({att_reg}/{att_mdl}): invalid_json_output"
                     continue
                 return ModelCallResult(
                     ok=True,
@@ -734,13 +808,33 @@ def _invoke_live_provider(
                     model=att_mdl,
                     region=att_reg,
                     text=txt,
+                    json_payload=parsed,
                     latency_ms=latency_ms,
                     phi_scrubbed=phi_scrubbed,
                     redacted_categories=redacted_cats,
                     prompt_tokens=prompt_tok,
                     output_tokens=out_tok,
-                    fallback_used=(idx > 0),
+                    fallback_used=(att_prov != provider or att_reg != region or idx > 0),
+                    attempts_tried=attempts_tried,
                 )
+
+            if not txt:
+                last_error = f"{att_prov}({att_reg}/{att_mdl}): empty_model_response"
+                continue
+            return ModelCallResult(
+                ok=True,
+                provider=att_prov,
+                model=att_mdl,
+                region=att_reg,
+                text=txt,
+                latency_ms=latency_ms,
+                phi_scrubbed=phi_scrubbed,
+                redacted_categories=redacted_cats,
+                prompt_tokens=prompt_tok,
+                output_tokens=out_tok,
+                fallback_used=(att_prov != provider or att_reg != region or idx > 0),
+                attempts_tried=attempts_tried,
+            )
 
         latency_ms = max(1, int((time.perf_counter() - t0) * 1000))
         return ModelCallResult(
@@ -752,6 +846,7 @@ def _invoke_live_provider(
             phi_scrubbed=used_phi_scrub,
             redacted_categories=used_redacted,
             fallback_used=True,
+            attempts_tried=attempts_tried,
             error=last_error,
         )
     except Exception as exc:
@@ -765,8 +860,68 @@ def _invoke_live_provider(
             phi_scrubbed=used_phi_scrub,
             redacted_categories=used_redacted,
             fallback_used=True,
+            attempts_tried=attempts_tried,
             error=f"{type(exc).__name__}: {exc}",
         )
+
+
+def warmup_live_llm(*, force: bool = False) -> dict[str, Any]:
+    """Prime TLS keep-alive pool, model endpoint, and failed-target skip cache before the first demo turn."""
+    if os.environ.get("PYTEST_CURRENT_TEST") and not force:
+        return get_llm_warmup_state()
+    if _WARMUP_STATE.get("in_progress"):
+        return get_llm_warmup_state()
+    if _WARMUP_STATE.get("warmed") and not force:
+        return get_llm_warmup_state()
+
+    engine = detect_live_llm_engine()
+    if not engine.get("live"):
+        _WARMUP_STATE.update({
+            "warmed": False,
+            "in_progress": False,
+            "provider": engine.get("provider"),
+            "model": engine.get("model"),
+            "region": engine.get("region"),
+            "error": "offline_deterministic_mode",
+        })
+        return get_llm_warmup_state()
+
+    if force:
+        _FAILED_LLM_TARGETS.clear()
+
+    _WARMUP_STATE["in_progress"] = True
+    try:
+        warm_engine = dict(engine)
+        if warm_engine.get("provider") in ("gemini", "vertex") and warm_engine.get("model") == DEFAULT_GEMINI_REASONING_MODEL:
+            warm_engine["model"] = DEFAULT_GEMINI_FAST_MODEL
+        res = invoke_structured_json(
+            system_prompt='Reply ONLY with JSON: {"status":"ready"}',
+            user_prompt="ping",
+            temperature=0.0,
+            max_output_tokens=64,
+            engine_override=warm_engine,
+            timeout_seconds=12.0,
+            thinking_level="LOW",
+        )
+        _WARMUP_STATE.update({
+            "warmed": bool(res.ok),
+            "in_progress": False,
+            "provider": res.provider,
+            "model": res.model,
+            "region": res.region,
+            "latency_ms": res.latency_ms,
+            "attempts_tried": res.attempts_tried,
+            "error": res.error,
+            "warmed_at": utcnow().isoformat(),
+        })
+    except Exception as exc:
+        _WARMUP_STATE.update({
+            "warmed": False,
+            "in_progress": False,
+            "error": f"{type(exc).__name__}: {exc}",
+        })
+    return get_llm_warmup_state()
+
 
 
 def invoke_structured_json(
