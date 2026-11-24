@@ -18,16 +18,28 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+find_uvicorn() {
+  for cand in "${UVICORN_BIN:-}" ".venv/bin/uvicorn" "venv/bin/uvicorn" "../.venv/bin/uvicorn" "$HOME/.venv/bin/uvicorn"; do
+    if [[ -n "${cand}" && -x "${cand}" ]]; then
+      echo "${cand}"
+      return 0
+    fi
+  done
+  command -v uvicorn
+}
+
 start_server() {
   cleanup
-  echo "==> [dev_autosync] Starting Uvicorn on 0.0.0.0:${PORT} (loads .env & gcloud ADC automatically)..."
+  local UV_BIN
+  UV_BIN="$(find_uvicorn)"
+  echo "==> [dev_autosync] Starting ${UV_BIN} on 0.0.0.0:${PORT} (loads .env & gcloud ADC automatically)..."
   HARNESS_ENV=staging \
   HARNESS_RUNTIME_MODE=demo \
   DEMO_MODE=true \
   DEMO_SHOW_OTP=true \
   DATABASE_URL="${DATABASE_URL:-postgresql+psycopg://postgres@127.0.0.1:5432/clinic_harness}" \
   DATABASE_ADMIN_URL="${DATABASE_ADMIN_URL:-postgresql+psycopg://postgres@127.0.0.1:5432/clinic_harness}" \
-  uvicorn backend.acute.app:app_from_env --factory --host 0.0.0.0 --port "${PORT}" --timeout-keep-alive 75 &
+  "${UV_BIN}" backend.acute.app:app_from_env --factory --host 0.0.0.0 --port "${PORT}" --timeout-keep-alive 75 &
   UVICORN_PID=$!
 }
 
