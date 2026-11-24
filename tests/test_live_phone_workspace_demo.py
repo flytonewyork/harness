@@ -359,3 +359,74 @@ def test_all_12_realistic_gp_episodes_blank_emr_and_post_sign_followup(tmp_path)
     assert client.get("/api/v1/emr/overview?mode=live").json()["patients"] == []
 
 
+def test_qr_welcomes_are_clean_no_premature_clinical_dump_and_no_false_999_on_confused(tmp_path):
+    """Regression test for live phone demo UX:
+    1. Fresh QR welcomes never dump QEH discharge / labs / meds before the patient speaks.
+    2. Replying 'No' or 'Hi' gets a natural conversational reply (never a canned statin/med wall of text).
+    3. Colloquial 'I'm a bit confused' about pills NEVER triggers 999, while genuine AMS still does.
+    4. Every non-crisis suggested reply chip across all 12 journeys passes without false 999.
+    """
+    from backend.acute.live_demo import LIVE_JOURNEYS
+    from backend.acute.triage import screen_acute_message
+
+    # 1. Clean QR welcomes (zero unsolicited clinical history)
+    forbidden_in_welcome = ("qeh", "discharge summary", "ferritin", "hba1c", "egfr", "amlodipine", "ldl 3.6", "metformin", "tsh 9.4")
+    for j in LIVE_JOURNEYS:
+        w_en = j["welcome_en"].lower()
+        for term in forbidden_in_welcome:
+            assert term not in w_en, f"Journey {j['key']} welcome leaked '{term}' before patient spoke"
+
+    # 2. Colloquial 'confused' about pills must NOT trigger 999; true AMS MUST still trigger 999
+    benign_1 = screen_acute_message(
+        "I'm a bit confused — QEH gave me Warfarin 3mg and Atorvastatin, but I still have 5mg Warfarin and Simvastatin at home. Which should I take?"
+    )
+    assert benign_1.kind is None, f"False 999 on colloquial confusion: {benign_1.reasons}"
+
+    benign_2 = screen_acute_message("I'm confused about which pills to take in the morning")
+    assert benign_2.kind is None, f"False 999 on pill confusion: {benign_2.reasons}"
+
+    true_ams_1 = screen_acute_message("My father has a flu fever and suddenly became very confused, doesn't know where he is")
+    assert true_ams_1.kind == "red_flag"
+    true_ams_2 = screen_acute_message("Grandma is confused and talking nonsense since this morning")
+    assert true_ams_2.kind == "red_flag"
+    true_ams_3 = screen_acute_message("Shivering uncontrollably, fever 39.8 and I feel confused")
+    assert true_ams_3.kind == "red_flag"
+
+    # 3. Conversational 'No' on Chan does not dump statin wall of text; actual Warfarin/QEH question does
+    client = _make_client(tmp_path)
+    client.post("/api/v1/demo/live/reset")
+    client.post("/api/v1/demo/live/chat/start", json={"journey_key": "chan", "lang": "en"})
+
+    r_no = client.post("/api/v1/demo/live/chat/turn", json={"journey_key": "chan", "message": "No", "lang": "en"})
+    assert r_no.status_code == 200
+    no_body = r_no.json()
+    assert no_body["crisis"] is None
+    assert no_body["case_state"] == "running"
+    assert "statin" not in no_body["reply"].lower()
+    assert "warfarin" not in no_body["reply"].lower()
+
+    r_conf = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={
+            "journey_key": "chan",
+            "message": "I'm a bit confused — QEH gave me Warfarin 3mg and Atorvastatin, but I still have 5mg Warfarin and Simvastatin at home. Which should I take?",
+            "lang": "en",
+        },
+    )
+    assert r_conf.status_code == 200
+    conf_body = r_conf.json()
+    assert conf_body["crisis"] is None
+    assert conf_body["case_state"] == "needs_decision"
+    assert "warfarin 3mg" in conf_body["reply"].lower()
+
+    # 4. Every non-crisis suggested reply across all 12 journeys must NOT trigger 999
+    for j in LIVE_JOURNEYS:
+        if j["key"] == "lau_chest":
+            continue
+        for chip in (*j["suggested_replies_en"], *j["suggested_replies_zh"]):
+            if "心口好痛" in chip or "唞唔到氣" in chip:
+                continue
+            sc = screen_acute_message(chip)
+            assert sc.kind is None, f"Suggested reply for {j['key']} falsely triggered {sc.kind} ({sc.reasons}): {chip}"
+
+

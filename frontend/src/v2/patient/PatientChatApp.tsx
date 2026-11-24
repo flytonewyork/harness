@@ -493,22 +493,33 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
       </main>
 
       {/* Optional Subtle Suggested Replies (for smooth live stage demoing — full free-text always works!) */}
-      {showPrompts && suggestedReplies.length > 0 && messages.length > 0 && !typing && !crisis?.active && (
-        <div className="pc-suggestions" aria-label="Suggested demo replies">
-          {suggestedReplies.map((prompt, i) => (
-            <button
-              key={i}
-              type="button"
-              className="pc-chip"
-              onClick={() => void handleSend(prompt)}
-              title={prompt}
-              data-testid={`suggested-reply-${i}`}
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-      )}
+      {(() => {
+        const sentSet = new Set(
+          messages
+            .filter((m) => m.actor !== "Sam" && m.role !== "assistant" && m.role !== "doctor")
+            .map((m) => m.text.trim().toLowerCase()),
+        );
+        const remainingSuggestions = suggestedReplies.filter((p) => !sentSet.has(p.trim().toLowerCase()));
+        if (!showPrompts || remainingSuggestions.length === 0 || messages.length === 0 || typing || crisis?.active) {
+          return null;
+        }
+        return (
+          <div className="pc-suggestions" aria-label="Suggested demo replies">
+            {remainingSuggestions.map((prompt, i) => (
+              <button
+                key={prompt}
+                type="button"
+                className="pc-chip"
+                onClick={() => void handleSend(prompt)}
+                title={prompt}
+                data-testid={`suggested-reply-${i}`}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Natural Language Message Composer */}
       <form
