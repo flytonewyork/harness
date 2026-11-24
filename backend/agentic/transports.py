@@ -142,6 +142,26 @@ def extract_gemini_visible_text(parts: list[dict[str, Any]]) -> str:
     return " ".join(x for x in visible if x).strip()
 
 
+def detect_adc_quota_project() -> str | None:
+    """Read `quota_project_id` from official gcloud ADC file if present (zero network calls)."""
+    candidates = [
+        os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"),
+        os.path.expanduser("~/.config/gcloud/application_default_credentials.json"),
+    ]
+    for path in candidates:
+        if not path or not os.path.isfile(path):
+            continue
+        try:
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            proj = str(data.get("quota_project_id") or data.get("project_id") or "").strip()
+            if proj:
+                return proj
+        except Exception:
+            continue
+    return None
+
+
 def detect_provider_chain() -> list[dict[str, Any]]:
     """Return ordered live provider chain prioritizing HK-resident Vertex AI (`gemini-4-neon` / `gemini-4-hydrogen`)."""
     forced = (os.environ.get("AGENT_LLM_PROVIDER") or "").strip().lower()
@@ -149,7 +169,12 @@ def detect_provider_chain() -> list[dict[str, Any]]:
         return []
 
     chain: list[dict[str, Any]] = []
-    gcp_proj = os.environ.get("VERTEX_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
+    gcp_proj = (
+        os.environ.get("VERTEX_PROJECT_ID")
+        or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        or os.environ.get("GCP_PROJECT_ID")
+        or detect_adc_quota_project()
+    )
     if forced in ("", "vertex") and gcp_proj:
         region = os.environ.get("VERTEX_LOCATION") or os.environ.get("VERTEX_REGION") or os.environ.get("HARNESS_REGION") or "asia-east2"
         model = normalize_gemini_model(os.environ.get("AGENT_LLM_MODEL") or os.environ.get("VERTEX_MODEL"))

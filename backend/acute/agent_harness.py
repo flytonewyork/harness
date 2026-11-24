@@ -32,6 +32,7 @@ from backend.agentic.transports import (
     DEFAULT_GEMINI_REASONING_MODEL,
     acquire_vertex_adc_token,
     build_gemini_generation_config,
+    detect_adc_quota_project,
     detect_provider_chain,
     extract_gemini_visible_text,
     is_gemini_4_model,
@@ -338,11 +339,12 @@ def detect_live_llm_engine() -> dict[str, Any]:
             "label": "Deterministic Tool Harness",
         }
 
-    # 1. Primary: Vertex AI asia-east2 (Hong Kong) via GCP ADC
+    # 1. Primary: Vertex AI asia-east2 (Hong Kong) via GCP ADC (`gcloud auth application-default login`)
     gcp_project = (
         os.environ.get("VERTEX_PROJECT_ID")
         or os.environ.get("GOOGLE_CLOUD_PROJECT")
         or os.environ.get("GCP_PROJECT_ID")
+        or detect_adc_quota_project()
     )
     if forced in ("", "vertex") and gcp_project:
         region = (
