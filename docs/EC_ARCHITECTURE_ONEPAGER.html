@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tmrw Clinical Harness — Architecture One-Pager (EC Healthcare)</title>
+  <style>
+    @page { size: A4 landscape; margin: 9mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "PingFang HK", "Noto Sans TC", sans-serif;
+      background: #F2F0EB;
+      color: #18181B;
+      line-height: 1.38;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .page {
+      width: 279mm;
+      min-height: 192mm;
+      margin: 10px auto;
+      background: #FFFFFF;
+      border: 1px solid #CFC9BD;
+      border-radius: 8px;
+      padding: 16px 20px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    @media print {
+      body { background: #FFFFFF; }
+      .page { margin: 0; border: none; border-radius: 0; width: 100%; min-height: 100%; padding: 0; }
+      .no-print { display: none !important; }
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 2px solid #18181B;
+      padding-bottom: 8px;
+    }
+    .title {
+      font-family: Georgia, "Newsreader", "Noto Serif TC", serif;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .subtitle { font-size: 11.5px; color: #4B4944; margin-top: 2px; }
+    .meta-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pill {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9.5px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid #CFC9BD;
+      background: #F7F5F0;
+      color: #18181B;
+    }
+    .pill.jade { background: #EAF4F1; border-color: #16695D; color: #16695D; font-weight: 600; }
+
+    /* 3-Column Architecture Grid */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 2.45fr 1.15fr;
+      gap: 12px;
+      align-items: stretch;
+      flex: 1;
+    }
+    .col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .col-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6B6860;
+      margin-bottom: 2px;
+    }
+    .box {
+      background: #FAF9F6;
+      border: 1px solid #DFDAD0;
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .box h3 { font-size: 11.5px; font-weight: 700; color: #18181B; margin-bottom: 3px; }
+    .box p, .box li { font-size: 10px; color: #4B4944; }
+    .box ul { padding-left: 14px; margin-top: 2px; }
+    .box li { margin-bottom: 2px; }
+
+    /* Center Clinical Harness Frame */
+    .harness-shell {
+      background: #FFFFFF;
+      border: 2px solid #18181B;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .harness-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #E4E0D8;
+      padding-bottom: 6px;
+    }
+    .harness-banner strong { font-size: 12.5px; letter-spacing: 0.01em; }
+    .harness-banner span {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9.5px;
+      color: #16695D;
+      font-weight: 600;
+    }
+    .layer {
+      border: 1px solid #DFDAD0;
+      border-left: 3.5px solid #18181B;
+      border-radius: 5px;
+      padding: 7px 10px;
+      background: #FAF9F6;
+    }
+    .layer.jade { border-left-color: #16695D; background: #F4FAF8; }
+    .layer.amber { border-left-color: #B45309; background: #FEF9F0; }
+    .layer.red { border-left-color: #B91C1C; background: #FEF4F4; }
+    .layer-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+    .layer-head strong { font-size: 11px; color: #18181B; }
+    .layer-tag {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      color: #6B6860;
+    }
+    .layer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .llm-strip {
+      border: 1px dashed #9CA3AF;
+      border-radius: 5px;
+      padding: 6px 10px;
+      background: #F9FAFB;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .llm-strip strong { font-size: 10.5px; }
+    .llm-strip span { font-size: 9.5px; color: #4B4944; }
+
+    /* Right Outputs */
+    .out-box {
+      background: #FFFFFF;
+      border: 1px solid #DFDAD0;
+      border-left: 3px solid #16695D;
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .out-box h3 { font-size: 11px; font-weight: 700; color: #16695D; margin-bottom: 2px; }
+    .out-box p { font-size: 9.8px; color: #4B4944; }
+
+    /* Bottom Invariants & Pilot Strip */
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2.3fr 1.2fr;
+      gap: 10px;
+      border-top: 1px solid #E4E0D8;
+      padding-top: 8px;
+    }
+    .invariants {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .inv {
+      background: #F7F5F0;
+      border: 1px solid #E4E0D8;
+      border-radius: 5px;
+      padding: 6px 8px;
+    }
+    .inv strong { display: block; font-size: 10px; color: #18181B; margin-bottom: 2px; }
+    .inv span { font-size: 9px; color: #4B4944; }
+    .pilot-box {
+      background: #18181B;
+      color: #FAF9F6;
+      border-radius: 6px;
+      padding: 7px 11px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .pilot-box strong { font-size: 10.5px; color: #FEF08A; margin-bottom: 2px; }
+    .pilot-box p { font-size: 9.5px; color: #E4E4E7; }
+    .print-bar {
+      max-width: 279mm;
+      margin: 8px auto 0;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .print-btn {
+      background: #18181B; color: #FFFFFF; border: none; border-radius: 6px;
+      padding: 6px 14px; font-size: 12px; cursor: pointer; font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="print-bar no-print">
+    <button class="print-btn" onclick="window.print()">Print / Save A4 Landscape PDF</button>
+  </div>
+  <main class="page">
+    <header class="header">
+      <div>
+        <div class="title">tmrw Clinical Harness — Technical Architecture for EC Healthcare</div>
+        <div class="subtitle">Deterministic clinical safety, Cantonese normalization, and ecosystem routing sitting <strong>between</strong> raw clinic/patient inputs and pluggable Hong Kong-resident LLMs.</div>
+      </div>
+      <div class="meta-pills">
+        <span class="pill jade">HK asia-east2 · PDPO Cap. 486</span>
+        <span class="pill">MCHK Asymmetric Authority</span>
+        <span class="pill">HL7 FHIR R4 + Bupa/AIA/Bowtie</span>
+        <span class="pill">LoopBench Continuous Eval</span>
+      </div>
+    </header>
+
+    <section class="arch-grid">
+      <!-- LEFT: RAW INPUTS -->
+      <div class="col">
+        <div class="col-label">1. Raw Clinical &amp; Patient Inputs</div>
+        <div class="box">
+          <h3>Cantonese / EN Consultations</h3>
+          <p>Code-switched GP notes, transcripts &amp; symptom intake (e.g., <em>"上腹痛六個星期 + father had stomach cancer"</em>).</p>
+        </div>
+        <div class="box">
+          <h3>EC Clinic EMR &amp; Dispensing</h3>
+          <p>Active repeats, allergies (Penicillin/NSAID/Sulfa), G6PD status, eGFR/weight, prior consults &amp; health check-up results.</p>
+        </div>
+        <div class="box">
+          <h3>HA Discharge PDFs &amp; Labs</h3>
+          <p>Queen Elizabeth / QMH discharge summaries, supratherapeutic INR, PathLab PDFs, eHealth (eHRSS) records.</p>
+        </div>
+        <div class="box">
+          <h3>WhatsApp &amp; Home Monitors</h3>
+          <p>Non-clinical WhatsApp doorbell (0 PHI in chat), authenticated portal messages, 7-day home BP logs &amp; RAT photos.</p>
+        </div>
+      </div>
+
+      <!-- CENTER: CLINICAL HARNESS -->
+      <div class="harness-shell">
+        <div class="harness-banner">
+          <strong>2. tmrw CLINICAL HARNESS (Model-Agnostic Control Plane)</strong>
+          <span>Zero autonomous sign-off · 100% verbatim quote anchored</span>
+        </div>
+
+        <div class="layer">
+          <div class="layer-head">
+            <strong>A. Cantonese / Code-Switch Normalization &amp; Evidence Anchoring</strong>
+            <span class="layer-tag">verify_quote_span · 0 hallucinated quotes</span>
+          </div>
+          <p style="font-size: 9.8px; color: #4B4944;">
+            Normalizes HK Cantonese idioms &amp; clause-scoped negation (<em>"咳到想死"</em> vs true crisis; <em>"冇胸痛但氣促"</em>), strips prompt injection, checks multi-page HKID/DOB collisions, and binds every claim to exact character spans in the source record.
+          </p>
+        </div>
+
+        <div class="layer-grid">
+          <div class="layer red">
+            <div class="layer-head">
+              <strong>B. Deterministic Safety Floor</strong>
+              <span class="layer-tag">&lt;2 ms · 0 LLM</span>
+            </div>
+            <ul style="font-size: 9.5px; color: #4B4944; padding-left: 13px;">
+              <li><strong>Union-Only 999 Triage:</strong> LLM may raise urgency, never suppress a rule flag.</li>
+              <li><strong>HK Cap. 134 Hard-Block:</strong> Opioids, benzos, z-drugs blocked pre-sign.</li>
+              <li><strong>Closed-Loop Rx Guardrails:</strong> DDI (CYP2C19 Omeprazole+Clopidogrel, Warfarin/DOAC+NSAID), Allergy cross-reactivity, HK G6PD, eGFR &amp; mg/kg dose ceilings.</li>
+            </ul>
+          </div>
+
+          <div class="layer jade">
+            <div class="layer-head">
+              <strong>C. EC Ecosystem Cross-Referral Engine</strong>
+              <span class="layer-tag">Deterministic Triggers</span>
+            </div>
+            <ul style="font-size: 9.5px; color: #4B4944; padding-left: 13px;">
+              <li><strong>GI / Endoscopy:</strong> Persistent epigastric pain + gastric Ca FHx / alarm → EC GI &amp; OGD Centre (2-wk urgent).</li>
+              <li><strong>Cardiology / Imaging:</strong> Refractory BP drift, AF/INR conflict, check-up nodules → EC Cardiac / Imaging Suite.</li>
+              <li><strong>Periprocedural Flags:</strong> Auto-surfaces Clopidogrel / Warfarin hold warnings for endoscopist.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="llm-strip">
+          <div>
+            <strong>D. Pluggable Hong Kong-Resident LLM Gateway</strong>
+            <span>Vertex AI <code>asia-east2</code> (Gemini) / Private VPC / Claude · Git-pinned YAML protocols · PII redaction · Per-tenant AI kill switch (999 floor stays live).</span>
+          </div>
+          <span class="pill">Model-Agnostic</span>
+        </div>
+
+        <div class="layer amber">
+          <div class="layer-head">
+            <strong>E. Asymmetric MCHK Authority Gate &amp; LoopBench Continuous Verification</strong>
+            <span class="layer-tag">PG15 Forced RLS · AES-256-GCM Vault · Immutable Audit</span>
+          </div>
+          <p style="font-size: 9.8px; color: #4B4944;">
+            Agents can only <strong>open, draft, or raise urgency</strong>—never close, reassure, prescribe, or dispatch. Every prescription, MCHK sick-leave PDF, and internal EC referral requires a verified HK MCHK Reg No (<code>M14829</code>), ≥10-char rationale on overrides, and a 10s server-held Undo window. Every rule/prompt change is regression-gated in <strong>LoopBench</strong> (0 hard fails, 0 made-up quotes).
+          </p>
+        </div>
+      </div>
+
+      <!-- RIGHT: STRUCTURED OUTPUTS -->
+      <div class="col">
+        <div class="col-label">3. Structured Clinic &amp; Network Outputs</div>
+        <div class="out-box">
+          <h3>EC Internal Specialist Referrals</h3>
+          <p>Pre-drafted clinical summary + FHIR <code>ServiceRequest</code> routed to EC GI/Endoscopy, Cardiology &amp; Imaging Centres with verbatim quotes.</p>
+        </div>
+        <div class="out-box">
+          <h3>HL7 FHIR R4 / EMR Write-Back</h3>
+          <p>Structured <code>Bundle</code>: ICD-10 + ICPC-2 + SNOMED CT + LOINC + RxNorm/ATC + signed <code>MedicationRequest</code> (no wall-of-text re-typing).</p>
+        </div>
+        <div class="out-box">
+          <h3>HK Insurer Claims &amp; Pre-Auth</h3>
+          <p>Panel-ready JSON &amp; summaries for <strong>Bupa HK</strong>, <strong>AIA HK</strong> &amp; <strong>Bowtie VHIS</strong> (day-case OGD cashless pre-auth + itemized HKD).</p>
+        </div>
+        <div class="out-box">
+          <h3>MCHK Sick-Leave PDF &amp; Follow-Up</h3>
+          <p>Encrypted bilingual MCHK PDF (SHA-256 verified), pharmacy e-script, and automated 48h/longitudinal follow-up queue.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer-grid">
+      <div class="invariants">
+        <div class="inv">
+          <strong>Zero Cross-Border PHI</strong>
+          <span>100% HK <code>asia-east2</code> Cloud Run + Cloud SQL PG15 Forced RLS + GCS KMS Vault.</span>
+        </div>
+        <div class="inv">
+          <strong>Doctor-in-the-Loop</strong>
+          <span>Asymmetric port: AI drafts only; MCHK clinician signs Rx, certs &amp; EC referrals.</span>
+        </div>
+        <div class="inv">
+          <strong>Medicolegal Traceability</strong>
+          <span>100% verbatim quotes + append-only PostgreSQL audit ledger &amp; k&lt;5 privacy floor.</span>
+        </div>
+        <div class="inv">
+          <strong>Swap Any Model</strong>
+          <span>Harness decouples EC's safety rules &amp; workflows from underlying LLM vendors.</span>
+        </div>
+      </div>
+      <div class="pilot-box">
+        <strong>Proposed Next Step: Zero-Risk Design-Partner Pilot (Not a Software Contract)</strong>
+        <p>Shadow 2–3 EC Healthcare GPs for 2 weeks (synthetic or inside-VPC shadow mode; zero patient risk). Measure 3 KPIs: (1) EC internal referral capture, (2) pre-sign Rx guardrail catches, (3) admin clicks/minutes saved per consult.</p>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>

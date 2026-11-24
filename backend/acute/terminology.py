@@ -90,6 +90,9 @@ SNOMED_SYMPTOMS: dict[str, tuple[str, str]] = {
     "271594007": ("Syncope", "暈厥"),
     "161882006": ("Stiff neck", "頸部僵硬"),
     "6471006": ("Suicidal thoughts", "自殺念頭"),
+    "79922009": ("Epigastric pain", "上腹痛／胃痛"),
+    "89362005": ("Unintentional weight loss", "體重異常下降"),
+    "162057007": ("Family history of malignant neoplasm of digestive organ", "消化道惡性腫瘤家族史"),
 }
 
 # --- Dual ICD-10 + ICPC-2 Hong Kong Primary Care Diagnoses ---
@@ -128,6 +131,11 @@ HK_DIAGNOSES: dict[str, dict[str, str]] = {
         "icd10": "A09", "icd10_display": "Infectious gastroenteritis and colitis, unspecified",
         "icpc2": "D73", "icpc2_display": "Gastroenteritis presumed infection",
         "display_zh": "急性腸胃炎",
+    },
+    "K30": {
+        "icd10": "K30", "icd10_display": "Functional dyspepsia / persistent epigastric pain (OGD evaluation)",
+        "icpc2": "D07", "icpc2_display": "Dyspepsia / indigestion",
+        "display_zh": "持續性上腹痛／消化不良（須胃鏡評估）",
     },
 }
 
