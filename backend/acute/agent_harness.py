@@ -431,7 +431,7 @@ def detect_live_llm_engine() -> dict[str, Any]:
     }
 
 
-_FAILED_TARGET_TTL_SECONDS = 600.0
+_FAILED_TARGET_TTL_SECONDS = 3600.0
 _FAILED_LLM_TARGETS: dict[tuple[str, str, str], tuple[float, str]] = {}
 _SHARED_LLM_CLIENT: httpx.Client | None = None
 _WARMUP_STATE: dict[str, Any] = {
@@ -467,15 +467,15 @@ def reset_llm_target_cache() -> None:
 
 
 def resolve_fast_chat_model(engine: dict[str, Any]) -> str:
-    """Resolve ultra-low-latency interactive chat model (`gemini-3.5-flash-lite` w/ MINIMAL thinking by default)."""
+    """Resolve interactive chat model (defaults to Gemini 4 Hydrogen; overrideable via `AGENT_CHAT_MODEL`)."""
     explicit_chat = (os.environ.get("AGENT_CHAT_MODEL") or "").strip()
     if explicit_chat:
-        return normalize_gemini_model(explicit_chat, default=DEFAULT_GEMINI_CHAT_MODEL)
+        return normalize_gemini_model(explicit_chat, default=DEFAULT_GEMINI_FAST_MODEL)
     provider = str(engine.get("provider") or "")
     model = str(engine.get("model") or "")
-    if provider in ("vertex", "gemini") and model in ("", DEFAULT_GEMINI_REASONING_MODEL, DEFAULT_GEMINI_FAST_MODEL):
-        return DEFAULT_GEMINI_CHAT_MODEL
-    return model or DEFAULT_GEMINI_CHAT_MODEL
+    if provider in ("vertex", "gemini") and model in ("", DEFAULT_GEMINI_REASONING_MODEL):
+        return DEFAULT_GEMINI_FAST_MODEL
+    return model or DEFAULT_GEMINI_FAST_MODEL
 
 
 def get_llm_warmup_state() -> dict[str, Any]:
@@ -526,6 +526,7 @@ class ModelCallResult:
     redacted_categories: list[str] = field(default_factory=list)
     prompt_tokens: int | None = None
     output_tokens: int | None = None
+    thought_tokens: int | None = None
     fallback_used: bool = False
     attempts_tried: int = 0
     error: str | None = None
@@ -541,6 +542,7 @@ class ModelCallResult:
             "redacted_categories": list(self.redacted_categories),
             "prompt_tokens": self.prompt_tokens,
             "output_tokens": self.output_tokens,
+            "thought_tokens": self.thought_tokens,
             "fallback_used": self.fallback_used,
             "attempts_tried": self.attempts_tried,
             "error": self.error,
@@ -626,17 +628,11 @@ def _invoke_live_provider(
             _add_attempt("vertex", region, DEFAULT_GEMINI_FAST_MODEL, engine.get("project"))
             if region.strip().lower() != "global":
                 _add_attempt("vertex", "global", DEFAULT_GEMINI_FAST_MODEL, engine.get("project"))
-        elif model != DEFAULT_GEMINI_CHAT_MODEL:
-            _add_attempt("vertex", region, DEFAULT_GEMINI_CHAT_MODEL, engine.get("project"))
-            if region.strip().lower() != "global":
-                _add_attempt("vertex", "global", DEFAULT_GEMINI_CHAT_MODEL, engine.get("project"))
     elif provider == "gemini":
         if model == DEFAULT_GEMINI_REASONING_MODEL:
             _add_attempt("gemini", region, DEFAULT_GEMINI_FAST_MODEL, None)
         elif model == DEFAULT_GEMINI_CHAT_MODEL:
             _add_attempt("gemini", region, DEFAULT_GEMINI_FAST_MODEL, None)
-        else:
-            _add_attempt("gemini", region, DEFAULT_GEMINI_CHAT_MODEL, None)
 
     forced_provider = (os.environ.get("AGENT_LLM_PROVIDER") or "").strip().lower()
     if not forced_provider:
@@ -651,6 +647,14 @@ def _invoke_live_provider(
             _add_attempt(alt_prov, alt_reg, alt_mdl, alt.get("project"))
             if alt_prov == "gemini" and alt_mdl != DEFAULT_GEMINI_FAST_MODEL:
                 _add_attempt("gemini", alt_reg, DEFAULT_GEMINI_FAST_MODEL, None)
+
+    # Last-resort GA fallback if primary Gemini 4 endpoints are unavailable
+    if provider == "vertex" and model != DEFAULT_GEMINI_CHAT_MODEL:
+        _add_attempt("vertex", region, DEFAULT_GEMINI_CHAT_MODEL, engine.get("project"))
+        if region.strip().lower() != "global":
+            _add_attempt("vertex", "global", DEFAULT_GEMINI_CHAT_MODEL, engine.get("project"))
+    elif provider == "gemini" and model != DEFAULT_GEMINI_CHAT_MODEL:
+        _add_attempt("gemini", region, DEFAULT_GEMINI_CHAT_MODEL, None)
 
     # Skip targets recently proven broken (400/403/404) so subsequent turns hit the working model on Attempt 1
     healthy_attempts = [a for a in attempts if not _is_target_cached_failed((a[0], a[1], a[2]))]
@@ -692,6 +696,7 @@ def _invoke_live_provider(
 
             prompt_tok: int | None = None
             out_tok: int | None = None
+            thought_tok: int | None = None
             txt = ""
 
             try:
@@ -745,6 +750,7 @@ def _invoke_live_provider(
                     usage = data.get("usageMetadata") or {}
                     prompt_tok = usage.get("promptTokenCount")
                     out_tok = usage.get("candidatesTokenCount")
+                    thought_tok = usage.get("thoughtsTokenCount")
 
                 elif att_prov == "anthropic":
                     resp = client.post(
@@ -836,6 +842,7 @@ def _invoke_live_provider(
                     redacted_categories=redacted_cats,
                     prompt_tokens=prompt_tok,
                     output_tokens=out_tok,
+                    thought_tokens=thought_tok,
                     fallback_used=(att_prov != provider or att_reg != region or idx > 0),
                     attempts_tried=attempts_tried,
                 )
@@ -854,6 +861,7 @@ def _invoke_live_provider(
                 redacted_categories=redacted_cats,
                 prompt_tokens=prompt_tok,
                 output_tokens=out_tok,
+                thought_tokens=thought_tok,
                 fallback_used=(att_prov != provider or att_reg != region or idx > 0),
                 attempts_tried=attempts_tried,
             )
@@ -923,7 +931,7 @@ def warmup_live_llm(*, force: bool = False) -> dict[str, Any]:
             max_output_tokens=64,
             engine_override=warm_engine,
             timeout_seconds=12.0,
-            thinking_level="MINIMAL",
+            thinking_level="LOW",
         )
         _WARMUP_STATE.update({
             "warmed": bool(res.ok),

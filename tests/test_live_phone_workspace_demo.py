@@ -839,16 +839,17 @@ def test_ai_generated_suggested_replies_replace_stale_static_chips_and_survive_p
     reset_llm_target_cache()
 
 
-def test_fast_chat_routing_minimal_thinking_and_safe_fallback_cascade(tmp_path, monkeypatch):
-    """Verify low-latency backend optimizations:
-    - Interactive patient chat routes to `gemini-3.5-flash-lite` with `thinkingLevel: MINIMAL` and tight `maxOutputTokens`.
-    - Gemini 4 fallback safely clamps `MINIMAL` -> `LOW` (never HTTP 400) while preserving `>= 8192` floor.
-    - Legacy Gemini 2.5 Flash sets `thinkingBudget: 0` when `MINIMAL`/`LOW` is requested.
-    - Vertex URL uses GA `v1` for `gemini-3.5-flash-lite` and `v1beta1` for `gemini-4-*`.
-    - Live chat turn cascades seamlessly from `gemini-3.5-flash-lite` (404) -> `gemini-4-hydrogen` (`LOW`) and caches failed hop.
+def test_gemini4_hydrogen_default_chat_telemetry_and_zero_hop_cache(tmp_path, monkeypatch):
+    """Verify backend infra & model-quality invariants:
+    - Interactive patient chat stays on Gemini 4 Hydrogen (`thinkingLevel: LOW`) by default (zero quality degradation).
+    - `llm_meta` exposes `thought_tokens`, `output_tokens`, `prompt_tokens`, `total_turn_ms`, `infra_overhead_ms`, and `attempts_tried`.
+    - `build_gemini_generation_config` safely clamps `MINIMAL` -> `LOW` on Gemini 4, honors `MINIMAL` on `gemini-3.5-flash-lite`,
+      and sets `thinkingBudget: 0` on legacy Gemini 2.5.
+    - When `asia-east2` returns 404 for `gemini-4-hydrogen`, Turn 1 cascades to `vertex/global/gemini-4-hydrogen` (still Gemini 4)
+      and Turn 2 skips the failed hop cleanly (`attempts_tried == 1`).
     """
     import httpx
-    from backend.acute.agent_harness import reset_llm_target_cache
+    from backend.acute.agent_harness import MultiAgentHarness, reset_llm_target_cache
     from backend.agentic.transports import (
         DEFAULT_GEMINI_CHAT_MODEL,
         build_gemini_generation_config,
@@ -884,15 +885,18 @@ def test_fast_chat_routing_minimal_thinking_and_safe_fallback_cascade(tmp_path, 
     url_g4 = build_vertex_generate_content_url(region="global", project="hk-proj", model="gemini-4-hydrogen")
     assert url_g4.startswith("https://aiplatform.googleapis.com/v1beta1/projects/hk-proj/locations/global/")
 
-    # 3. End-to-end chat turn routes to gemini-3.5-flash-lite (MINIMAL), cascades safely on 404, and caches skip
+    # 3. End-to-end chat turn stays on gemini-4-hydrogen (LOW), cascades asia-east2 -> global, caches dead hop, reports thought_tokens + infra_overhead_ms
     reset_llm_target_cache()
     client = _make_client(tmp_path)
     assert client.post("/api/v1/demo/live/reset").status_code == 200
     assert client.post("/api/v1/demo/live/chat/start", json={"journey_key": "wingyan", "lang": "en"}).status_code == 200
 
-    monkeypatch.setenv("AGENT_LLM_PROVIDER", "gemini")
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gem-key")
+    monkeypatch.setenv("AGENT_LLM_PROVIDER", "vertex")
+    monkeypatch.setenv("VERTEX_PROJECT_ID", "tmrw-hk-prod")
+    monkeypatch.setenv("VERTEX_LOCATION", "asia-east2")
+    monkeypatch.delenv("AGENT_LLM_MODEL", raising=False)
     monkeypatch.delenv("AGENT_CHAT_MODEL", raising=False)
+    monkeypatch.setattr(MultiAgentHarness, "_vertex_adc_token", staticmethod(lambda _proj=None: ("tok-adc", "tmrw-hk-prod")))
 
     seen_calls: list[dict] = []
     real_post = httpx.Client.post
@@ -902,9 +906,8 @@ def test_fast_chat_routing_minimal_thinking_and_safe_fallback_cascade(tmp_path, 
             return real_post(self, url, *args, headers=headers, params=params, json=json, **kwargs)
         seen_calls.append({"url": str(url), "json": json})
         req = httpx.Request("POST", str(url))
-        # Simulate flash-lite returning 404 -> must cascade cleanly to gemini-4-hydrogen with LOW (not MINIMAL!)
-        if "gemini-3.5-flash-lite" in str(url):
-            return httpx.Response(404, request=req, json={"error": {"message": "not enabled"}})
+        if "asia-east2-aiplatform.googleapis.com" in str(url):
+            return httpx.Response(404, request=req, json={"error": {"message": "not in asia-east2"}})
         payload_text = (
             '{"patient_reply": "Thanks — I have noted your sore throat and fever for Dr. Sarah Wong.", '
             '"clinical_reasoning": "Acute URTI intake; staging for doctor.", '
@@ -914,7 +917,10 @@ def test_fast_chat_routing_minimal_thinking_and_safe_fallback_cascade(tmp_path, 
         return httpx.Response(
             200,
             request=req,
-            json={"candidates": [{"content": {"parts": [{"text": payload_text}]}}]},
+            json={
+                "candidates": [{"content": {"parts": [{"text": payload_text}]}}],
+                "usageMetadata": {"promptTokenCount": 410, "candidatesTokenCount": 78, "thoughtsTokenCount": 245},
+            },
         )
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
@@ -924,20 +930,25 @@ def test_fast_chat_routing_minimal_thinking_and_safe_fallback_cascade(tmp_path, 
     ).json()
     assert t1["llm_meta"]["live_reply_used"] is True
     assert t1["llm_meta"]["model"] == "gemini-4-hydrogen"
+    assert t1["llm_meta"]["region"] == "global"
     assert t1["llm_meta"]["attempts_tried"] == 2
+    assert t1["llm_meta"]["thought_tokens"] == 245
+    assert t1["llm_meta"]["output_tokens"] == 78
+    assert t1["llm_meta"]["prompt_tokens"] == 410
+    assert t1["llm_meta"]["total_turn_ms"] >= t1["llm_meta"]["latency_ms"]
+    assert isinstance(t1["llm_meta"]["infra_overhead_ms"], int)
     assert len(seen_calls) == 2
-    assert "gemini-3.5-flash-lite" in seen_calls[0]["url"]
-    assert seen_calls[0]["json"]["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "MINIMAL"}
-    assert seen_calls[0]["json"]["generationConfig"]["maxOutputTokens"] == 420
+    assert "gemini-4-hydrogen" in seen_calls[0]["url"]
     assert "gemini-4-hydrogen" in seen_calls[1]["url"]
     assert seen_calls[1]["json"]["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "LOW"}
 
-    # Next turn skips failed flash-lite hop and succeeds on Attempt 1
+    # Next turn skips failed asia-east2 hop -> Attempt 1 directly on gemini-4-hydrogen!
     t2 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "wingyan", "message": "My home RAT is negative.", "lang": "en"},
     ).json()
     assert t2["llm_meta"]["live_reply_used"] is True
+    assert t2["llm_meta"]["model"] == "gemini-4-hydrogen"
     assert t2["llm_meta"]["attempts_tried"] == 1
     assert len(seen_calls) == 3
     reset_llm_target_cache()

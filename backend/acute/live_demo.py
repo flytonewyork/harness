@@ -21,6 +21,7 @@ import copy
 import logging
 import re
 import threading
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -2265,6 +2266,7 @@ def handle_live_chat_turn(
     lang: str = "en",
 ) -> dict[str, Any]:
     """Process a natural-language patient chat turn, run real pre-gates + agents, and update `/workspace` live."""
+    t_turn_start = time.perf_counter()
     text = (message_text or "").strip()
     if not text:
         raise ValueError("Message text cannot be empty")
@@ -2501,7 +2503,7 @@ def handle_live_chat_turn(
         session.flush()
 
     # 4. Live Autonomous AI Registrar (outside DB transaction so Postgres locks are never held during LLM HTTP wait).
-    # Routes to ultra-low-latency `gemini-3.5-flash-lite` (`thinkingLevel: MINIMAL`) with compact JSON budget for sub-second replies.
+    # Keeps Gemini 4 Hydrogen (`thinkingLevel: LOW`) by default for full clinical quality, with compact prompt & zero-hop infra.
     reply = fallback_reply
     live_reply_used = False
     llm_provider_used = str(engine.get("provider") or "deterministic")
@@ -2509,6 +2511,10 @@ def handle_live_chat_turn(
     llm_region_used = str(engine.get("region") or "local")
     llm_latency_ms = 0
     llm_attempts = 0
+    llm_fallback_used = False
+    llm_prompt_tokens: int | None = None
+    llm_output_tokens: int | None = None
+    llm_thought_tokens: int | None = None
     llm_error: str | None = None
     dynamic_suggested_replies: list[str] = []
 
@@ -2584,17 +2590,21 @@ def handle_live_chat_turn(
             system_prompt=sys_prompt,
             user_prompt=user_prompt,
             temperature=0.25,
-            max_output_tokens=420,
+            max_output_tokens=760,
             patient_names_for_scrub=[j["patient_name"]],
             engine_override=chat_engine,
-            timeout_seconds=12.0,
-            thinking_level="MINIMAL",
+            timeout_seconds=20.0,
+            thinking_level="LOW",
         )
         llm_provider_used = llm_call.provider
         llm_model_used = llm_call.model
         llm_region_used = llm_call.region
         llm_latency_ms = llm_call.latency_ms
         llm_attempts = llm_call.attempts_tried
+        llm_fallback_used = llm_call.fallback_used
+        llm_prompt_tokens = llm_call.prompt_tokens
+        llm_output_tokens = llm_call.output_tokens
+        llm_thought_tokens = llm_call.thought_tokens
         if llm_call.ok and isinstance(llm_call.json_payload, dict) and llm_call.json_payload.get("patient_reply"):
             obj = llm_call.json_payload
             parsed_reply = str(obj["patient_reply"]).strip()
@@ -2847,6 +2857,9 @@ def handle_live_chat_turn(
     )
     live_bus.update_patient_state(pid, active_agent=None, workflow_stage="intake_submitted")
 
+    total_turn_ms = max(1, int((time.perf_counter() - t_turn_start) * 1000))
+    infra_overhead_ms = max(0, total_turn_ms - llm_latency_ms)
+
     return {
         "ok": True,
         "session_epoch": live_demo_coordinator.epoch,
@@ -2865,7 +2878,13 @@ def handle_live_chat_turn(
             "model": llm_model_used,
             "region": llm_region_used,
             "latency_ms": llm_latency_ms,
+            "total_turn_ms": total_turn_ms,
+            "infra_overhead_ms": infra_overhead_ms,
             "attempts_tried": llm_attempts,
+            "fallback_used": llm_fallback_used,
+            "prompt_tokens": llm_prompt_tokens,
+            "output_tokens": llm_output_tokens,
+            "thought_tokens": llm_thought_tokens,
             "error": llm_error,
         },
         "suggested_replies": _suggested_replies_for(
