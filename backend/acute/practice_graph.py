@@ -2314,8 +2314,9 @@ def compile_context_window(
         "model_routing": {
             "provider": "Vertex AI (GCP ADC)",
             "region": "asia-east2 (Hong Kong)",
-            "model": "gemini-2.5-flash",
-            "temperature": 0.1,
+            "model": "gemini-4-neon",
+            "fallback_model": "gemini-4-hydrogen",
+            "thinking_level": "HIGH",
             "deterministic_pre_gates": ["classify_crisis", "rx_rules.check_prescription_safety", "verify_3pt_id_match"],
         },
         "total_tokens_est": sum(s["tokens_est"] for s in slots),

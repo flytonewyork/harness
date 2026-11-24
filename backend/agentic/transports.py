@@ -68,8 +68,82 @@ def acquire_vertex_adc_token(project_override: str | None = None) -> tuple[str, 
     raise RuntimeError("Vertex AI ADC credentials unavailable in this environment.")
 
 
+DEFAULT_GEMINI_REASONING_MODEL = "gemini-4-neon"
+DEFAULT_GEMINI_FAST_MODEL = "gemini-4-hydrogen"
+_VALID_GEMINI4_THINKING_LEVELS = ("LOW", "MEDIUM", "HIGH", "XHIGH")
+_GEMINI_MODEL_ALIASES: dict[str, str] = {
+    "neon": DEFAULT_GEMINI_REASONING_MODEL,
+    "gemini-neon": DEFAULT_GEMINI_REASONING_MODEL,
+    "gemini-4-neon": DEFAULT_GEMINI_REASONING_MODEL,
+    "hydrogen": DEFAULT_GEMINI_FAST_MODEL,
+    "gemini-hydrogen": DEFAULT_GEMINI_FAST_MODEL,
+    "gemini-4-hydrogen": DEFAULT_GEMINI_FAST_MODEL,
+}
+
+
+def normalize_gemini_model(raw: str | None, *, default: str = DEFAULT_GEMINI_REASONING_MODEL) -> str:
+    """Resolve short aliases (`neon` -> `gemini-4-neon`, `hydrogen` -> `gemini-4-hydrogen`) or default."""
+    val = (raw or "").strip()
+    if not val:
+        return default
+    return _GEMINI_MODEL_ALIASES.get(val.lower(), val)
+
+
+def is_gemini_4_model(model: str) -> bool:
+    low = (model or "").strip().lower()
+    return low.startswith("gemini-4-") or low.startswith("gemini-3.")
+
+
+def build_gemini_generation_config(
+    model: str,
+    *,
+    temperature: float = 0.1,
+    max_output_tokens: int = 1100,
+    expect_json: bool = False,
+    thinking_level: str | None = None,
+) -> dict[str, Any]:
+    """Build spec-compliant `generationConfig` for Gemini 4 Neon/Hydrogen vs legacy Gemini models.
+
+    Per Google's Gemini 4 Neon & Hydrogen Developer Guides:
+    - Control reasoning depth via `thinkingConfig.thinkingLevel` (`LOW` | `MEDIUM` | `HIGH` | `XHIGH`).
+    - Do NOT send `temperature`, `topP`, `topK`, or `thinkingBudget` on Gemini 4 (ignored or HTTP 400).
+    - `maxOutputTokens` covers BOTH internal thinking tokens and visible output, so enforce a safe
+      floor (`>= 8192`) on Gemini 4 to prevent truncated/empty responses during clinical reasoning.
+    """
+    if is_gemini_4_model(model):
+        raw_level = (
+            thinking_level
+            or os.environ.get("GEMINI_THINKING_LEVEL")
+            or ("HIGH" if "neon" in model.lower() else "MEDIUM")
+        ).strip().upper()
+        if raw_level not in _VALID_GEMINI4_THINKING_LEVELS:
+            raw_level = "HIGH" if "neon" in model.lower() else "MEDIUM"
+        cfg: dict[str, Any] = {
+            "maxOutputTokens": max(int(max_output_tokens or 1100), 8192),
+            "thinkingConfig": {"thinkingLevel": raw_level},
+        }
+    else:
+        cfg = {
+            "temperature": temperature,
+            "maxOutputTokens": max_output_tokens,
+        }
+    if expect_json:
+        cfg["responseMimeType"] = "application/json"
+    return cfg
+
+
+def extract_gemini_visible_text(parts: list[dict[str, Any]]) -> str:
+    """Extract visible response text from Gemini `parts`, skipping internal `thought: true` summaries."""
+    visible = [
+        str(p.get("text", ""))
+        for p in (parts or [])
+        if isinstance(p, dict) and "text" in p and not p.get("thought")
+    ]
+    return " ".join(x for x in visible if x).strip()
+
+
 def detect_provider_chain() -> list[dict[str, Any]]:
-    """Return ordered live provider chain prioritizing HK-resident Vertex AI asia-east2 first."""
+    """Return ordered live provider chain prioritizing HK-resident Vertex AI (`gemini-4-neon` / `gemini-4-hydrogen`)."""
     forced = (os.environ.get("AGENT_LLM_PROVIDER") or "").strip().lower()
     if forced in ("deterministic", "off"):
         return []
@@ -78,13 +152,14 @@ def detect_provider_chain() -> list[dict[str, Any]]:
     gcp_proj = os.environ.get("VERTEX_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
     if forced in ("", "vertex") and gcp_proj:
         region = os.environ.get("VERTEX_LOCATION") or os.environ.get("VERTEX_REGION") or os.environ.get("HARNESS_REGION") or "asia-east2"
-        model = os.environ.get("AGENT_LLM_MODEL") or os.environ.get("VERTEX_MODEL") or "gemini-2.5-flash"
-        chain.append({"provider": "vertex", "model": model, "region": region, "project": gcp_proj})
+        model = normalize_gemini_model(os.environ.get("AGENT_LLM_MODEL") or os.environ.get("VERTEX_MODEL"))
+        chain.append({"provider": "vertex", "model": model, "fallback_model": DEFAULT_GEMINI_FAST_MODEL, "region": region, "project": gcp_proj})
 
     if forced in ("", "gemini") and os.environ.get("GEMINI_API_KEY"):
         chain.append({
             "provider": "gemini",
-            "model": os.environ.get("AGENT_LLM_MODEL") or "gemini-2.5-flash",
+            "model": normalize_gemini_model(os.environ.get("AGENT_LLM_MODEL")),
+            "fallback_model": DEFAULT_GEMINI_FAST_MODEL,
             "region": "global",
         })
     if forced in ("", "anthropic") and os.environ.get("ANTHROPIC_API_KEY"):
@@ -103,24 +178,26 @@ def detect_provider_chain() -> list[dict[str, Any]]:
 
 
 class LiveHTTPModelTransport:
-    """Unified httpx transport supporting Vertex AI asia-east2, Gemini API, Anthropic, and OpenAI."""
+    """Unified httpx transport supporting Vertex AI asia-east2 (Gemini 4 Neon/Hydrogen), Gemini API, Anthropic, and OpenAI."""
 
     def __init__(
         self,
         *,
         provider: str,
-        model: str,
+        model: str = DEFAULT_GEMINI_REASONING_MODEL,
         tool_registry: ToolRegistry,
         region: str = "asia-east2",
         project: str | None = None,
-        timeout_seconds: float = 20.0,
+        timeout_seconds: float = 25.0,
+        thinking_level: str | None = None,
     ) -> None:
         self.provider = provider.lower()
-        self.model = model
+        self.model = normalize_gemini_model(model) if self.provider in ("vertex", "gemini") else model
         self.tool_registry = tool_registry
         self.region = region
         self.project = project
         self.timeout_seconds = timeout_seconds
+        self.thinking_level = thinking_level
 
     def invoke(
         self,
@@ -176,51 +253,70 @@ class LiveHTTPModelTransport:
         max_output_tokens: int,
         expect_json: bool,
     ) -> ModelTurnResponse:
-        if self.provider == "vertex":
-            token, project = acquire_vertex_adc_token(self.project)
-            url = (
-                f"https://{self.region}-aiplatform.googleapis.com/v1/projects/{project}"
-                f"/locations/{self.region}/publishers/google/models/{self.model}:generateContent"
-            )
-            headers = {
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-                "X-Vertex-Zero-Data-Retention": "true",
-                "X-No-Training": "true",
-            }
-            params: dict[str, str] = {}
-        else:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
-            headers = {"Content-Type": "application/json"}
-            params = {"key": os.environ["GEMINI_API_KEY"]}
+        candidate_models = [self.model]
+        if self.model == DEFAULT_GEMINI_REASONING_MODEL:
+            candidate_models.append(DEFAULT_GEMINI_FAST_MODEL)
 
         contents = [
             {"role": "model" if m.get("role") == "assistant" else "user", "parts": [{"text": str(m.get("content") or "")}]}
             for m in messages
         ]
-        gen_cfg: dict[str, Any] = {"temperature": temperature, "maxOutputTokens": max_output_tokens}
-        if expect_json:
-            gen_cfg["responseMimeType"] = "application/json"
 
-        body: dict[str, Any] = {
-            "systemInstruction": {"parts": [{"text": system_message}]},
-            "contents": contents,
-            "generationConfig": gen_cfg,
-        }
-        if self.provider == "vertex":
-            body["labels"] = {"zero_retention": "true", "no_training": "true", "pdpo_dpp3": "enforced"}
-        if allowed_tools:
-            gem_tools = self.tool_registry.to_vertex_gemini_tools(allowed_tools)
-            if gem_tools:
-                body["tools"] = gem_tools
+        last_resp: httpx.Response | None = None
+        used_model = self.model
+        for mdl in candidate_models:
+            used_model = mdl
+            if self.provider == "vertex":
+                token, project = acquire_vertex_adc_token(self.project)
+                api_ver = "v1beta1" if is_gemini_4_model(mdl) else "v1"
+                url = (
+                    f"https://{self.region}-aiplatform.googleapis.com/{api_ver}/projects/{project}"
+                    f"/locations/{self.region}/publishers/google/models/{mdl}:generateContent"
+                )
+                headers = {
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    "X-Vertex-Zero-Data-Retention": "true",
+                    "X-No-Training": "true",
+                }
+                params: dict[str, str] = {}
+            else:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent"
+                headers = {"Content-Type": "application/json"}
+                params = {"key": os.environ["GEMINI_API_KEY"]}
 
-        resp = client.post(url, headers=headers, params=params, json=body)
-        resp.raise_for_status()
-        data = resp.json()
+            gen_cfg = build_gemini_generation_config(
+                mdl,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+                expect_json=expect_json,
+                thinking_level=self.thinking_level,
+            )
+            body: dict[str, Any] = {
+                "systemInstruction": {"parts": [{"text": system_message}]},
+                "contents": contents,
+                "generationConfig": gen_cfg,
+            }
+            if self.provider == "vertex":
+                body["labels"] = {"zero_retention": "true", "no_training": "true", "pdpo_dpp3": "enforced"}
+            if allowed_tools:
+                gem_tools = self.tool_registry.to_vertex_gemini_tools(allowed_tools)
+                if gem_tools:
+                    body["tools"] = gem_tools
+
+            resp = client.post(url, headers=headers, params=params, json=body)
+            last_resp = resp
+            if resp.status_code in (403, 404) and mdl != candidate_models[-1]:
+                continue
+            resp.raise_for_status()
+            break
+
+        assert last_resp is not None
+        data = last_resp.json()
         tool_calls = self.tool_registry.parse_provider_tool_calls(self.provider, data)
         cand = (data.get("candidates") or [{}])[0]
         parts = ((cand.get("content") or {}).get("parts") or [])
-        txt = " ".join(str(p.get("text", "")) for p in parts if "text" in p).strip()
+        txt = extract_gemini_visible_text(parts)
         usage = data.get("usageMetadata") or {}
         parsed_json = None
         if expect_json and txt:
@@ -233,7 +329,7 @@ class LiveHTTPModelTransport:
             json_payload=parsed_json if isinstance(parsed_json, dict) else None,
             tool_calls=tool_calls,
             provider=self.provider,
-            model=self.model,
+            model=used_model,
             region=self.region,
             prompt_tokens_actual=usage.get("promptTokenCount"),
             output_tokens_actual=usage.get("candidatesTokenCount"),

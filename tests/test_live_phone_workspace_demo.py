@@ -175,3 +175,52 @@ def test_blank_start_qr_scan_natural_chat_doctor_sign_undo_and_reset(tmp_path):
     # 10. Default seeded workspace mode remains 100% backward-compatible for existing tests & Founder Eval
     ov_seeded = client.get("/api/v1/workspace/overview").json()
     assert len(ov_seeded["cases"]) == 4
+
+
+def test_gemini_4_neon_and_hydrogen_clinical_reasoning_defaults(monkeypatch):
+    from backend.acute.agent_harness import detect_live_llm_engine
+    from backend.agentic.transports import (
+        DEFAULT_GEMINI_FAST_MODEL,
+        DEFAULT_GEMINI_REASONING_MODEL,
+        build_gemini_generation_config,
+        extract_gemini_visible_text,
+        normalize_gemini_model,
+    )
+
+    assert DEFAULT_GEMINI_REASONING_MODEL == "gemini-4-neon"
+    assert DEFAULT_GEMINI_FAST_MODEL == "gemini-4-hydrogen"
+    assert normalize_gemini_model("neon") == "gemini-4-neon"
+    assert normalize_gemini_model("hydrogen") == "gemini-4-hydrogen"
+    assert normalize_gemini_model(None) == "gemini-4-neon"
+
+    # Gemini API key defaults cleanly to Gemini 4 Neon with Hydrogen fallback
+    monkeypatch.delenv("VERTEX_PROJECT_ID", raising=False)
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+    monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+    monkeypatch.delenv("AGENT_LLM_MODEL", raising=False)
+    monkeypatch.delenv("AGENT_LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    eng_neon = detect_live_llm_engine()
+    assert eng_neon["live"] is True
+    assert eng_neon["model"] == "gemini-4-neon"
+    assert eng_neon["fallback_model"] == "gemini-4-hydrogen"
+
+    # Short alias `hydrogen` resolves cleanly
+    monkeypatch.setenv("AGENT_LLM_MODEL", "hydrogen")
+    eng_h = detect_live_llm_engine()
+    assert eng_h["model"] == "gemini-4-hydrogen"
+
+    # Gemini 4 generationConfig uses thinkingConfig.thinkingLevel, omits temperature, enforces >=8192 cap
+    cfg = build_gemini_generation_config("gemini-4-neon", temperature=0.1, max_output_tokens=320, expect_json=True)
+    assert "temperature" not in cfg
+    assert cfg["thinkingConfig"] == {"thinkingLevel": "HIGH"}
+    assert cfg["maxOutputTokens"] >= 8192
+    assert cfg["responseMimeType"] == "application/json"
+
+    # Thought summary parts never leak into visible clinical output
+    visible = extract_gemini_visible_text([
+        {"text": "internal chain of thought", "thought": True},
+        {"text": "Avoid aspirin due to G6PD deficiency."},
+    ])
+    assert visible == "Avoid aspirin due to G6PD deficiency."
+

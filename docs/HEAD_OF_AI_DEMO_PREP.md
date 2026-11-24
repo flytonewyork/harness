@@ -52,8 +52,9 @@ after the demo.
 1. `curl -s localhost:8080/api/v1/health` → 200. Open `/workspace` on the laptop.
 2. Click **`Reset Demo`** in `/workspace` (or `curl -X POST localhost:8080/api/v1/demo/live/reset`) so the laptop starts **completely blank** with the crisp QR code centered on screen.
 3. Decide the model mode and say it out loud. With no Vertex/Gemini credentials the runtime is
-   **deterministic** (that's how the eval report ran). With credentials it prefers Vertex `gemini-2.5-flash` in
-   `asia-east2`. The safety floor is identical either way.
+   **deterministic** (that's how the eval report ran). With credentials it defaults to **Gemini 4 Neon**
+   (`gemini-4-neon`, with automatic fallback to **Gemini 4 Hydrogen** `gemini-4-hydrogen`) via Vertex AI
+   `asia-east2` or `GEMINI_API_KEY`. The safety floor is identical either way.
 4. Physical phone ready with camera open to scan the QR code on the laptop screen.
 5. Fallback if anything breaks: the static `demo/ec-care-line/index.html?walk=kwok`, then the grading report.
 

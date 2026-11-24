@@ -54,6 +54,8 @@ TRANSIENT_HTTP_STATUSES: frozenset[int] = frozenset({429, 500, 502, 503, 504})
 # Approximate per-1K-token pricing (USD) for budget accounting
 MODEL_PRICING_PER_1K: dict[str, tuple[float, float]] = {
     # model_prefix -> (input_usd_per_1k, output_usd_per_1k)
+    "gemini-4-neon": (0.00300, 0.01500),
+    "gemini-4-hydrogen": (0.00150, 0.00750),
     "gemini-2.5-flash": (0.00015, 0.00060),
     "gemini-2.5-pro": (0.00125, 0.00500),
     "gemini-2.0-flash": (0.00010, 0.00040),

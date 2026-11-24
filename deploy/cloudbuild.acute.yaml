@@ -7,7 +7,7 @@ substitutions:
   _CLOUDSQL_INSTANCE: ""
   _VAULT_BUCKET: ""
   _RUNTIME_SA: tmrw-acute-runtime
-  _VERTEX_MODEL: gemini-2.5-flash
+  _VERTEX_MODEL: gemini-4-neon
 
 steps:
   - name: gcr.io/cloud-builders/docker

@@ -27,7 +27,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from backend.agentic.transports import acquire_vertex_adc_token, detect_provider_chain
+from backend.agentic.transports import (
+    DEFAULT_GEMINI_FAST_MODEL,
+    DEFAULT_GEMINI_REASONING_MODEL,
+    acquire_vertex_adc_token,
+    build_gemini_generation_config,
+    detect_provider_chain,
+    extract_gemini_visible_text,
+    is_gemini_4_model,
+    normalize_gemini_model,
+)
 
 from .companion import HK_MENTAL_HEALTH_HOTLINES, classify_crisis, next_clinic_review_sla
 from .db import (
@@ -342,15 +351,17 @@ def detect_live_llm_engine() -> dict[str, Any]:
             or os.environ.get("HARNESS_REGION")
             or "asia-east2"
         )
-        model = os.environ.get("AGENT_LLM_MODEL") or os.environ.get("VERTEX_MODEL") or "gemini-2.5-flash"
+        model = normalize_gemini_model(os.environ.get("AGENT_LLM_MODEL") or os.environ.get("VERTEX_MODEL"))
         adc_ready = True if forced == "vertex" else _probe_vertex_adc_available(gcp_project)
         if adc_ready:
             return {
                 "live": True,
                 "provider": "vertex",
                 "model": model,
+                "fallback_model": DEFAULT_GEMINI_FAST_MODEL,
                 "region": region,
                 "project": gcp_project,
+                "thinking_level": os.environ.get("GEMINI_THINKING_LEVEL") or ("HIGH" if "neon" in model.lower() else "MEDIUM"),
                 "temperature": 0.1,
                 "phi_scrub_required": region.strip().lower() != "asia-east2",
                 "provider_chain": chain_summary or ["vertex"],
@@ -359,12 +370,14 @@ def detect_live_llm_engine() -> dict[str, Any]:
 
     # 2. Gemini Developer API
     if forced in ("", "gemini") and os.environ.get("GEMINI_API_KEY"):
-        model = os.environ.get("AGENT_LLM_MODEL") or "gemini-2.5-flash"
+        model = normalize_gemini_model(os.environ.get("AGENT_LLM_MODEL"))
         return {
             "live": True,
             "provider": "gemini",
             "model": model,
+            "fallback_model": DEFAULT_GEMINI_FAST_MODEL,
             "region": "global",
+            "thinking_level": os.environ.get("GEMINI_THINKING_LEVEL") or ("HIGH" if "neon" in model.lower() else "MEDIUM"),
             "temperature": 0.1,
             "phi_scrub_required": True,
             "provider_chain": chain_summary or ["gemini"],
@@ -408,7 +421,7 @@ def detect_live_llm_engine() -> dict[str, Any]:
         "temperature": 0.1,
         "phi_scrub_required": False,
         "provider_chain": chain_summary,
-        "label": "Deterministic Tool Harness (Vertex AI asia-east2 ADC auto-activates on Cloud Run)",
+        "label": "Deterministic Tool Harness (Vertex AI asia-east2 Gemini 4 Neon/Hydrogen auto-activates with credentials)",
     }
 
 
@@ -481,12 +494,14 @@ def _invoke_live_provider(
     max_output_tokens: int = 1100,
     patient_names_for_scrub: list[str] | None = None,
     engine_override: dict[str, Any] | None = None,
-    timeout_seconds: float = 18.0,
+    timeout_seconds: float = 25.0,
 ) -> ModelCallResult:
     """Execute one governed call through the active provider chain with off-HK PHIScrubber enforcement."""
     engine = dict(engine_override) if engine_override is not None else detect_live_llm_engine()
     provider = str(engine.get("provider") or "deterministic")
     model = str(engine.get("model") or "clinic-harness-tool-engine-v1")
+    if provider in ("vertex", "gemini"):
+        model = normalize_gemini_model(model)
     region = str(engine.get("region") or "local")
 
     if not engine.get("live"):
@@ -517,50 +532,62 @@ def _invoke_live_provider(
             txt = ""
 
             if provider in ("vertex", "gemini"):
-                if provider == "vertex":
-                    token, project = MultiAgentHarness._vertex_adc_token(engine.get("project"))
-                    url = (
-                        f"https://{region}-aiplatform.googleapis.com/v1/projects/{project}"
-                        f"/locations/{region}/publishers/google/models/{model}:generateContent"
+                candidate_models = [model]
+                if model == DEFAULT_GEMINI_REASONING_MODEL:
+                    candidate_models.append(DEFAULT_GEMINI_FAST_MODEL)
+
+                resp: httpx.Response | None = None
+                for mdl in candidate_models:
+                    model = mdl
+                    if provider == "vertex":
+                        token, project = MultiAgentHarness._vertex_adc_token(engine.get("project"))
+                        api_ver = "v1beta1" if is_gemini_4_model(mdl) else "v1"
+                        url = (
+                            f"https://{region}-aiplatform.googleapis.com/{api_ver}/projects/{project}"
+                            f"/locations/{region}/publishers/google/models/{mdl}:generateContent"
+                        )
+                        headers = {
+                            "Authorization": f"Bearer {token}",
+                            "Content-Type": "application/json",
+                            "X-Vertex-Zero-Data-Retention": "true",
+                            "X-No-Training": "true",
+                        }
+                        params: dict[str, str] = {}
+                    else:
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent"
+                        headers = {"Content-Type": "application/json"}
+                        params = {"key": os.environ["GEMINI_API_KEY"]}
+
+                    gen_cfg = build_gemini_generation_config(
+                        mdl,
+                        temperature=temperature,
+                        max_output_tokens=max_output_tokens,
+                        expect_json=expect_json,
+                        thinking_level=engine.get("thinking_level"),
                     )
-                    headers = {
-                        "Authorization": f"Bearer {token}",
-                        "Content-Type": "application/json",
-                        "X-Vertex-Zero-Data-Retention": "true",
-                        "X-No-Training": "true",
+                    req_body: dict[str, Any] = {
+                        "systemInstruction": {"parts": [{"text": sys_txt}]},
+                        "contents": [{"role": "user", "parts": [{"text": usr_txt}]}],
+                        "generationConfig": gen_cfg,
                     }
-                    params: dict[str, str] = {}
-                else:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-                    headers = {"Content-Type": "application/json"}
-                    params = {"key": os.environ["GEMINI_API_KEY"]}
+                    if provider == "vertex":
+                        req_body["labels"] = {
+                            "zero_retention": "true",
+                            "no_training": "true",
+                            "pdpo_dpp3": "enforced",
+                        }
 
-                gen_cfg: dict[str, Any] = {
-                    "temperature": temperature,
-                    "maxOutputTokens": max_output_tokens,
-                }
-                if expect_json:
-                    gen_cfg["responseMimeType"] = "application/json"
+                    resp = client.post(url, headers=headers, params=params, json=req_body)
+                    if resp.status_code in (403, 404) and mdl != candidate_models[-1]:
+                        continue
+                    break
 
-                req_body: dict[str, Any] = {
-                    "systemInstruction": {"parts": [{"text": sys_txt}]},
-                    "contents": [{"role": "user", "parts": [{"text": usr_txt}]}],
-                    "generationConfig": gen_cfg,
-                }
-                if provider == "vertex":
-                    req_body["labels"] = {
-                        "zero_retention": "true",
-                        "no_training": "true",
-                        "pdpo_dpp3": "enforced",
-                    }
-
-                resp = client.post(url, headers=headers, params=params, json=req_body)
-                if resp.status_code != 200:
-                    raise RuntimeError(f"{provider}_http_{resp.status_code}")
+                if resp is None or resp.status_code != 200:
+                    raise RuntimeError(f"{provider}_http_{resp.status_code if resp is not None else 0}")
                 data = resp.json()
                 cand = (data.get("candidates") or [{}])[0]
                 parts = (cand.get("content") or {}).get("parts") or []
-                txt = " ".join(str(p.get("text", "")) for p in parts if "text" in p).strip()
+                txt = extract_gemini_visible_text(parts)
                 usage = data.get("usageMetadata") or {}
                 prompt_tok = usage.get("promptTokenCount")
                 out_tok = usage.get("candidatesTokenCount")
@@ -1664,37 +1691,66 @@ class MultiAgentHarness:
         try:
             with httpx.Client(timeout=15.0) as client:
                 if provider in ("vertex", "gemini"):
-                    if provider == "vertex":
-                        token, project = self._vertex_adc_token(engine.get("project"))
-                        url = (
-                            f"https://{region}-aiplatform.googleapis.com/v1/projects/{project}"
-                            f"/locations/{region}/publishers/google/models/{model}:generateContent"
+                    model = normalize_gemini_model(model)
+                    candidate_models = [model]
+                    if model == DEFAULT_GEMINI_REASONING_MODEL:
+                        candidate_models.append(DEFAULT_GEMINI_FAST_MODEL)
+
+                    active_model = candidate_models[0]
+
+                    def _endpoint_for(mdl: str) -> tuple[str, dict[str, str], dict[str, str]]:
+                        if provider == "vertex":
+                            token, project = self._vertex_adc_token(engine.get("project"))
+                            api_ver = "v1beta1" if is_gemini_4_model(mdl) else "v1"
+                            return (
+                                f"https://{region}-aiplatform.googleapis.com/{api_ver}/projects/{project}"
+                                f"/locations/{region}/publishers/google/models/{mdl}:generateContent",
+                                {
+                                    "Authorization": f"Bearer {token}",
+                                    "Content-Type": "application/json",
+                                    "X-Vertex-Zero-Data-Retention": "true",
+                                    "X-No-Training": "true",
+                                },
+                                {},
+                            )
+                        return (
+                            f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent",
+                            {"Content-Type": "application/json"},
+                            {"key": os.environ["GEMINI_API_KEY"]},
                         )
-                        headers = {
-                            "Authorization": f"Bearer {token}",
-                            "Content-Type": "application/json",
-                            "X-Vertex-Zero-Data-Retention": "true",
-                            "X-No-Training": "true",
-                        }
-                        params: dict[str, str] = {}
-                    else:
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-                        headers = {"Content-Type": "application/json"}
-                        params = {"key": os.environ["GEMINI_API_KEY"]}
 
                     contents: list[dict[str, Any]] = [{"role": "user", "parts": [{"text": user_payload}]}]
                     tools_spec = self._gemini_tool_declarations() if (s is not None and tenant_id is not None) else None
                     for _round in range(3):
+                        url, headers, params = _endpoint_for(active_model)
+                        gen_cfg = build_gemini_generation_config(
+                            active_model,
+                            temperature=0.1,
+                            max_output_tokens=1024,
+                            expect_json=False,
+                            thinking_level=engine.get("thinking_level"),
+                        )
                         req_body: dict[str, Any] = {
                             "systemInstruction": {"parts": [{"text": system_prompt_eff}]},
                             "contents": contents,
-                            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 320},
+                            "generationConfig": gen_cfg,
                         }
                         if provider == "vertex":
                             req_body["labels"] = {"zero_retention": "true", "no_training": "true", "pdpo_dpp3": "enforced"}
                         if tools_spec:
                             req_body["tools"] = tools_spec
                         r = client.post(url, headers=headers, params=params, json=req_body)
+                        if r.status_code in (403, 404) and active_model != candidate_models[-1]:
+                            active_model = candidate_models[-1]
+                            url, headers, params = _endpoint_for(active_model)
+                            req_body["generationConfig"] = build_gemini_generation_config(
+                                active_model,
+                                temperature=0.1,
+                                max_output_tokens=1024,
+                                expect_json=False,
+                                thinking_level=engine.get("thinking_level"),
+                            )
+                            r = client.post(url, headers=headers, params=params, json=req_body)
                         if r.status_code != 200:
                             return None
                         cand = (r.json().get("candidates") or [{}])[0]
@@ -1712,15 +1768,18 @@ class MultiAgentHarness:
                                     s=s,
                                     tenant_id=tenant_id,
                                     patient=patient,
-                                    agent=f"CareAgent ({model})",
+                                    agent=f"CareAgent ({active_model})",
                                     tool_name=tool_name,
                                     args=fn_args,
                                     source_texts=source_texts,
                                 )
-                                fn_responses.append({"functionResponse": {"name": raw_fn, "response": {"result": tool_res}}})
+                                fr_body: dict[str, Any] = {"name": raw_fn, "response": {"result": tool_res}}
+                                if fc.get("id"):
+                                    fr_body["id"] = fc["id"]
+                                fn_responses.append({"functionResponse": fr_body})
                             contents.append({"role": "user", "parts": fn_responses})
                             continue
-                        txt = " ".join(str(p.get("text", "")) for p in parts if "text" in p).strip()
+                        txt = extract_gemini_visible_text(parts)
                         if txt:
                             return txt
                         return None
