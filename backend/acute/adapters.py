@@ -332,7 +332,7 @@ class BookingAdapter:
         )
         return self.faults.record(idempotency_key, result)
 
-    def cancel_booking(self, *, booking_ref: str, idempotency_key: str | None = None) -> AdapterResult:
+    def cancel_booking(self, booking_ref: str, *, idempotency_key: str | None = None) -> AdapterResult:
         cached = self.faults.check("booking.cancel_booking", idempotency_key)
         if cached is not None:
             return cached
@@ -340,7 +340,9 @@ class BookingAdapter:
         record = self._bookings_by_ref.get(booking_ref)
         if not record:
             raise AdapterError(f"Booking not found: {booking_ref}", retryable=False, code="booking_not_found")
-        record["status"] = "cancelled"
+        if record.get("status") != "cancelled":
+            record["status"] = "cancelled"
+            record["cancelled_at"] = datetime.now(timezone.utc).isoformat()
         self._booked_slots.pop(record["slot_id"], None)
 
         result = AdapterResult(
@@ -489,6 +491,37 @@ class PharmacyFulfilmentAdapter:
         )
         return self.faults.record(idempotency_key, result)
 
+    def cancel_order(
+        self,
+        fulfilment_ref: str,
+        *,
+        reason: str = "Clinician 10s undo",
+        idempotency_key: str | None = None,
+    ) -> AdapterResult:
+        cached = self.faults.check("pharmacy.cancel_order", idempotency_key)
+        if cached is not None:
+            return cached
+        order = self._orders.get(fulfilment_ref)
+        if not order:
+            raise AdapterError(f"Pharmacy order not found: {fulfilment_ref}", retryable=False, code="order_not_found")
+        if order.get("status") != "cancelled":
+            order["status"] = "cancelled"
+            order["tracking_events"].append(
+                {
+                    "status": "cancelled",
+                    "at": datetime.now(timezone.utc).isoformat(),
+                    "note": reason,
+                }
+            )
+        result = AdapterResult(
+            ok=True,
+            external_ref=fulfilment_ref,
+            status="cancelled",
+            payload=dict(order),
+            idempotency_key=idempotency_key or "",
+        )
+        return self.faults.record(idempotency_key, result)
+
     def get_order(self, fulfilment_ref: str) -> dict[str, Any] | None:
         order = self._orders.get(fulfilment_ref)
         return dict(order) if order else None
@@ -511,7 +544,7 @@ class FluVaxAdapter:
     """Partner clinic seasonal quadrivalent influenza vaccination (`CVX 150/171/185`) adapter."""
 
     name = "flu_vax_partner"
-    capabilities = ("list_slots", "book_vaccination", "verify_webhook")
+    capabilities = ("list_slots", "book_vaccination", "cancel_booking", "verify_webhook")
     SUPPORTED_CVX = frozenset({"150", "171", "185"})
 
     PARTNER_CLINICS = (
@@ -524,6 +557,7 @@ class FluVaxAdapter:
     def __init__(self, *, fault_injector: FaultInjector | None = None) -> None:
         self.faults = fault_injector or FaultInjector()
         self._booked: dict[str, dict[str, Any]] = {}
+        self._bookings_by_ref: dict[str, dict[str, Any]] = {}
 
     def _validate_cvx(self, cvx_code: str) -> tuple[str, str]:
         code = str(cvx_code).strip()
@@ -602,12 +636,33 @@ class FluVaxAdapter:
             "booked_at": datetime.now(timezone.utc).isoformat(),
         }
         self._booked[slot_id] = record
+        self._bookings_by_ref[booking_ref] = record
 
         result = AdapterResult(
             ok=True,
             external_ref=booking_ref,
             status="booked",
             payload=record,
+            idempotency_key=idempotency_key or "",
+        )
+        return self.faults.record(idempotency_key, result)
+
+    def cancel_booking(self, booking_ref: str, *, idempotency_key: str | None = None) -> AdapterResult:
+        cached = self.faults.check("fluvax.cancel_booking", idempotency_key)
+        if cached is not None:
+            return cached
+        record = self._bookings_by_ref.get(booking_ref)
+        if not record:
+            raise AdapterError(f"Vaccination booking not found: {booking_ref}", retryable=False, code="booking_not_found")
+        if record.get("status") != "cancelled":
+            record["status"] = "cancelled"
+            record["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+        self._booked.pop(record["slot_id"], None)
+        result = AdapterResult(
+            ok=True,
+            external_ref=booking_ref,
+            status="cancelled",
+            payload=dict(record),
             idempotency_key=idempotency_key or "",
         )
         return self.faults.record(idempotency_key, result)
@@ -823,3 +878,197 @@ class CorporateBillingAdapter:
             "invoices_reconciled": len(self.invoices),
             "ok": "billing.reconcile_invoice" not in self.faults.permanent_down,
         }
+
+
+# -------------------------------------------------------------------------------------- 6. Workspace Confirm / Undo Dispatcher
+class WorkspaceAdapterDispatcher:
+    """Orchestrates BookingAdapter, FluVaxAdapter, PharmacyFulfilmentAdapter, and WhatsAppDoorbellAdapter
+    for `/workspace` confirm & 10-second Undo rollback with full idempotency and WhatsAppLeakageGuard enforcement.
+    """
+
+    def __init__(
+        self,
+        *,
+        booking_adapter: BookingAdapter,
+        vax_adapter: FluVaxAdapter,
+        rx_adapter: PharmacyFulfilmentAdapter,
+        wa_adapter: WhatsAppDoorbellAdapter,
+    ) -> None:
+        self.booking_adapter = booking_adapter
+        self.vax_adapter = vax_adapter
+        self.rx_adapter = rx_adapter
+        self.wa_adapter = wa_adapter
+        self._trace_records: dict[str, dict[str, list[dict[str, Any]]]] = {}
+
+    def dispatch_orders(
+        self,
+        *,
+        trace_id: str,
+        patient_id: str,
+        patient_phone: str,
+        practitioner_id: str,
+        practitioner_name: str,
+        orders: Sequence[dict[str, Any]],
+        prescription_id: str | None = None,
+        has_certificate: bool = False,
+        portal_url: str = "https://portal.tmrw-clinic.hk",
+    ) -> dict[str, list[dict[str, Any]]]:
+        bookings: list[dict[str, Any]] = []
+        vaccinations: list[dict[str, Any]] = []
+        pharmacy_orders: list[dict[str, Any]] = []
+        whatsapp_doorbells: list[dict[str, Any]] = []
+
+        # 1. Dispatch /book orders -> FluVaxAdapter (if flu/vaccine) or BookingAdapter
+        for idx, ord_item in enumerate(orders):
+            if ord_item.get("type") != "book":
+                continue
+            visit_type = str(ord_item.get("visit_type") or ord_item.get("visitType") or "Clinic Follow-Up")
+            cvx_code = str(ord_item.get("cvx_code") or ord_item.get("cvxCode") or "").strip()
+            is_vax = bool(cvx_code) or any(tok in visit_type.lower() for tok in ("flu", "vax", "vaccine", "pcv", "immun"))
+            if is_vax:
+                eff_cvx = cvx_code if cvx_code in FluVaxAdapter.SUPPORTED_CVX else "150"
+                slot_id = f"vax_{trace_id}_{idx}_{eff_cvx}"
+                res = self.vax_adapter.book_vaccination(
+                    patient_id=patient_id,
+                    slot_id=slot_id,
+                    cvx_code=eff_cvx,
+                    idempotency_key=f"ws_vax_{trace_id}_{idx}",
+                )
+                vaccinations.append(
+                    {
+                        "adapter": self.vax_adapter.name,
+                        "booking_ref": res.external_ref,
+                        "slot_id": slot_id,
+                        "cvx_code": eff_cvx,
+                        "visit_type": visit_type,
+                        "status": res.status,
+                    }
+                )
+            else:
+                slot_id = f"slot_{trace_id}_{idx}"
+                res = self.booking_adapter.book_slot(
+                    patient_id=patient_id,
+                    practitioner_id=practitioner_id,
+                    slot_id=slot_id,
+                    encounter_id=trace_id,
+                    idempotency_key=f"ws_bk_{trace_id}_{idx}",
+                )
+                bookings.append(
+                    {
+                        "adapter": self.booking_adapter.name,
+                        "booking_ref": res.external_ref,
+                        "slot_id": slot_id,
+                        "visit_type": visit_type,
+                        "status": res.status,
+                    }
+                )
+
+        # 2. Dispatch active /prescribe orders -> PharmacyFulfilmentAdapter
+        active_rx = [
+            o for o in orders
+            if o.get("type") == "rx" and str(o.get("action") or "start").lower() != "stop"
+        ]
+        if active_rx:
+            rx_ref_id = prescription_id or f"rx_{trace_id}"
+            res = self.rx_adapter.submit_order(
+                prescription_id=rx_ref_id,
+                patient_id=patient_id,
+                mode="pickup",
+                items=[
+                    {
+                        "drug": o.get("drug", ""),
+                        "freq": o.get("freq", ""),
+                        "days": o.get("days", ""),
+                        "action": o.get("action", "start"),
+                    }
+                    for o in active_rx
+                ],
+                pickup_branch="Central Dispensary",
+                idempotency_key=f"ws_phx_{trace_id}",
+            )
+            pharmacy_orders.append(
+                {
+                    "adapter": self.rx_adapter.name,
+                    "fulfilment_ref": res.external_ref,
+                    "prescription_id": rx_ref_id,
+                    "status": res.status,
+                    "item_count": len(active_rx),
+                }
+            )
+
+        # 3. Non-clinical WhatsApp utility doorbell (strictly enforced by WhatsAppLeakageGuard!)
+        if has_certificate or active_rx or bookings or vaccinations:
+            tpl_id = "document_ready" if (has_certificate or active_rx) else "booking_confirmed"
+            params: dict[str, Any] = {
+                "url": portal_url,
+                "doctor_name": practitioner_name,
+                "slot_label": "your upcoming clinic visit",
+            }
+            wa_res = self.wa_adapter.send_template(
+                phone=patient_phone or "+85290000000",
+                template_id=tpl_id,
+                params=params,
+                lang="bilingual",
+                conversation_id=f"ws_{trace_id}",
+                idempotency_key=f"ws_wa_{trace_id}",
+            )
+            whatsapp_doorbells.append(
+                {
+                    "adapter": self.wa_adapter.name,
+                    "external_ref": wa_res.external_ref,
+                    "template_id": tpl_id,
+                    "status": wa_res.status,
+                    "leakage_passed": bool(wa_res.payload.get("leakage_passed", True)),
+                }
+            )
+
+        bundle = {
+            "bookings": bookings,
+            "vaccinations": vaccinations,
+            "pharmacy_orders": pharmacy_orders,
+            "whatsapp_doorbells": whatsapp_doorbells,
+        }
+        self._trace_records[trace_id] = bundle
+        return bundle
+
+    def rollback_trace(self, trace_id: str, *, reason: str = "Clinician triggered 10-second Undo") -> dict[str, Any]:
+        """Idempotently cancel provisional bookings, vaccination slots, and pharmacy stubs for an undone trace."""
+        bundle = self._trace_records.get(trace_id) or {}
+        cancelled_bookings: list[str] = []
+        cancelled_pharmacy_orders: list[str] = []
+
+        for bk in bundle.get("bookings") or []:
+            ref = bk.get("booking_ref")
+            if ref:
+                try:
+                    self.booking_adapter.cancel_booking(ref, idempotency_key=f"undo_bk_{trace_id}_{ref}")
+                    bk["status"] = "cancelled"
+                    cancelled_bookings.append(ref)
+                except AdapterError:
+                    pass
+
+        for vax in bundle.get("vaccinations") or []:
+            ref = vax.get("booking_ref")
+            if ref:
+                try:
+                    self.vax_adapter.cancel_booking(ref, idempotency_key=f"undo_vax_{trace_id}_{ref}")
+                    vax["status"] = "cancelled"
+                    cancelled_bookings.append(ref)
+                except AdapterError:
+                    pass
+
+        for phx in bundle.get("pharmacy_orders") or []:
+            ref = phx.get("fulfilment_ref")
+            if ref:
+                try:
+                    self.rx_adapter.cancel_order(ref, reason=reason, idempotency_key=f"undo_phx_{trace_id}_{ref}")
+                    phx["status"] = "cancelled"
+                    cancelled_pharmacy_orders.append(ref)
+                except AdapterError:
+                    pass
+
+        return {
+            "cancelled_bookings": cancelled_bookings,
+            "cancelled_pharmacy_orders": cancelled_pharmacy_orders,
+        }
+

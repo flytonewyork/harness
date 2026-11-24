@@ -234,3 +234,260 @@ def test_clinical_presentation_linter_rejects_slop_regressions():
     assert "R4_CANONICAL_ACTION_ONTOLOGY" in violated_rules
     assert "R5_HIGH_SIGNAL_SAM_GATE" in violated_rules
 
+
+def test_seam_c_confirm_cds_422_hard_block_and_overridable_conflict(tmp_path):
+    """Verify /confirm enforces deterministic rx_rules 422 hard-block (Cap. 134) and overridable G6PD conflict."""
+    client = _make_client(tmp_path)
+    ov = client.post("/api/v1/workspace/reset").json()
+    wingyan = next(c for c in ov["cases"] if c["case_key"] == "wingyan")
+
+    # 1. HK Cap. 134 Dangerous Drug (Codeine) -> HTTP 422 hard_block (can_override: False)
+    r_cap134 = client.post(
+        f"/api/v1/workspace/cases/{wingyan['id']}/confirm",
+        json={
+            "orders": [
+                {"id": "rx_bad_cod", "type": "rx", "action": "start", "drug": "Codeine 15mg", "freq": "TDS", "days": "3d"}
+            ],
+            "override_reason": "Even a long documented reason cannot override Cap. 134 dangerous drugs",
+        },
+    )
+    assert r_cap134.status_code == 422
+    j_cod = r_cap134.json()
+    assert j_cod["error_code"] == "RX_HARD_BLOCK"
+    assert j_cod["can_override"] is False
+    assert any(f["code"] == "cap134_dangerous_drug" for f in j_cod["cds_report"]["hard_blocks"])
+
+    # 2. G6PD Aspirin conflict without override -> HTTP 422 override_required (can_override: True)
+    r_g6pd = client.post(
+        f"/api/v1/workspace/cases/{wingyan['id']}/confirm",
+        json={
+            "orders": [
+                {"id": "rx_bad_asa", "type": "rx", "action": "start", "drug": "Aspirin 300mg", "freq": "TDS", "days": "3d"}
+            ],
+        },
+    )
+    assert r_g6pd.status_code == 422
+    j_g6pd = r_g6pd.json()
+    assert j_g6pd["error_code"] == "RX_OVERRIDE_REQUIRED"
+    assert j_g6pd["can_override"] is True
+    assert any(f["code"] == "g6pd_contraindication" for f in j_g6pd["cds_report"]["overrides_required"])
+
+    # 3. Same G6PD Aspirin order WITH valid >=10 char documented override succeeds cleanly
+    r_g6pd_ok = client.post(
+        f"/api/v1/workspace/cases/{wingyan['id']}/confirm",
+        json={
+            "orders": [
+                {"id": "rx_ok_asa", "type": "rx", "action": "start", "drug": "Aspirin 300mg", "freq": "OD", "days": "3d"}
+            ],
+            "override_reason": "Specialist haematology clearance documented for low-dose indication.",
+        },
+    )
+    assert r_g6pd_ok.status_code == 200
+    assert len(r_g6pd_ok.json()["prescriptions"]) == 1
+
+
+def test_seam_c_live_closure_vault_mchk_pdf_emr_addenda_live_bus_zero_sam_leak_and_undo(tmp_path):
+    """End-to-end /workspace -> Vault MCHK PDF -> /emr addendum -> /p/qr live_bus push -> zero Sam leak -> 10s Undo."""
+    import pytest
+    from backend.acute.emr_connector import assert_zero_sam_chat_leakage
+
+    client = _make_client(tmp_path)
+    ov = client.post("/api/v1/workspace/reset").json()
+    assert "emr_bridge" in ov["xray"]
+    assert ov["xray"]["emr_bridge"]["zero_sam_chat_leakage_enforced"] is True
+
+    wingyan = next(c for c in ov["cases"] if c["case_key"] == "wingyan")
+
+    # 1. Doctor asks ephemeral private Sam Q&A (MUST NEVER leak into EMR addendum!)
+    secret_q = "Private check: did Wing-Yan mention heavy menstrual periods or melena?"
+    ask_res = client.post(
+        f"/api/v1/workspace/cases/{wingyan['id']}/ask",
+        json={"instruction_text": secret_q},
+    )
+    assert ask_res.status_code == 200
+    ask_body = ask_res.json()
+    assert ask_body["ephemeral_private"] is True
+    assert ask_body["written_to_emr"] is False
+
+    # Unit guard check: assert_zero_sam_chat_leakage raises ValueError on leaked private Sam text
+    with pytest.raises(ValueError, match="EMR additive invariant violation"):
+        assert_zero_sam_chat_leakage(
+            [f"Plan note including {ask_body['answer']}"],
+            ask_body["agent_thread"],
+        )
+
+    # 2. Confirm & Sign Plan with Rx + 2-day MCHK Cert (omit_employer_diagnosis: true) + Flu Vax Booking
+    confirm_res = client.post(
+        f"/api/v1/workspace/cases/{wingyan['id']}/confirm",
+        json={
+            "orders": [
+                {"id": "wy_cert", "type": "cert", "issue": "1. Acute viral URTI", "days_off": 2, "omit_employer_diagnosis": True},
+                {"id": "wy_rx_para", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Paracetamol 500mg", "freq": "QDS PRN", "days": "5d"},
+                {"id": "wy_book_flu", "type": "book", "issue": "Preventive Care", "visit_type": "10-min Nurse Flu Shot ($0)", "when": "In 14 days", "cvx_code": "150"},
+            ],
+            "actor_name": "Locum Dr. Sarah Wong",
+            "mchk_reg_no": "M61042",
+        },
+    )
+    assert confirm_res.status_code == 200
+    body = confirm_res.json()
+
+    # 3. Verify REAL encrypted MCHK PDF minted in DocumentVault with diagnosis omitted for employer
+    assert len(body["certificates"]) == 1
+    cert = body["certificates"][0]
+    assert cert["days_off"] == 2
+    assert cert["mchk_reg_no"] == "M61042"
+    assert cert["omit_employer_diagnosis"] is True
+    assert cert["download_token_endpoint"].endswith("/download-token")
+    from backend.acute.seed import DEMO_TENANT_1
+    pdf_bytes, meta = client.app.state.vault.retrieve(DEMO_TENANT_1, cert["vault_doc_id"])
+    assert pdf_bytes.startswith(b"%PDF")
+    assert b"Withheld at patient request" in pdf_bytes
+    assert b"J06.9" not in pdf_bytes
+
+    # 4. Verify FK-safe Prescription + Adapter dispatches (FluVax, Pharmacy, WhatsAppDoorbell)
+    assert len(body["prescriptions"]) == 1
+    assert body["prescriptions"][0]["mchk_reg_no"] == "M61042"
+    assert len(body["adapter_dispatches"]["vaccinations"]) == 1
+    assert len(body["adapter_dispatches"]["pharmacy_orders"]) == 1
+    assert len(body["adapter_dispatches"]["whatsapp_doorbells"]) == 1
+    assert body["adapter_dispatches"]["whatsapp_doorbells"][0]["leakage_passed"] is True
+
+    # 5. Verify additive EMR addendum visible in `/api/v1/emr/overview` with ZERO private Sam chat leakage
+    addendum = body["emr_addendum"]
+    assert addendum["contains_private_sam_chat"] is False
+    assert addendum["clipboard_snippet"]
+    assert secret_q.lower() not in addendum["clipboard_snippet"].lower()
+    assert ask_body["answer"].lower() not in addendum["clipboard_snippet"].lower()
+
+    emr_ov = client.get("/api/v1/emr/overview?patient_id=pat_lam_urti_demo").json()
+    assert any(a["addendum_id"] == addendum["addendum_id"] for a in emr_ov["emr_addenda"])
+    lam_card = next(p for p in emr_ov["patients"] if p["id"] == "pat_lam_urti_demo")
+    assert any(a["addendum_id"] == addendum["addendum_id"] for a in lam_card["emr_addenda"])
+
+    # 6. Verify patient-scoped live_bus events pushed for `/p/qr/pat_lam_urti_demo`
+    bus_events = client.app.state.live_bus.recent_events(patient_id="pat_lam_urti_demo", limit=30)
+    ev_types = [e["type"] for e in bus_events]
+    assert "workspace.committed" in ev_types
+    assert "emr.mutated" in ev_types
+    assert "patient.care_plan_delivered" in ev_types
+    care_ev = next(e for e in reversed(bus_events) if e["type"] == "patient.care_plan_delivered")
+    assert care_ev["data"]["contains_private_sam_chat"] is False
+    assert len(care_ev["data"]["certificates"]) == 1
+
+    # 7. Trigger 10-second Undo -> cancels outbox, retracts EMR addendum, cancels bookings & retracts staged artifacts
+    trace_id = body["trace"]["id"]
+    undo_res = client.post(f"/api/v1/workspace/cases/{wingyan['id']}/undo/{trace_id}")
+    assert undo_res.status_code == 200
+    u = undo_res.json()
+    assert u["status"] == "undone"
+    assert u["case_state"] == "needs_decision"
+    assert u["outbox_cancelled"] is True
+    assert u["emr_addendum_retracted"] is True
+    assert u["retracted_addendum_id"] == addendum["addendum_id"]
+    assert len(u["cancelled_bookings"]) >= 1
+    assert len(u["retracted_artifacts"]) >= 1
+
+    # Retracted addendum no longer appears in active /emr overview
+    emr_after_undo = client.get("/api/v1/emr/overview?patient_id=pat_lam_urti_demo").json()
+    assert not any(a["addendum_id"] == addendum["addendum_id"] for a in emr_after_undo["emr_addenda"])
+
+    undo_ev_types = [e["type"] for e in client.app.state.live_bus.recent_events(patient_id="pat_lam_urti_demo", limit=30)]
+    assert "workspace.undone" in undo_ev_types
+    assert "patient.care_plan_retracted" in undo_ev_types
+
+
+def test_seam_c_nurse_quarantine_resolve_compile_and_graph_rollback(tmp_path):
+    """Verify Nurse Rachel quarantine resolution, /compile endpoint (with self-repair), and Practice Graph rollback."""
+    client = _make_client(tmp_path)
+    ov = client.post("/api/v1/workspace/reset").json()
+    chan = next(c for c in ov["cases"] if c["case_key"] == "chan")
+
+    # 1. Quarantine 2/3 mismatch doc -> Nurse Rachel resolves -> linked & document.resolved published
+    ing = client.post(
+        "/api/v1/workspace/documents/ingest",
+        json={
+            "external_doc_ref": "QEH-DC-RESOLVE-001",
+            "doc_kind": "discharge_summary",
+            "source_org": "Queen Elizabeth Hospital",
+            "claimed_mrn_or_hkid": "PAT-62041",
+            "claimed_name": "CHAN Tai Man",
+            "claimed_dob": "1964-03-19",  # mismatch!
+            "verbatim_quote": "Discharge INR 2.4 on 21/11/2026.",
+            "page_ref": "p.2",
+        },
+    ).json()
+    assert ing["match_status"] == "quarantined_nurse"
+
+    res = client.post(
+        f"/api/v1/workspace/documents/{ing['id']}/resolve",
+        json={
+            "action": "link_verified",
+            "verified_patient_id": "pat_chan_warfarin",
+            "verification_note": "Confirmed HKID & DOB directly with QEH medical records.",
+            "resolved_by": "Nurse Rachel Chan",
+        },
+    )
+    assert res.status_code == 200
+    r_doc = res.json()
+    assert r_doc["match_status"] == "nurse_verified_match"
+    assert r_doc["matched_patient_id"] == "pat_chan_warfarin"
+
+    ov_after = client.get("/api/v1/workspace/overview").json()
+    assert not any(q["id"] == ing["id"] for q in ov_after["quarantined_documents"])
+    ev_types = [e["type"] for e in client.app.state.live_bus.recent_events(limit=30)]
+    assert "document.resolved" in ev_types
+
+    # 2. On-demand /compile endpoint passes 5/5 linter within <4,096 token budget (even when repairing sloppy input)
+    comp = client.post(
+        f"/api/v1/workspace/cases/{chan['id']}/compile",
+        json={
+            "override_summary": {
+                **chan["summary"],
+                "sam_proactive_insight": "Just checking in — spotted a few things to look at!",
+            }
+        },
+    )
+    assert comp.status_code == 200
+    c_body = comp.json()
+    assert c_body["lint_report"]["passed"] is True
+    assert c_body["lint_report"]["rules_passed"] == 5
+    assert c_body["compilation_telemetry"]["within_budget"] is True
+    assert c_body["compilation_telemetry"]["total_tokens_est"] < 4096
+    assert c_body["compilation_telemetry"]["retry_count"] == 1
+
+    # 3. Practice Graph versions & Lead GP rollback (locum blocked 422)
+    onboard = client.post(
+        "/api/v1/graph/onboard",
+        json={"careline_profile_patch": {"name": "Maya"}, "change_summary": "Rename to Maya for test"},
+    )
+    assert onboard.status_code == 200
+    assert onboard.json()["version_tag"] == "v2.5"
+
+    vers = client.get("/api/v1/graph/versions").json()
+    assert vers["count"] >= 2
+    assert vers["versions"][0]["version_tag"] == "v2.5"
+
+    # Locum rollback must be rejected 422
+    rb_locum = client.post(
+        "/api/v1/graph/rollback",
+        json={"target_version_tag": "v2.4", "rolled_back_by": "Locum Dr. Sarah Wong"},
+    )
+    assert rb_locum.status_code == 422
+
+    # Lead GP rollback restores v2.4 Careline profile ("Sam") as immutable v2.6
+    rb_ok = client.post(
+        "/api/v1/graph/rollback",
+        json={
+            "target_version_tag": "v2.4",
+            "rolled_back_by": "Dr. Kenneth Lam (Lead GP)",
+            "reason": "Revert Careline name back to Sam",
+        },
+    )
+    assert rb_ok.status_code == 200
+    rb_body = rb_ok.json()
+    assert rb_body["version_tag"] == "v2.6"
+    assert rb_body["careline_profile"]["name"] == "Sam"
+    assert rb_body["rolled_back_to_source_version"] == "v2.4"
+
+

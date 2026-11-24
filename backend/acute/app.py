@@ -29,6 +29,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Str
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text as sql_text
+from sqlalchemy.orm.attributes import flag_modified
 
 from ..gateway import ModelGateway, TenantPolicy, load_protocol
 from ..vault import DocumentVault, VaultError
@@ -38,22 +39,35 @@ from .adapters import (
     FluVaxAdapter,
     PharmacyFulfilmentAdapter,
     WhatsAppDoorbellAdapter,
+    WorkspaceAdapterDispatcher,
 )
 from .agent_harness import HERO_URTI_PATIENT_ID, MultiAgentHarness, available_clinic_slots
-from .certificates import issue_encrypted_certificate
+from .certificates import issue_certificate_from_order_primitive, issue_encrypted_certificate
 from .curator import (
     decide_curator_proposal,
     get_effective_practice_graph,
+    list_practice_graph_versions,
     mould_practice_graph,
     query_practice_playbook,
+    rollback_practice_graph,
 )
-from .emr_connector import ingest_external_document
+from .emr_connector import (
+    SimulatedPostgresEMRAdapter,
+    assert_zero_sam_chat_leakage,
+    ingest_external_document,
+    list_patient_emr_addenda,
+    resolve_quarantined_document,
+    retract_additive_emr_addendum,
+    write_additive_emr_addendum,
+)
 from .live_bus import LiveHarnessBus
 from .practice_graph import SafetyFloorViolation
 from .workspace_engine import (
     ask_case_agent,
     build_workspace_overview,
     commit_case_instruction,
+    compile_case_presentation,
+    ingest_workspace_document,
     preview_case_instruction,
     reset_workspace,
     simulate_loop_progression,
@@ -65,12 +79,14 @@ from .db import (
     AgentRun,
     AuditEvent,
     Campaign,
+    CaseLoop,
     Certificate,
     Consent,
     Corporate,
     DataRequest,
     Database,
     Encounter,
+    ExecutionTrace,
     Immunization,
     MagicLink,
     Message,
@@ -344,6 +360,7 @@ class RxCheckReq(BaseModel):
     patient_id: str
     items: list[dict[str, Any]]
     diagnosis_icd10: str | None = None
+    patient_overrides: dict[str, Any] | None = None
 
 
 class ClinicianReplyReq(BaseModel):
@@ -419,8 +436,18 @@ class AgentTurnReq(BaseModel):
 
 
 class WorkspaceInstructionReq(BaseModel):
-    instruction_text: str = Field(min_length=2, max_length=2000)
+    instruction_text: str = Field(default="", max_length=2000)
+    orders: list[dict[str, Any]] | None = None
+    structured_orders: list[dict[str, Any]] | None = None
     actor_name: str = Field(default="Locum Dr. Sarah Wong", max_length=160)
+    actor_role: str = Field(default="clinician", max_length=48)
+    mchk_reg_no: str | None = Field(default=None, max_length=32)
+    override_reason: str | None = Field(default=None, max_length=1000)
+
+
+class WorkspaceCompileReq(BaseModel):
+    patient_intake_text: str | None = Field(default=None, max_length=4000)
+    override_summary: dict[str, Any] | None = None
 
 
 class WorkspaceDocIngestReq(BaseModel):
@@ -432,6 +459,16 @@ class WorkspaceDocIngestReq(BaseModel):
     claimed_dob: str = Field(min_length=4, max_length=32)
     verbatim_quote: str = Field(min_length=4, max_length=2000)
     page_ref: str = Field(default="p.1", max_length=32)
+    source_text: str | None = None
+    parsed_diff: dict[str, Any] | None = None
+    proposed_meds: list[dict[str, Any]] | None = None
+
+
+class WorkspaceDocResolveReq(BaseModel):
+    action: str = Field(pattern="^(link_verified|reject_wrong_patient)$")
+    verified_patient_id: str | None = Field(default=None, max_length=64)
+    verification_note: str = Field(default="", max_length=1000)
+    resolved_by: str = Field(default="Nurse Rachel Chan", max_length=160)
 
 
 class LoopProgressionReq(BaseModel):
@@ -442,6 +479,8 @@ class TriageSimReq(BaseModel):
     message_text: str = Field(min_length=1, max_length=2000)
     hours_since_last_visit: float | None = Field(default=24.0)
     patient_g6pd: bool = Field(default=True)
+    patient_allergies: list[str] | None = None
+    vitals: dict[str, Any] | None = None
 
 
 class GraphOnboardReq(BaseModel):
@@ -449,6 +488,13 @@ class GraphOnboardReq(BaseModel):
     careline_profile_patch: dict[str, Any] | None = None
     overlay_patch: dict[str, Any] | None = None
     change_summary: str = Field(default="Updated clinic practice overlay", max_length=300)
+
+
+class GraphRollbackReq(BaseModel):
+    target_version_tag: str | None = Field(default=None, max_length=32)
+    target_version_id: str | None = Field(default=None, max_length=64)
+    rolled_back_by: str = Field(default="Dr. Kenneth Lam (Lead GP)", max_length=160)
+    reason: str = Field(default="Rollback to prior verified Practice Graph snapshot", max_length=500)
 
 
 class GraphQueryReq(BaseModel):
@@ -583,6 +629,13 @@ def create_acute_app(
     rx_adapter = PharmacyFulfilmentAdapter()
     vax_adapter = FluVaxAdapter()
     billing_adapter = CorporateBillingAdapter()
+    emr_adapter = SimulatedPostgresEMRAdapter()
+    workspace_dispatcher = WorkspaceAdapterDispatcher(
+        booking_adapter=booking_adapter,
+        vax_adapter=vax_adapter,
+        rx_adapter=rx_adapter,
+        wa_adapter=wa_adapter,
+    )
     workflows = DurableWorkflowEngine()
     workflows.register_default_handlers(whatsapp_adapter=wa_adapter)
     limiter = SlidingRateLimiter(max_requests=300, window_seconds=60)
@@ -665,6 +718,11 @@ def create_acute_app(
     app.state.gateway = model_gw
     app.state.runtime = harness_rt
     app.state.wa_adapter = wa_adapter
+    app.state.booking_adapter = booking_adapter
+    app.state.rx_adapter = rx_adapter
+    app.state.vax_adapter = vax_adapter
+    app.state.emr_adapter = emr_adapter
+    app.state.workspace_dispatcher = workspace_dispatcher
     app.state.workflows = workflows
     app.state.telemetry = telemetry
     app.state.outbox_worker_state = outbox_worker_state
@@ -1009,12 +1067,24 @@ def create_acute_app(
 
     @app.get("/api/v1/emr/overview")
     def emr_overview(request: Request, patient_id: str | None = Query(default=None)):
-        """LoopBench-backed Simulated Clinic EMR snapshot + Live Multi-Agent Harness Inspector state."""
+        """LoopBench-backed Simulated Clinic EMR snapshot + Live Multi-Agent Harness Inspector state + Additive EMR Addenda."""
         tenant_id = DEMO_TENANT_1
         if not _is_demo_mode():
             claims = extract_claims(request, allowed_roles=("clinician", "nurse", "clinic_admin"))
             tenant_id = claims["tid"]
-        return multi_agent.build_emr_overview(database, tenant_id, selected_patient_id=patient_id)
+        ov = multi_agent.build_emr_overview(database, tenant_id, selected_patient_id=patient_id)
+        all_addenda = list_patient_emr_addenda(database, tenant_id, patient_id=patient_id)
+        by_pat_addenda: dict[str, list[dict[str, Any]]] = {}
+        for add in all_addenda:
+            pid = str(add.get("patient_id") or "")
+            if pid:
+                by_pat_addenda.setdefault(pid, []).append(add)
+        for p in ov.get("patients") or []:
+            if isinstance(p, dict):
+                p["emr_addenda"] = by_pat_addenda.get(str(p.get("id") or ""), [])
+        ov["emr_addenda"] = all_addenda
+        ov["emr_bridge"] = emr_adapter.bridge_metadata(database, tenant_id)
+        return ov
 
     @app.post("/api/v1/emr/patient/{patient_id}/reset-urti")
     def emr_reset_urti_patient(patient_id: str):
@@ -1092,19 +1162,73 @@ def create_acute_app(
             return claims["tid"]
         return DEMO_TENANT_1
 
+    def _resolve_workspace_practitioner(
+        session: Any,
+        tenant_id: str,
+        actor_name: str,
+        explicit_mchk: str | None = None,
+    ) -> tuple[str, str, str]:
+        """Resolve FK-safe `(practitioner_id, mchk_reg_no, clinic_name)` for doctor sign-offs."""
+        pracs = session.scalars(
+            select(Practitioner).where(Practitioner.tenant_id == tenant_id, Practitioner.role == "clinician")
+        ).all()
+        chosen: Practitioner | None = None
+        actor_low = (actor_name or "").lower()
+        for p in pracs:
+            if actor_low and (actor_low in (p.name_en or "").lower() or (p.name_en or "").lower() in actor_low):
+                chosen = p
+                break
+        if chosen is None and ("sarah" in actor_low or "locum" in actor_low):
+            chosen = next((p for p in pracs if p.id == "doc_locum_sarah"), None)
+        if chosen is None and pracs:
+            chosen = next((p for p in pracs if p.mchk_reg_no and valid_mchk_reg(p.mchk_reg_no)), pracs[0])
+        prac_id = chosen.id if chosen is not None else "doc_locum_sarah"
+        clinic_name = (chosen.clinic_name if chosen is not None and chosen.clinic_name else "Central & Mid-Levels Family Medical (HK)")
+        if explicit_mchk and valid_mchk_reg(explicit_mchk):
+            mchk = explicit_mchk.strip().upper()
+        elif chosen is not None and chosen.mchk_reg_no and valid_mchk_reg(chosen.mchk_reg_no):
+            mchk = chosen.mchk_reg_no.strip().upper()
+        else:
+            mchk = "M61042"
+        return prac_id, mchk, clinic_name
+
     @app.get("/api/v1/workspace/overview")
     def workspace_overview(request: Request):
         """Executive Clinic Workspace + 4-State Case Loops + Head-of-AI Architecture X-Ray."""
         tenant_id = _workspace_tenant(request)
-        return build_workspace_overview(database, tenant_id)
+        ov = build_workspace_overview(database, tenant_id)
+        ov.setdefault("xray", {})["emr_bridge"] = emr_adapter.bridge_metadata(database, tenant_id)
+        return ov
 
     @app.post("/api/v1/workspace/cases/{case_id}/preview")
     def workspace_case_preview(case_id: str, body: WorkspaceInstructionReq, request: Request):
-        """Loop 3 Preview: traverse Practice Graph & compile categorised plan + bounded Context Window."""
+        """Loop 3 Preview: traverse Practice Graph & compile categorised plan + bounded Context Window + real rx_rules CDS."""
         tenant_id = _workspace_tenant(request)
         try:
             return preview_case_instruction(
-                database, tenant_id=tenant_id, case_id=case_id, instruction_text=body.instruction_text
+                database,
+                tenant_id=tenant_id,
+                case_id=case_id,
+                instruction_text=body.instruction_text,
+                orders=body.orders,
+                structured_orders=body.structured_orders,
+                override_reason=body.override_reason,
+            )
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
+
+    @app.post("/api/v1/workspace/cases/{case_id}/compile")
+    def workspace_case_compile(case_id: str, body: WorkspaceCompileReq | None = None, request: Request = None):
+        """On-demand 5-slot <4,096-token Presentation Compiler + bounded 1-retry linter self-repair helper."""
+        tenant_id = _workspace_tenant(request)
+        req_body = body or WorkspaceCompileReq()
+        try:
+            return compile_case_presentation(
+                database,
+                tenant_id=tenant_id,
+                case_id=case_id,
+                patient_intake_text=req_body.patient_intake_text,
+                override_summary=req_body.override_summary,
             )
         except ValueError as exc:
             raise HTTPException(404, str(exc))
@@ -1113,6 +1237,8 @@ def create_acute_app(
     def workspace_case_ask(case_id: str, body: WorkspaceInstructionReq, request: Request):
         """Registrar-style clinical Q&A inside the case thread grounded in linked labs, consult notes & Agent Memory."""
         tenant_id = _workspace_tenant(request)
+        if not (body.instruction_text or "").strip():
+            raise HTTPException(422, "Question text is required for private Sam Q&A.")
         try:
             return ask_case_agent(
                 database,
@@ -1124,33 +1250,538 @@ def create_acute_app(
         except ValueError as exc:
             raise HTTPException(404, str(exc))
 
-    @app.post("/api/v1/workspace/cases/{case_id}/commit")
-    def workspace_case_commit(case_id: str, body: WorkspaceInstructionReq, request: Request):
-        """Loop 3 Commit: 10s Undo irreversible commit, folded tool trace, additive EMR addendum & Curator diff."""
+    def _handle_workspace_case_confirm(case_id: str, body: WorkspaceInstructionReq, request: Request):
+        """Seam C Loop 3 Confirm & Sign Plan (mounted at both `/confirm` and `/commit` alias).
+
+        1. Pre-validates `rx` orders with deterministic `rx_rules.evaluate_rx_order_primitives()` -> HTTP 422 on hard block or un-overridden conflict.
+        2. Commits `ExecutionTrace` + 10s Undo durable `OutboxEvent` via `commit_case_instruction`.
+        3. Mints REAL encrypted MCHK PDF certificates via `certificates.issue_certificate_from_order_primitive()` + `DocumentVault` (`omit_employer_diagnosis: true` default).
+        4. Persists FK-safe `Prescription` rows for active `rx` orders.
+        5. Enforces `assert_zero_sam_chat_leakage()` against the case's private Sam thread and writes structured additive EMR addendum visible in `/emr`.
+        6. Dispatches `adapters.py` hooks (`BookingAdapter`, `FluVaxAdapter`, `PharmacyFulfilmentAdapter`, `WhatsAppDoorbellAdapter` + `WhatsAppLeakageGuard`).
+        7. Publishes patient-scoped `live_bus` events (`workspace.committed`, `emr.mutated`, `patient.care_plan_delivered`).
+        """
         tenant_id = _workspace_tenant(request)
+        explicit_orders = body.orders if body.orders is not None else body.structured_orders
+        if not (body.instruction_text or "").strip() and not explicit_orders:
+            raise HTTPException(422, "Provide either instruction_text or structured orders to confirm.")
+
+        # 1. Pre-commit deterministic Rx CDS safety gate (fail closed HTTP 422 BEFORE any DB mutation!)
+        try:
+            preview = preview_case_instruction(
+                database,
+                tenant_id=tenant_id,
+                case_id=case_id,
+                instruction_text=body.instruction_text,
+                orders=body.orders,
+                structured_orders=body.structured_orders,
+                override_reason=body.override_reason,
+            )
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
+
+        rx_report = preview.get("rx_safety_report") or {}
+        if rx_report.get("hard_blocks"):
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "detail": rx_report.get("override_error")
+                    or "Hard-blocked prescription item cannot be signed in acute teleconsultation.",
+                    "error_code": "RX_HARD_BLOCK",
+                    "can_override": False,
+                    "cds_report": rx_report,
+                },
+            )
+        if rx_report.get("overrides_required") and not rx_report.get("can_sign"):
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "detail": rx_report.get("override_error")
+                    or "Explicit documented clinical override reason (>= 10 characters) is required.",
+                    "error_code": "RX_OVERRIDE_REQUIRED",
+                    "can_override": True,
+                    "cds_report": rx_report,
+                },
+            )
+
+        # Resolve FK-safe signing practitioner & capture private Sam thread for leakage verification
+        with database.tenant_session(tenant_id) as s:
+            case_pre = s.execute(
+                select(CaseLoop).where(CaseLoop.tenant_id == tenant_id, CaseLoop.id == case_id)
+            ).scalars().first()
+            if case_pre is None:
+                raise HTTPException(404, "Case not found.")
+            actor_id, mchk_reg_no, clinic_name = _resolve_workspace_practitioner(
+                s, tenant_id, body.actor_name, explicit_mchk=body.mchk_reg_no
+            )
+            private_sam_messages = list((case_pre.summary_json or {}).get("agent_thread") or [])
+
+        # 2. Commit ExecutionTrace, CaseLoop state transition, and 10s Undo durable OutboxEvent
         try:
             res = commit_case_instruction(
                 database,
                 tenant_id=tenant_id,
                 case_id=case_id,
                 instruction_text=body.instruction_text,
+                orders=body.orders,
+                structured_orders=body.structured_orders,
+                override_reason=body.override_reason,
+                actor_id=actor_id,
                 actor_name=body.actor_name,
             )
-            live_bus.publish("workspace.committed", data={"tenant_id": tenant_id, "case_id": case_id, "state": res["case_state"], "baton": res["case_baton"]})
-            return res
         except ValueError as exc:
             raise HTTPException(404, str(exc))
 
+        trace_dict = res["trace"]
+        trace_id = trace_dict["id"]
+        handoff = res.get("handoff_payload") or {}
+        parsed_orders = list(res.get("parsed_orders") or [])
+        patient_id = str(handoff.get("patient_id") or "")
+        patient_name = str(handoff.get("patient_name") or "")
+        can_undo = bool(trace_dict.get("can_undo"))
+
+        certificates_out: list[dict[str, Any]] = []
+        prescriptions_out: list[dict[str, Any]] = []
+        artifact_ids: list[str] = []
+        adapter_dispatches: dict[str, list[dict[str, Any]]] = {
+            "bookings": [],
+            "vaccinations": [],
+            "pharmacy_orders": [],
+            "whatsapp_doorbells": [],
+        }
+        enriched_addendum: dict[str, Any] = dict(trace_dict.get("emr_addendum") or {})
+
+        cert_orders = [o for o in parsed_orders if o.get("type") == "cert"]
+        active_rx_orders = [
+            o for o in parsed_orders
+            if o.get("type") == "rx" and str(o.get("action") or "start").lower() != "stop"
+        ]
+
+        with database.tenant_session(tenant_id) as s:
+            case_row = s.execute(
+                select(CaseLoop).where(CaseLoop.tenant_id == tenant_id, CaseLoop.id == case_id)
+            ).scalars().first()
+            trace_row = s.execute(
+                select(ExecutionTrace).where(ExecutionTrace.tenant_id == tenant_id, ExecutionTrace.id == trace_id)
+            ).scalars().first()
+            pat_row = s.execute(
+                select(Patient).where(Patient.tenant_id == tenant_id, Patient.id == patient_id)
+            ).scalars().first()
+            patient_phone = "+85290000000"
+            patient_hkid = (pat_row.hkid_masked if pat_row is not None else "") or "XXXX(X)"
+
+            enc_row: Encounter | None = None
+            rd_row: ReviewDecision | None = None
+            if (cert_orders or active_rx_orders) and pat_row is not None:
+                enc_row = Encounter(
+                    id=new_id("enc"),
+                    tenant_id=tenant_id,
+                    patient_id=patient_id,
+                    practitioner_id=actor_id,
+                    encounter_type="workspace_signed_plan",
+                    status="completed",
+                    chief_complaint_text=case_row.ai_title if case_row else "Workspace Clinical Plan",
+                    icd10_code="J06.9",
+                    icpc2_code="R74",
+                    clinical_note=trace_dict.get("doctor_outcome_summary") or "",
+                )
+                s.add(enc_row)
+                s.flush()
+                prop_row = Proposal(
+                    id=new_id("prop"),
+                    tenant_id=tenant_id,
+                    patient_id=patient_id,
+                    encounter_id=enc_row.id,
+                    kind="consult_draft",
+                    urgency=2,
+                    sla_due_at=utcnow() + timedelta(hours=1),
+                    status="approved",
+                    protocol_id=case_row.pathway_node_id if case_row else "workspace",
+                    protocol_version=trace_dict.get("graph_version_tag") or "v2.4",
+                    payload_json={"trace_id": trace_id, "orders": parsed_orders},
+                )
+                s.add(prop_row)
+                s.flush()
+                rd_row = ReviewDecision(
+                    id=new_id("rev"),
+                    tenant_id=tenant_id,
+                    proposal_id=prop_row.id,
+                    practitioner_id=actor_id,
+                    decision="approved",
+                    review_seconds=5.0,
+                    rubber_stamp_confirmed=True,
+                    override_reason=body.override_reason,
+                    note=f"Confirmed via /workspace ({trace_id})",
+                )
+                s.add(rd_row)
+                s.flush()
+
+            # 3. Mint real encrypted MCHK PDF certificates via DocumentVault
+            for cert_ord in cert_orders:
+                try:
+                    cert_issued = issue_certificate_from_order_primitive(
+                        s,
+                        doc_vault,
+                        clinic_id=tenant_id,
+                        patient_id=patient_id,
+                        encounter_id=enc_row.id if enc_row is not None else trace_id,
+                        practitioner_id=actor_id,
+                        mchk_reg_no=mchk_reg_no,
+                        practitioner_name=body.actor_name,
+                        order=cert_ord,
+                        diagnosis_icd10=cert_ord.get("diagnosis_icd10") or "J06.9",
+                        diagnosis_icpc2=cert_ord.get("diagnosis_icpc2") or "R74",
+                        patient_name=patient_name,
+                        patient_hkid=patient_hkid,
+                        clinic_name=clinic_name,
+                        review_decision_id=rd_row.id if rd_row is not None else None,
+                    )
+                except ValueError as exc:
+                    raise HTTPException(422, f"Certificate validation error: {exc}")
+                cert_id = cert_issued.get("certificate_id") or cert_issued["vault_doc_id"]
+                cert_payload = {
+                    "id": cert_id,
+                    "vault_doc_id": cert_issued["vault_doc_id"],
+                    "verification_hash": cert_issued["verification_hash"],
+                    "pdf_sha256": cert_issued["pdf_sha256"],
+                    "days_off": cert_issued["days_off"],
+                    "start_date": cert_issued["start_date"],
+                    "end_date": cert_issued["end_date"],
+                    "mchk_reg_no": cert_issued["mchk_reg_no"],
+                    "omit_employer_diagnosis": bool(cert_issued["omit_employer_diagnosis"]),
+                    "download_token_endpoint": f"/api/v1/patient/certificates/{cert_id}/download-token",
+                }
+                certificates_out.append(cert_payload)
+                if cert_issued.get("certificate_id"):
+                    artifact_ids.append(str(cert_issued["certificate_id"]))
+                artifact_ids.append(str(cert_issued["vault_doc_id"]))
+
+            # 4. Persist FK-safe Prescription rows for active Rx orders
+            rx_row: Prescription | None = None
+            if active_rx_orders and enc_row is not None and rd_row is not None:
+                rx_items_store = list(rx_report.get("enriched_items") or [])
+                if not rx_items_store:
+                    rx_items_store = [
+                        {
+                            "drug": o.get("drug", ""),
+                            "freq": o.get("freq", ""),
+                            "days": o.get("days", ""),
+                            "action": o.get("action", "start"),
+                            "note": o.get("note", ""),
+                        }
+                        for o in active_rx_orders
+                    ]
+                rx_row = Prescription(
+                    id=new_id("rx"),
+                    tenant_id=tenant_id,
+                    patient_id=patient_id,
+                    encounter_id=enc_row.id,
+                    practitioner_id=actor_id,
+                    mchk_reg_no=mchk_reg_no,
+                    review_decision_id=rd_row.id,
+                    items_json=rx_items_store,
+                    safety_checks_json=list(rx_report.get("findings") or []),
+                    override_reason=body.override_reason,
+                    fulfilment_mode="pickup",
+                    fulfilment_status="signed",
+                )
+                s.add(rx_row)
+                s.flush()
+                artifact_ids.append(rx_row.id)
+
+            # 5. Invoke adapters.py hooks (Booking, FluVax, Pharmacy, WhatsAppDoorbell + LeakageGuard)
+            adapter_dispatches = workspace_dispatcher.dispatch_orders(
+                trace_id=trace_id,
+                patient_id=patient_id,
+                patient_phone=patient_phone,
+                practitioner_id=actor_id,
+                practitioner_name=body.actor_name,
+                orders=parsed_orders,
+                prescription_id=rx_row.id if rx_row is not None else None,
+                has_certificate=bool(certificates_out),
+            )
+            if rx_row is not None:
+                phx_list = adapter_dispatches.get("pharmacy_orders") or []
+                if phx_list:
+                    rx_row.fulfilment_ref = phx_list[0].get("fulfilment_ref")
+                    rx_row.fulfilment_status = phx_list[0].get("status", "sent_to_pharmacy")
+                    s.flush()
+                prescriptions_out.append(
+                    {
+                        "id": rx_row.id,
+                        "patient_id": rx_row.patient_id,
+                        "mchk_reg_no": rx_row.mchk_reg_no,
+                        "items": rx_row.items_json,
+                        "fulfilment_mode": rx_row.fulfilment_mode,
+                        "fulfilment_status": rx_row.fulfilment_status,
+                        "fulfilment_ref": rx_row.fulfilment_ref,
+                        "signed_at": (rx_row.signed_at or utcnow()).isoformat(),
+                    }
+                )
+
+            # 6. Write compact additive EMR addendum (strictly excluding ephemeral private Sam chat!)
+            addendum_entries = list(enriched_addendum.get("entries") or [])
+            if not addendum_entries:
+                for o in parsed_orders:
+                    otype = o.get("type")
+                    if otype == "rx":
+                        addendum_entries.append(
+                            f"Rx ({o.get('action', 'start')}): {o.get('drug', '')} {o.get('freq', '')} {o.get('days', '')}".strip()
+                        )
+                    elif otype == "cert":
+                        omit_note = "diagnosis omitted on employer copy" if o.get("omit_employer_diagnosis", True) else "diagnosis included"
+                        addendum_entries.append(
+                            f"MCHK Sick-Leave Certificate: {o.get('days_off', 1)}d ({omit_note})."
+                        )
+                    elif otype == "lab":
+                        addendum_entries.append(f"Lab order: {o.get('test_name', '')} ({o.get('when', 'scheduled')}).")
+                    elif otype == "book":
+                        addendum_entries.append(f"Booking: {o.get('visit_type', 'Clinic follow-up')} ({o.get('when', 'scheduled')}).")
+                    elif otype == "nurse":
+                        addendum_entries.append(f"Nurse delegation: {o.get('task', '')} ({o.get('assignee', 'Nurse Rachel')}).")
+                    elif otype == "goal":
+                        addendum_entries.append(f"Clinical goal updated: {o.get('metric', 'Target')}.")
+                    elif otype == "imaging":
+                        addendum_entries.append(f"Imaging order: {o.get('modality', '')} {o.get('region', '')}.".strip())
+                    elif otype == "refer":
+                        addendum_entries.append(f"Specialist referral: {o.get('specialty', '')} ({o.get('urgency', 'routine')}).")
+                if not addendum_entries:
+                    addendum_entries.append(trace_dict.get("doctor_outcome_summary") or "Clinician confirmed care plan.")
+
+            try:
+                assert_zero_sam_chat_leakage(addendum_entries, private_sam_messages)
+            except ValueError as exc:
+                raise HTTPException(422, str(exc))
+
+            enriched_addendum = emr_adapter.write_addendum(
+                s,
+                tenant_id=tenant_id,
+                patient_id=patient_id,
+                signed_by=body.actor_name,
+                entries=addendum_entries,
+                trace_id=trace_id,
+                case_id=case_id,
+                mchk_reg_no=mchk_reg_no,
+                patient_name=patient_name,
+                status="pending_dispatch" if can_undo else "committed",
+                artifact_ids=artifact_ids,
+                private_sam_messages=private_sam_messages,
+                addendum_id=enriched_addendum.get("addendum_id"),
+            )
+            if trace_row is not None:
+                trace_row.emr_addendum_json = enriched_addendum
+                flag_modified(trace_row, "emr_addendum_json")
+
+            # Append patient-safe care plan message (zero internal clinician notes or private Sam chat)
+            if pat_row is not None:
+                safe_parts: list[str] = [f"Your doctor ({body.actor_name}) has confirmed your care plan."]
+                if prescriptions_out:
+                    safe_parts.append(f"e-Prescription signed ({len(active_rx_orders)} item(s)).")
+                if certificates_out:
+                    c0 = certificates_out[0]
+                    safe_parts.append(
+                        f"Medical sick-leave certificate ready ({c0['days_off']} day(s), {c0['start_date']} to {c0['end_date']})."
+                    )
+                s.add(
+                    Message(
+                        id=new_id("msg"),
+                        tenant_id=tenant_id,
+                        patient_id=patient_id,
+                        encounter_id=enc_row.id if enc_row is not None else None,
+                        direction="out",
+                        sender_role="clinician",
+                        body_text=" ".join(safe_parts),
+                    )
+                )
+            s.flush()
+
+        trace_dict["emr_addendum"] = enriched_addendum
+
+        # 7. Sync live_bus state & publish patient-scoped events so `/emr` and `/p/qr/...` update immediately
+        if patient_id:
+            live_bus.update_patient_state(patient_id, workflow_stage="doctor_signed")
+            live_bus.append_tool_call(
+                patient_id,
+                {
+                    "agent": "WorkspaceExecutionLayer",
+                    "tool": "emr.write_additive_addendum",
+                    "authority": "SIGNED_WRITE",
+                    "emr_target": "addenda",
+                    "summary": f"{body.actor_name} signed additive EMR addendum ({enriched_addendum.get('addendum_id')})",
+                    "trace_id": trace_id,
+                },
+            )
+        live_bus.publish(
+            "workspace.committed",
+            patient_id=patient_id or None,
+            data={
+                "tenant_id": tenant_id,
+                "case_id": case_id,
+                "patient_id": patient_id,
+                "trace_id": trace_id,
+                "state": res["case_state"],
+                "baton": res["case_baton"],
+                "addendum_id": enriched_addendum.get("addendum_id"),
+            },
+        )
+        live_bus.publish(
+            "emr.mutated",
+            patient_id=patient_id or None,
+            data={
+                "tenant_id": tenant_id,
+                "case_id": case_id,
+                "patient_id": patient_id,
+                "trace_id": trace_id,
+                "addendum_id": enriched_addendum.get("addendum_id"),
+                "certificate_ids": [c["id"] for c in certificates_out],
+                "prescription_ids": [p["id"] for p in prescriptions_out],
+            },
+        )
+        live_bus.publish(
+            "patient.care_plan_delivered",
+            patient_id=patient_id or None,
+            data={
+                "patient_id": patient_id,
+                "case_id": case_id,
+                "trace_id": trace_id,
+                "signed_by": body.actor_name,
+                "mchk_reg_no": mchk_reg_no,
+                "certificates": certificates_out,
+                "prescriptions": [
+                    {
+                        "id": p["id"],
+                        "item_count": len(p.get("items") or []),
+                        "fulfilment_status": p.get("fulfilment_status"),
+                    }
+                    for p in prescriptions_out
+                ],
+                "bookings": adapter_dispatches.get("bookings", []) + adapter_dispatches.get("vaccinations", []),
+                "contains_private_sam_chat": False,
+            },
+        )
+
+        res["certificates"] = certificates_out
+        res["prescriptions"] = prescriptions_out
+        res["emr_addendum"] = enriched_addendum
+        res["adapter_dispatches"] = adapter_dispatches
+        res["undo_window_seconds"] = int(trace_dict.get("undo_seconds_left") or 0)
+        res["live_events_published"] = [
+            "workspace.committed",
+            "emr.mutated",
+            "patient.care_plan_delivered",
+        ]
+        return res
+
+    @app.post("/api/v1/workspace/cases/{case_id}/confirm")
+    def workspace_case_confirm(case_id: str, body: WorkspaceInstructionReq, request: Request):
+        """Seam C Loop 3 Confirm & Sign Plan: CDS 422 gate, real MCHK PDF Vault mint, additive EMR addendum & live push."""
+        return _handle_workspace_case_confirm(case_id, body, request)
+
+    @app.post("/api/v1/workspace/cases/{case_id}/commit")
+    def workspace_case_commit(case_id: str, body: WorkspaceInstructionReq, request: Request):
+        """Backward-compatible alias to `/confirm`."""
+        return _handle_workspace_case_confirm(case_id, body, request)
+
     @app.post("/api/v1/workspace/cases/{case_id}/undo/{trace_id}")
     def workspace_case_undo(case_id: str, trace_id: str, request: Request):
-        """Cancel irreversible execution inside the 10-second Undo safety window."""
+        """Cancel irreversible execution inside the 10-second Undo window: outbox, EMR addendum, bookings & staged artifacts."""
         tenant_id = _workspace_tenant(request)
+        patient_id = ""
+        addendum_id: str | None = None
+        staged_artifact_ids: list[str] = []
+        with database.tenant_session(tenant_id) as s:
+            case_pre = s.execute(
+                select(CaseLoop).where(CaseLoop.tenant_id == tenant_id, CaseLoop.id == case_id)
+            ).scalars().first()
+            trace_pre = s.execute(
+                select(ExecutionTrace).where(
+                    ExecutionTrace.tenant_id == tenant_id,
+                    ExecutionTrace.id == trace_id,
+                    ExecutionTrace.case_loop_id == case_id,
+                )
+            ).scalars().first()
+            if case_pre is not None:
+                patient_id = case_pre.patient_id
+            if trace_pre is not None and isinstance(trace_pre.emr_addendum_json, dict):
+                addendum_id = trace_pre.emr_addendum_json.get("addendum_id")
+                staged_artifact_ids = list(trace_pre.emr_addendum_json.get("artifact_ids") or [])
+
         try:
             res = undo_case_execution(database, tenant_id=tenant_id, case_id=case_id, trace_id=trace_id)
-            live_bus.publish("workspace.undone", data={"tenant_id": tenant_id, "case_id": case_id, "trace_id": trace_id})
-            return res
         except ValueError as exc:
             raise HTTPException(409, str(exc))
+
+        retraction = emr_adapter.retract_addendum(
+            database,
+            tenant_id=tenant_id,
+            addendum_id=addendum_id,
+            trace_id=trace_id,
+            reason="Clinician triggered 10-second Undo",
+        )
+        rollback_res = workspace_dispatcher.rollback_trace(trace_id)
+
+        # Retract staged Certificate / Prescription DB rows bound to this undone trace
+        retracted_artifacts: list[str] = []
+        if staged_artifact_ids:
+            with database.tenant_session(tenant_id) as s:
+                for aid in staged_artifact_ids:
+                    if aid.startswith("cert_"):
+                        c_row = s.get(Certificate, aid)
+                        if c_row is not None:
+                            s.delete(c_row)
+                            retracted_artifacts.append(aid)
+                    elif aid.startswith("rx_"):
+                        rx_row = s.get(Prescription, aid)
+                        if rx_row is not None:
+                            s.delete(rx_row)
+                            retracted_artifacts.append(aid)
+                s.flush()
+
+        if patient_id:
+            live_bus.update_patient_state(patient_id, workflow_stage="nurse_ready")
+        live_bus.publish(
+            "workspace.undone",
+            patient_id=patient_id or None,
+            data={
+                "tenant_id": tenant_id,
+                "case_id": case_id,
+                "patient_id": patient_id,
+                "trace_id": trace_id,
+                "retracted_addendum_id": retraction.get("addendum_id"),
+            },
+        )
+        live_bus.publish(
+            "emr.mutated",
+            patient_id=patient_id or None,
+            data={
+                "tenant_id": tenant_id,
+                "case_id": case_id,
+                "patient_id": patient_id,
+                "trace_id": trace_id,
+                "retracted": True,
+                "retracted_addendum_id": retraction.get("addendum_id"),
+            },
+        )
+        live_bus.publish(
+            "patient.care_plan_retracted",
+            patient_id=patient_id or None,
+            data={
+                "patient_id": patient_id,
+                "case_id": case_id,
+                "trace_id": trace_id,
+                "reason": "Clinician recalled care plan within 10-second undo window",
+            },
+        )
+        return {
+            **res,
+            "case_baton": "with_doctor",
+            "retracted_addendum_id": retraction.get("addendum_id"),
+            "cancelled_bookings": rollback_res.get("cancelled_bookings", []),
+            "cancelled_pharmacy_orders": rollback_res.get("cancelled_pharmacy_orders", []),
+            "retracted_artifacts": retracted_artifacts,
+            "outbox_cancelled": True,
+            "emr_addendum_retracted": True,
+        }
 
     @app.post("/api/v1/workspace/cases/{case_id}/simulate-tick")
     def workspace_simulate_tick(case_id: str, body: LoopProgressionReq, request: Request):
@@ -1167,7 +1798,7 @@ def create_acute_app(
 
     @app.post("/api/v1/workspace/triage/simulate")
     def workspace_triage_simulate(body: TriageSimReq, request: Request):
-        """Loop 1 deterministic Practice Graph inbound triage evaluator."""
+        """Loop 1 deterministic Practice Graph + bilingual triage.py inbound evaluator."""
         tenant_id = _workspace_tenant(request)
         return simulate_patient_triage_turn(
             database,
@@ -1175,34 +1806,58 @@ def create_acute_app(
             message_text=body.message_text,
             hours_since_last_visit=body.hours_since_last_visit,
             patient_g6pd=body.patient_g6pd,
+            patient_allergies=body.patient_allergies,
+            vitals=body.vitals,
         )
 
     @app.post("/api/v1/workspace/documents/ingest")
     def workspace_ingest_document(body: WorkspaceDocIngestReq, request: Request):
-        """Loop 2 Fail-Closed 3-Point ID Document Gate (quarantines mismatches strictly to Nurse Rachel)."""
+        """Loop 2 Fail-Closed 3-Point ID + Multi-Page Collision Document Gate (quarantines mismatches to Nurse Rachel)."""
         tenant_id = _workspace_tenant(request)
-        with database.tenant_session(tenant_id) as s:
-            row = ingest_external_document(
-                s,
-                tenant_id=tenant_id,
-                external_doc_ref=body.external_doc_ref,
-                doc_kind=body.doc_kind,
-                source_org=body.source_org,
-                claimed_mrn_or_hkid=body.claimed_mrn_or_hkid,
-                claimed_name=body.claimed_name,
-                claimed_dob=body.claimed_dob,
-                verbatim_quote=body.verbatim_quote,
-                page_ref=body.page_ref,
+        res = ingest_workspace_document(
+            database,
+            tenant_id=tenant_id,
+            external_doc_ref=body.external_doc_ref,
+            doc_kind=body.doc_kind,
+            source_org=body.source_org,
+            claimed_mrn_or_hkid=body.claimed_mrn_or_hkid,
+            claimed_name=body.claimed_name,
+            claimed_dob=body.claimed_dob,
+            verbatim_quote=body.verbatim_quote,
+            page_ref=body.page_ref,
+            source_text=body.source_text,
+            parsed_diff=body.parsed_diff,
+            proposed_meds=body.proposed_meds,
+        )
+        live_bus.publish(
+            "document.ingested",
+            patient_id=res.get("matched_patient_id"),
+            data={"tenant_id": tenant_id, **res},
+        )
+        return res
+
+    @app.post("/api/v1/workspace/documents/{doc_id}/resolve")
+    def workspace_resolve_document(doc_id: str, body: WorkspaceDocResolveReq, request: Request):
+        """Nurse Rachel quarantine resolution: link to verified patient or reject wrong-patient scan."""
+        tenant_id = _workspace_tenant(request)
+        try:
+            res = resolve_quarantined_document(
+                database,
+                tenant_id,
+                doc_id,
+                action=body.action,
+                verified_patient_id=body.verified_patient_id,
+                verification_note=body.verification_note,
+                resolved_by=body.resolved_by,
             )
-            s.flush()
-            res = {
-                "id": row.id,
-                "external_doc_ref": row.external_doc_ref,
-                "match_status": row.match_status,
-                "matched_patient_id": row.matched_patient_id,
-                "checks": row.match_checks_json,
-            }
-        live_bus.publish("document.ingested", data={"tenant_id": tenant_id, **res})
+        except ValueError as exc:
+            status_code = 404 if "not found" in str(exc).lower() else 422
+            raise HTTPException(status_code, str(exc))
+        live_bus.publish(
+            "document.resolved",
+            patient_id=res.get("matched_patient_id"),
+            data={"tenant_id": tenant_id, **res},
+        )
         return res
 
     @app.get("/api/v1/graph/current")
@@ -1211,6 +1866,43 @@ def create_acute_app(
         tenant_id = _workspace_tenant(request)
         with database.tenant_session(tenant_id) as s:
             return get_effective_practice_graph(s, tenant_id)
+
+    @app.get("/api/v1/graph/versions")
+    def graph_versions(request: Request):
+        """Return immutable Practice Graph version history for the tenant (newest first)."""
+        tenant_id = _workspace_tenant(request)
+        with database.tenant_session(tenant_id) as s:
+            versions = list_practice_graph_versions(s, tenant_id)
+        return {"versions": versions, "count": len(versions)}
+
+    @app.post("/api/v1/graph/rollback")
+    def graph_rollback(body: GraphRollbackReq, request: Request):
+        """Lead GP rollback to a prior immutable Practice Graph snapshot (re-verifies Safety Floor)."""
+        tenant_id = _workspace_tenant(request)
+        try:
+            with database.tenant_session(tenant_id) as s:
+                graph = rollback_practice_graph(
+                    s,
+                    tenant_id=tenant_id,
+                    rolled_back_by=body.rolled_back_by,
+                    target_version_tag=body.target_version_tag,
+                    target_version_id=body.target_version_id,
+                    reason=body.reason,
+                )
+            live_bus.publish(
+                "practice_graph.published",
+                data={
+                    "tenant_id": tenant_id,
+                    "version_tag": graph["version_tag"],
+                    "rolled_back_from": graph.get("rolled_back_from"),
+                    "rolled_back_to_source_version": graph.get("rolled_back_to_source_version"),
+                },
+            )
+            return graph
+        except SafetyFloorViolation as exc:
+            raise HTTPException(422, str(exc))
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
 
     @app.post("/api/v1/graph/onboard")
     def graph_onboard(body: GraphOnboardReq, request: Request):
@@ -1266,7 +1958,9 @@ def create_acute_app(
         if not _is_demo_mode():
             raise HTTPException(404, "Demo endpoints disabled in production")
         tenant_id = _workspace_tenant(request)
-        return reset_workspace(database, tenant_id)
+        ov = reset_workspace(database, tenant_id)
+        ov.setdefault("xray", {})["emr_bridge"] = emr_adapter.bridge_metadata(database, tenant_id)
+        return ov
 
     # ================================================================================== REAL AUTH
     @app.post("/api/v1/auth/login")
@@ -2699,12 +3393,17 @@ def create_acute_app(
             pat = s.get(Patient, body.patient_id)
             if not pat:
                 raise HTTPException(404, "Patient not found")
+            profile: dict[str, Any] = {
+                "dob": pat.dob, "g6pd_deficient": pat.g6pd_deficient,
+                "allergies": list(pat.allergies_json or []), "current_meds": list(pat.current_meds_json or []),
+                "weight_kg": pat.weight_kg, "egfr": pat.egfr,
+            }
+            if body.patient_overrides:
+                for k in ("egfr", "weight_kg", "g6pd_deficient", "allergies", "current_meds", "pregnant", "age"):
+                    if k in body.patient_overrides and body.patient_overrides[k] is not None:
+                        profile[k] = body.patient_overrides[k]
             report = check_prescription_safety(
-                {
-                    "dob": pat.dob, "g6pd_deficient": pat.g6pd_deficient,
-                    "allergies": pat.allergies_json, "current_meds": pat.current_meds_json,
-                    "weight_kg": pat.weight_kg, "egfr": pat.egfr,
-                },
+                profile,
                 body.items,
                 diagnosis_icd10=body.diagnosis_icd10,
             )
