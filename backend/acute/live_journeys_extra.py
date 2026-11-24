@@ -34,18 +34,18 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "小便刺痛及尿頻",
         "subtitle": "Uncomplicated dysuria · G6PD deficient on file",
         "welcome_en": (
-            "Hi Ka-Yan, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. What's bothering you today?"
+            "Hi Ka-Yan, I'm Sam, the AI Resident at Central & Mid-Levels Family Medical. What's bothering you today?"
         ),
         "welcome_zh": (
-            "嘉欣你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日身體有咩唔舒服？"
+            "嘉欣你好，我係中環及半山家庭醫務中心嘅 AI 駐診助手 Sam。你今日身體有咩唔舒服？"
         ),
         "suggested_replies_en": [
             "I've had burning when I pee and going to the toilet frequently since yesterday evening.",
-            "No fever, chills, or lower back pain, and no chance of pregnancy. Could I see a doctor today?",
+            "No fever, chills, or lower back pain, and no chance of pregnancy. Can the doctor review this and send a prescription?",
         ],
         "suggested_replies_zh": [
             "琴晚開始小便刺痛同成日急尿，請問醫生可以點幫我？",
-            "冇發燒、冇發冷亦冇腰背痛，亦冇機會懷孕。今日可唔可以約醫生？",
+            "冇發燒、冇發冷亦冇腰背痛，亦冇機會懷孕。醫生可唔可以直接審閱同開藥？",
         ],
     },
     {
@@ -60,10 +60,10 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "琴日起覺得唔係好舒服",
         "subtitle": "Brief message asking for medicine · clarifies symptoms safely",
         "welcome_en": (
-            "Hi Chun-Hin, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. Tell me a bit about what's going on today and I'll help line up the right care."
+            "Hi Chun-Hin, I'm Sam, the AI Resident at Central & Mid-Levels Family Medical. Tell me a bit about what's going on today and I'll help line up the right care."
         ),
         "welcome_zh": (
-            "俊軒你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你講吓今日邊度唔舒服，我幫你安排醫生跟進。"
+            "俊軒你好，我係中環及半山家庭醫務中心嘅 AI 駐診助手 Sam。你講吓今日邊度唔舒服，我幫你安排醫生跟進。"
         ),
         "suggested_replies_en": [
             "Not feeling well since yesterday, super busy with work — can the doctor just send me some antibiotics?",
@@ -84,10 +84,10 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "心血管慢性病管理及預防檢查",
         "subtitle": "Perindopril & Rosuvastatin · CVD risk score, BP trend & preventive checkups",
         "welcome_en": (
-            "Hello Ms. Lau, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you feeling today?"
+            "Hello Ms. Lau, I'm Sam, the AI Resident at Central & Mid-Levels Family Medical. How are you feeling today?"
         ),
         "welcome_zh": (
-            "劉女士你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日覺得點樣？"
+            "劉女士你好，我係中環及半山家庭醫務中心嘅 AI 駐診助手 Sam。你今日覺得點樣？"
         ),
         "suggested_replies_en": [
             "My home blood pressure has been creeping up to around 148/92 this week on Perindopril 4mg — no chest pain or shortness of breath. Could Dr. Wong review my blood pressure, cholesterol, and any routine checkups I'm due for?",
@@ -570,22 +570,32 @@ def compile_extra_journey_turn(
             )
         elif not preg_answered or not confirmed_no_red_flags:
             reply = (
-                "明白，小便刺痛同尿頻真係好唔舒服。為咗幫黃醫生安全安排治療，想先確認兩件事：第一，你有冇發燒、發冷、腰背痛或者作嘔？第二，你有冇機會懷孕？"
+                "明白，小便刺痛同尿頻真係好唔舒服。幫醫生整理資料前，想確認兩件事：有冇發燒、發冷、腰背痛或者作嘔？另外有冇機會懷孕？"
                 if is_zh
-                else "Sorry you are dealing with that. Before I pass your summary to Dr. Wong, could you confirm two quick things: are you having any fever, chills, lower back pain, or vomiting, and is there any chance you could be pregnant?"
+                else "Sorry you are dealing with that. Just two quick checks before I brief the doctor: any fever, chills, lower back pain, or vomiting, and is there any chance you could be pregnant?"
+            )
+            return (
+                "running",
+                "with_patient",
+                "Acute UTI — Screening Red Flags",
+                "Burning urination & frequency (<24h); AI Resident is confirming pregnancy status and kidney red flags.",
+                "Screening red flags",
+                summary,
+                reply,
+                steps,
             )
         else:
             reply = (
-                "多謝你確認。我已經將你嘅症狀同病歷安全核對結果整理畀醫生團隊，亦查閱咗今日診所時間表——張詠欣醫生（急症及婦女健康）今日 11:15 有空檔，你可以喺下方一鍵確認親臨診所或視像診症，或者揀其他醫生時間。期間記得多飲清水，如果出現發燒、發冷或腰背痛，請即刻通知我哋。"
+                "多謝你確認。由於冇發燒亦冇腎炎警號，你可以直接用「訊息審閱（最快）」由張詠欣醫生非同步審閱並發送安全處方，唔使專登出門——或者喺下方改選視像診症／親臨診所。記得多飲清水，如有發燒或腰背痛請即刻通知我哋。"
                 if is_zh
-                else "Thank you for confirming. I have passed your details and chart safety checks to the clinic team so the doctor can arrange an appropriate antibiotic prescription, and I checked today's schedule — Dr. Wing-Yan Cheung has an open 11:15 slot below (in-clinic or teleconsult, or you can pick another doctor). Keep drinking plenty of water, and let us know straight away if you develop fever, chills, vomiting, or lower back pain."
+                else "Thank you for confirming. Since you have no fever or flank pain, you don't need an in-clinic visit — I've queued your summary and chart safety checks for async Message review (Fastest) with Dr. Wing-Yan Cheung below, or you can switch to Teleconsult or In-Clinic. Keep drinking plenty of water, and let us know straight away if fever or back pain develops."
             )
         return (
             "needs_decision",
             "with_doctor",
-            "Acute Uncomplicated UTI",
-            "Burning urination & frequency (<24h); G6PD-safe Augmentin 375mg TDS x5d staged.",
-            "Today · doctor review",
+            "Acute Uncomplicated UTI — Async Review",
+            "Burning urination & frequency (<24h), red flags & pregnancy clear; G6PD-safe Augmentin 375mg TDS x5d staged for async sign-off.",
+            "Ready for sign-off",
             summary,
             reply,
             steps,
@@ -1031,7 +1041,6 @@ def compile_extra_journey_turn(
                 else "Confirm seated 5-minute home BP technique & medication adherence before Perindopril titration."
             ),
             "suggested_orders": [
-                {"id": "lau_book", "type": "book", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "visitType": "In-Clinic GP Cardiovascular Review & Repeat ECG", "when": "Today 14:15 (20 min)"},
                 {"id": "lau_rx_perind", "type": "rx", "action": "update", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "drug": "Perindopril 8mg", "freq": "OM daily", "days": "30d", "note": "Consider titration after confirming clinic BP & renal panel"},
                 {"id": "lau_lab", "type": "lab", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "fasting": True, "when": "Before clinic review"},
                 {"id": "lau_goal_bp", "type": "goal", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "metric": "Blood Pressure", "targetSys": 135, "targetDia": 85},
@@ -1047,8 +1056,8 @@ def compile_extra_journey_turn(
                 "actor": "Sam",
                 "time": hhmm,
                 "text": (
-                    f"Registrar reasoning: Confirmed asymptomatic at rest (no chest pain or dyspnoea) → computed deterministic 10-year CVD risk ({cvd_score.get('value', '5–10%')} · {cvd_score.get('band', 'Borderline')}) "
-                    "and mounted BP trend, Perindopril/Rosuvastatin profile, Oct ECG/Echo, and cardiovascular labs → staged clinic BP review, Perindopril titration option, Fasting Lipid + HbA1c + RFT/eGFR panel, and preventive checkups (CV-priority flu shot & biennial mammogram)."
+                    f"AI Resident reasoning: Confirmed asymptomatic at rest (no chest pain or dyspnoea) → computed deterministic 10-year CVD risk ({cvd_score.get('value', '5–10%')} · {cvd_score.get('band', 'Borderline')}) "
+                    "and mounted BP trend, Perindopril/Rosuvastatin profile, Oct ECG/Echo, and cardiovascular labs → staged Perindopril titration option, Fasting Lipid + HbA1c + RFT/eGFR panel, BP target goal, and preventive checkups (CV-priority flu shot & biennial mammogram)."
                 ),
             })
         summary["agent_thread"] = agent_thread[-4:]
@@ -1062,11 +1071,9 @@ def compile_extra_journey_turn(
             )
         else:
             reply = (
-                "多謝你定期記錄血壓。由於屋企血壓由 132 慢慢升到 148/92（高於 135/85 目標），加上上次膽固醇略高於理想水平，我已經整理好你嘅血壓趨勢、心血管風險評估同過往心電圖畀黃莎拉醫生覆核。\n\n"
-                "我亦查閱咗今日診所時間表——黃莎拉醫生今日 14:15 有 20 分鐘空檔可以一併檢視血壓藥、安排心血管優先流感針同兩年一度乳房造影（可喺下方確認或揀其他時段）。請問你每日有冇準時食 Perindopril 同 Rosuvastatin，有冇副作用？"
+                "多謝你定期記錄血壓。我已經將你嘅血壓趨勢（升至 148/92）、心血管風險評估同過往心電圖整理好畀黃莎拉醫生，並喺下方幫你預留咗今日 14:15 視像覆診空檔（如需同日打流感針亦可改選親臨診所）。請問你每日有冇準時食 Perindopril 同 Rosuvastatin，有冇副作用？"
                 if is_zh
-                else "Thank you for keeping track of your readings. Because your home BP has drifted up toward 148/92 alongside slightly elevated LDL, I have compiled your BP trend, 10-year cardiovascular risk profile, and baseline ECG and Echo for Dr. Sarah Wong.\n\n"
-                "I also checked today's clinic schedule and found an open 20-minute review slot with Dr. Sarah Wong at 14:15 below, where we can bundle your CV-priority flu shot and biennial mammogram. Have you been taking your Perindopril and Rosuvastatin every day without side effects?"
+                else "Thank you for tracking your readings. I've compiled your BP trend (148/92), 10-year CVD risk profile, and baseline ECG for Dr. Sarah Wong, and held a 14:15 Teleconsult review below (or switch to In-Clinic to bundle your flu shot). Have you been taking Perindopril and Rosuvastatin every day without side effects?"
             )
         return (
             "needs_decision",

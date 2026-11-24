@@ -365,7 +365,7 @@ export const v2Api = {
     journeyKey: string;
     doctorId: string;
     slotId: string;
-    modality: "in_clinic" | "teleconsult";
+    modality: "async_message" | "teleconsult" | "in_clinic";
     offerId?: string;
     lang?: "en" | "zh-HK";
   }) =>

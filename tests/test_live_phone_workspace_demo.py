@@ -250,7 +250,7 @@ def test_all_12_realistic_gp_episodes_blank_emr_and_post_sign_followup(tmp_path)
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "tang_uti", "message": "Burning when I pee since yesterday, no fever — can Dr. Wong help?", "lang": "en"},
     ).json()
-    assert r_tang["case_state"] == "needs_decision"
+    assert r_tang["case_state"] == "running"
     assert "haemolysis" not in r_tang["reply"].lower() and "g6pd" not in r_tang["reply"].lower()
     assert "pregnant" in r_tang["reply"].lower()
     assert r_tang["lint_report"]["passed"] is True
@@ -675,6 +675,8 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert "!" not in t1_4["reply"]
     assert t1_4["llm_meta"]["mode"] == "deterministic_preset"
     assert t1_4["booking_offer"] is not None
+    assert t1_4["booking_offer"]["modality"] == "async_message"
+    assert t1_4["booking_offer"]["allow_async_message"] is True
     assert t1_4["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_lam"
     assert t1_4["booking_offer"]["recommended"]["time"] == "11:00"
     assert len(t1_4["suggested_replies"]) == 1
@@ -687,20 +689,19 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     wy_vitals_str = str(wy_case["summary"].get("vitals_exam") or "")
     assert "38.2" in wy_vitals_str and "98%" in wy_vitals_str and "88 bpm" in wy_vitals_str
     wy_orders = wy_case["summary"]["issues"][0]["suggested_orders"]
-    assert any(o["type"] == "book" for o in wy_orders)
+    assert not any(o["type"] == "book" for o in wy_orders)
     assert any(o["type"] == "rx" and "paracetamol" in o["drug"].lower() for o in wy_orders)
     assert any(o["type"] == "cert" and o["daysOff"] == 2 for o in wy_orders)
     assert not any("amoxicillin" in str(o).lower() or "antibiotic" in str(o.get("drug", "")).lower() for o in wy_orders)
 
-    # Doctor signs URTI plan -> mints BOTH MCHK Sick Leave PDF AND Signed HK e-Prescription PDF
+    # Doctor signs URTI plan -> mints BOTH MCHK Sick Leave PDF AND Signed HK e-Prescription PDF and closes case cleanly (NOT running/with_nurse!)
     conf = client.post(
         f"/api/v1/workspace/cases/{wy_case['id']}/confirm",
         json={
             "actor_name": "Locum Dr. Sarah Wong",
             "mchk_reg_no": "M61042",
-            "instruction_text": "Book exam + Paracetamol 500mg QDS PRN x5d + 2d MCHK cert",
+            "instruction_text": "Paracetamol 500mg QDS PRN x5d + 2d MCHK cert",
             "orders": [
-                {"id": "wy_book_exam", "type": "book", "issue": "1. Acute viral URTI", "visitType": "Same-day In-Clinic GP Exam", "when": "Today 11:00"},
                 {"id": "wy_rx_para", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Paracetamol 500mg", "freq": "QDS PRN", "days": "5d"},
                 {"id": "wy_cert", "type": "cert", "issue": "1. Acute viral URTI", "days_off": 2, "start_date": "2026-11-24", "omit_employer_diagnosis": True},
             ],
@@ -708,6 +709,11 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     )
     assert conf.status_code == 200
     conf_body = conf.json()
+    assert conf_body["case_state"] == "closed"
+    assert conf_body.get("nurse_handoff") is None
+    ov1_post = client.get("/api/v1/workspace/overview?mode=live").json()
+    wy_closed = next(c for c in ov1_post["cases"] if c["case_key"] == "wingyan")
+    assert wy_closed["state"] == "closed" and wy_closed["baton"] == "idle"
     assert len(conf_body["prescriptions"]) == 1
     rx_out = conf_body["prescriptions"][0]
     assert rx_out.get("vault_doc_id")
@@ -775,6 +781,7 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "tang_uti", "message": s2["suggested_replies"][0], "lang": "en", "is_preset": True},
     ).json()
+    assert t2_1["case_state"] == "running"
     assert "pregnant" in t2_1["reply"].lower()
     assert "fever" in t2_1["reply"].lower()
     assert "g6pd" not in t2_1["reply"].lower()
@@ -790,23 +797,42 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert any("pregnancy" in a["label"].lower() for a in tang_case_1["summary"]["alerts"])
     assert tang_case_1["summary"]["issues"][0]["safety_gap"] is not None
 
-    # Turn 2: Patient clicks Turn-2 preset -> pregnancy alert & safety_gap clear + Dr. Wing-Yan Cheung 11:15 booking offer appears!
+    # Turn 2: Patient clicks Turn-2 preset -> pregnancy alert & safety_gap clear + Dr. Wing-Yan Cheung async Message (Fastest) offer appears!
     t2_2 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "tang_uti", "message": t2_1["suggested_replies"][0], "lang": "en", "is_preset": True},
     ).json()
+    assert t2_2["case_state"] == "needs_decision"
     assert t2_2["lint_report"]["passed"] is True
     assert t2_2["booking_offer"] is not None
+    assert t2_2["booking_offer"]["modality"] == "async_message"
+    assert t2_2["booking_offer"]["allow_async_message"] is True
     assert t2_2["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_cheung"
     assert t2_2["booking_offer"]["recommended"]["time"] == "11:15"
     ov2_2 = client.get("/api/v1/workspace/overview?mode=live").json()
     tang_case_2 = next(c for c in ov2_2["cases"] if c["case_key"] == "tang_uti")
     assert not any("pregnancy" in a["label"].lower() for a in tang_case_2["summary"]["alerts"])
     assert tang_case_2["summary"]["issues"][0]["safety_gap"] is None
+    assert not any(o["type"] == "book" for o in tang_case_2["summary"]["issues"][0]["suggested_orders"])
     tang_blob = str(tang_case_2["summary"]).lower()
     assert "fosfomycin" not in tang_blob
     assert "augmentin" in tang_blob
     assert "jargon-free" not in tang_blob
+
+    # Doctor signs Tang UTI Rx only -> closes cleanly (NOT running/with_nurse!)
+    conf_tang = client.post(
+        f"/api/v1/workspace/cases/{tang_case_2['id']}/confirm",
+        json={
+            "actor_name": "Locum Dr. Sarah Wong",
+            "mchk_reg_no": "M16412",
+            "instruction_text": "Augmentin 375mg TDS x5d",
+            "orders": [
+                {"id": "tang_rx_augmentin", "type": "rx", "action": "start", "issue": "1. Acute uncomplicated cystitis", "drug": "Amoxicillin-Clavulanate (Augmentin) 375mg", "freq": "TDS", "days": "5d"},
+            ],
+        },
+    )
+    assert conf_tang.status_code == 200
+    assert conf_tang.json()["case_state"] == "closed"
 
     # ---- CASE 3: chan (Post-Discharge AFib — Cantonese default) ----
     s3 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "chan", "lang": "zh-HK"}).json()
@@ -819,6 +845,7 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert t3["case_state"] == "needs_decision"
     assert "！" not in t3["reply"] and "!" not in t3["reply"]
     assert t3["booking_offer"] is not None
+    assert t3["booking_offer"]["modality"] == "in_clinic"
     assert t3["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_wong"
     assert t3["booking_offer"]["recommended"]["time"] == "11:30"
     assert len(t3["suggested_replies"]) == 1
@@ -828,6 +855,7 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert len(chan_case["summary"]["clinical_scores"]) == 2
     assert chan_case["summary"]["med_diff"]["rows"]
     assert chan_case["summary"]["trend_chart"]["kind"] == "inr"
+    assert not any(o["type"] == "book" for iss in chan_case["summary"]["issues"] for o in iss["suggested_orders"])
 
     # Doctor signs CHAN plan -> Post-sign Warfarin bleeding-signs + non-fasting INR question answers accurately (no false worsening alarm!)
     conf_chan = client.post(
@@ -838,10 +866,12 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
             "instruction_text": "Warfarin 3mg OD + Atorvastatin 20mg nocte + 7d INR",
             "orders": [
                 {"id": "ch_rx_warf", "type": "rx", "action": "update", "issue": "1. AFib — Warfarin dose reduction", "drug": "Warfarin 3mg", "freq": "PO daily", "days": "30d"},
+                {"id": "ch_lab_inr", "type": "lab", "issue": "1. AFib — Warfarin dose reduction", "testName": "Repeat INR (7 days)", "lab": "KingMed", "when": "Sun 29 Nov 2026"},
             ],
         },
     )
     assert conf_chan.status_code == 200
+    assert conf_chan.json()["case_state"] == "scheduled"
     t3_post = client.post(
         "/api/v1/demo/live/chat/turn",
         json={
@@ -866,6 +896,7 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert t4["lint_report"]["passed"] is True
     assert "!" not in t4["reply"]
     assert t4["booking_offer"] is not None
+    assert t4["booking_offer"]["modality"] == "teleconsult"
     assert t4["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_wong"
     assert t4["booking_offer"]["recommended"]["time"] == "14:15"
     assert len(t4["suggested_replies"]) == 1
@@ -877,10 +908,25 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert lau_sum["clinical_scores"][0]["id"] == "hk_cvd_10yr"
     assert len(lau_sum.get("preventive_care") or []) >= 2
     assert "troponin" not in str(lau_sum).lower()
+    assert not any(o["type"] == "book" for o in lau_sum["issues"][0]["suggested_orders"])
     assert any(
         o["type"] == "lab" and "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)" in o.get("testName", "")
         for o in lau_sum["issues"][0]["suggested_orders"]
     )
+    conf_lau = client.post(
+        f"/api/v1/workspace/cases/{lau_case['id']}/confirm",
+        json={
+            "actor_name": "Locum Dr. Sarah Wong",
+            "mchk_reg_no": "M16412",
+            "instruction_text": "Perindopril 8mg + Fasting Lipid/RFT + BP goal <135/85",
+            "orders": [
+                {"id": "lau_rx_perind", "type": "rx", "action": "update", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "drug": "Perindopril 8mg", "freq": "OM daily", "days": "30d"},
+                {"id": "lau_lab", "type": "lab", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "when": "Before clinic review"},
+            ],
+        },
+    )
+    assert conf_lau.status_code == 200
+    assert conf_lau.json()["case_state"] == "scheduled"
 
 
 def test_ai_generated_suggested_replies_replace_stale_static_chips_and_survive_polling(tmp_path, monkeypatch):

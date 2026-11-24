@@ -352,7 +352,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
   const handleBookSlot = async (params: {
     doctorId: string;
     slotId: string;
-    modality: "in_clinic" | "teleconsult";
+    modality: "async_message" | "teleconsult" | "in_clinic";
     offerId: string;
   }) => {
     setErrorNote(null);

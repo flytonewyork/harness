@@ -143,28 +143,30 @@ _JOURNEY_BOOKING_PROFILE: dict[str, dict[str, Any]] = {
     "wingyan": {
         "preferred_doctors": ["doc_dr_lam", "doc_dr_wong", "doc_dr_cheung"],
         "preferred_times": ["11:00", "11:30", "11:15", "14:00"],
-        "visit_type_en": "Same-Day GP Exam & Sick Note",
-        "visit_type_zh": "即日醫生診症檢查及病假證明",
+        "visit_type_en": "Async Doctor Review · Instant Opinion",
+        "visit_type_zh": "非同步醫生審閱・即時意見",
         "duration_min": 15,
-        "modality": "in_clinic",
+        "modality": "async_message",
+        "allow_async_message": True,
         "allow_teleconsult": True,
-        "prep_note_en": "Bring your HKID; clinic check-in takes 2 minutes",
-        "prep_note_zh": "請帶備香港身份證，到診登記只需約 2 分鐘",
-        "reason_en": "Earliest open same-day GP slot available after checking all 3 doctors' calendars",
-        "reason_zh": "已查閱 3 位醫生時間表，為你挑選今日最早可約普通科時段",
+        "prep_note_en": "No clinic visit needed — Dr. Kenneth Lam reviews your symptoms and home vitals asynchronously and sends your e-Rx and sick note right here.",
+        "prep_note_zh": "無需親臨診所——林啟賢醫生會非同步審閱你的症狀同家居讀數，並直接喺呢度發送電子處方同病假紙。",
+        "reason_en": "No red flags and stable home vitals — async messaging is fastest; you can also switch to Teleconsult or In-Clinic anytime",
+        "reason_zh": "冇紅旗警號且家居讀數穩定——訊息即時審閱最快；你亦可以隨時改選視像診症或親臨診所",
     },
     "tang_uti": {
         "preferred_doctors": ["doc_dr_cheung", "doc_dr_wong", "doc_dr_lam"],
         "preferred_times": ["11:15", "11:30", "14:30"],
-        "visit_type_en": "Same-Day Acute Consult",
-        "visit_type_zh": "即日急症診症",
+        "visit_type_en": "Async Doctor Review · Instant Opinion",
+        "visit_type_zh": "非同步醫生審閱・即時意見",
         "duration_min": 15,
-        "modality": "in_clinic",
+        "modality": "async_message",
+        "allow_async_message": True,
         "allow_teleconsult": True,
-        "prep_note_en": "Quick urine dipstick available on arrival if needed",
-        "prep_note_zh": "到診時如有需要可即時安排小便快速試紙檢查",
-        "reason_en": "Earliest open slot with {doctor} (Acute & Women's Care) today",
-        "reason_zh": "{doctor}（急症及婦女健康）今日最早空檔",
+        "prep_note_en": "No clinic visit needed — Dr. Wing-Yan Cheung reviews your symptoms and chart safety checks asynchronously and sends your e-Rx right here.",
+        "prep_note_zh": "無需親臨診所——張詠欣醫生會非同步審閱你的症狀同用藥安全核對，並直接喺呢度發送電子處方。",
+        "reason_en": "Afebrile and no kidney red flags — async messaging is fastest; you can also switch to Teleconsult or In-Clinic anytime",
+        "reason_zh": "冇發燒亦冇腎炎警號——訊息即時審閱最快；你亦可以隨時改選視像診症或親臨診所",
     },
     "lau_chest": {
         "preferred_doctors": ["doc_dr_wong", "doc_dr_lam", "doc_dr_cheung"],
@@ -172,12 +174,12 @@ _JOURNEY_BOOKING_PROFILE: dict[str, dict[str, Any]] = {
         "visit_type_en": "GP Cardiovascular & BP Review",
         "visit_type_zh": "心血管及血壓覆診",
         "duration_min": 20,
-        "modality": "in_clinic",
+        "modality": "teleconsult",
         "allow_teleconsult": True,
-        "prep_note_en": "Bring your home blood pressure log and current tablets",
-        "prep_note_zh": "請帶備近期家居血壓紀錄及現正服用的藥物",
-        "reason_en": "20-min review slot selected with {doctor} for BP, lipid & preventive review",
-        "reason_zh": "為你挑選{doctor} 20 分鐘覆診空檔，一併檢視血壓、膽固醇及預防檢查",
+        "prep_note_en": "Have your home blood pressure log and current tablets ready (switch to In-Clinic if you want your flu shot or ECG at the same visit)",
+        "prep_note_zh": "請準備好近期家居血壓紀錄及現正服用的藥物（如需同日打流感針或做心電圖，可改選親臨診所）",
+        "reason_en": "20-min teleconsult review with {doctor} for BP, lipid & preventive review (or switch to In-Clinic for same-day flu shot)",
+        "reason_zh": "為你挑選{doctor} 20 分鐘視像覆診空檔，一併檢視血壓、膽固醇及預防檢查（或可改選親臨診所同日打流感針）",
     },
 }
 
@@ -551,9 +553,18 @@ def select_booking_offer(
         "visit_type_zh": profile["visit_type_zh"],
         "duration_min": profile["duration_min"],
         "modality": modality,
+        "allow_async_message": bool(profile.get("allow_async_message", False)),
         "allow_teleconsult": bool(profile["allow_teleconsult"]),
-        "location_en": f"Central & Mid-Levels Family Medical ({chosen_doc['room_en']})",
-        "location_zh": f"中環及半山家庭醫務中心（{chosen_doc['room_zh']}）",
+        "location_en": (
+            "In-Chat Async Doctor Review · Instant Opinion"
+            if modality == "async_message"
+            else f"Central & Mid-Levels Family Medical ({chosen_doc['room_en']})"
+        ),
+        "location_zh": (
+            "對話內非同步醫生審閱・即時意見"
+            if modality == "async_message"
+            else f"中環及半山家庭醫務中心（{chosen_doc['room_zh']}）"
+        ),
         "prep_note_en": profile["prep_note_en"],
         "prep_note_zh": profile["prep_note_zh"],
         "selection_reason_en": reason_en,
@@ -623,7 +634,11 @@ def confirm_live_chat_booking(
 ) -> dict[str, Any]:
     """Confirm or reschedule a patient's chosen doctor & slot, updating phone chat + laptop /workspace live."""
     is_zh = str(lang or "en").lower().startswith("zh")
-    clean_modality = "teleconsult" if modality == "teleconsult" else "in_clinic"
+    clean_modality = (
+        "async_message"
+        if modality == "async_message"
+        else ("teleconsult" if modality == "teleconsult" else "in_clinic")
+    )
 
     with db.tenant_session(tenant_id) as session:
         case = session.scalar(
@@ -652,9 +667,16 @@ def confirm_live_chat_booking(
             if target_slot:
                 break
 
+        if target_slot is None and clean_modality == "async_message":
+            # Async review does not require a physical clinic slot; fall back to doctor's first open slot metadata
+            for dk in ("today", "tomorrow"):
+                open_sls = [s for s in target_doc["days"].get(dk, []) if s["available"]]
+                if open_sls:
+                    target_slot = open_sls[0]
+                    break
         if target_slot is None:
             raise ValueError(f"Slot '{slot_id}' not found for {target_doc['name_en']}")
-        if not target_slot["available"]:
+        if clean_modality != "async_message" and not target_slot["available"]:
             raise PermissionError(
                 f"{target_doc['name_en']} at {target_slot['time']} is already booked. Please select another open slot."
             )
@@ -670,18 +692,21 @@ def confirm_live_chat_booking(
         )
         confirmed_at = utcnow().isoformat()
 
-        modality_en = "Video Teleconsult" if clean_modality == "teleconsult" else "In-Clinic"
-        modality_zh = "視像遙距診症" if clean_modality == "teleconsult" else "親臨診所"
-        location_en = (
-            "Secure Clinic Video Link (sent 10 min before)"
-            if clean_modality == "teleconsult"
-            else f"Central & Mid-Levels Family Medical ({target_doc['room_en']})"
-        )
-        location_zh = (
-            "加密診所視像連結（診症前 10 分鐘發送）"
-            if clean_modality == "teleconsult"
-            else f"中環及半山家庭醫務中心（{target_doc['room_zh']}）"
-        )
+        if clean_modality == "async_message":
+            modality_en = "Message (Fastest) · Async Review"
+            modality_zh = "訊息審閱（最快）"
+            location_en = "In-Chat Async Doctor Review · Instant Opinion"
+            location_zh = "對話內非同步醫生審閱・即時意見"
+        elif clean_modality == "teleconsult":
+            modality_en = "Video Teleconsult"
+            modality_zh = "視像遙距診症"
+            location_en = "Secure Clinic Video Link (sent 10 min before)"
+            location_zh = "加密診所視像連結（診症前 10 分鐘發送）"
+        else:
+            modality_en = "In-Clinic"
+            modality_zh = "親臨診所"
+            location_en = f"Central & Mid-Levels Family Medical ({target_doc['room_en']})"
+            location_zh = f"中環及半山家庭醫務中心（{target_doc['room_zh']}）"
 
         booked_record = {
             "status": "confirmed",
@@ -804,11 +829,22 @@ def confirm_live_chat_booking(
                     break
 
         # Add a crisp confirmation message from Sam in the chat thread
-        confirm_text = (
-            f"已為你{'更改並' if is_reschedule else ''}確認預約：{target_slot['short_day_zh']} {target_slot['time']} · {target_doc['name_zh']}（{modality_zh}，參考編號 {booking_ref}）。我已同步更新診所時間表及醫生摘要。"
-            if is_zh
-            else f"{'Updated and confirmed' if is_reschedule else 'Booked'} your {modality_en.lower()} appointment with {target_doc['name_en']} for {target_slot['short_day_en']} at {target_slot['time']} (Ref {booking_ref}). I've synced this straight to the clinic schedule and clinician workspace."
-        )
+        if clean_modality == "async_message":
+            confirm_text = (
+                f"已確認非同步訊息審閱（即時意見）：{target_doc['name_zh']}（參考編號 {booking_ref}）。你的症狀同家居讀數已經放上醫生工作台，簽署後電子處方同病假紙會直接傳送到呢度。"
+                if is_zh
+                else f"Confirmed async message review (Instant Opinion) with {target_doc['name_en']} (Ref {booking_ref}). Your symptoms and home vitals are already on the doctor's desk — your signed e-prescription and sick-leave certificate will arrive right here shortly."
+            )
+            sched_label = f"Async Review (Instant Opinion) · {target_doc['name_en']} ({booking_ref})"
+            tl_label = f"SchedulingAgent · Confirmed async Instant Opinion with {target_doc['name_en']} ({booking_ref})."
+        else:
+            confirm_text = (
+                f"已為你{'更改並' if is_reschedule else ''}確認預約：{target_slot['short_day_zh']} {target_slot['time']} · {target_doc['name_zh']}（{modality_zh}，參考編號 {booking_ref}）。我已同步更新診所時間表及醫生摘要。"
+                if is_zh
+                else f"{'Updated and confirmed' if is_reschedule else 'Booked'} your {modality_en.lower()} appointment with {target_doc['name_en']} for {target_slot['short_day_en']} at {target_slot['time']} (Ref {booking_ref}). I've synced this straight to the clinic schedule and clinician workspace."
+            )
+            sched_label = f"{target_slot['short_day_en']} {target_slot['time']} · {target_doc['name_en']} ({modality_en} · {profile['visit_type_en']} · {booking_ref})"
+            tl_label = f"SchedulingAgent · {'Rescheduled' if is_reschedule else 'Booked'} {target_doc['name_en']} ({target_slot['short_day_en']} {target_slot['time']}, {modality_en}, {booking_ref})."
         chat.append({
             "actor": "Sam",
             "role": "assistant",
@@ -831,7 +867,7 @@ def confirm_live_chat_booking(
                 "booking_ref": booking_ref,
                 "doctor_name": target_doc["name_en"],
                 "modality": modality_en,
-                "label": f"{target_slot['short_day_en']} {target_slot['time']} · {target_doc['name_en']} ({modality_en} · {profile['visit_type_en']} · {booking_ref})",
+                "label": sched_label,
             },
         )
         summary["scheduled_tasks"] = scheduled_tasks
@@ -840,7 +876,7 @@ def confirm_live_chat_booking(
         timeline = list(case.timeline_json or [])
         timeline.append({
             "date": f"Today {hhmm}",
-            "label": f"SchedulingAgent · {'Rescheduled' if is_reschedule else 'Booked'} {target_doc['name_en']} ({target_slot['short_day_en']} {target_slot['time']}, {modality_en}, {booking_ref}).",
+            "label": tl_label,
             "agent": "SchedulingAgent",
         })
         case.summary_json = summary

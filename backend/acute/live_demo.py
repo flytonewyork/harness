@@ -126,24 +126,24 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "喉嚨痛、發燒及病假紙",
         "subtitle": "Simple acute URTI · sick leave & symptomatic care",
         "welcome_en": (
-            "Hello, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How can I help you today?"
+            "Hello, I'm Sam, the AI Resident at Central & Mid-Levels Family Medical. How can I help you today?"
         ),
         "welcome_zh": (
-            "你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。今日有咩可以幫到你？"
+            "你好，我係中環及半山家庭醫務中心嘅 AI 駐診助手 Sam。今日有咩可以幫到你？"
         ),
         "suggested_replies_en": [
-            "Hi, I woke up feeling unwell today — could I see a doctor and ask about a 2-day sick note?",
+            "Hi, I woke up feeling unwell today — could a doctor review my symptoms and help with a 2-day sick note?",
             "Mainly a sore throat, feeling feverish, and some body aches since this morning.",
             "No chest pain or shortness of breath, and no rash or trouble swallowing.",
             "Just checked — temperature is 38.2°C, SpO2 98%, and pulse 88 bpm.",
-            "Thank you — is there anything else I should watch out for before my visit?",
+            "Thank you — is there anything else I should watch out for while I wait?",
         ],
         "suggested_replies_zh": [
-            "你好，我今朝起身覺得唔舒服——請問今日可唔可以睇醫生同攞兩日病假紙？",
+            "你好，我今朝起身覺得唔舒服——請問可唔可以由醫生審閱我嘅症狀同開兩日病假紙？",
             "今朝開始主要係喉嚨痛、覺得發燒同周身骨痛。",
             "冇心口痛、冇氣促、冇出疹亦冇吞嚥困難。",
             "頭先量咗——體溫 38.2 度、血氧 98%、脈搏 88。",
-            "多謝你——睇醫生前有冇咩症狀需要特別留意？",
+            "多謝你——等醫生回覆期間有冇咩症狀需要特別留意？",
         ],
     },
     {
@@ -159,10 +159,10 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
         "title_zh": "伊利沙伯醫院出院覆診・藥物核對",
         "subtitle": "Discharged from QEH yesterday · post-discharge med review",
         "welcome_en": (
-            "Hi Mr. Chan, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How are you doing today, and how can I help?"
+            "Hi Mr. Chan, I'm Sam, the AI Resident at Central & Mid-Levels Family Medical. How are you doing today, and how can I help?"
         ),
         "welcome_zh": (
-            "陳先生你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日覺得點樣，有咩可以幫到你？"
+            "陳先生你好，我係中環及半山家庭醫務中心嘅 AI 駐診助手 Sam。你今日覺得點樣，有咩可以幫到你？"
         ),
         "suggested_replies_en": [
             "I just got discharged from QEH yesterday — they gave me Warfarin 3mg and Atorvastatin, but I still have 5mg Warfarin and Simvastatin at home. Which should I take?",
@@ -1792,7 +1792,12 @@ def _compile_journey_turn_update(
         mentions_urti = any(k in all_low for k in ("sore throat", "fever", "feverish", "cough", "cold", "throat", "runny", "喉嚨", "發燒", "咳", "傷風"))
         asked_watch_out = any(k in low for k in ("watch out", "anything else", "warning", "when should", "注意", "仲有咩"))
         already_sent_summary = any(
-            "earliest open slot" in m.lower() or "sent a concise summary" in m.lower() or "最早普通科空檔" in m or "整理咗簡潔摘要" in m
+            "earliest open slot" in m.lower()
+            or "sent a concise summary" in m.lower()
+            or "async message review" in m.lower()
+            or "最早普通科空檔" in m
+            or "整理咗簡潔摘要" in m
+            or "訊息審閱（最快）" in m
             for m in prior_sam_msgs
         )
 
@@ -1979,11 +1984,10 @@ def _compile_journey_turn_update(
                 "name": "1. Acute viral URTI",
                 "bullets": [
                     f"Sore throat and fever ({vitals_inline}) since this morning; denies shortness of breath, chest pain, severe dysphagia, or rash.",
-                    f"Requesting same-day clinic examination, symptomatic relief, and a {days_off}-day medical sick-leave certificate (no antibiotics indicated).",
+                    f"Suitable for async doctor review (Instant Opinion) — requesting symptomatic relief and a {days_off}-day medical sick-leave certificate (no antibiotics indicated).",
                 ],
                 "safety_gap": None,
                 "suggested_orders": [
-                    {"id": "wy_book_exam", "type": "book", "issue": "1. Acute viral URTI", "visitType": "Same-day In-Clinic GP Exam", "when": "Today 11:00", "durationMin": 15},
                     {"id": "wy_rx_para", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Paracetamol 500mg", "freq": "QDS PRN", "days": "5d", "note": "Antipyretic / analgesic — symptomatic URTI care"},
                     {"id": "wy_cert", "type": "cert", "issue": "1. Acute viral URTI", "daysOff": days_off, "dates": "24–25 Nov 2026" if days_off == 2 else f"{days_off} days from 24 Nov 2026", "omitDx": True},
                 ],
@@ -1993,36 +1997,36 @@ def _compile_journey_turn_update(
             agent_thread.append({
                 "actor": "Sam",
                 "time": _hkt_hhmm(),
-                "text": f"AI Resident reasoning: Cleared respiratory/airway red flags and recorded home vitals ({vitals_inline}) → Packaged 1-issue URTI summary with same-day GP exam, Paracetamol 500mg, and {days_off}d MCHK sick leave (no antibiotics indicated).",
+                "text": f"AI Resident reasoning: Cleared respiratory/airway red flags and recorded home vitals ({vitals_inline}) → Packaged 1-issue async URTI review with Paracetamol 500mg and {days_off}d MCHK sick leave (no in-person visit or antibiotics required).",
             })
         summary["agent_thread"] = agent_thread[-4:]
-        steps.append("PracticeGraph · Compiled single-issue Acute URTI summary with home vitals for doctor review")
+        steps.append("PracticeGraph · Compiled single-issue async Acute URTI summary with home vitals for doctor review")
         steps.append("PresentationCompiler · Compiled clean 1-issue workspace brief (5/5 linter pass)")
 
         if asked_watch_out:
             reply = (
-                "好問題——記得多飲溫水同多休息。如果高燒超過 39 度、超過 3 日未退燒，或者出現呼吸困難、心口痛、吞嚥劇痛或出疹，請即刻通知我哋或去急症室。醫生審閱後就會確認今日診症、紓緩藥物同病假紙安排。"
+                "好問題——記得多飲溫水同多休息。如果高燒超過 39 度、超過 3 日未退燒，或者出現呼吸困難、心口痛、吞嚥劇痛或出疹，請即刻通知我哋或去急症室。醫生審閱後就會直接喺呢度發送紓緩藥物處方同病假紙。"
                 if is_zh
                 else "Good question — rest and stay hydrated. Please reach out promptly or seek urgent care if your fever rises above 39°C, hasn't improved after 3 days, or you develop shortness of breath, chest pain, trouble swallowing, or a rash. Our doctor is reviewing your summary now."
             )
         elif (is_simple_ack and is_followup_turn) or already_sent_summary:
             reply = (
-                "收到，已經幫你補充到醫生摘要度——醫生確認今日檢查、處方同病假紙後就會即時喺呢度通知你。"
+                "收到，已經幫你補充到醫生摘要度——醫生審閱並簽署處方同病假紙後就會即時喺呢度通知你。"
                 if is_zh
-                else "Got it — I've added that to the doctor's notes. As soon as your clinic exam, prescription, and sick-leave certificate are confirmed, they will appear right here."
+                else "Got it — I've added that to the doctor's notes. As soon as your prescription and sick-leave certificate are signed, they will appear right here."
             )
         else:
             reply = (
-                f"多謝你確認警號同提供家居讀數（{vitals_inline}，冇氣促、心口痛、吞嚥劇痛或出疹）。我已經將完整摘要同 {days_off} 日病假紙申請放上醫生工作台，亦查閱咗今日診所時間表——林啟賢醫生今日 11:00 有最早普通科空檔，你可以喺下方一鍵預約或揀其他醫生／視像診症。"
+                f"多謝你確認警號同提供家居讀數（{vitals_inline}，冇氣促、心口痛、吞嚥劇痛或出疹）。由於冇紅旗警號，你可以直接用「訊息審閱（最快）」由醫生非同步審閱並發送處方同 {days_off} 日病假紙，唔使專登出門——或者喺下方改選視像診症／親臨診所。"
                 if is_zh
-                else f"Thank you for checking those red flags and sharing your home readings ({vitals_inline}, no breathing trouble, chest pain, dysphagia, or rash). I've briefed the doctor with your vitals and {days_off}-day sick-leave request, and checked today's clinic schedule — Dr. Kenneth Lam has our earliest open slot at 11:00 below (or you can switch doctors or pick teleconsult)."
+                else f"Thank you for checking those red flags and sharing your home readings ({vitals_inline}, no breathing trouble, chest pain, dysphagia, or rash). Since there are no red flags, you don't need an in-clinic visit — I've queued your summary and {days_off}-day sick-leave request for async Message review (Fastest) with Dr. Kenneth Lam below, or you can switch to Teleconsult or In-Clinic if you prefer."
             )
 
         return (
             "needs_decision",
             "with_doctor",
-            "Acute Viral URTI — Sick Leave & Symptomatic Care",
-            f"Sore throat & fever ({vitals_inline}), red flags clear; requesting clinic exam, {days_off}-day sick leave, and symptomatic relief.",
+            "Acute Viral URTI — Async Instant Opinion",
+            f"Sore throat & fever ({vitals_inline}), red flags clear; async doctor review for symptomatic relief and {days_off}-day sick leave.",
             "Ready for sign-off",
             summary,
             reply,

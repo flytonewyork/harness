@@ -7,8 +7,11 @@ import {
   ChevronUp,
   Clock,
   MapPin,
+  MessageSquare,
   Video,
 } from "lucide-react";
+
+export type BookingModality = "async_message" | "teleconsult" | "in_clinic";
 
 export interface AvailabilitySlot {
   slot_id: string;
@@ -74,7 +77,8 @@ export interface BookingOfferPayload {
   visit_type_en: string;
   visit_type_zh: string;
   duration_min: number;
-  modality: "in_clinic" | "teleconsult";
+  modality: BookingModality;
+  allow_async_message?: boolean;
   allow_teleconsult: boolean;
   location_en: string;
   location_zh: string;
@@ -92,18 +96,22 @@ interface BookingOfferCardProps {
   onConfirmBooking: (params: {
     doctorId: string;
     slotId: string;
-    modality: "in_clinic" | "teleconsult";
+    modality: BookingModality;
     offerId: string;
   }) => Promise<void>;
+}
+
+function normalizeModality(m: string | undefined): BookingModality {
+  if (m === "async_message") return "async_message";
+  if (m === "teleconsult") return "teleconsult";
+  return "in_clinic";
 }
 
 export function BookingOfferCard({ offer, isZh, onConfirmBooking }: BookingOfferCardProps) {
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>(offer.recommended.doctor_id);
   const [selectedSlotId, setSelectedSlotId] = useState<string>(offer.recommended.slot_id);
   const [selectedDay, setSelectedDay] = useState<"today" | "tomorrow">(offer.recommended.day_key || "today");
-  const [modality, setModality] = useState<"in_clinic" | "teleconsult">(
-    offer.modality === "teleconsult" ? "teleconsult" : "in_clinic",
-  );
+  const [modality, setModality] = useState<BookingModality>(normalizeModality(offer.modality));
   const [showAllDoctors, setShowAllDoctors] = useState<boolean>(false);
   const [rescheduling, setRescheduling] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -114,7 +122,7 @@ export function BookingOfferCard({ offer, isZh, onConfirmBooking }: BookingOffer
     setSelectedDoctorId(offer.recommended.doctor_id);
     setSelectedSlotId(offer.recommended.slot_id);
     setSelectedDay(offer.recommended.day_key || "today");
-    setModality(offer.modality === "teleconsult" ? "teleconsult" : "in_clinic");
+    setModality(normalizeModality(offer.modality));
     if (offer.status === "confirmed") {
       setRescheduling(false);
     }
@@ -201,8 +209,13 @@ export function BookingOfferCard({ offer, isZh, onConfirmBooking }: BookingOffer
     }
   };
 
-  const locationLabel =
-    modality === "teleconsult"
+  const isAsyncMsg = modality === "async_message";
+
+  const locationLabel = isAsyncMsg
+    ? isZh
+      ? "對話內非同步醫生審閱・即時意見（無需親臨診所）"
+      : "In-Chat Async Doctor Review · Instant Opinion"
+    : modality === "teleconsult"
       ? isZh
         ? "加密診所視像連結（診症前 10 分鐘發送）"
         : "Secure Clinic Video Link (sent 10 min before)"
@@ -210,14 +223,22 @@ export function BookingOfferCard({ offer, isZh, onConfirmBooking }: BookingOffer
         ? `中環及半山家庭醫務中心（${activeSelection.room}）`
         : `Central & Mid-Levels Family Medical (${activeSelection.room})`;
 
-  // Confirmed Appointment Card
+  // Confirmed Appointment / Async Review Card
   if (isConfirmedView) {
     return (
       <div className="pc-book-card is-confirmed" data-testid="chat-booking-confirmed-card">
         <div className="pc-book-confirmed-head">
           <span className="pc-book-confirmed-badge">
             <CheckCircle2 size={14} />
-            <span>{isZh ? "預約已確認" : "Appointment Confirmed"}</span>
+            <span>
+              {isAsyncMsg
+                ? isZh
+                  ? "已確認訊息審閱"
+                  : "Async Review Confirmed"
+                : isZh
+                  ? "預約已確認"
+                  : "Appointment Confirmed"}
+            </span>
           </span>
           {offer.booking_ref && <span className="pc-book-ref">{offer.booking_ref}</span>}
         </div>
@@ -235,15 +256,22 @@ export function BookingOfferCard({ offer, isZh, onConfirmBooking }: BookingOffer
         </div>
 
         <div className="pc-book-detail-list">
+          {isAsyncMsg ? (
+            <div className="pc-book-detail-item">
+              <Clock size={14} />
+              <span>{isZh ? "非同步即時意見 · 一般約 15 分鐘內回覆" : "Async Instant Opinion · Typical reply ~15 min"}</span>
+            </div>
+          ) : (
+            <div className="pc-book-detail-item">
+              <Calendar size={14} />
+              <span className="pc-book-tabular">
+                {isZh ? activeSelection.slot.day_label_zh : activeSelection.slot.day_label_en} ·{" "}
+                <strong>{activeSelection.slot.time} HKT</strong> ({offer.duration_min} {isZh ? "分鐘" : "min"})
+              </span>
+            </div>
+          )}
           <div className="pc-book-detail-item">
-            <Calendar size={14} />
-            <span className="pc-book-tabular">
-              {isZh ? activeSelection.slot.day_label_zh : activeSelection.slot.day_label_en} ·{" "}
-              <strong>{activeSelection.slot.time} HKT</strong> ({offer.duration_min} {isZh ? "分鐘" : "min"})
-            </span>
-          </div>
-          <div className="pc-book-detail-item">
-            {modality === "teleconsult" ? <Video size={14} /> : <MapPin size={14} />}
+            {isAsyncMsg ? <MessageSquare size={14} /> : modality === "teleconsult" ? <Video size={14} /> : <MapPin size={14} />}
             <span>{locationLabel}</span>
           </div>
         </div>
@@ -256,18 +284,30 @@ export function BookingOfferCard({ offer, isZh, onConfirmBooking }: BookingOffer
 
         <div className="pc-book-confirmed-foot">
           <span className="pc-book-sync-note">
-            {isZh ? "已同步至診所時間表" : "Synced to clinic schedule"}
+            {isAsyncMsg
+              ? isZh
+                ? "已放上醫生工作台審閱"
+                : "Queued on clinician desk"
+              : isZh
+                ? "已同步至診所時間表"
+                : "Synced to clinic schedule"}
           </span>
           <button
             type="button"
             className="pc-book-link-btn"
             onClick={() => {
               setRescheduling(true);
-              setShowAllDoctors(true);
+              if (!isAsyncMsg) setShowAllDoctors(true);
             }}
             data-testid="booking-change-time-btn"
           >
-            {isZh ? "更改醫生或時間" : "Change doctor or time"}
+            {isAsyncMsg
+              ? isZh
+                ? "改選視像／親臨診所"
+                : "Switch to Teleconsult / In-Clinic"
+              : isZh
+                ? "更改醫生或時間"
+                : "Change doctor or time"}
           </button>
         </div>
       </div>
@@ -278,15 +318,21 @@ export function BookingOfferCard({ offer, isZh, onConfirmBooking }: BookingOffer
   const shortDay = isZh ? activeSelection.slot.short_day_zh : activeSelection.slot.short_day_en;
   const ctaLabel = submitting
     ? isZh
-      ? "正在確認預約…"
-      : "Confirming slot…"
-    : rescheduling
+      ? "正在確認…"
+      : "Confirming…"
+    : isAsyncMsg
       ? isZh
-        ? `改期至 ${shortDay} ${activeSelection.slot.time} · ${activeSelection.doctorName}`
-        : `Update to ${shortDay} ${activeSelection.slot.time} · ${activeSelection.doctorName}`
-      : isZh
-        ? `確認預約 ${shortDay} ${activeSelection.slot.time} · ${activeSelection.doctorName}`
-        : `Book ${shortDay} ${activeSelection.slot.time} · ${activeSelection.doctorName}`;
+        ? `確認訊息審閱（最快） · ${activeSelection.doctorName}`
+        : `Confirm Message (Fastest) · ${activeSelection.doctorName}`
+      : rescheduling
+        ? isZh
+          ? `改期至 ${shortDay} ${activeSelection.slot.time} · ${activeSelection.doctorName}`
+          : `Update to ${shortDay} ${activeSelection.slot.time} · ${activeSelection.doctorName}`
+        : isZh
+          ? `確認預約 ${shortDay} ${activeSelection.slot.time} · ${activeSelection.doctorName}`
+          : `Book ${shortDay} ${activeSelection.slot.time} · ${activeSelection.doctorName}`;
+
+  const showModalityToggle = Boolean(offer.allow_async_message || offer.allow_teleconsult);
 
   return (
     <div className="pc-book-card" data-testid="chat-booking-offer-card">
@@ -296,47 +342,81 @@ export function BookingOfferCard({ offer, isZh, onConfirmBooking }: BookingOffer
           <span className="pc-book-trace-dot" aria-hidden="true" />
           <span>{isZh ? offer.checked_summary_zh : offer.checked_summary_en}</span>
         </div>
-        <button
-          type="button"
-          className="pc-book-trace-toggle"
-          onClick={() => setShowAllDoctors((v) => !v)}
-          aria-expanded={showAllDoctors}
-          data-testid="booking-toggle-all-doctors-btn"
-        >
-          <span>
-            {showAllDoctors
-              ? isZh
-                ? "收起時間表"
-                : "Hide schedule"
-              : isZh
-                ? "所有醫生"
-                : "All doctors"}
-          </span>
-          {showAllDoctors ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-        </button>
+        {!isAsyncMsg && (
+          <button
+            type="button"
+            className="pc-book-trace-toggle"
+            onClick={() => setShowAllDoctors((v) => !v)}
+            aria-expanded={showAllDoctors}
+            data-testid="booking-toggle-all-doctors-btn"
+          >
+            <span>
+              {showAllDoctors
+                ? isZh
+                  ? "收起時間表"
+                  : "Hide schedule"
+                : isZh
+                  ? "所有醫生"
+                  : "All doctors"}
+            </span>
+            {showAllDoctors ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+        )}
       </div>
 
       {/* Main Offer Body */}
       <div className="pc-book-body">
         <div className="pc-book-kicker-row">
           <span className="pc-book-kicker">
-            {isRecommendedPick
+            {isAsyncMsg
               ? isZh
-                ? "Sam 建議時段"
-                : "Sam's recommended slot"
-              : isZh
-                ? "已選診症時段"
-                : "Selected appointment"}
+                ? "Sam 建議方式"
+                : "Sam's recommended option"
+              : isRecommendedPick
+                ? isZh
+                  ? "Sam 建議時段"
+                  : "Sam's recommended slot"
+                : isZh
+                  ? "已選診症時段"
+                  : "Selected appointment"}
           </span>
           <span className="pc-book-duration">
-            {isZh ? offer.visit_type_zh : offer.visit_type_en} · {offer.duration_min}
-            {isZh ? " 分鐘" : "m"}
+            {isAsyncMsg
+              ? isZh
+                ? "即時意見 · 非同步"
+                : "Instant Opinion · Async"
+              : `${isZh ? offer.visit_type_zh : offer.visit_type_en} · ${offer.duration_min}${isZh ? " 分鐘" : "m"}`}
           </span>
         </div>
 
-        {/* Modality Toggle when Teleconsult is clinically permitted */}
-        {offer.allow_teleconsult && (
+        {/* Modality Toggle when Async Message or Teleconsult is clinically permitted */}
+        {showModalityToggle && (
           <div className="pc-book-modality" role="group" aria-label="Consultation modality">
+            {offer.allow_async_message && (
+              <button
+                type="button"
+                className={`pc-book-mod-btn ${modality === "async_message" ? "is-active" : ""}`}
+                onClick={() => {
+                  setModality("async_message");
+                  setShowAllDoctors(false);
+                }}
+                data-testid="booking-modality-async-message"
+              >
+                <MessageSquare size={12} />
+                <span>{isZh ? "訊息（最快）" : "Message (Fastest)"}</span>
+              </button>
+            )}
+            {offer.allow_teleconsult && (
+              <button
+                type="button"
+                className={`pc-book-mod-btn ${modality === "teleconsult" ? "is-active" : ""}`}
+                onClick={() => setModality("teleconsult")}
+                data-testid="booking-modality-teleconsult"
+              >
+                <Video size={12} />
+                <span>{isZh ? "視像診症" : "Teleconsult"}</span>
+              </button>
+            )}
             <button
               type="button"
               className={`pc-book-mod-btn ${modality === "in_clinic" ? "is-active" : ""}`}
@@ -345,15 +425,6 @@ export function BookingOfferCard({ offer, isZh, onConfirmBooking }: BookingOffer
             >
               <MapPin size={12} />
               <span>{isZh ? "親臨診所" : "In-Clinic"}</span>
-            </button>
-            <button
-              type="button"
-              className={`pc-book-mod-btn ${modality === "teleconsult" ? "is-active" : ""}`}
-              onClick={() => setModality("teleconsult")}
-              data-testid="booking-modality-teleconsult"
-            >
-              <Video size={12} />
-              <span>{isZh ? "視像診症" : "Teleconsult"}</span>
             </button>
           </div>
         )}
@@ -378,20 +449,34 @@ export function BookingOfferCard({ offer, isZh, onConfirmBooking }: BookingOffer
           </div>
         )}
 
-        {/* Highlighted Selected Time Box */}
-        <div className="pc-book-slot-summary" data-testid="booking-selected-slot-summary">
-          <div className="pc-book-slot-summary-main">
-            <Clock size={14} />
-            <span className="pc-book-tabular">
-              {isZh ? activeSelection.slot.day_label_zh : activeSelection.slot.day_label_en} ·{" "}
-              <strong>{activeSelection.slot.time} HKT</strong>
-            </span>
+        {/* Highlighted Async Status Box OR Selected Time Box */}
+        {isAsyncMsg ? (
+          <div className="pc-book-slot-summary" data-testid="booking-selected-slot-summary">
+            <div className="pc-book-slot-summary-main">
+              <MessageSquare size={14} />
+              <span>
+                {isZh
+                  ? "非同步訊息審閱 · 一般約 15 分鐘內回覆"
+                  : "Async Instant Opinion · Typical reply ~15 min"}
+              </span>
+            </div>
+            <span className="pc-book-open-pill">{isZh ? "最快" : "Fastest"}</span>
           </div>
-          <span className="pc-book-open-pill">{isZh ? "可預約" : "Open"}</span>
-        </div>
+        ) : (
+          <div className="pc-book-slot-summary" data-testid="booking-selected-slot-summary">
+            <div className="pc-book-slot-summary-main">
+              <Clock size={14} />
+              <span className="pc-book-tabular">
+                {isZh ? activeSelection.slot.day_label_zh : activeSelection.slot.day_label_en} ·{" "}
+                <strong>{activeSelection.slot.time} HKT</strong>
+              </span>
+            </div>
+            <span className="pc-book-open-pill">{isZh ? "可預約" : "Open"}</span>
+          </div>
+        )}
 
-        {/* Selected Doctor's Real Schedule Strip (Shows Taken vs. Open slots at a glance!) */}
-        {!showAllDoctors && activeSelection.daySlots.length > 0 && (
+        {/* Selected Doctor's Real Schedule Strip (Shown for Teleconsult & In-Clinic) */}
+        {!isAsyncMsg && !showAllDoctors && activeSelection.daySlots.length > 0 && (
           <div className="pc-book-quick-wrap">
             <div className="pc-book-quick-label">
               <span>
@@ -426,7 +511,7 @@ export function BookingOfferCard({ offer, isZh, onConfirmBooking }: BookingOffer
         )}
 
         {/* Expanded Live Availability Matrix Across All Clinic Doctors (Today / Tomorrow) */}
-        {showAllDoctors && doctors.length > 0 && (
+        {!isAsyncMsg && showAllDoctors && doctors.length > 0 && (
           <div className="pc-book-matrix" data-testid="booking-all-doctors-matrix">
             <div className="pc-book-day-tabs" role="tablist" aria-label="Select day">
               <button

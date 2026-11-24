@@ -1876,17 +1876,36 @@ def commit_case_instruction(
                 run_after=undo_exp,
             )
 
-        # Loop 4 state transition: Needs Decision -> Running (with clear baton!) or Scheduled
-        has_nurse_order = bool(plan["nurse_handoff"]) or any(o.get("type") == "nurse" for o in parsed_orders)
-        if has_nurse_order:
-            case.state = "running"
-            case.baton = "with_nurse"
-        elif plan["categorised_plan"]["patient_task"]:
-            case.state = "running"
-            case.baton = "with_patient"
+        # Loop 4 state transition: Needs Decision -> Running (only when nurse task ordered), Scheduled, or Closed
+        if explicit_orders is not None:
+            has_nurse_order = any(o.get("type") == "nurse" for o in parsed_orders)
+            if not has_nurse_order:
+                plan["nurse_handoff"] = None
+            has_future_order = any(
+                o.get("type") in ("lab", "imaging", "book", "referral", "goal")
+                for o in parsed_orders
+            )
+            if has_nurse_order:
+                case.state = "running"
+                case.baton = "with_nurse"
+            elif has_future_order:
+                case.state = "scheduled"
+                case.baton = "idle"
+            else:
+                case.state = "closed"
+                case.baton = "idle"
+                case.next_checkpoint_label = "Plan signed · Closed"
         else:
-            case.state = "scheduled"
-            case.baton = "idle"
+            has_nurse_order = bool(plan["nurse_handoff"]) or any(o.get("type") == "nurse" for o in parsed_orders)
+            if has_nurse_order:
+                case.state = "running"
+                case.baton = "with_nurse"
+            elif plan["categorised_plan"]["patient_task"]:
+                case.state = "running"
+                case.baton = "with_patient"
+            else:
+                case.state = "scheduled"
+                case.baton = "idle"
 
         # Update Wong goal if tightened
         if case.case_key == "wong" and ("130" in eff_instruction or any(o.get("type") == "goal" and o.get("target_sys") == 130 for o in parsed_orders)):
