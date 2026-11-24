@@ -5,6 +5,7 @@ import { loadSession, saveSession, v2Api } from "./api";
 import type { StoredSession } from "./api";
 import { DemoDock } from "./DemoDock";
 import { EmrHarnessApp } from "./emr/EmrHarnessApp";
+import { ResidentAgentDemo } from "./demo/ResidentAgentDemo";
 import { PatientApp } from "./patient/PatientApp";
 import { PatientChatApp } from "./patient/PatientChatApp";
 import { StaffApp } from "./staff/StaffApp";
@@ -41,6 +42,7 @@ function getRoute(): {
   path: string;
   legacy: boolean;
   acutePortal: boolean;
+  residentDemo: boolean;
   emrApp: boolean;
   workspaceApp: boolean;
   qrPatientId: string | null;
@@ -53,6 +55,7 @@ function getRoute(): {
     path,
     legacy: params.get("mode") === "legacy",
     acutePortal: params.get("mode") === "acute" || isAcutePortalPath(path),
+    residentDemo: path === "/demo" || path.startsWith("/demo/"),
     emrApp: path === "/emr" || path.startsWith("/emr/"),
     workspaceApp: path === "/workspace" || path.startsWith("/workspace/"),
     qrPatientId: extractQrPatientId(path),
@@ -165,6 +168,10 @@ export default function AppShell() {
 
   if (route.legacy) {
     return <App />;
+  }
+
+  if (route.residentDemo) {
+    return <ResidentAgentDemo />;
   }
 
   if (route.acutePortal) {

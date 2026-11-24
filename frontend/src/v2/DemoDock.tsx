@@ -99,6 +99,10 @@ export function DemoDock({ enabled, session, onSwitched, onResetComplete }: Demo
               <span>Simulated Clinic EMR + Agent X-Ray</span>
               <span className="voice-quote">/emr</span>
             </a>
+            <a className="v2-demo-item" href="/demo" data-testid="link-resident-demo">
+              <span>★ Sam · 3-Act Resident Agent Demo</span>
+              <span className="voice-quote">/demo</span>
+            </a>
             <a className="v2-demo-item" href="/ec?walk=kwok" data-testid="link-ec-care-line">
               <span>EC Care Line Storyboard (K+ 6.6)</span>
               <span className="voice-quote">/ec</span>
