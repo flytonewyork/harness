@@ -1367,26 +1367,36 @@ export function ClinicWorkspaceApp() {
                 </span>
               </div>
 
-              {data.grouped.needs_decision.map((c: any) => (
-                <div key={c.id} className="ws-card" data-testid={`my-work-case-${c.case_key}`}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span className="ws-num" style={{ fontSize: 12.5, color: "var(--ws-ink-3)" }}>{c.patient_name} ({c.patient_age_sex}) · {c.next_checkpoint_label}</span>
-                    {c.summary?.alerts?.[0] && (
-                      <span className={`ws-pill ${c.summary.alerts[0].level === "high" ? "ws-pill-red" : "ws-pill-amber"}`}>
-                        {c.summary.alerts[0].label}
-                      </span>
-                    )}
-                  </div>
-                  <h2 className="ws-ai-title" style={{ fontSize: 17.5 }}>{c.ai_title}</h2>
-                  <p className="ws-lead">{c.lead_line}</p>
-                  {c.timeline?.length > 0 && (
-                    <div style={{ fontSize: 12.5, color: "var(--ws-ink-2)", padding: "8px 10px", background: "var(--ws-paper)", borderRadius: 8, border: "1px solid var(--ws-line)" }}>
-                      <strong>Latest agent activity:</strong> {c.timeline[c.timeline.length - 1]?.label}
+              {data.grouped.needs_decision.map((c: any) => {
+                const latestPatMsg = [...(c.summary?.original_chat || [])]
+                  .reverse()
+                  .find((m: any) => m.actor !== "Sam" && m.role !== "doctor");
+                return (
+                  <div key={c.id} className="ws-card" data-testid={`my-work-case-${c.case_key}`}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <span className="ws-num" style={{ fontSize: 12.5, color: "var(--ws-ink-3)" }}>{c.patient_name} ({c.patient_age_sex}) · {c.next_checkpoint_label}</span>
+                      {c.summary?.alerts?.[0] && (
+                        <span className={`ws-pill ${c.summary.alerts[0].level === "high" ? "ws-pill-red" : "ws-pill-amber"}`}>
+                          {c.summary.alerts[0].label}
+                        </span>
+                      )}
                     </div>
-                  )}
-                  <div><button type="button" className="ws-btn-primary" onClick={() => openCase(c.id)}>Open Case →</button></div>
-                </div>
-              ))}
+                    <h2 className="ws-ai-title" style={{ fontSize: 17.5 }}>{c.ai_title}</h2>
+                    <p className="ws-lead">{c.lead_line}</p>
+                    {latestPatMsg && (
+                      <div style={{ fontSize: 13, color: "var(--ws-ink)", padding: "8px 11px", background: "#eef8f5", borderRadius: 8, border: "1px solid #cce6de" }}>
+                        <strong style={{ color: "var(--ws-jade-dark)" }}>{latestPatMsg.actor} ({latestPatMsg.time}):</strong> “{latestPatMsg.text}”
+                      </div>
+                    )}
+                    {c.timeline?.length > 0 && (
+                      <div style={{ fontSize: 12.5, color: "var(--ws-ink-2)", padding: "8px 10px", background: "var(--ws-paper)", borderRadius: 8, border: "1px solid var(--ws-line)" }}>
+                        <strong>Latest agent activity:</strong> {c.timeline[c.timeline.length - 1]?.label}
+                      </div>
+                    )}
+                    <div><button type="button" className="ws-btn-primary" onClick={() => openCase(c.id)}>Open Case →</button></div>
+                  </div>
+                );
+              })}
 
               {data.grouped.running.length > 0 && (
                 <>

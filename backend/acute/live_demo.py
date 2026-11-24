@@ -1089,32 +1089,55 @@ def _compile_journey_turn_update(
     summary = copy.deepcopy(existing_summary)
     steps: list[str] = []
 
+    # Detect prior patient turns so Turn 2/3 follow-ups feel natural and never repeat Turn 1
+    prior_patient_msgs = [
+        str(m.get("text") or "")
+        for m in (existing_summary.get("original_chat") or [])[:-1]
+        if m.get("actor") not in ("Sam", "Assistant") and m.get("role") != "doctor"
+    ]
+    is_followup_turn = len(prior_patient_msgs) >= 1
+    is_simple_ack = bool(
+        re.fullmatch(
+            r"\s*(?:thanks|thank you|thx|ok|okay|got it|sounds good|great|perfect|sure|多謝|唔該|明白|好呀|好嘅|收到)[!.。！\s]*",
+            patient_text or "",
+            re.I,
+        )
+    )
+
     # 1. LAM Wing-Yan (URTI + G6PD/Allergy + Ferritin 14 + Flu Shot)
     if j_key == "wingyan":
-        temp_m = _TEMP_RE.search(patient_text)
+        all_text = " ".join([*prior_patient_msgs, patient_text])
+        temp_m = _TEMP_RE.search(all_text)
         temp_val = f"{temp_m.group(1)} °C" if temp_m else "38.2 °C"
-        days_m = _DAYS_RE.search(patient_text)
+        days_m = _DAYS_RE.search(all_text)
         days_off = 2
         if days_m:
             raw_d = days_m.group(1) or days_m.group(2)
             days_off = _ZH_NUM_MAP.get(raw_d, int(raw_d) if raw_d and raw_d.isdigit() else 2)
-        rat_neg = any(k in low for k in ("negative", "陰性", "rat neg"))
-        mentions_urti = any(k in low for k in ("sore throat", "fever", "cough", "sick", "喉嚨", "發燒", "咳", "病假", "aspirin", "阿士匹靈", "rat", "teleconsult", "視像"))
+        rat_neg_now = any(k in low for k in ("negative", "陰性", "rat neg"))
+        rat_neg_ever = rat_neg_now or any(k in all_text.lower() for k in ("negative", "陰性", "rat neg"))
+        mentions_teleconsult = any(k in low for k in ("teleconsult", "book", "slot", "appointment", "視像", "預約", "約"))
+        mentions_urti = any(k in low for k in ("sore throat", "fever", "cough", "sick", "喉嚨", "發燒", "咳", "病假"))
         mentions_ferritin = any(k in low for k in ("ferritin", "iron", "鐵蛋白", "鐵丸", "blood", "驗血"))
         mentions_flu = any(k in low for k in ("flu", "vaccine", "流感", "打針"))
+        asked_para = any(k in low for k in ("paracetamol", "panadol", "必理痛", "撲熱息痛"))
+        asked_penicillin = "amoxicillin" in cds_blocked_drugs or any(k in low for k in ("amoxicillin", "augmentin", "penicillin", "盤尼西林", "阿莫西林"))
 
         summary["vitals_exam"] = {
             "source": f"Patient Careline · Today {_hkt_hhmm()}",
             "items": [
                 {"label": "Temp (home)", "val": temp_val},
-                {"label": "COVID / Flu RAT", "val": "Negative" if rat_neg else "Pending / Not yet logged"},
+                {"label": "COVID / Flu RAT", "val": "Negative" if rat_neg_ever else "Pending / Not yet logged"},
                 {"label": "Red flags", "val": "Denies SOB, chest pain, or neck stiffness"},
             ],
         }
         summary["scheduled_tasks"] = [
-            {"status": "staged", "label": "Today 14:30 · Teleconsult offered with Locum Dr. Sarah"},
+            {
+                "status": "booked" if mentions_teleconsult else "staged",
+                "label": "Today 14:30 · Teleconsult with Locum Dr. Sarah" + (" (patient requested)" if mentions_teleconsult else " (offered)"),
+            },
         ]
-        if mentions_flu:
+        if mentions_flu or "flu" in all_text.lower() or "流感" in all_text:
             summary["scheduled_tasks"].append(
                 {"status": "auto", "label": "Flu shot ($0 Harbour FinTech) — auto-deferred 14d until afebrile"}
             )
@@ -1127,7 +1150,7 @@ def _compile_journey_turn_update(
                     f"Patient messaged with sore throat and fever ({temp_val}); requesting {days_off}-day sick leave certificate.",
                     "No clinical antibiotic indication; G6PD and Penicillin safety blocks active.",
                 ],
-                "safety_gap": "Aspirin queried by patient — G6PD contraindication flagged in Careline." if "aspirin" in cds_blocked_drugs else None,
+                "safety_gap": "Aspirin queried by patient — G6PD contraindication flagged in Careline." if ("aspirin" in cds_blocked_drugs or "aspirin" in all_text.lower() or "阿士匹靈" in all_text) else None,
                 "suggested_orders": [
                     {"id": "wy_cert", "type": "cert", "issue": "1. Acute viral URTI", "daysOff": days_off, "dates": "23–24 Nov 2026" if days_off == 2 else f"{days_off} days from 23 Nov 2026", "omitDx": True},
                     {"id": "wy_rx_para", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Paracetamol 500mg", "freq": "QDS PRN", "days": "5d", "note": "G6PD-safe analgesic"},
@@ -1157,37 +1180,65 @@ def _compile_journey_turn_update(
 
         parts_en: list[str] = []
         parts_zh: list[str] = []
-        if "aspirin" in cds_blocked_drugs:
-            parts_en.append(
-                "First — please do **not** take aspirin. Your clinic record notes G6PD deficiency, so aspirin and NSAIDs should be avoided (paracetamol is generally the safer option your doctor can confirm)."
-            )
-            parts_zh.append(
-                "首先請**唔好食阿士匹靈**——你嘅診所病歷記錄咗你有蠶豆症（G6PD 缺乏症），需要避免阿士匹靈及消炎止痛藥（一般會由醫生考慮較安全嘅撲熱息痛）。"
-            )
-        if mentions_urti or not (mentions_ferritin or mentions_flu):
-            parts_en.append(
-                f"I've noted your symptoms ({temp_val}) and your {days_off}-day sick-leave request, and prepared a summary for Locum Dr. Sarah Wong so she can review everything together — we have a 14:30 teleconsult slot open today."
-            )
-            parts_zh.append(
-                f"我已經記錄咗你嘅症狀（{temp_val}）同埋 {days_off} 日病假紙申請，並整理好資料交畀黃莎拉醫生一齊審閱——今日 14:30 有視像覆診時段。"
-            )
-        if mentions_ferritin:
-            parts_en.append(
-                "I've also attached your 8 Nov KingMed report (Ferritin 14 ng/mL with normal haemoglobin 12.1) for Dr. Wong to discuss gentle alternate-day oral iron and a 3-month repeat blood test."
-            )
-            parts_zh.append(
-                "我亦已附上你 11 月 8 日嘅金域報告（鐵蛋白 14 ng/mL，血紅素正常 12.1），黃醫生會喺覆診時同你傾隔日口服補鐵同三個月後覆驗。"
-            )
-        if mentions_flu:
-            parts_en.append(
-                "Regarding your $0 Harbour FinTech flu shot: because you're currently unwell with a fever, our clinic protocol defers vaccination by 14 days until you're fully recovered — Dr. Wong can queue that nurse slot for you right in your plan."
-            )
-            parts_zh.append(
-                "至於你嘅 Harbour FinTech 免費流感針：由於你而家發燒唔舒服，按診所指引會暫緩 14 日等你退燒康復後先打，黃醫生可以幫你預先排好護士接種時段。"
-            )
-        if not rat_neg and mentions_urti and "aspirin" in cds_blocked_drugs:
-            parts_en.append("Just to help Dr. Wong prepare: have you done a home COVID/Flu RAT test, and is your breathing comfortable with no chest pain?")
-            parts_zh.append("另外想幫黃醫生確認一下：你有冇做過屋企快測（新冠/流感）？呼吸暢順、冇心口痛嗎？")
+        if is_simple_ack and is_followup_turn:
+            parts_en.append("You're very welcome — everything is ready in Dr. Sarah Wong's workspace now. As soon as she signs off on your care plan and sick-leave certificate, they'll appear right here in this chat.")
+            parts_zh.append("唔使客氣——所有資料已經交到黃莎拉醫生嘅工作台。醫生一簽署你嘅護理計劃同病假證明書，就會即時傳送到呢個對話。")
+        else:
+            if "aspirin" in cds_blocked_drugs:
+                parts_en.append(
+                    "First — please do **not** take aspirin. Your clinic record notes G6PD deficiency, so aspirin and NSAIDs should be avoided (paracetamol is generally the safer option your doctor can confirm)."
+                )
+                parts_zh.append(
+                    "首先請**唔好食阿士匹靈**——你嘅診所病歷記錄咗你有蠶豆症（G6PD 缺乏症），需要避免阿士匹靈及消炎止痛藥（一般會由醫生考慮較安全嘅撲熱息痛）。"
+                )
+            if asked_penicillin:
+                parts_en.append(
+                    "Also flagging from your allergy record: please avoid **amoxicillin / penicillin antibiotics** (documented urticarial rash). Viral URTI typically doesn't need antibiotics anyway, and Dr. Wong will confirm safe symptom relief."
+                )
+                parts_zh.append(
+                    "另外按你嘅過敏記錄提醒：請避免服食**盤尼西林類抗生素（如 Amoxicillin / Augmentin）**。一般病毒性上呼吸道感染亦毋須抗生素，黃醫生會為你安排安全嘅紓緩方案。"
+                )
+            if asked_para:
+                parts_en.append(
+                    "Paracetamol (Panadol) is G6PD-safe and doesn't cross-react with your penicillin allergy — I've noted that for Dr. Sarah Wong to confirm your dosing in the care plan."
+                )
+                parts_zh.append(
+                    "撲熱息痛（必理痛）對蠶豆症安全，亦唔會引起盤尼西林過敏——我已經記低畀黃莎拉醫生喺處方中確認劑量。"
+                )
+            if rat_neg_now or (is_followup_turn and mentions_teleconsult and not mentions_urti):
+                parts_en.append(
+                    "Thank you for confirming — glad your home RAT is negative and your breathing is comfortable. I've updated Dr. Sarah Wong's chart and held the **14:30 teleconsult** slot today; once she reviews and signs your plan, your e-script and MCHK sick-leave PDF will land right here."
+                )
+                parts_zh.append(
+                    "多謝你確認——快測陰性同呼吸暢順就好放心。我已經更新咗黃莎拉醫生嘅病歷並為你預留今日 **14:30 視像覆診**；醫生一審閱簽署，電子處方同病假紙就會直接送返嚟呢度。"
+                )
+            elif mentions_urti or (not is_followup_turn and not (mentions_ferritin or mentions_flu or asked_para or asked_penicillin)):
+                parts_en.append(
+                    f"I've noted your symptoms ({temp_val}) and your {days_off}-day sick-leave request, and prepared a summary for Locum Dr. Sarah Wong so she can review everything together — we have a 14:30 teleconsult slot open today."
+                )
+                parts_zh.append(
+                    f"我已經記錄咗你嘅症狀（{temp_val}）同埋 {days_off} 日病假紙申請，並整理好資料交畀黃莎拉醫生一齊審閱——今日 14:30 有視像覆診時段。"
+                )
+            if mentions_ferritin:
+                parts_en.append(
+                    "I've also attached your 8 Nov KingMed report (Ferritin 14 ng/mL with normal haemoglobin 12.1) for Dr. Wong to discuss gentle alternate-day oral iron and a 3-month repeat blood test."
+                )
+                parts_zh.append(
+                    "我亦已附上你 11 月 8 日嘅金域報告（鐵蛋白 14 ng/mL，血紅素正常 12.1），黃醫生會喺覆診時同你傾隔日口服補鐵同三個月後覆驗。"
+                )
+            if mentions_flu:
+                parts_en.append(
+                    "Regarding your $0 Harbour FinTech flu shot: because you're currently unwell with a fever, our clinic protocol defers vaccination by 14 days until you're fully recovered — Dr. Wong can queue that nurse slot for you right in your plan."
+                )
+                parts_zh.append(
+                    "至於你嘅 Harbour FinTech 免費流感針：由於你而家發燒唔舒服，按診所指引會暫緩 14 日等你退燒康復後先打，黃醫生可以幫你預先排好護士接種時段。"
+                )
+            if not rat_neg_ever and mentions_urti and "aspirin" in cds_blocked_drugs:
+                parts_en.append("Just to help Dr. Wong prepare: have you done a home COVID/Flu RAT test, and is your breathing comfortable with no chest pain?")
+                parts_zh.append("另外想幫黃醫生確認一下：你有冇做過屋企快測（新冠/流感）？呼吸暢順、冇心口痛嗎？")
+            if not parts_en:
+                parts_en.append("Got it — I've added that note directly to your live case for Dr. Sarah Wong so she has the full picture ready.")
+                parts_zh.append("收到——我已經將呢段補充即時加入你嘅個案，方便黃莎拉醫生一併審閱。")
 
         reply = "\n\n".join(parts_zh if is_zh else parts_en)
         return (
