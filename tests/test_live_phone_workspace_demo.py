@@ -434,3 +434,143 @@ def test_qr_welcomes_are_clean_no_premature_clinical_dump_and_no_false_999_on_co
             assert sc.kind is None, f"Suggested reply for {j['key']} falsely triggered {sc.kind} ({sc.reasons}): {chip}"
 
 
+def test_post_sign_sick_leave_extension_escalates_to_doctor_and_never_misroutes_to_preventive_admin(tmp_path):
+    """Regression test for live phone screenshots:
+    - Turn 1 ('I woke up with a sore throat and fever.') must not re-ask when symptoms started.
+    - Post-sign 'can get one more day for sick leave?' and 'can I get another day of sick leave?'
+      must escalate to Dr. Sarah Wong (MCHK Asymmetric Authority) — NEVER 'Noted — thanks for letting us know!'
+      and NEVER 'Glad to hear you're feeling better! I've queued a nurse preventive / follow-up slot...'.
+    - Post-sign confusion ('whaat?') must apologize and clarify rather than repeating a canned fallback.
+    """
+    client = _make_client(tmp_path)
+    assert client.post("/api/v1/demo/live/reset").status_code == 200
+    st0 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "wingyan", "lang": "en"}).json()
+    case_id = st0["case_id"]
+
+    # Turn 1: patient already gave onset ("woke up with")
+    t1 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": "I woke up with a sore throat and fever.", "lang": "en"},
+    ).json()
+    assert t1["case_state"] == "running"
+    assert "when did symptoms start" not in t1["reply"].lower()
+    assert "bp/pulse" not in t1["reply"].lower()
+
+    # Turn 2: provides temp + sick leave request -> staged for doctor
+    t2 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": "38.2°C, breathing is fine, no chest pain. Need 2 days sick leave.", "lang": "en"},
+    ).json()
+    assert t2["case_state"] == "needs_decision"
+
+    # Doctor signs 2-day sick leave + Paracetamol + Cetirizine
+    r_sign = client.post(
+        f"/api/v1/workspace/cases/{case_id}/confirm",
+        json={
+            "actor_name": "Locum Dr. Sarah Wong",
+            "mchk_reg_no": "M61042",
+            "instruction_text": "Start Paracetamol 500mg + Cetirizine 10mg + 2-day MCHK Sick Leave Cert",
+            "orders": [
+                {"id": "wy_rx_para", "type": "rx", "action": "start", "issue": "1. Acute viral URTI", "drug": "Paracetamol 500mg", "freq": "QDS PRN", "days": "5d"},
+                {"id": "wy_cert", "type": "cert", "issue": "1. Acute viral URTI", "days_off": 2, "start_date": "2026-11-24", "omit_employer_diagnosis": True},
+            ],
+        },
+    )
+    assert r_sign.status_code == 200
+
+    # Turn 3 (post-sign): asks for one more day of sick leave -> MUST escalate to doctor
+    t3 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": "can get one more day for sick leave?", "lang": "en"},
+    ).json()
+    assert t3["case_state"] == "needs_decision"
+    assert t3["baton"] == "with_doctor"
+    assert "noted — thanks for letting us know" not in t3["reply"].lower()
+    assert "dr. sarah wong" in t3["reply"].lower()
+    assert "sick-leave" in t3["reply"].lower() or "sick leave" in t3["reply"].lower()
+
+    # Turn 4 (post-sign): rephrases with 'another' -> MUST NOT misroute to preventive admin or say 'feeling better'
+    t4 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": "can I get another day of sick leave?", "lang": "en"},
+    ).json()
+    assert t4["case_state"] == "needs_decision"
+    assert t4["baton"] == "with_doctor"
+    assert "feeling better" not in t4["reply"].lower()
+    assert "preventive" not in t4["reply"].lower()
+    assert t4["reply"].strip().lower() != t3["reply"].strip().lower()
+
+    # Turn 5 (post-sign): expresses confusion -> apologizes & clarifies instead of repeating canned 'Noted'
+    t5 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": "whaat?", "lang": "en"},
+    ).json()
+    assert "noted — thanks for letting us know" not in t5["reply"].lower()
+    assert "sorry" in t5["reply"].lower()
+
+
+def test_vertex_adc_header_and_fallback_cascade(monkeypatch):
+    """Verify Vertex AI calls include required `x-goog-user-project` header for user ADC
+    and cleanly cascade from asia-east2 -> Vertex global (with PHI scrub) -> Gemini API key on 404/403."""
+    import httpx
+    from backend.acute.agent_harness import MultiAgentHarness, invoke_structured_json
+
+    monkeypatch.delenv("AGENT_LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gem-key")
+    monkeypatch.setattr(MultiAgentHarness, "_vertex_adc_token", staticmethod(lambda _proj=None: ("tok-adc", "tmrw-hk-prod")))
+
+    seen_calls: list[dict] = []
+
+    def fake_post(self, url, headers=None, params=None, json=None):
+        seen_calls.append({"url": str(url), "headers": dict(headers or {}), "json": json})
+        req = httpx.Request("POST", str(url))
+        # 1st call (asia-east2 gemini-4-hydrogen) -> 404; 2nd call (global gemini-4-hydrogen) -> 200
+        if "asia-east2-aiplatform.googleapis.com" in str(url):
+            return httpx.Response(404, request=req, json={"error": {"message": "Model not found in asia-east2"}})
+        return httpx.Response(
+            200,
+            request=req,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {"text": '{"patient_reply": "I have flagged your extra sick-leave request to Dr. Sarah Wong.", "registrar_action": "escalate_to_doctor"}'}
+                            ]
+                        }
+                    }
+                ],
+                "usageMetadata": {"promptTokenCount": 50, "candidatesTokenCount": 25},
+            },
+        )
+
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    res = invoke_structured_json(
+        system_prompt="You are Sam.",
+        user_prompt="Patient LAM Wing-Yan asks for 1 more day of sick leave.",
+        patient_names_for_scrub=["LAM Wing-Yan"],
+        engine_override={
+            "live": True,
+            "provider": "vertex",
+            "model": "gemini-4-hydrogen",
+            "region": "asia-east2",
+            "project": "tmrw-hk-prod",
+        },
+        thinking_level="LOW",
+    )
+    assert res.ok is True
+    assert res.provider == "vertex"
+    assert res.region == "global"
+    assert res.fallback_used is True
+    assert res.phi_scrubbed is True
+    assert res.json_payload is not None
+    assert res.json_payload["registrar_action"] == "escalate_to_doctor"
+    assert len(seen_calls) == 2
+    assert seen_calls[0]["headers"].get("x-goog-user-project") == "tmrw-hk-prod"
+    assert seen_calls[1]["headers"].get("x-goog-user-project") == "tmrw-hk-prod"
+    assert seen_calls[1]["url"].startswith("https://aiplatform.googleapis.com/v1beta1/projects/tmrw-hk-prod/locations/global/")
+    # Ensure PHI was scrubbed before leaving asia-east2 for the global endpoint
+    sent_user_text = seen_calls[1]["json"]["contents"][0]["parts"][0]["text"]
+    assert "LAM Wing-Yan" not in sent_user_text
+
+

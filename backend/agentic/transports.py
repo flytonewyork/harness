@@ -94,6 +94,17 @@ def is_gemini_4_model(model: str) -> bool:
     return low.startswith("gemini-4-") or low.startswith("gemini-3.")
 
 
+def build_vertex_generate_content_url(*, region: str, project: str, model: str) -> str:
+    """Build Vertex AI generateContent URL supporting both regional (`asia-east2`) and `global` endpoints."""
+    loc = (region or "asia-east2").strip() or "asia-east2"
+    api_ver = "v1beta1" if is_gemini_4_model(model) else "v1"
+    host = "aiplatform.googleapis.com" if loc.lower() == "global" else f"{loc}-aiplatform.googleapis.com"
+    return (
+        f"https://{host}/{api_ver}/projects/{project}"
+        f"/locations/{loc}/publishers/google/models/{model}:generateContent"
+    )
+
+
 def build_gemini_generation_config(
     model: str,
     *,
@@ -293,13 +304,10 @@ class LiveHTTPModelTransport:
             used_model = mdl
             if self.provider == "vertex":
                 token, project = acquire_vertex_adc_token(self.project)
-                api_ver = "v1beta1" if is_gemini_4_model(mdl) else "v1"
-                url = (
-                    f"https://{self.region}-aiplatform.googleapis.com/{api_ver}/projects/{project}"
-                    f"/locations/{self.region}/publishers/google/models/{mdl}:generateContent"
-                )
+                url = build_vertex_generate_content_url(region=self.region, project=project, model=mdl)
                 headers = {
                     "Authorization": f"Bearer {token}",
+                    "x-goog-user-project": project,
                     "Content-Type": "application/json",
                     "X-Vertex-Zero-Data-Retention": "true",
                     "X-No-Training": "true",

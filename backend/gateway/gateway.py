@@ -441,6 +441,7 @@ class VertexAIProvider(ModelProvider):
         url = self.build_url(region=call.region, project=project, model_id=call.model_id)
         headers = {
             "Authorization": f"Bearer {token}",
+            "x-goog-user-project": project,
             "Content-Type": "application/json",
             "X-Vertex-Zero-Data-Retention": "true",
             "X-No-Training": "true",
