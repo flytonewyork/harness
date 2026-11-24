@@ -2191,7 +2191,7 @@ def handle_live_chat_turn(
             current_cp=case.next_checkpoint_label or "Patient messaging Sam",
         )
 
-        # 4. Real-Time Multi-Turn Live LLM Response (Gemini 4 Hydrogen with thinking -> phase-aware colloquial reply + Private Doctor reasoning trace!)
+        # 4. Live Autonomous AI Registrar (Gemini 4 Hydrogen with thinking -> drives harness routing, vitals extraction, admin handoffs & reasoning trace!)
         reply = fallback_reply
         if engine.get("live"):
             lang_directive = "Write patient_reply warmly and concisely in natural Hong Kong Traditional Chinese / Cantonese (繁體中文)." if is_zh else "Write patient_reply warmly and concisely in clear, natural English."
@@ -2202,8 +2202,8 @@ def handle_live_chat_turn(
             if has_day3:
                 phase_desc = (
                     "PHASE 4 · DAY +3 AUTONOMOUS POST-VISIT CHECK-IN: The doctor ALREADY reviewed and signed the patient's plan 3 days ago. "
-                    "Handle recovery check-ins, preventive care (e.g. flu shot), and clinic admin/nurse rebooking autonomously WITHOUT telling the patient to wait for doctor sign-off. "
-                    "Only escalate back to the doctor if the patient reports worsening or new red-flag symptoms."
+                    "Use registrar_action='route_to_admin' for preventive care (flu shot), rebooking, or admin requests; use 'close_quietly' if recovered; "
+                    "ONLY use 'escalate_to_doctor' if the patient reports worsening or new clinical red-flag symptoms."
                 )
             elif has_signed:
                 signed_summary = ""
@@ -2213,18 +2213,20 @@ def handle_live_chat_turn(
                     signed_summary = f" Already signed: {', '.join(x for x in (rx_s, cert_s) if x)}."
                 phase_desc = (
                     f"PHASE 3 · POST-SIGN CARE ACTIVE: Dr. Sarah Wong ALREADY reviewed and signed the patient's plan.{signed_summary} "
-                    "NEVER say 'waiting for doctor to review' unless the patient reports new or worsening symptoms. "
-                    "Answer recovery/medication questions calmly, handle logistics/rebooking via clinic admin, and remind them of the 3-day check-in only if relevant."
+                    "NEVER say 'waiting for doctor to review' unless you choose 'escalate_to_doctor' for new/worsening symptoms. "
+                    "Use 'route_to_admin' for bookings/vaccines/admin, or 'close_quietly' for simple recovery/med questions."
                 )
             elif new_state == "needs_decision":
                 phase_desc = (
-                    "PHASE 2 · SUMMARY READY FOR DOCTOR REVIEW: Clinical history is packaged for Dr. Sarah Wong. "
-                    "Acknowledge the patient's latest message specifically, answer any safe general question, and let them know Dr. Wong has the update."
+                    "PHASE 2 · CLINICAL SUMMARY STAGED FOR DOCTOR: Sufficient history has been gathered for Dr. Sarah Wong. "
+                    "Use 'escalate_to_doctor' if the patient added clinical updates or needs a doctor decision, or 'keep_in_patient_loop' if critical intake details are still missing."
                 )
             else:
                 phase_desc = (
-                    "PHASE 1 · INITIAL REGISTRAR INTAKE (PATIENT LOOP): Doctor has NOT been interrupted yet. "
-                    "Ask 1–2 concise, open registrar-style clarifying questions (symptom onset, severity, red flags, available home vitals like temp/BP/pulse, or visit intent) tailored directly to what the patient just wrote."
+                    "PHASE 1 · AUTONOMOUS REGISTRAR INTAKE (PATIENT LOOP): Doctor has NOT been interrupted yet. "
+                    "Use 'keep_in_patient_loop' while gathering symptom onset, severity, red flags, available home vitals (temp/BP/pulse), or visit intent. "
+                    "Use 'route_to_admin' for pure scheduling/logistics/vaccines (keep doctor out of the loop). "
+                    "Use 'escalate_to_doctor' ONLY once you have enough clinical history for Dr. Sarah Wong to make a clean decision."
                 )
 
             chart_facts = (
@@ -2236,12 +2238,21 @@ def handle_live_chat_turn(
                 else "New / minimal intake (no prior chart alerts loaded)"
             )
             sys_prompt = (
-                "You are Sam, the Clinic Careline AI assistant at Central & Mid-Levels Family Medical (Hong Kong), acting like a calm clinical registrar. "
-                "Respond ONLY in valid JSON with two keys: {\"patient_reply\": string, \"clinical_reasoning\": string}. "
-                "Rules for patient_reply: 100% warm, colloquial patient language; respond DIRECTLY to what the patient JUST wrote and respect the CURRENT LIFECYCLE PHASE; "
-                "NEVER mention internal medical alerts or technical jargon (such as G6PD, haemolysis, nitrofurantoin, or drug-class mechanisms) to the patient — keep those strictly in clinical_reasoning for the doctor; "
-                "NEVER claim to be a doctor, clinician, or resident; NEVER prescribe medications, promise reply SLAs, or repeat any prior Sam message verbatim (1–3 concise sentences). "
-                "Rules for clinical_reasoning: 1–2 concise sentences for the doctor summarizing your registrar thinking steps (phase awareness, red-flag screen, missing history/home vitals, safety checks, and routing decision). "
+                "You are Sam, the autonomous Clinic Careline AI Registrar at Central & Mid-Levels Family Medical (Hong Kong). "
+                "You drive the clinic harness autonomously within strict Asymmetric Authority (you gather history, screen red flags, extract home vitals, route admin tasks to #clinic-team, or package clean briefs for the doctor; you NEVER prescribe, sign, diagnose definitively, or promise reply SLAs). "
+                "Respond ONLY in valid JSON with keys:\n"
+                "{\n"
+                '  "patient_reply": string,\n'
+                '  "clinical_reasoning": string,\n'
+                '  "registrar_action": "keep_in_patient_loop" | "escalate_to_doctor" | "route_to_admin" | "close_quietly",\n'
+                '  "extracted_vitals": [{"label": string, "val": string}],\n'
+                '  "issue_summary_update": string,\n'
+                '  "admin_task": string\n'
+                "}\n"
+                "Rules for patient_reply: 100% warm, colloquial patient language (1–3 concise sentences); respond DIRECTLY to what the patient JUST wrote and respect the CURRENT LIFECYCLE PHASE; "
+                "proactively ask for home vitals (temp/BP/pulse) if clinically helpful; NEVER mention internal medical alerts or technical jargon (such as G6PD, haemolysis, nitrofurantoin, or drug-class mechanisms) to the patient — keep those strictly in clinical_reasoning for the doctor; "
+                "NEVER claim to be a doctor or repeat any prior Sam message verbatim. "
+                "Rules for clinical_reasoning: 1–2 concise sentences for the doctor summarizing your registrar thinking steps (phase, red-flag screen, home vitals/history check, safety checks, and why you chose registrar_action). "
                 f"{lang_directive}"
             )
             user_prompt = (
@@ -2251,7 +2262,7 @@ def handle_live_chat_turn(
                 f"Deterministic CDS findings (clinician-side only): {cds_warnings or 'None'}\n"
                 f"Recent conversation:\n{recent_turns}\n\n"
                 f"Patient's latest message: {text}\n"
-                f"Reference clinic guidance (use only what fits the patient's message and phase): {fallback_reply}"
+                f"Baseline clinic guidance (adapt freely to the patient's actual message): {fallback_reply}"
             )
             chat_engine = dict(engine)
             if chat_engine.get("provider") in ("gemini", "vertex") and chat_engine.get("model") == "gemini-4-neon":
@@ -2260,7 +2271,7 @@ def handle_live_chat_turn(
                 system_prompt=sys_prompt,
                 user_prompt=user_prompt,
                 temperature=0.25,
-                max_output_tokens=480,
+                max_output_tokens=640,
                 patient_names_for_scrub=[j["patient_name"]],
                 engine_override=chat_engine,
                 timeout_seconds=20.0,
@@ -2270,21 +2281,99 @@ def handle_live_chat_turn(
                 raw_out = llm_call.text.strip()
                 parsed_reply = raw_out
                 parsed_reasoning = ""
+                reg_action = ""
+                extracted_vitals: list[dict[str, str]] = []
+                issue_update = ""
+                admin_task = ""
                 try:
                     cleaned_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_out, flags=re.I).strip()
                     obj = __import__("json").loads(cleaned_json)
                     if isinstance(obj, dict) and obj.get("patient_reply"):
                         parsed_reply = str(obj["patient_reply"]).strip()
                         parsed_reasoning = str(obj.get("clinical_reasoning") or "").strip()
+                        reg_action = str(obj.get("registrar_action") or "").strip().lower()
+                        if isinstance(obj.get("extracted_vitals"), list):
+                            extracted_vitals = [
+                                {"label": str(v.get("label", "")).strip(), "val": str(v.get("val", "")).strip()}
+                                for v in obj["extracted_vitals"]
+                                if isinstance(v, dict) and v.get("label") and v.get("val")
+                            ][:4]
+                        issue_update = str(obj.get("issue_summary_update") or "").strip()
+                        admin_task = str(obj.get("admin_task") or "").strip()
                 except Exception:
                     pass
+
                 screened = screen_agent_output(parsed_reply, channel="patient_careline")
                 if screened.passed and parsed_reply:
                     reply = parsed_reply
+
+                # Execute the live registrar's chosen harness action (never weakening CDS safety blocks!)
+                if reg_action in ("keep_in_patient_loop", "escalate_to_doctor", "route_to_admin", "close_quietly"):
+                    if reg_action == "keep_in_patient_loop" and not cds_blocked and not has_signed:
+                        new_state = "running"
+                        new_baton = "with_patient"
+                        next_cp = "Registrar intake"
+                    elif reg_action == "escalate_to_doctor":
+                        new_state = "needs_decision"
+                        new_baton = "with_doctor"
+                        next_cp = "Ready for doctor review"
+                    elif reg_action == "route_to_admin" and not cds_blocked:
+                        new_state = "scheduled"
+                        new_baton = "idle"
+                        next_cp = "Admin / Nurse handoff"
+                        ah_list = list(updated_summary.get("admin_handoffs") or [])
+                        task_desc = admin_task or f"Autonomous request from {j['patient_name']}: “{text.strip()}” — coordinate with Clinic Admin / Nurse (doctor kept out of loop)."
+                        if not any(task_desc[:40] in str(x.get("task", "")) for x in ah_list):
+                            ah_list.append({
+                                "id": new_id("adm"),
+                                "route": f"Sam ({chat_engine.get('model', 'Gemini 4')} Registrar) → Clinic Admin / Nurse Rachel",
+                                "task": task_desc,
+                                "status": "pending_admin",
+                                "created_at": utcnow().isoformat(),
+                            })
+                            updated_summary["admin_handoffs"] = ah_list
+                    elif reg_action == "close_quietly" and not cds_blocked:
+                        new_state = "scheduled"
+                        new_baton = "idle"
+                        next_cp = "Quiet monitoring"
+
+                    live_bus.append_tool_call(
+                        pid,
+                        {
+                            "agent": "CareAgent",
+                            "tool": f"registrar.{reg_action}",
+                            "authority": "DRAFT",
+                            "emr_target": "clinic_team" if reg_action == "route_to_admin" else "workspace",
+                            "summary": f"{chat_engine.get('model', 'Gemini 4')} chose {reg_action}" + (f" · {len(extracted_vitals)} vitals" if extracted_vitals else ""),
+                        },
+                    )
+                    agent_steps.append(f"RegistrarAgent ({chat_engine.get('model', 'Gemini 4')}) · Executed {reg_action}")
+
+                # Merge dynamically extracted home vitals into Physical Exam & Vitals card
+                if extracted_vitals:
+                    ve = dict(updated_summary.get("vitals_exam") or {})
+                    ve["source"] = f"Patient Careline · Today {hhmm}"
+                    ve.setdefault("encounter_context", "Post-Care Follow-Up" if has_signed else "Inbound Remote · Self-Measured")
+                    existing_items = [it for it in (ve.get("items") or []) if isinstance(it, dict)]
+                    existing_labels = {str(it.get("label", "")).lower() for it in existing_items}
+                    for ev in extracted_vitals:
+                        if ev["label"].lower() not in existing_labels:
+                            existing_items.insert(0, ev)
+                        else:
+                            for idx_it, it in enumerate(existing_items):
+                                if str(it.get("label", "")).lower() == ev["label"].lower():
+                                    existing_items[idx_it] = ev
+                    ve["items"] = existing_items[:5]
+                    updated_summary["vitals_exam"] = ve
+
+                # Update lead line / issue summary with live registrar synthesis
+                if issue_update:
+                    lead_line = issue_update[:220]
+
                 if parsed_reasoning:
                     at = list(updated_summary.get("agent_thread") or [])
                     at.append({
-                        "actor": f"Sam · {chat_engine.get('model', 'Gemini 4')}",
+                        "actor": f"Sam · {chat_engine.get('model', 'Gemini 4')} Registrar",
                         "time": hhmm,
                         "text": parsed_reasoning,
                     })
