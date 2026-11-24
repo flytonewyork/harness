@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends fonts-noto-cjk 
 COPY pyproject.toml ./
 COPY backend/ ./backend/
 COPY protocols/ ./protocols/
+COPY skills/ ./skills/
 COPY demo/ec-care-line/ ./demo/ec-care-line/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
@@ -40,4 +41,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD python -c "import urllib.request, os; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"PORT\", 8080)}/api/v1/health')" || exit 1
 
-CMD ["sh", "-c", "uvicorn backend.acute.app:app_from_env --factory --host 0.0.0.0 --port ${PORT:-8080}"]
+CMD ["sh", "-c", "uvicorn backend.acute.app:app_from_env --factory --host 0.0.0.0 --port ${PORT:-8080} --timeout-keep-alive 75 --proxy-headers --forwarded-allow-ips='*'"]
