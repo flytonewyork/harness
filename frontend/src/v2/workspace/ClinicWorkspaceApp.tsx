@@ -102,6 +102,7 @@ interface CdsFeedbackState {
 interface CommitReceipt {
   traceId?: string;
   confirmedAt: string;
+  signedOrders: PlanOrder[];
   certificates: Array<{
     id?: string;
     days_off?: number;
@@ -830,6 +831,27 @@ export function ClinicWorkspaceApp() {
     return () => window.clearTimeout(timer);
   }, [postSignGuide, view]);
 
+  // When a previously signed case re-opens with a new amendment issue (e.g. +1d sick leave), auto-stage that single new order for 1-click sign-off
+  useEffect(() => {
+    if (!activeCase || activeCase.state !== "needs_decision") return;
+    const amendIssue = (activeCase.summary?.issues || []).find((it: any) => it?.id === "iss_post_sign_amend");
+    if (!amendIssue || !Array.isArray(amendIssue.suggested_orders) || amendIssue.suggested_orders.length === 0) return;
+    const signedIds = new Set((receipts[activeCase.id]?.signedOrders || []).map((o) => o.id));
+    setPlans((prev) => {
+      const existing = prev[activeCase.id] || [];
+      const existingIds = new Set(existing.map((o) => o.id));
+      const toAdd: PlanOrder[] = [];
+      for (const rawOrd of amendIssue.suggested_orders) {
+        const norm = normalizeOrder(rawOrd, amendIssue.name);
+        if (!signedIds.has(norm.id) && !existingIds.has(norm.id)) {
+          toAdd.push({ ...norm, checked: true });
+        }
+      }
+      if (toAdd.length === 0) return prev;
+      return { ...prev, [activeCase.id]: [...existing, ...toAdd] };
+    });
+  }, [activeCase, receipts]);
+
   const handleResetDemo = async () => {
     setBusy(true);
     try {
@@ -1014,17 +1036,25 @@ export function ClinicWorkspaceApp() {
       const signedCaseObj = (data?.cases || []).find((c: any) => c.id === caseId);
       const signedPatientName = signedCaseObj?.patient_name || "Patient";
 
-      if (rawCerts.length > 0 || emrSummary) {
-        setReceipts((prev) => ({
-          ...prev,
-          [caseId]: {
-            traceId,
-            confirmedAt: signedAt,
-            certificates: rawCerts,
-            emrAddendumSummary: emrSummary,
-            emrAddendumCount: addendumEntries.length || (emrSummary ? 1 : 0),
-          },
-        }));
+      if (rawCerts.length > 0 || emrSummary || selected.length > 0) {
+        setReceipts((prev) => {
+          const priorOrders = prev[caseId]?.signedOrders || [];
+          const mergedMap = new Map<string, PlanOrder>();
+          for (const o of priorOrders) mergedMap.set(o.id, o);
+          for (const o of selected) mergedMap.set(o.id, o);
+          const priorCerts = prev[caseId]?.certificates || [];
+          return {
+            ...prev,
+            [caseId]: {
+              traceId,
+              confirmedAt: signedAt,
+              signedOrders: Array.from(mergedMap.values()),
+              certificates: rawCerts.length > 0 ? rawCerts : priorCerts,
+              emrAddendumSummary: emrSummary,
+              emrAddendumCount: addendumEntries.length || (emrSummary ? 1 : 0),
+            },
+          };
+        });
       }
 
       updateCasePlan(caseId, (cur) => cur.filter((x) => !x.checked));
@@ -1866,6 +1896,20 @@ export function ClinicWorkspaceApp() {
                         <div className="ws-issue-actions">
                           {(iss.suggested_orders || []).map((rawOrd: Record<string, any>) => {
                             const ord = normalizeOrder(rawOrd, iss.name);
+                            const isSigned = (activeReceipt?.signedOrders || []).some((s) => s.id === ord.id);
+                            if (isSigned) {
+                              return (
+                                <span
+                                  key={ord.id}
+                                  className="ws-add-pill is-added"
+                                  style={{ cursor: "default", opacity: 0.85 }}
+                                  data-testid={`signed-issue-pill-${ord.id}`}
+                                >
+                                  <span className="ws-add-pill-icon">✓</span>
+                                  <span>{summarizeOrder(ord)}</span>
+                                </span>
+                              );
+                            }
                             const isAdded = activeOrders.some((x) => x.id === ord.id);
                             return (
                               <button
@@ -2002,28 +2046,49 @@ export function ClinicWorkspaceApp() {
                     <span className="ws-pill ws-num">{selectedCount} selected</span>
                   </div>
 
-                  {/* Signed Receipt: MCHK PDF Certificate Badge/Hash + Additive EMR Addendum Confirmation */}
+                  {/* Signed Receipt: Existing Signed Orders (with Edit) & MCHK Certificate Hash */}
                   {activeReceipt && (
                     <div className="ws-receipt-card" data-testid="commit-receipt">
                       <div className="ws-receipt-row">
                         <strong>Plan confirmed · <span className="ws-num">{activeReceipt.confirmedAt}</span></strong>
-                        {activeReceipt.emrAddendumSummary && (
-                          <span className="ws-pill ws-pill-jade">✓ {activeReceipt.emrAddendumSummary}</span>
+                        {activeReceipt.certificates[0] && (
+                          <span className="ws-pill ws-pill-jade ws-num">
+                            {activeReceipt.certificates[0].mchk_reg_no ? `${activeReceipt.certificates[0].mchk_reg_no} · ` : ""}
+                            Hash {(activeReceipt.certificates[0].verification_hash || "verified").slice(0, 12)}
+                          </span>
                         )}
                       </div>
-                      {activeReceipt.certificates.map((cert, cIdx) => (
-                        <div key={cert.id || cIdx} className="ws-receipt-row" style={{ borderTop: "1px solid var(--ws-jade-line)", paddingTop: 6 }}>
-                          <span>
-                            <strong>MCHK Signed PDF Certificate</strong> · <span className="ws-num">{cert.days_off || 2}d</span>
-                            {cert.start_date ? ` (${cert.start_date}${cert.end_date && cert.end_date !== cert.start_date ? ` → ${cert.end_date}` : ""})` : ""}
-                            {cert.omit_employer_diagnosis !== false ? " · Employer Dx omitted" : ""}
-                          </span>
-                          <span className="ws-pill ws-pill-jade ws-num">
-                            {cert.mchk_reg_no ? `${cert.mchk_reg_no} · ` : ""}
-                            Hash {(cert.verification_hash || "verified").slice(0, 12)}
-                          </span>
-                        </div>
-                      ))}
+                      {(activeReceipt.signedOrders || []).map((signedOrd) => {
+                        const alreadyEditing = activeOrders.some((o) => o.id === signedOrd.id);
+                        return (
+                          <div
+                            key={signedOrd.id}
+                            className="ws-receipt-row"
+                            style={{ borderTop: "1px solid var(--ws-jade-line)", paddingTop: 6 }}
+                          >
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                              <span style={{ color: "var(--ws-jade)", fontWeight: 700 }}>✓</span>
+                              <span>{summarizeOrder(signedOrd)}</span>
+                            </span>
+                            <button
+                              type="button"
+                              className="ws-btn-ghost"
+                              style={{ fontSize: 12, padding: "2px 8px", color: "var(--ws-jade-dark)", fontWeight: 600 }}
+                              disabled={alreadyEditing}
+                              onClick={() => {
+                                updateCasePlan(activeCase.id, (cur) =>
+                                  cur.some((x) => x.id === signedOrd.id)
+                                    ? cur
+                                    : [...cur, { ...signedOrd, checked: true }],
+                                );
+                              }}
+                              data-testid={`edit-signed-order-${signedOrd.id}`}
+                            >
+                              {alreadyEditing ? "Editing below" : "Edit"}
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 

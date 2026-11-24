@@ -637,22 +637,35 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "wingyan", "message": s1["suggested_replies"][0], "lang": "en", "is_preset": True},
     ).json()
-    assert t1["case_state"] == "needs_decision"
+    assert t1["case_state"] == "running"
     assert "!" not in t1["reply"]
     assert t1["llm_meta"]["mode"] == "deterministic_preset"
     assert t1["llm_meta"]["live_reply_used"] is False
-    # Booking offer attached for Case 1 (Dr. Kenneth Lam 11:00 earliest open slot)
-    assert t1["booking_offer"] is not None
-    assert t1["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_lam"
-    assert t1["booking_offer"]["recommended"]["time"] == "11:00"
-    # Curated Turn-2 preset reply surfaces cleanly
+    assert "shortness of breath" in t1["reply"].lower() and "vitals" in t1["reply"].lower()
+    assert t1["booking_offer"] is None  # Holds booking card until red flags & home vitals are answered
     assert len(t1["suggested_replies"]) == 1
-    assert "watch out" in t1["suggested_replies"][0].lower()
+    assert "38.2" in t1["suggested_replies"][0] and "spo2" in t1["suggested_replies"][0].lower()
+
+    # Turn 2: Patient answers red flags + home vitals -> mounts vitals, escalates to doctor & attaches Dr. Kenneth Lam 11:00 booking offer
+    t1_2 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": t1["suggested_replies"][0], "lang": "en", "is_preset": True},
+    ).json()
+    assert t1_2["case_state"] == "needs_decision"
+    assert "!" not in t1_2["reply"]
+    assert t1_2["llm_meta"]["mode"] == "deterministic_preset"
+    assert t1_2["booking_offer"] is not None
+    assert t1_2["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_lam"
+    assert t1_2["booking_offer"]["recommended"]["time"] == "11:00"
+    assert len(t1_2["suggested_replies"]) == 1
+    assert "watch out" in t1_2["suggested_replies"][0].lower()
     st1 = client.get("/api/v1/demo/live/chat/state/wingyan?lang=en").json()
-    assert st1["suggested_replies"] == t1["suggested_replies"]
+    assert st1["suggested_replies"] == t1_2["suggested_replies"]
 
     ov1 = client.get("/api/v1/workspace/overview?mode=live").json()
     wy_case = next(c for c in ov1["cases"] if c["case_key"] == "wingyan")
+    wy_vitals_str = str(wy_case["summary"].get("vitals_exam") or "")
+    assert "38.2" in wy_vitals_str and "98%" in wy_vitals_str and "88 bpm" in wy_vitals_str
     wy_orders = wy_case["summary"]["issues"][0]["suggested_orders"]
     assert any(o["type"] == "book" for o in wy_orders)
     assert any(o["type"] == "rx" and "paracetamol" in o["drug"].lower() for o in wy_orders)

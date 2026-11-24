@@ -321,8 +321,8 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
     setMessages((prev) => [...prev, { actor: patName, role: "patient", time: nowTime, text: txt }]);
 
     const reqPromise = v2Api.liveChatTurn(journeyKey, txt, lang, isPreset);
-    // Natural read beat before Sam's typing dots appear
-    await new Promise((r) => window.setTimeout(r, 180));
+    // Crisp read beat before Sam's typing dots appear
+    await new Promise((r) => window.setTimeout(r, 120));
     setTyping(true);
     const tTypingStart = Date.now();
 
@@ -330,7 +330,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
       const res = await reqPromise;
       const hasBookingCard = Boolean(res.booking_offer);
       const isDeterministic = res.llm_meta?.mode === "deterministic_preset" || isPreset;
-      const minTypingMs = isDeterministic ? (hasBookingCard ? 1020 : 860) : 600;
+      const minTypingMs = isDeterministic ? (hasBookingCard ? 820 : 680) : 500;
       const elapsed = Date.now() - tTypingStart;
       if (elapsed < minTypingMs) {
         await new Promise((r) => window.setTimeout(r, minTypingMs - elapsed));
@@ -460,8 +460,8 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
                     ? "Sam 正在輸入…"
                     : "Sam is typing…"
                   : isZh
-                    ? "Sam · 診所護理助手"
-                    : "Sam · Clinic Care Assistant"}
+                    ? "Sam · AI 駐診助手"
+                    : "Sam · AI Resident"}
               </span>
             </div>
           </div>
@@ -522,7 +522,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
             const prescriptions = m.care_plan.prescriptions || [];
             return (
               <div key={idx} className="pc-row is-doctor" data-testid="chat-doctor-signed-card">
-                <span className="pc-sender-label">Sam · {isZh ? "診所助手" : "Clinic AI"}</span>
+                <span className="pc-sender-label">Sam · {isZh ? "AI 駐診助手" : "AI Resident"}</span>
                 <div className="pc-doctor-card">
                   <div style={{ fontSize: 14, lineHeight: 1.48 }}>{m.text}</div>
 
@@ -687,7 +687,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           const hasBooking = !isPatient && Boolean(m.booking_offer);
           return (
             <div key={idx} className={`pc-row ${isPatient ? "is-patient" : "is-clinic"}${hasBooking ? " has-booking" : ""}`}>
-              {!isPatient && <span className="pc-sender-label">Sam · {isZh ? "診所助手" : "Clinic AI"}</span>}
+              {!isPatient && <span className="pc-sender-label">Sam · {isZh ? "AI 駐診助手" : "AI Resident"}</span>}
               <div className="pc-bubble">{renderBoldText(m.text)}</div>
               {hasBooking && m.booking_offer && (
                 <BookingOfferCard
@@ -815,37 +815,9 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           </div>
         )}
 
-        {/* Generic clinic quick-action pills stay neatly below Sam's welcome (1st-turn demo prompt stays at bottom near composer) */}
-        {consentDone && messages.length === 1 && !typing && (
-          <div className="pc-welcome-actions" data-testid="welcome-quick-actions">
-            {(isZh
-              ? [
-                  "預約或更改診症時間",
-                  "跟進驗血報告或藥物",
-                  "查詢或申請病假紙",
-                ]
-              : [
-                  "Book or reschedule an appointment",
-                  "Follow up on a test result or medication",
-                  "I need a sick-leave certificate",
-                ]
-            ).map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                className="pc-chip"
-                onClick={() => void handleSend(opt, true)}
-                title={opt}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-        )}
-
         {typing && (
           <div className="pc-row is-clinic" data-testid="clinic-typing-bubble">
-            <span className="pc-sender-label">Sam · {isZh ? "診所助手" : "Clinic AI"}</span>
+            <span className="pc-sender-label">Sam · {isZh ? "AI 駐診助手" : "AI Resident"}</span>
             <div className="pc-typing-bubble" aria-label="Clinic is typing">
               <span className="pc-typing-dot" />
               <span className="pc-typing-dot" />

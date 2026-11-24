@@ -246,10 +246,13 @@
 
 /* Typing indicator bubble */
 .pc-typing-bubble {
+  align-self: flex-start;
+  width: fit-content;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  padding: 13px 16px;
+  padding: 11px 14px;
   background: var(--pc-surface);
   border: 1px solid var(--pc-line);
   border-radius: 18px;

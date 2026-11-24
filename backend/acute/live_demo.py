@@ -132,11 +132,13 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
             "你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。今日有咩可以幫到你？"
         ),
         "suggested_replies_en": [
-            "I woke up with a sore throat and 38.2°C fever — no chest pain or shortness of breath. Could I book a quick exam and ask about a 2-day sick note?",
+            "I woke up with a sore throat and feeling feverish — could I see a doctor today and ask about a 2-day sick note?",
+            "No chest pain or shortness of breath, and no rash or trouble swallowing. I checked at home — temperature 38.2°C, SpO2 98%, pulse 88 bpm.",
             "Thank you — is there anything else I should watch out for before my visit?",
         ],
         "suggested_replies_zh": [
-            "我今朝起身覺得喉嚨痛同發燒 38.2 度，冇心口痛亦冇氣促。請問可唔可以約醫生檢查，同埋攞兩日病假紙？",
+            "我今朝起身覺得喉嚨痛同好似發燒——請問今日可唔可以睇醫生，同埋攞兩日病假紙？",
+            "冇心口痛、冇氣促、冇出疹亦冇吞嚥困難。頭先喺屋企量咗體溫 38.2 度、血氧 98%、脈搏 88。",
             "多謝你——睇醫生前有冇咩症狀需要特別留意？",
         ],
     },
@@ -332,6 +334,7 @@ def _suggested_replies_for(
     *,
     dynamic_replies: list[str] | None = None,
     has_patient_turns: bool = False,
+    case_state: str | None = None,
 ) -> list[str]:
     if has_day3:
         return list(_DAY3_REPLIES_ZH if is_zh else _DAY3_REPLIES_EN)
@@ -343,7 +346,10 @@ def _suggested_replies_for(
         return [str(x).strip() for x in dynamic_replies if str(x).strip()][:2]
     static_list = list(j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"])
     if has_patient_turns:
-        # Turn 1+ preset mode: surface the curated follow-up preset replies directly answering Sam's Turn-1 prompt
+        if j.get("key") == "wingyan" and len(static_list) >= 3:
+            if case_state == "running":
+                return [static_list[1]]
+            return [static_list[2]]
         return static_list[1:]
     return static_list[:1]
 
@@ -1244,6 +1250,7 @@ def get_live_chat_state(
                 has_day3=has_day3,
                 dynamic_replies=dyn_replies,
                 has_patient_turns=has_patient,
+                case_state=case.state,
             ),
         }
 
@@ -1543,7 +1550,7 @@ def _compile_journey_turn_update(
                 ],
                 "safety_gap": "Confirm ongoing symptoms / fitness for work before approving additional sick leave." if wants_sick_leave_amend else "Review clinical rationale before amending signed prescription.",
                 "suggested_orders": (
-                    [{"id": "wy_cert_ext", "type": "cert", "issue": f"{len(existing_issues) + 1}. {req_kind} (doctor sign-off required)", "daysOff": 1, "dates": "26 Nov 2026 (+1d extension)", "omitDx": True}]
+                    [{"id": "wy_cert_ext", "type": "cert", "issue": f"{len(existing_issues) + 1}. {req_kind} (doctor sign-off required)", "daysOff": 1, "startDate": "2026-11-26", "dates": "26 Nov 2026 (+1d extension)", "omitDx": True}]
                     if wants_sick_leave_amend
                     else []
                 ),
@@ -1715,24 +1722,35 @@ def _compile_journey_turn_update(
             hhmm=_hkt_hhmm(),
         )
 
-    # 1. LAM Wing-Yan — Simple Focused Case 1: Bread-and-butter Acute URTI (sick leave + symptomatic meds only)
+    # 1. LAM Wing-Yan — Simple Focused Case 1: Bread-and-butter Acute URTI (focused red-flag & home-vitals history -> plan + booking)
     if j_key == "wingyan":
         all_text = " ".join([*prior_patient_msgs, patient_text])
+        all_low = all_text.lower()
         temp_m = _TEMP_RE.search(all_text)
         has_temp = bool(temp_m)
         temp_val = f"{temp_m.group(1)} °C" if temp_m else "Not yet measured"
+        spo2_m = re.search(r"(?:spo2|o2|oxygen|血氧)\D{0,6}(\d{2,3})\s*%?", all_text, re.I)
+        pulse_m = re.search(r"(?:pulse|hr|heart rate|脈搏|心跳)\D{0,6}(\d{2,3})\s*(?:bpm)?", all_text, re.I)
+        bp_m = _BP_RE.search(all_text)
         days_m = _DAYS_RE.search(all_text)
         days_off = 2
         if days_m:
             raw_d = days_m.group(1) or days_m.group(2)
             days_off = _ZH_NUM_MAP.get(raw_d, int(raw_d) if raw_d and raw_d.isdigit() else 2)
-        mentions_sick_or_med = any(
-            k in all_text.lower()
-            for k in ("sick", "note", "cert", "med", "medicine", "panadol", "paracetamol", "teleconsult", "doctor", "病假", "藥", "睇醫生")
+        has_red_flag_screen = any(
+            k in all_low
+            for k in (
+                "no chest pain", "no shortness of breath", "no rash", "no trouble swallowing",
+                "no red flag", "breathing is fine", "denies", "none of those",
+                "冇心口痛", "冇氣促", "冇出疹", "冇吞嚥",
+            )
         )
-        mentions_urti = any(k in all_text.lower() for k in ("sore throat", "fever", "cough", "cold", "throat", "runny", "喉嚨", "發燒", "咳", "傷風"))
+        mentions_urti = any(k in all_low for k in ("sore throat", "fever", "feverish", "cough", "cold", "throat", "runny", "喉嚨", "發燒", "咳", "傷風"))
         asked_watch_out = any(k in low for k in ("watch out", "anything else", "warning", "when should", "注意", "仲有咩"))
-        already_sent_summary = any("sent a concise summary" in m.lower() or "整理咗簡潔摘要" in m for m in prior_sam_msgs)
+        already_sent_summary = any(
+            "earliest open slot" in m.lower() or "sent a concise summary" in m.lower() or "最早普通科空檔" in m or "整理咗簡潔摘要" in m
+            for m in prior_sam_msgs
+        )
 
         # Keep Case 1 ultra-clean: zero alerts, zero preventive care, zero lab panels, zero clinical guidance box
         summary["alerts"] = []
@@ -1745,63 +1763,75 @@ def _compile_journey_turn_update(
         # Autonomous registrar reasoning trace (visible in Private Doctor & Sam panel)
         agent_thread = list(summary.get("agent_thread") or [])
 
-        # Open registrar-style questioning whenever patient hasn't yet shared temp/red-flags/request
-        if not has_temp and not mentions_sick_or_med and mentions_urti:
+        # Focused AI Resident history-taking: screen specific red flags + ask for measurable home vitals before escalating
+        if (not has_temp and not has_red_flag_screen) and (mentions_urti or not is_followup_turn):
             has_onset = any(
-                k in all_text.lower()
+                k in all_low
                 for k in ("woke up", "this morning", "yesterday", "since ", "today", "last night", "days ago", "今朝", "朝早", "尋日", "噚晚", "開始")
             )
             summary["vitals_exam"] = None
             summary["issues"] = [
                 {
                     "id": "iss_urti_intake",
-                    "name": "1. Acute URTI — gathering brief history",
+                    "name": "1. Acute URTI — gathering history & red-flag screen",
                     "bullets": [
                         f"Patient reported: “{patient_text.strip()}”.",
-                        "Sam autonomously asked brief registrar follow-up questions (temperature, red flags, and visit/sick-note intent).",
+                        "Sam · AI Resident is screening respiratory/airway red flags (dyspnoea, chest pain, severe dysphagia, rash) and requesting home vitals (temperature, SpO₂, pulse/BP if available) before briefing the doctor.",
                     ],
-                    "safety_gap": None,
+                    "safety_gap": "Awaiting red-flag screen and home temperature/vitals.",
                     "suggested_orders": [],
                 }
             ]
             agent_thread.append({
                 "actor": "Sam",
                 "time": _hkt_hhmm(),
-                "text": "Registrar reasoning: Screened red flags (none reported) → holding in patient loop to clarify peak temperature, breathing/chest red flags, and whether symptom relief or a sick-leave note is needed before waking Dr. Wong.",
+                "text": "AI Resident history-taking: Holding in patient loop to specifically screen red flags (shortness of breath, chest pain, severe dysphagia, rash) and collect measurable home vitals (temperature, SpO₂, pulse/BP) before staging doctor review.",
             })
             summary["agent_thread"] = agent_thread[-4:]
-            steps.append("CareAgent · Registrar-style brief intake check (no chart dump)")
+            steps.append("CareAgent · AI Resident screening specific red flags & requesting home vitals")
             if has_onset:
                 reply = (
-                    "聽到你今朝起身喉嚨痛同發燒真係辛苦。想先了解少少：你大概燒到幾多度，同埋呼吸順唔順、有冇心口痛？另外今日需唔需要紓緩藥物或者病假紙畀醫生審閱？"
+                    "聽到你今朝起身唔舒服真係辛苦。幫你安排醫生時段同整理摘要之前，想先確認幾個重要警號：有冇氣促、心口痛、吞嚥劇痛或者出疹？另外如果屋企有探熱針、血氧儀或者血壓計，方便話我知你嘅體溫同讀數嗎？"
                     if is_zh
-                    else "Sorry to hear you woke up feeling unwell. Roughly how high is your fever, and is your breathing comfortable with no chest pain? Let me know too if you'd like symptom relief or a sick-leave note for Dr. Wong to review."
+                    else "Sorry to hear you woke up feeling unwell. Before I line up a doctor slot and brief our team, could you check a few red flags for me — any shortness of breath, chest pain, severe trouble swallowing, or rash? Also, if you can measure vitals at home (thermometer, pulse oximeter, or blood pressure cuff), what are your temperature and readings?"
                 )
             else:
                 reply = (
-                    "聽到你喉嚨痛同發燒真係辛苦。想先了解少少：大概燒到幾多度、幾時開始唔舒服，同埋呼吸順唔順、有冇心口痛？另外今日需唔需要紓緩藥物或者病假紙畀醫生審閱？"
+                    "聽到你唔舒服真係辛苦。幫你安排醫生時段之前，想先了解幾時開始唔舒服，同埋確認幾個重要警號：有冇氣促、心口痛、吞嚥劇痛或者出疹？另外如果屋企有探熱針、血氧儀或者血壓計，方便話我知體溫同讀數嗎？"
                     if is_zh
-                    else "Sorry to hear you're not feeling well. Roughly how high has your fever been, when did symptoms start, and is your breathing comfortable with no chest pain? Let me know too if you'd like symptom relief or a sick-leave note for Dr. Wong to review."
+                    else "Sorry to hear you're not feeling well. Before I line up a doctor slot, when did symptoms start, and are you having any red flags — shortness of breath, chest pain, severe trouble swallowing, or rash? Also, if you can check vitals at home (thermometer, pulse oximeter, or BP cuff), what are your temperature and readings?"
                 )
             return (
                 "running",
                 "with_patient",
                 "Sore throat & fever — gathering history",
-                "Sam is taking a brief registrar-style history before routing to Dr. Sarah Wong.",
-                "Careline intake",
+                "Sam · AI Resident is screening red flags and collecting home vitals before briefing the doctor.",
+                "Red-flag & vitals check",
                 summary,
                 reply,
                 steps,
             )
 
+        vitals_items: list[dict[str, str]] = [
+            {"label": "Temp (home)", "val": temp_val if has_temp else "38.2 °C"},
+        ]
+        if spo2_m:
+            vitals_items.append({"label": "SpO₂ (home)", "val": f"{spo2_m.group(1)}%"})
+        if pulse_m:
+            vitals_items.append({"label": "Pulse (home)", "val": f"{pulse_m.group(1)} bpm"})
+        elif bp_m:
+            vitals_items.append({"label": "BP (home)", "val": f"{bp_m.group(1)}/{bp_m.group(2)} mmHg"})
+        else:
+            vitals_items.append({"label": "BP / Pulse (home)", "val": "Not measured at home"})
+        vitals_items.append({
+            "label": "Red flags",
+            "val": "Denies dyspnoea, chest pain, severe dysphagia, or rash",
+        })
+
         summary["vitals_exam"] = {
             "source": f"Patient Careline · Today {_hkt_hhmm()}",
             "encounter_context": "Inbound Remote · Self-Measured",
-            "items": [
-                {"label": "Temp (home)", "val": temp_val if has_temp else "38.2 °C"},
-                {"label": "BP / Pulse (home)", "val": "Not measured at home"},
-                {"label": "Red flags", "val": "Denies shortness of breath or chest pain"},
-            ],
+            "items": vitals_items,
         }
         summary["scheduled_tasks"] = [
             {
@@ -1809,12 +1839,18 @@ def _compile_journey_turn_update(
                 "label": "3-day AI post-visit check-in (queued on sign-off)",
             },
         ]
+        vitals_inline = temp_val if has_temp else "38.2 °C"
+        if spo2_m:
+            vitals_inline += f", SpO₂ {spo2_m.group(1)}%"
+        if pulse_m:
+            vitals_inline += f", HR {pulse_m.group(1)} bpm"
+
         summary["issues"] = [
             {
                 "id": "iss_urti",
                 "name": "1. Acute viral URTI",
                 "bullets": [
-                    f"Sore throat and fever ({temp_val if has_temp else '38.2 °C'}) since this morning; denies shortness of breath or chest pain.",
+                    f"Sore throat and fever ({vitals_inline}) since this morning; denies shortness of breath, chest pain, severe dysphagia, or rash.",
                     f"Requesting same-day clinic examination, symptomatic relief, and a {days_off}-day medical sick-leave certificate (no antibiotics indicated).",
                 ],
                 "safety_gap": None,
@@ -1829,36 +1865,36 @@ def _compile_journey_turn_update(
             agent_thread.append({
                 "actor": "Sam",
                 "time": _hkt_hhmm(),
-                "text": f"Registrar reasoning: Confirmed onset + temp ({temp_val if has_temp else '38.2 °C'}) + negative respiratory/cardiac red flags → Packaged 1-issue URTI summary with same-day clinic exam, Paracetamol 500mg, and {days_off}d MCHK sick leave for Dr. Sarah Wong (no antibiotics indicated).",
+                "text": f"AI Resident reasoning: Cleared respiratory/airway red flags and recorded home vitals ({vitals_inline}) → Packaged 1-issue URTI summary with same-day GP exam, Paracetamol 500mg, and {days_off}d MCHK sick leave (no antibiotics indicated).",
             })
         summary["agent_thread"] = agent_thread[-4:]
-        steps.append("PracticeGraph · Compiled single-issue Acute URTI summary for doctor review")
+        steps.append("PracticeGraph · Compiled single-issue Acute URTI summary with home vitals for doctor review")
         steps.append("PresentationCompiler · Compiled clean 1-issue workspace brief (5/5 linter pass)")
 
         if asked_watch_out:
             reply = (
-                "好問題——記得多飲溫水同多休息。如果高燒超過 39 度、超過 3 日未退燒，或者出現呼吸困難、心口痛或吞嚥劇痛，請即刻通知我哋或去急症室。黃醫生審閱後就會確認今日診症檢查、紓緩藥物同病假紙安排。"
+                "好問題——記得多飲溫水同多休息。如果高燒超過 39 度、超過 3 日未退燒，或者出現呼吸困難、心口痛、吞嚥劇痛或出疹，請即刻通知我哋或去急症室。醫生審閱後就會確認今日診症、紓緩藥物同病假紙安排。"
                 if is_zh
-                else "Good question — rest and stay hydrated. Please reach out promptly or seek urgent care if your fever rises above 39°C, hasn't improved after 3 days, or you develop shortness of breath, chest pain, or trouble swallowing. Dr. Sarah Wong is reviewing your summary now."
+                else "Good question — rest and stay hydrated. Please reach out promptly or seek urgent care if your fever rises above 39°C, hasn't improved after 3 days, or you develop shortness of breath, chest pain, trouble swallowing, or a rash. Our doctor is reviewing your summary now."
             )
         elif (is_simple_ack and is_followup_turn) or already_sent_summary:
             reply = (
-                "收到，已經幫你補充到黃莎拉醫生嘅摘要度——醫生確認今日檢查、處方同病假紙後就會即時喺呢度通知你。"
+                "收到，已經幫你補充到醫生摘要度——醫生確認今日檢查、處方同病假紙後就會即時喺呢度通知你。"
                 if is_zh
-                else "Got it — I've added that to Dr. Sarah Wong's notes. As soon as she confirms your clinic exam, prescription, and sick-leave certificate, they will appear right here."
+                else "Got it — I've added that to the doctor's notes. As soon as your clinic exam, prescription, and sick-leave certificate are confirmed, they will appear right here."
             )
         else:
             reply = (
-                f"多謝你提供資料——我已經記低你嘅症狀（{temp_val if has_temp else '38.2 °C'}、冇氣促或心口痛）同 {days_off} 日病假紙申請並整理好摘要畀醫生審閱。我亦查閱咗今日診所時間表，林啟賢醫生今日 11:00 有最早普通科空檔（你亦可喺下方轉揀黃莎拉醫生、張詠欣醫生或視像診症）。"
+                f"多謝你確認警號同提供家居讀數（{vitals_inline}，冇氣促、心口痛、吞嚥劇痛或出疹）。我已經將完整摘要同 {days_off} 日病假紙申請放上醫生工作台，亦查閱咗今日診所時間表——林啟賢醫生今日 11:00 有最早普通科空檔，你可以喺下方一鍵預約或揀其他醫生／視像診症。"
                 if is_zh
-                else f"Thanks for sharing those details — I've noted your sore throat and fever ({temp_val if has_temp else '38.2 °C'}, no red-flag symptoms) and staged your {days_off}-day sick-leave request for clinical review. I also checked today's clinic schedule and found our earliest open slot with Dr. Kenneth Lam at 11:00 below (or you can switch doctors or pick teleconsult)."
+                else f"Thank you for checking those red flags and sharing your home readings ({vitals_inline}, no breathing trouble, chest pain, dysphagia, or rash). I've briefed the doctor with your vitals and {days_off}-day sick-leave request, and checked today's clinic schedule — Dr. Kenneth Lam has our earliest open slot at 11:00 below (or you can switch doctors or pick teleconsult)."
             )
 
         return (
             "needs_decision",
             "with_doctor",
             "Acute Viral URTI — Sick Leave & Symptomatic Care",
-            f"Sore throat and fever ({temp_val if has_temp else '38.2 °C'}), requesting clinic exam, {days_off}-day sick leave, and symptomatic relief.",
+            f"Sore throat & fever ({vitals_inline}), red flags clear; requesting clinic exam, {days_off}-day sick leave, and symptomatic relief.",
             "Ready for sign-off",
             summary,
             reply,
@@ -2351,7 +2387,16 @@ def handle_live_chat_turn(
     pid = j["patient_id"]
     is_zh = _is_zh(text, lang)
     use_deterministic_preset = bool(is_preset or _is_defined_preset_message(j, text))
-    engine = detect_live_llm_engine()
+    engine = (
+        {
+            "live": False,
+            "provider": "deterministic",
+            "model": "clinic-harness-preset-v1",
+            "region": "local",
+        }
+        if use_deterministic_preset
+        else detect_live_llm_engine()
+    )
     live_demo_coordinator.mark_phone_active(j_key)
 
     # Ensure journey exists first
@@ -3026,6 +3071,7 @@ def handle_live_chat_turn(
             has_day3=any(m.get("role") == "system" and m.get("time") == "Day +3" for m in chat),
             dynamic_replies=dynamic_suggested_replies if live_reply_used else None,
             has_patient_turns=True,
+            case_state=new_state,
         ),
     }
 

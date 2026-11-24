@@ -353,6 +353,10 @@ def should_attach_booking_offer(
         for m in existing_chat
     )
 
+    if j_key == "wingyan" and new_state == "running":
+        # Wait until Sam finishes red-flag & home-vitals history taking before offering a booking slot
+        return False
+
     if explicit_booking or llm_requested_booking:
         # Avoid back-to-back duplicate card on the exact previous turn unless they asked to reschedule/pick another time
         if already_offered and not explicit_reschedule:
@@ -395,7 +399,7 @@ def select_booking_offer(
 
     # Check if patient explicitly asked for tomorrow, afternoon, or teleconsult
     prefer_day = "tomorrow" if any(k in low for k in ("tomorrow", "聽日", "明日")) else "today"
-    prefer_afternoon = any(k in low for k in ("afternoon", "pm", "下午", "晏晝"))
+    prefer_afternoon = bool(re.search(r"\b(?:afternoon|pm)\b|下午|晏晝", low))
     prefer_teleconsult = profile["allow_teleconsult"] and any(
         k in low for k in ("teleconsult", "video", "online", "remote", "視像", "網上診症")
     )
