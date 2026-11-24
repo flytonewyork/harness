@@ -132,13 +132,17 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
             "你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。今日有咩可以幫到你？"
         ),
         "suggested_replies_en": [
-            "I woke up with a sore throat and feeling feverish — could I see a doctor today and ask about a 2-day sick note?",
-            "No chest pain or shortness of breath, and no rash or trouble swallowing. I checked at home — temperature 38.2°C, SpO2 98%, pulse 88 bpm.",
+            "Hi, I woke up feeling unwell today — could I see a doctor and ask about a 2-day sick note?",
+            "Mainly a sore throat, feeling feverish, and some body aches since this morning.",
+            "No chest pain or shortness of breath, and no rash or trouble swallowing.",
+            "Just checked — temperature is 38.2°C, SpO2 98%, and pulse 88 bpm.",
             "Thank you — is there anything else I should watch out for before my visit?",
         ],
         "suggested_replies_zh": [
-            "我今朝起身覺得喉嚨痛同好似發燒——請問今日可唔可以睇醫生，同埋攞兩日病假紙？",
-            "冇心口痛、冇氣促、冇出疹亦冇吞嚥困難。頭先喺屋企量咗體溫 38.2 度、血氧 98%、脈搏 88。",
+            "你好，我今朝起身覺得唔舒服——請問今日可唔可以睇醫生同攞兩日病假紙？",
+            "今朝開始主要係喉嚨痛、覺得發燒同周身骨痛。",
+            "冇心口痛、冇氣促、冇出疹亦冇吞嚥困難。",
+            "頭先量咗——體溫 38.2 度、血氧 98%、脈搏 88。",
             "多謝你——睇醫生前有冇咩症狀需要特別留意？",
         ],
     },
@@ -268,12 +272,18 @@ _POST_SIGN_CHAN_REPLIES_EN: list[str] = [
     "Understood — I'll stick to Warfarin 3mg and Atorvastatin only.",
 ]
 _DAY3_REPLIES_EN: list[str] = [
-    "Feeling much better, thank you. Yes — could I book a flu shot next week, and also arrange a routine visit because I've been feeling a bit tired lately?",
+    "Feeling much better, thank you. Yes — I'd like to book a flu shot and a preventive health checkup next week.",
     "All recovered now — no follow-up needed, thanks for checking in.",
 ]
 _DAY3_REPLIES_ZH: list[str] = [
-    "好返晒啦多謝。我想預約下星期打流感針，順便想約醫生傾吓最近覺得容易攰。",
+    "好返晒啦多謝。我想預約下星期打流感針，順便做個預防健康檢查。",
     "完全康復咗，唔使覆診，多謝關心。",
+]
+_DAY3_CONCERN_REPLIES_EN: list[str] = [
+    "I've been feeling quite tired lately and would like routine blood tests (iron and thyroid) bundled with my flu shot.",
+]
+_DAY3_CONCERN_REPLIES_ZH: list[str] = [
+    "我最近覺得幾容易攰，想做常規驗血（例如鐵質同甲狀腺）同埋一併打流感針。",
 ]
 
 
@@ -295,6 +305,8 @@ def _is_defined_preset_message(j: dict[str, Any], message_text: str) -> bool:
         *_POST_SIGN_CHAN_REPLIES_ZH,
         *_DAY3_REPLIES_EN,
         *_DAY3_REPLIES_ZH,
+        *_DAY3_CONCERN_REPLIES_EN,
+        *_DAY3_CONCERN_REPLIES_ZH,
     ]
     return any(_normalize_preset_text(item) == norm for item in pool)
 
@@ -335,8 +347,13 @@ def _suggested_replies_for(
     dynamic_replies: list[str] | None = None,
     has_patient_turns: bool = False,
     case_state: str | None = None,
+    summary: dict[str, Any] | None = None,
 ) -> list[str]:
+    if case_state == "closed":
+        return []
     if has_day3:
+        if isinstance(summary, dict) and summary.get("_day3_stage") == "awaiting_concerns":
+            return list(_DAY3_CONCERN_REPLIES_ZH if is_zh else _DAY3_CONCERN_REPLIES_EN)
         return list(_DAY3_REPLIES_ZH if is_zh else _DAY3_REPLIES_EN)
     if has_signed:
         if j.get("key") == "chan":
@@ -346,10 +363,17 @@ def _suggested_replies_for(
         return [str(x).strip() for x in dynamic_replies if str(x).strip()][:2]
     static_list = list(j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"])
     if has_patient_turns:
-        if j.get("key") == "wingyan" and len(static_list) >= 3:
+        if j.get("key") == "wingyan" and len(static_list) >= 5:
+            stage = (summary or {}).get("_wingyan_stage") if isinstance(summary, dict) else None
+            if stage == "awaiting_symptoms":
+                return [static_list[1]]
+            if stage == "awaiting_red_flags":
+                return [static_list[2]]
+            if stage == "awaiting_vitals":
+                return [static_list[3]]
             if case_state == "running":
                 return [static_list[1]]
-            return [static_list[2]]
+            return [static_list[4]]
         return static_list[1:]
     return static_list[:1]
 
@@ -1251,6 +1275,7 @@ def get_live_chat_state(
                 dynamic_replies=dyn_replies,
                 has_patient_turns=has_patient,
                 case_state=case.state,
+                summary=case_summary,
             ),
         }
 
@@ -1595,49 +1620,68 @@ def _compile_journey_turn_update(
             k in low
             for k in (
                 "flu", "vaccine", "shot", "book", "rebook", "appointment", "slot", "schedule",
-                "tired", "fatigue", "checkup", "blood test", "refill",
-                "流感", "打針", "預約", "覆診", "驗血", "攰", "檢查",
+                "tired", "fatigue", "checkup", "blood test", "blood tests", "iron", "thyroid", "refill",
+                "流感", "打針", "預約", "覆診", "驗血", "攰", "檢查", "鐵質", "甲狀腺",
             )
         )
         if wants_booking_or_prev:
-            tasks = list(summary.get("scheduled_tasks") or [])
-            new_task = (
-                {"status": "booked", "label": "Autonomous AI Booking · Nurse preventive / follow-up visit requested (doctor kept out of loop)"}
+            gave_specific_concern = any(
+                k in low
+                for k in ("tired", "fatigue", "blood test", "blood tests", "iron", "thyroid", "energy", "攰", "驗血", "鐵質", "甲狀腺")
             )
-            if not any("Autonomous AI Booking" in str(t.get("label", "")) for t in tasks):
+            # Step 1 of Day+3 Preventive Checkup: ask warmly about specific concerns or reasons for checkup before arranging
+            if has_day3 and not gave_specific_concern and summary.get("_day3_stage") != "awaiting_concerns":
+                summary["_day3_stage"] = "awaiting_concerns"
+                steps.append("CareAgent · AI Resident asked about specific preventive checkup concerns (zero doctor interruption)")
+                reply = (
+                    "好開心聽到你好返好多。幫你同護士團隊安排流感針同健康檢查之前，有冇特別想檢查嘅原因或關注——例如最近容易攰、想做常規驗血，定係其他身體變化？"
+                    if is_zh
+                    else "Glad to hear you're feeling much better. Before I set up your flu shot and checkup with our nurse team, are there any specific concerns or reasons you'd like checked — like energy levels or routine blood tests?"
+                )
+                return (
+                    "scheduled",
+                    "idle",
+                    f"{JOURNEY_BY_KEY[j_key]['title']} — Preventive Check-In",
+                    "Patient recovered; AI Resident is clarifying preventive checkup concerns before handing off to nurse team.",
+                    "Clarifying checkup goals",
+                    summary,
+                    reply,
+                    steps,
+                )
+
+            # Step 2 (or direct concern stated): arrange downstream with Nurse Rachel & clinic team + attach preventive booking card + Case Closed
+            summary["_day3_stage"] = "closed"
+            summary["_attach_preventive_booking"] = True
+            summary["_append_case_closed_pill"] = True
+            tasks = list(summary.get("scheduled_tasks") or [])
+            new_task = {
+                "status": "booked",
+                "label": "Preventive Care Handoff · Nurse Rachel blood panel (CBC/Ferritin/TSH) + seasonal flu shot (zero doctor workload)",
+            }
+            if not any("Preventive Care Handoff" in str(t.get("label", "")) for t in tasks):
                 tasks.append(new_task)
             summary["scheduled_tasks"] = tasks
             admin_handoffs = list(summary.get("admin_handoffs") or [])
             admin_handoffs.append({
                 "id": new_id("adm"),
-                "route": "Sam (AI Careline) → Clinic Admin / Nurse Rachel",
-                "task": f"Post-visit autonomous request from {JOURNEY_BY_KEY[j_key]['patient_name']}: “{patient_text.strip()}” — confirm nurse/admin slot (doctor kept out of loop).",
+                "route": "Sam · AI Resident → Nurse Rachel & Clinic Team (#clinic-team)",
+                "task": f"Day+3 Preventive Checkup & Blood Panel for {JOURNEY_BY_KEY[j_key]['patient_name']}: “{patient_text.strip()}” — bundle baseline bloods (iron/thyroid) with seasonal flu shot (case closed; zero doctor interruption).",
                 "status": "pending_admin",
                 "created_at": utcnow().isoformat(),
             })
             summary["admin_handoffs"] = admin_handoffs
-            steps.append("CareAgent · Handled post-visit preventive/rebooking request autonomously → routed to #clinic-team Admin/Nurse (zero doctor interruption)")
-            mentioned_feeling_better = any(
-                k in low for k in ("better", "recovered", "feeling good", "feeling well", "fine now", "好返", "好咗", "無事")
+            steps.append("CareAgent · Arranged preventive blood panel & flu shot with Nurse Rachel / #clinic-team → Case closed (zero doctor interruption)")
+            reply = (
+                "明白——我已經記低你最近容易攰同想做常規驗血（鐵質／甲狀腺）加流感針，並直接交畀陳護士同診所團隊下游跟進，唔需要打擾醫生。你可以喺下方揀選預防保健時段，今次急症個案亦正式關閉。"
+                if is_zh
+                else "Got it — I've noted your recent fatigue and request for baseline blood tests alongside your flu shot, and arranged the handoff directly with Nurse Rachel and our clinic team, no need to interrupt the doctor. Pick your preferred preventive slot below, and I'm closing out this acute episode."
             )
-            if mentioned_feeling_better:
-                reply = (
-                    "好呀，聽到你好返好多就好放心。我已經幫你安排下星期嘅護士接種／覆診時段，並通知前台同事確認時間——暫時唔需要打擾醫生，有時間表確認會即刻喺呢度通知你。"
-                    if is_zh
-                    else "Glad to hear you're feeling better. I've queued a nurse preventive / follow-up slot for next week and routed it to our clinic admin team to confirm the time — no need to interrupt Dr. Wong. I'll drop the confirmed slot right here once locked in."
-                )
-            else:
-                reply = (
-                    "冇問題，我已經幫你預留護士／覆診時段，並交畀診所前台同事確認時間——暫時唔需要打擾黃醫生，確認好會即刻喺呢度通知你。"
-                    if is_zh
-                    else "Sure — I've queued a nurse / follow-up slot and routed it to our clinic admin team to confirm the time — no need to interrupt Dr. Wong. I'll drop the confirmed slot right here once locked in."
-                )
             return (
-                "scheduled",
+                "closed",
                 "idle",
-                f"{JOURNEY_BY_KEY[j_key]['title']} — AI Follow-Up Handled",
-                "Post-visit AI check-in routed preventive care / rebooking to Clinic Admin without interrupting the doctor.",
-                "Autonomous follow-up · Admin/Nurse",
+                f"{JOURNEY_BY_KEY[j_key]['title']} — Closed · Nurse Preventive Handoff",
+                "Recovered; preventive blood panel & flu shot handed off to Nurse Rachel & clinic team (zero doctor interruption).",
+                "Case closed",
                 summary,
                 reply,
                 steps,
@@ -1763,54 +1807,138 @@ def _compile_journey_turn_update(
         # Autonomous registrar reasoning trace (visible in Private Doctor & Sam panel)
         agent_thread = list(summary.get("agent_thread") or [])
 
-        # Focused AI Resident history-taking: screen specific red flags + ask for measurable home vitals before escalating
-        if (not has_temp and not has_red_flag_screen) and (mentions_urti or not is_followup_turn):
-            has_onset = any(
-                k in all_low
-                for k in ("woke up", "this morning", "yesterday", "since ", "today", "last night", "days ago", "今朝", "朝早", "尋日", "噚晚", "開始")
-            )
+        # Multi-step conversational AI Resident history-taking (short 1-2 sentence turns):
+        # Step 1: Open warmly & ask symptoms -> Step 2: Specific red flags -> Step 3: Home vitals -> Step 4: Brief doctor + booking offer
+        has_onset = any(
+            k in all_low
+            for k in ("woke up", "this morning", "yesterday", "since ", "today", "last night", "days ago", "今朝", "朝早", "尋日", "噚晚", "開始")
+        )
+
+        # Step 1: Patient opened generally ("feeling unwell") without naming symptoms yet
+        if not mentions_urti and not has_temp and not has_red_flag_screen:
             summary["vitals_exam"] = None
+            summary["_wingyan_stage"] = "awaiting_symptoms"
             summary["issues"] = [
                 {
                     "id": "iss_urti_intake",
-                    "name": "1. Acute URTI — gathering history & red-flag screen",
+                    "name": "1. Inbound symptom check — gathering history",
                     "bullets": [
                         f"Patient reported: “{patient_text.strip()}”.",
-                        "Sam · AI Resident is screening respiratory/airway red flags (dyspnoea, chest pain, severe dysphagia, rash) and requesting home vitals (temperature, SpO₂, pulse/BP if available) before briefing the doctor.",
+                        "Sam · AI Resident opened warmly and asked for main symptoms.",
                     ],
-                    "safety_gap": "Awaiting red-flag screen and home temperature/vitals.",
+                    "safety_gap": "Awaiting symptom details, red-flag screen, and home vitals.",
                     "suggested_orders": [],
                 }
             ]
             agent_thread.append({
                 "actor": "Sam",
                 "time": _hkt_hhmm(),
-                "text": "AI Resident history-taking: Holding in patient loop to specifically screen red flags (shortness of breath, chest pain, severe dysphagia, rash) and collect measurable home vitals (temperature, SpO₂, pulse/BP) before staging doctor review.",
+                "text": "AI Resident intake (Step 1/3): Opened warmly and asked patient to describe main symptoms before red-flag and vitals checks.",
             })
             summary["agent_thread"] = agent_thread[-4:]
-            steps.append("CareAgent · AI Resident screening specific red flags & requesting home vitals")
-            if has_onset:
-                reply = (
-                    "聽到你今朝起身唔舒服真係辛苦。幫你安排醫生時段同整理摘要之前，想先確認幾個重要警號：有冇氣促、心口痛、吞嚥劇痛或者出疹？另外如果屋企有探熱針、血氧儀或者血壓計，方便話我知你嘅體溫同讀數嗎？"
-                    if is_zh
-                    else "Sorry to hear you woke up feeling unwell. Before I line up a doctor slot and brief our team, could you check a few red flags for me — any shortness of breath, chest pain, severe trouble swallowing, or rash? Also, if you can measure vitals at home (thermometer, pulse oximeter, or blood pressure cuff), what are your temperature and readings?"
-                )
-            else:
-                reply = (
-                    "聽到你唔舒服真係辛苦。幫你安排醫生時段之前，想先了解幾時開始唔舒服，同埋確認幾個重要警號：有冇氣促、心口痛、吞嚥劇痛或者出疹？另外如果屋企有探熱針、血氧儀或者血壓計，方便話我知體溫同讀數嗎？"
-                    if is_zh
-                    else "Sorry to hear you're not feeling well. Before I line up a doctor slot, when did symptoms start, and are you having any red flags — shortness of breath, chest pain, severe trouble swallowing, or rash? Also, if you can check vitals at home (thermometer, pulse oximeter, or BP cuff), what are your temperature and readings?"
-                )
+            steps.append("CareAgent · AI Resident opened warmly & asked for main symptoms")
+            reply = (
+                "聽到你今朝起身唔舒服真係辛苦。主要係邊啲症狀最困擾你？"
+                if is_zh
+                else "Sorry to hear you woke up feeling unwell. What symptoms are bothering you most today?"
+            )
             return (
                 "running",
                 "with_patient",
-                "Sore throat & fever — gathering history",
-                "Sam · AI Resident is screening red flags and collecting home vitals before briefing the doctor.",
-                "Red-flag & vitals check",
+                "Feeling unwell — gathering symptoms",
+                "Sam · AI Resident is asking about main symptoms before briefing the doctor.",
+                "Gathering symptoms",
                 summary,
                 reply,
                 steps,
             )
+
+        # Step 2: Patient shared symptoms -> ask specifically about red flags (concise, 1-2 sentences)
+        if not has_red_flag_screen and not has_temp:
+            summary["vitals_exam"] = None
+            summary["_wingyan_stage"] = "awaiting_red_flags"
+            summary["issues"] = [
+                {
+                    "id": "iss_urti_intake",
+                    "name": "1. Acute URTI — screening red flags",
+                    "bullets": [
+                        f"Patient reported: “{patient_text.strip()}”.",
+                        "Sam · AI Resident is screening specific red flags (chest pain, shortness of breath, rash, trouble swallowing).",
+                    ],
+                    "safety_gap": "Awaiting red-flag screen and home vitals.",
+                    "suggested_orders": [],
+                }
+            ]
+            agent_thread.append({
+                "actor": "Sam",
+                "time": _hkt_hhmm(),
+                "text": "AI Resident intake (Step 2/3): Noted URTI symptoms → screening chest pain, shortness of breath, rash, and dysphagia.",
+            })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("CareAgent · AI Resident screening specific URTI red flags")
+            if has_onset:
+                reply = (
+                    "明白，多謝你話我知。穩陣起見想確認一下，有冇心口痛、氣促、出疹或者吞嚥困難？"
+                    if is_zh
+                    else "Got it, thanks. Just to be safe, are you having any chest pain, shortness of breath, rash, or trouble swallowing?"
+                )
+            else:
+                reply = (
+                    "明白，大概幾時開始唔舒服？另外穩陣起見，有冇心口痛、氣促、出疹或者吞嚥困難？"
+                    if is_zh
+                    else "Got it — roughly when did that start? Just to be safe too, any chest pain, shortness of breath, rash, or trouble swallowing?"
+                )
+            return (
+                "running",
+                "with_patient",
+                "Sore throat & fever — screening red flags",
+                "Sam · AI Resident is checking specific red flags before collecting home vitals.",
+                "Red-flag screen",
+                summary,
+                reply,
+                steps,
+            )
+
+        # Step 3: Red flags cleared -> ask for measurable home vitals (concise, 1-2 sentences)
+        if has_red_flag_screen and not has_temp:
+            summary["vitals_exam"] = None
+            summary["_wingyan_stage"] = "awaiting_vitals"
+            summary["issues"] = [
+                {
+                    "id": "iss_urti_intake",
+                    "name": "1. Acute URTI — collecting home vitals",
+                    "bullets": [
+                        "Sore throat, feverish feeling, and body aches since this morning; denies chest pain, shortness of breath, rash, or dysphagia.",
+                        "Sam · AI Resident asked for home temperature and any measurable vitals (SpO₂ / pulse) before staging doctor review.",
+                    ],
+                    "safety_gap": "Awaiting home temperature / vitals if measurable.",
+                    "suggested_orders": [],
+                }
+            ]
+            agent_thread.append({
+                "actor": "Sam",
+                "time": _hkt_hhmm(),
+                "text": "AI Resident intake (Step 3/3): Red flags cleared → requesting home temperature and oximeter/pulse readings.",
+            })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("CareAgent · AI Resident requesting home vitals")
+            reply = (
+                "冇呢啲警號就放心啲。如果屋企有探熱針或者血氧儀，方便量一量體溫同讀數話我知嗎？"
+                if is_zh
+                else "Glad to hear that. If you have a thermometer or pulse oximeter at home, could you share your temperature and any readings?"
+            )
+            return (
+                "running",
+                "with_patient",
+                "Sore throat & fever — collecting vitals",
+                "Red flags clear; Sam · AI Resident is collecting home temperature and vitals.",
+                "Collecting home vitals",
+                summary,
+                reply,
+                steps,
+            )
+
+        summary["_wingyan_stage"] = "ready"
 
         vitals_items: list[dict[str, str]] = [
             {"label": "Temp (home)", "val": temp_val if has_temp else "38.2 °C"},
@@ -2924,21 +3052,36 @@ def handle_live_chat_turn(
         if case is None:
             raise ValueError(f"Case for journey '{j_key}' not found")
 
+        is_preventive_handoff = bool(updated_summary.pop("_attach_preventive_booking", False))
+        append_closed_pill = bool(updated_summary.pop("_append_case_closed_pill", False))
+
         if attach_booking:
             booking_offer = select_booking_offer(
                 session,
                 tenant_id,
                 j_key=j_key,
                 patient_text=text,
+                purpose="preventive_checkup" if is_preventive_handoff else "standard",
             )
             sam_msg["booking_offer"] = booking_offer
             rec = booking_offer["recommended"]
             agent_steps.append(
-                f"SchedulingAgent · Checked {booking_offer['checked_doctors_count']} doctors' availability "
+                f"SchedulingAgent · Checked {booking_offer['checked_doctors_count']} clinicians' availability "
                 f"({booking_offer['open_today_count']} open slots today) → offered {rec['doctor_name']} ({rec['short_day_en']} {rec['time']})"
             )
 
         chat.append(sam_msg)
+        if append_closed_pill:
+            chat.append({
+                "actor": "Clinic",
+                "role": "system",
+                "time": hhmm,
+                "text": (
+                    "個案已關閉 · 預防檢查及抽血已交由陳護士及診所團隊跟進（無需打擾醫生）"
+                    if is_zh
+                    else "Case closed · Preventive checkup & blood panel handed off to Nurse Rachel & clinic team (no doctor interruption)"
+                ),
+            })
         updated_summary["original_chat"] = chat
 
         for st_label in agent_steps:
@@ -3072,6 +3215,7 @@ def handle_live_chat_turn(
             dynamic_replies=dynamic_suggested_replies if live_reply_used else None,
             has_patient_turns=True,
             case_state=new_state,
+            summary=updated_summary,
         ),
     }
 

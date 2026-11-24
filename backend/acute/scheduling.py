@@ -195,6 +195,46 @@ _DEFAULT_BOOKING_PROFILE: dict[str, Any] = {
     "reason_zh": "已查閱今日診所醫生空檔，挑選最早合適時段",
 }
 
+_NURSE_PREVENTIVE_PROVIDER: dict[str, Any] = {
+    "doctor_id": "nurse_chan",
+    "name_en": "Nurse Rachel Chan (RN)",
+    "name_zh": "陳嘉敏註冊護士",
+    "initials": "RC",
+    "mchk_reg_no": "RN-HK-48219",
+    "specialty_en": "Preventive Health · Blood Draw & Vaccinations",
+    "specialty_zh": "預防保健・抽血及疫苗接種",
+    "languages": "EN · 廣東話",
+    "room_en": "Nurse Treatment Room",
+    "room_zh": "護士治療室",
+    "schedule": {
+        "today": [
+            {"time": "10:00", "status": "booked"},
+            {"time": "11:30", "status": "open"},
+            {"time": "15:00", "status": "open"},
+        ],
+        "tomorrow": [
+            {"time": "09:00", "status": "open"},
+            {"time": "10:00", "status": "open"},
+            {"time": "11:00", "status": "booked"},
+            {"time": "14:30", "status": "open"},
+        ],
+    },
+}
+
+_PREVENTIVE_BOOKING_PROFILE: dict[str, Any] = {
+    "preferred_doctors": ["nurse_chan", "doc_dr_wong", "doc_dr_lam"],
+    "preferred_times": ["09:00", "10:00", "11:30", "14:30"],
+    "visit_type_en": "Preventive Blood Panel & Flu Shot",
+    "visit_type_zh": "預防健康抽血及流感針",
+    "duration_min": 15,
+    "modality": "in_clinic",
+    "allow_teleconsult": False,
+    "prep_note_en": "Fast 8–10 hours (water OK) for baseline blood panel; seasonal flu shot bundled in the same 15-min nurse visit",
+    "prep_note_zh": "建議空腹 8 至 10 小時（可飲清水）以便抽血化驗，同場 15 分鐘護士時段一併接種流感針",
+    "reason_en": "Morning nurse preventive slot selected with {doctor} so blood tests and flu shot are bundled cleanly without doctor wait",
+    "reason_zh": "已為你挑選{doctor}早段預防保健空檔，一次過完成抽血化驗及流感疫苗接種",
+}
+
 _BOOKING_INTENT_RE = re.compile(
     r"\b(book|booking|appointment|appointments|schedule|slot|slots|available|availability|"
     r"see a doctor|see the doctor|come in|in-clinic|in clinic|teleconsult|visit|follow[- ]?up|"
@@ -233,13 +273,14 @@ def build_clinic_availability(
     tenant_id: str,
     *,
     for_case_key: str | None = None,
+    include_preventive_nurse: bool = False,
 ) -> list[dict[str, Any]]:
     """Build live doctor roster with real busy/open slots across Today & Tomorrow."""
     # Pull any matching Practitioner rows from DB to stay grounded in real MCHK/names
     pracs = {
         p.id: p
         for p in session.scalars(
-            select(Practitioner).where(Practitioner.tenant_id == tenant_id, Practitioner.role == "clinician")
+            select(Practitioner).where(Practitioner.tenant_id == tenant_id, Practitioner.role.in_(("clinician", "nurse")))
         ).all()
     }
     taken_by_other = _active_booked_slots(session, tenant_id, exclude_case_key=for_case_key)
@@ -254,8 +295,9 @@ def build_clinic_availability(
         if own_appt.get("status") == "confirmed":
             own_slot_id = str(own_appt.get("slot_id") or "")
 
+    providers_src = (_NURSE_PREVENTIVE_PROVIDER, *_CANONICAL_DOCTORS) if include_preventive_nurse else _CANONICAL_DOCTORS
     roster: list[dict[str, Any]] = []
-    for base in _CANONICAL_DOCTORS:
+    for base in providers_src:
         doc_id = base["doctor_id"]
         prac = pracs.get(doc_id)
         days_out: dict[str, list[dict[str, Any]]] = {}
@@ -337,6 +379,10 @@ def should_attach_booking_offer(
     llm_requested_booking: bool = False,
 ) -> bool:
     """Decide whether Sam should attach an interactive BookingOfferCard to this turn."""
+    # Day+3 preventive checkup handoff explicitly requests a fresh preventive nurse booking card
+    if existing_summary.get("_attach_preventive_booking"):
+        return True
+
     text = (patient_text or "").strip()
     explicit_booking = bool(_BOOKING_INTENT_RE.search(text))
     explicit_reschedule = bool(_RESCHEDULE_INTENT_RE.search(text))
@@ -391,14 +437,21 @@ def select_booking_offer(
     patient_text: str = "",
     preferred_doctor_id: str | None = None,
     preferred_slot_id: str | None = None,
+    purpose: str = "standard",
 ) -> dict[str, Any]:
-    """Inspect live clinic availability, pick the best open doctor & time, and build a BookingOfferCard payload."""
-    roster = build_clinic_availability(session, tenant_id, for_case_key=j_key)
-    profile = _JOURNEY_BOOKING_PROFILE.get(j_key, _DEFAULT_BOOKING_PROFILE)
+    """Inspect live clinic availability, pick the best open doctor/nurse & time, and build a BookingOfferCard payload."""
+    is_preventive = purpose == "preventive_checkup"
+    roster = build_clinic_availability(
+        session,
+        tenant_id,
+        for_case_key=j_key,
+        include_preventive_nurse=is_preventive,
+    )
+    profile = _PREVENTIVE_BOOKING_PROFILE if is_preventive else _JOURNEY_BOOKING_PROFILE.get(j_key, _DEFAULT_BOOKING_PROFILE)
     low = (patient_text or "").lower()
 
     # Check if patient explicitly asked for tomorrow, afternoon, or teleconsult
-    prefer_day = "tomorrow" if any(k in low for k in ("tomorrow", "聽日", "明日")) else "today"
+    prefer_day = "tomorrow" if (is_preventive or any(k in low for k in ("tomorrow", "聽日", "明日"))) else "today"
     prefer_afternoon = bool(re.search(r"\b(?:afternoon|pm)\b|下午|晏晝", low))
     prefer_teleconsult = profile["allow_teleconsult"] and any(
         k in low for k in ("teleconsult", "video", "online", "remote", "視像", "網上診症")
@@ -579,7 +632,13 @@ def confirm_live_chat_booking(
         if case is None:
             raise ValueError(f"Case for journey '{journey_key}' not found")
 
-        roster = build_clinic_availability(session, tenant_id, for_case_key=journey_key)
+        is_nurse_preventive = doctor_id == "nurse_chan"
+        roster = build_clinic_availability(
+            session,
+            tenant_id,
+            for_case_key=journey_key,
+            include_preventive_nurse=is_nurse_preventive,
+        )
         target_doc = next((d for d in roster if d["doctor_id"] == doctor_id), None)
         if target_doc is None:
             raise ValueError(f"Doctor '{doctor_id}' not found in clinic roster")
@@ -601,7 +660,7 @@ def confirm_live_chat_booking(
             )
 
         summary = copy.deepcopy(case.summary_json or {})
-        profile = _JOURNEY_BOOKING_PROFILE.get(journey_key, _DEFAULT_BOOKING_PROFILE)
+        profile = _PREVENTIVE_BOOKING_PROFILE if is_nurse_preventive else _JOURNEY_BOOKING_PROFILE.get(journey_key, _DEFAULT_BOOKING_PROFILE)
         prev_booking = summary.get("booked_appointment")
         is_reschedule = isinstance(prev_booking, dict) and prev_booking.get("status") == "confirmed"
         booking_ref = (

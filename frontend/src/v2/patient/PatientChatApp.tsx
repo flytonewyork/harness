@@ -520,149 +520,185 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
 
           if (isDoctorCard && m.care_plan) {
             const prescriptions = m.care_plan.prescriptions || [];
+            const certificates = m.care_plan.certificates || [];
+            const fallbackRxLines = prescriptions.length === 0 ? (m.care_plan.rx_lines || []) : [];
             return (
-              <div key={idx} className="pc-row is-doctor" data-testid="chat-doctor-signed-card">
-                <span className="pc-sender-label">Sam · {isZh ? "AI 駐診助手" : "AI Resident"}</span>
-                <div className="pc-doctor-card">
-                  <div style={{ fontSize: 14, lineHeight: 1.48 }}>{m.text}</div>
-
-                  {/* Full Signed HK e-Prescription Card (Dosing, Route, Frequency, Duration, Quantity, Dispensing & PDF Download) */}
-                  {prescriptions.length > 0 ? (
-                    prescriptions.map((rx) => (
-                      <div
-                        key={rx.id}
-                        data-testid="chat-signed-prescription-card"
-                        style={{
-                          marginTop: 10,
-                          border: "1px solid #d6d3d1",
-                          borderRadius: 11,
-                          background: "#fafaf9",
-                          padding: "11px 12px",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 9,
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, borderBottom: "1px solid #e7e5e4", paddingBottom: 6 }}>
-                          <strong style={{ fontSize: 12.5, color: "#0f6b58", letterSpacing: "0.02em", textTransform: "uppercase" }}>
-                            {isZh ? "香港註冊醫生電子處方" : "Signed HK e-Prescription"}
-                          </strong>
-                          <span style={{ fontSize: 11, fontFamily: "ui-monospace, monospace", color: "#57534e" }}>
-                            {rx.fulfilment_ref || rx.id}
-                          </span>
-                        </div>
-
-                        {(rx.items || []).map((it, i) => (
-                          <div
-                            key={i}
-                            style={{
-                              background: "#ffffff",
-                              border: "1px solid #e7e5e4",
-                              borderRadius: 8,
-                              padding: "8px 10px",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 4,
-                            }}
-                          >
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-                              <strong style={{ fontSize: 13.5, color: "#1c1917" }}>
-                                {it.display}
-                                {it.display_zh ? ` (${it.display_zh})` : ""}
-                              </strong>
-                              {it.hk_schedule && (
-                                <span style={{ fontSize: 10.5, padding: "1px 6px", borderRadius: 999, background: "#f5f5f4", border: "1px solid #d6d3d1", color: "#44403c" }}>
-                                  {it.hk_schedule === "OTC" ? "HK OTC" : "HK Cap. 138 Part I"}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontSize: 12.5, color: "#292524", lineHeight: 1.4 }}>
-                              <strong>{isZh ? "劑量及途徑：" : "Dose & Route: "}</strong>
-                              {it.dose_text || "As directed"} · {it.route || "Oral (PO)"}
-                            </div>
-                            <div style={{ fontSize: 12.5, color: "#292524", lineHeight: 1.4 }}>
-                              <strong>{isZh ? "服法及次數：" : "Frequency: "}</strong>
-                              {it.frequency} {it.frequency_human ? `— ${it.frequency_human}` : ""}
-                            </div>
-                            <div style={{ fontSize: 12.5, color: "#292524", lineHeight: 1.4 }}>
-                              <strong>{isZh ? "療程及配藥量：" : "Duration & Qty: "}</strong>
-                              {it.duration_text || "5 days"} · {isZh ? "配發 " : "Dispense "}
-                              <strong>{it.quantity_to_dispense || "See label"}</strong>
-                            </div>
-                            {it.indication && (
-                              <div style={{ fontSize: 12, color: "#57534e" }}>
-                                <strong>{isZh ? "用途：" : "Indication: "}</strong>
-                                {it.indication}
-                              </div>
-                            )}
-                            {(isZh ? it.caution_zh || it.caution : it.caution) && (
-                              <div style={{ fontSize: 11.5, color: "#9a3412", background: "#fff7ed", borderLeft: "2px solid #ea580c", padding: "4px 7px", borderRadius: "0 4px 4px 0", marginTop: 2 }}>
-                                {isZh ? it.caution_zh || it.caution : it.caution}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-
-                        {/* Dispensing & Prescriber Details */}
-                        <div style={{ fontSize: 11.8, color: "#44403c", lineHeight: 1.45, borderTop: "1px solid #e7e5e4", paddingTop: 7 }}>
-                          <div>
-                            <strong>{isZh ? "配藥地點：" : "Dispensing: "}</strong>
-                            {rx.dispensing_location || "Central & Mid-Levels Family Medical Dispensary"}
-                          </div>
-                          <div>
-                            <strong>{isZh ? "配藥時間：" : "Hours: "}</strong>
-                            {rx.dispensing_hours || "Mon–Sat 08:30–20:00 HKT"} ·{" "}
-                            <strong>{isZh ? "處方醫生：" : "Prescriber: "}</strong>
-                            {rx.signed_by || m.care_plan?.signed_by} (MCHK {rx.mchk_reg_no || m.care_plan?.mchk_reg_no})
-                          </div>
-                          {rx.dispensing_instructions && (
-                            <div style={{ color: "#57534e", marginTop: 2 }}>{rx.dispensing_instructions}</div>
-                          )}
-                        </div>
-
-                        <button
-                          type="button"
-                          className="pc-pdf-btn"
-                          onClick={() => handleDownloadRxPdf(rx.id)}
-                          data-testid="chat-download-rx-pdf"
-                        >
-                          <FileText size={15} />
-                          <span>
-                            {isZh
-                              ? "下載醫生簽署電子處方 (PDF)"
-                              : "Download Signed e-Prescription (PDF)"}
-                          </span>
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    m.care_plan.rx_lines && m.care_plan.rx_lines.length > 0 && (
-                      <ul className="pc-doctor-list">
-                        {m.care_plan.rx_lines.map((line, i) => (
+              <div
+                key={idx}
+                style={{ display: "flex", flexDirection: "column", gap: 10 }}
+                data-testid="chat-doctor-signed-card"
+              >
+                {/* 1. Sam's summary message */}
+                <div className="pc-row is-clinic">
+                  <span className="pc-sender-label">Sam · {isZh ? "AI 駐診助手" : "AI Resident"}</span>
+                  <div className="pc-bubble">
+                    <div>{m.text}</div>
+                    {fallbackRxLines.length > 0 && (
+                      <ul className="pc-doctor-list" style={{ marginTop: 8 }}>
+                        {fallbackRxLines.map((line, i) => (
                           <li key={i}>{line}</li>
                         ))}
                       </ul>
-                    )
-                  )}
-
-                  {m.care_plan.certificates && m.care_plan.certificates.map((cert) => (
-                    <button
-                      key={cert.id}
-                      type="button"
-                      className="pc-pdf-btn"
-                      onClick={() => handleDownloadPdf(cert.id)}
-                      data-testid="chat-download-mchk-pdf"
-                    >
-                      <FileText size={15} />
-                      <span>
-                        {isZh
-                          ? `下載雙語醫生病假證明書 (${cert.days_off}日 · PDF)`
-                          : `Download MCHK Sick Leave PDF (${cert.days_off}d)`}
-                      </span>
-                    </button>
-                  ))}
+                    )}
+                  </div>
+                  <span className="pc-bubble-time">{m.time}</span>
                 </div>
-                <span className="pc-bubble-time">{m.time}</span>
+
+                {/* 2. Standalone Signed HK e-Prescription Message(s) */}
+                {prescriptions.map((rx) => (
+                  <div key={rx.id} className="pc-row is-doctor" data-testid="chat-signed-prescription-card">
+                    <div
+                      className="pc-doctor-card"
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid #d6d3d1",
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, borderBottom: "1px solid #e7e5e4", paddingBottom: 7 }}>
+                        <strong style={{ fontSize: 12, color: "#0f6b58", letterSpacing: "0.03em", textTransform: "uppercase" }}>
+                          {isZh ? "香港註冊醫生電子處方" : "Signed HK e-Prescription"}
+                        </strong>
+                        <span style={{ fontSize: 11, fontFamily: "ui-monospace, monospace", color: "#57534e" }}>
+                          {rx.fulfilment_ref || rx.id}
+                        </span>
+                      </div>
+
+                      {(rx.items || []).map((it, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            background: "#fafaf9",
+                            border: "1px solid #ece9e4",
+                            borderRadius: 10,
+                            padding: "9px 11px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 4,
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+                            <strong style={{ fontSize: 13.5, color: "#1c1917" }}>
+                              {it.display}
+                              {it.display_zh ? ` (${it.display_zh})` : ""}
+                            </strong>
+                            {it.hk_schedule && (
+                              <span style={{ fontSize: 10.5, padding: "1px 6px", borderRadius: 999, background: "#ffffff", border: "1px solid #d6d3d1", color: "#44403c" }}>
+                                {it.hk_schedule === "OTC" ? "HK OTC" : "HK Cap. 138 Part I"}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 12.5, color: "#292524", lineHeight: 1.4 }}>
+                            <strong>{isZh ? "劑量及途徑：" : "Dose & Route: "}</strong>
+                            {it.dose_text || "As directed"} · {it.route || "Oral (PO)"}
+                          </div>
+                          <div style={{ fontSize: 12.5, color: "#292524", lineHeight: 1.4 }}>
+                            <strong>{isZh ? "服法及次數：" : "Frequency: "}</strong>
+                            {it.frequency} {it.frequency_human ? `— ${it.frequency_human}` : ""}
+                          </div>
+                          <div style={{ fontSize: 12.5, color: "#292524", lineHeight: 1.4 }}>
+                            <strong>{isZh ? "療程及配藥量：" : "Duration & Qty: "}</strong>
+                            {it.duration_text || "5 days"} · {isZh ? "配發 " : "Dispense "}
+                            <strong>{it.quantity_to_dispense || "See label"}</strong>
+                          </div>
+                          {it.indication && (
+                            <div style={{ fontSize: 12, color: "#57534e" }}>
+                              <strong>{isZh ? "用途：" : "Indication: "}</strong>
+                              {it.indication}
+                            </div>
+                          )}
+                          {(isZh ? it.caution_zh || it.caution : it.caution) && (
+                            <div style={{ fontSize: 11.5, color: "#9a3412", background: "#fff7ed", borderLeft: "2px solid #ea580c", padding: "4px 7px", borderRadius: "0 4px 4px 0", marginTop: 2 }}>
+                              {isZh ? it.caution_zh || it.caution : it.caution}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      <div style={{ fontSize: 11.8, color: "#44403c", lineHeight: 1.45, borderTop: "1px solid #e7e5e4", paddingTop: 7 }}>
+                        <div>
+                          <strong>{isZh ? "配藥地點：" : "Dispensing: "}</strong>
+                          {rx.dispensing_location || "Central & Mid-Levels Family Medical Dispensary"}
+                        </div>
+                        <div>
+                          <strong>{isZh ? "配藥時間：" : "Hours: "}</strong>
+                          {rx.dispensing_hours || "Mon–Sat 08:30–20:00 HKT"} ·{" "}
+                          <strong>{isZh ? "處方醫生：" : "Prescriber: "}</strong>
+                          {rx.signed_by || m.care_plan?.signed_by} (MCHK {rx.mchk_reg_no || m.care_plan?.mchk_reg_no})
+                        </div>
+                        {rx.dispensing_instructions && (
+                          <div style={{ color: "#57534e", marginTop: 2 }}>{rx.dispensing_instructions}</div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="pc-pdf-btn"
+                        onClick={() => handleDownloadRxPdf(rx.id)}
+                        data-testid="chat-download-rx-pdf"
+                      >
+                        <FileText size={15} />
+                        <span>
+                          {isZh
+                            ? "下載醫生簽署電子處方 (PDF)"
+                            : "Download Signed e-Prescription (PDF)"}
+                        </span>
+                      </button>
+                    </div>
+                    <span className="pc-bubble-time">{m.time}</span>
+                  </div>
+                ))}
+
+                {/* 3. Standalone MCHK Sick-Leave Certificate Message(s) */}
+                {certificates.map((cert) => (
+                  <div key={cert.id} className="pc-row is-doctor" data-testid="chat-signed-certificate-card">
+                    <div
+                      className="pc-doctor-card"
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid #bde2d9",
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, borderBottom: "1px solid #e6efe9", paddingBottom: 6 }}>
+                        <strong style={{ fontSize: 12, color: "#0f6b58", letterSpacing: "0.03em", textTransform: "uppercase" }}>
+                          {isZh ? "香港註冊西醫病假證明書" : "MCHK Sick-Leave Certificate"}
+                        </strong>
+                        <span style={{ fontSize: 11, fontFamily: "ui-monospace, monospace", color: "#57534e" }}>
+                          {cert.days_off}{isZh ? " 日" : "d"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, color: "#1c1917", lineHeight: 1.4 }}>
+                        <strong>
+                          {isZh ? `${cert.days_off} 日病假` : `${cert.days_off}-day medical leave`}
+                        </strong>
+                        {cert.start_date
+                          ? ` · ${cert.start_date}${cert.end_date && cert.end_date !== cert.start_date ? ` → ${cert.end_date}` : ""}`
+                          : ""}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#57534e" }}>
+                        {m.care_plan?.signed_by} (MCHK {m.care_plan?.mchk_reg_no})
+                        {cert.omit_employer_diagnosis !== false
+                          ? isZh ? " · 已按私隱要求隱藏診斷" : " · Employer diagnosis omitted"
+                          : ""}
+                      </div>
+                      <button
+                        type="button"
+                        className="pc-pdf-btn"
+                        onClick={() => handleDownloadPdf(cert.id)}
+                        data-testid="chat-download-mchk-pdf"
+                      >
+                        <FileText size={15} />
+                        <span>
+                          {isZh
+                            ? `下載雙語醫生病假證明書 (${cert.days_off}日 · PDF)`
+                            : `Download MCHK Sick Leave PDF (${cert.days_off}d)`}
+                        </span>
+                      </button>
+                    </div>
+                    <span className="pc-bubble-time">{m.time}</span>
+                  </div>
+                ))}
               </div>
             );
           }

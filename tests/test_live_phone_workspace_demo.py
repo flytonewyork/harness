@@ -633,6 +633,7 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert "!" not in s1["messages"][0]["text"]
     patient_tok = s1["token"]
 
+    # Turn 1: Patient opens generally -> Sam opens warmly & asks for main symptoms (short 1-2 sentences)
     t1 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "wingyan", "message": s1["suggested_replies"][0], "lang": "en", "is_preset": True},
@@ -640,27 +641,46 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert t1["case_state"] == "running"
     assert "!" not in t1["reply"]
     assert t1["llm_meta"]["mode"] == "deterministic_preset"
-    assert t1["llm_meta"]["live_reply_used"] is False
-    assert "shortness of breath" in t1["reply"].lower() and "vitals" in t1["reply"].lower()
-    assert t1["booking_offer"] is None  # Holds booking card until red flags & home vitals are answered
+    assert "symptoms" in t1["reply"].lower()
+    assert t1["booking_offer"] is None
     assert len(t1["suggested_replies"]) == 1
-    assert "38.2" in t1["suggested_replies"][0] and "spo2" in t1["suggested_replies"][0].lower()
 
-    # Turn 2: Patient answers red flags + home vitals -> mounts vitals, escalates to doctor & attaches Dr. Kenneth Lam 11:00 booking offer
+    # Turn 2: Patient shares symptoms -> Sam asks specific red flags
     t1_2 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "wingyan", "message": t1["suggested_replies"][0], "lang": "en", "is_preset": True},
     ).json()
-    assert t1_2["case_state"] == "needs_decision"
-    assert "!" not in t1_2["reply"]
-    assert t1_2["llm_meta"]["mode"] == "deterministic_preset"
-    assert t1_2["booking_offer"] is not None
-    assert t1_2["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_lam"
-    assert t1_2["booking_offer"]["recommended"]["time"] == "11:00"
+    assert t1_2["case_state"] == "running"
+    assert "chest pain" in t1_2["reply"].lower() and "shortness of breath" in t1_2["reply"].lower()
+    assert t1_2["booking_offer"] is None
     assert len(t1_2["suggested_replies"]) == 1
-    assert "watch out" in t1_2["suggested_replies"][0].lower()
+
+    # Turn 3: Patient clears red flags -> Sam asks for home vitals
+    t1_3 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": t1_2["suggested_replies"][0], "lang": "en", "is_preset": True},
+    ).json()
+    assert t1_3["case_state"] == "running"
+    assert "thermometer" in t1_3["reply"].lower() or "temperature" in t1_3["reply"].lower()
+    assert t1_3["booking_offer"] is None
+    assert len(t1_3["suggested_replies"]) == 1
+    assert "38.2" in t1_3["suggested_replies"][0] and "spo2" in t1_3["suggested_replies"][0].lower()
+
+    # Turn 4: Patient shares home vitals -> mounts vitals, escalates to doctor & attaches Dr. Kenneth Lam 11:00 booking offer
+    t1_4 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": t1_3["suggested_replies"][0], "lang": "en", "is_preset": True},
+    ).json()
+    assert t1_4["case_state"] == "needs_decision"
+    assert "!" not in t1_4["reply"]
+    assert t1_4["llm_meta"]["mode"] == "deterministic_preset"
+    assert t1_4["booking_offer"] is not None
+    assert t1_4["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_lam"
+    assert t1_4["booking_offer"]["recommended"]["time"] == "11:00"
+    assert len(t1_4["suggested_replies"]) == 1
+    assert "watch out" in t1_4["suggested_replies"][0].lower()
     st1 = client.get("/api/v1/demo/live/chat/state/wingyan?lang=en").json()
-    assert st1["suggested_replies"] == t1_2["suggested_replies"]
+    assert st1["suggested_replies"] == t1_4["suggested_replies"]
 
     ov1 = client.get("/api/v1/workspace/overview?mode=live").json()
     wy_case = next(c for c in ov1["cases"] if c["case_key"] == "wingyan")
@@ -725,9 +745,27 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert ext["case_state"] == "needs_decision"
     assert "!" not in ext["reply"]
 
-    # Day +3 autonomous check-in works cleanly without exclamation marks
-    d3 = client.post("/api/v1/demo/live/chat/checkin", json={"journey_key": "wingyan", "lang": "zh-HK"}).json()
-    assert "！" not in d3["messages"][-1]["text"]
+    # Day +3 autonomous check-in -> preventive checkup -> Sam asks specific concerns -> fatigue & blood tests -> Nurse Rachel booking offer + Case closed!
+    d3 = client.post("/api/v1/demo/live/chat/checkin", json={"journey_key": "wingyan", "lang": "en"}).json()
+    assert "!" not in d3["messages"][-1]["text"]
+    d3_t1 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": d3["suggested_replies"][0], "lang": "en", "is_preset": True},
+    ).json()
+    assert d3_t1["case_state"] == "scheduled"
+    assert "concerns" in d3_t1["reply"].lower() or "blood tests" in d3_t1["reply"].lower()
+    assert len(d3_t1["suggested_replies"]) == 1
+    assert "tired" in d3_t1["suggested_replies"][0].lower() and "blood tests" in d3_t1["suggested_replies"][0].lower()
+
+    d3_t2 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "wingyan", "message": d3_t1["suggested_replies"][0], "lang": "en", "is_preset": True},
+    ).json()
+    assert d3_t2["case_state"] == "closed"
+    assert d3_t2["suggested_replies"] == []
+    assert d3_t2["booking_offer"] is not None
+    assert d3_t2["booking_offer"]["recommended"]["doctor_id"] == "nurse_chan"
+    assert any(m.get("role") == "system" and "case closed" in m.get("text", "").lower() for m in d3_t2["messages"])
 
     # ---- CASE 2: tang_uti (Acute Uncomplicated UTI) ----
     s2 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "tang_uti", "lang": "en"}).json()
