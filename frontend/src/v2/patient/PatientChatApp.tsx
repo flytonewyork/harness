@@ -107,6 +107,15 @@ interface ChatMsg {
 }
 
 const CORE_4_DEMO_KEYS = ["wingyan", "tang_uti", "chan", "lau_chest"] as const;
+const CORPORATE_4_DEMO_KEYS = ["corp_flu_clean", "corp_flu_flag", "corp_prev_bundle", "corp_flu_defer"] as const;
+
+type DemoPack = "gp" | "corporate_health";
+
+function initialPackFromUrl(): DemoPack {
+  if (typeof window === "undefined") return "gp";
+  const p = new URLSearchParams(window.location.search).get("pack") || "";
+  return ["corporate", "corporate_health", "wellness"].includes(p.toLowerCase()) ? "corporate_health" : "gp";
+}
 
 interface JourneyMeta {
   key: string;
@@ -129,6 +138,11 @@ const JOURNEY_GROUPS: Array<{ key: "acute" | "chronic"; labelEn: string; labelZh
   { key: "chronic", labelEn: "Post-Discharge & Chronic Cardiac", labelZh: "出院覆診及心臟慢病管理" },
 ];
 
+const CORPORATE_JOURNEY_GROUPS: Array<{ key: "acute" | "chronic"; labelEn: string; labelZh: string }> = [
+  { key: "acute", labelEn: "Corporate Flu Campaign (Nurse Bay & Safety)", labelZh: "企業流感疫苗計劃（護士站及安全篩查）" },
+  { key: "chronic", labelEn: "Preventive Health & Longevity Upsell", labelZh: "預防篩查及長壽醫學套票" },
+];
+
 interface PatientChatAppProps {
   initialJourney?: string;
 }
@@ -143,7 +157,7 @@ function statusBadgeLabel(status: string, baton: string | null | undefined, isZh
     return { text: isZh ? "醫生已簽署 ✓" : "Signed ✓", live: true };
   }
   if (baton === "with_nurse") {
-    return { text: isZh ? "護士核對中" : "Nurse Check", live: true };
+    return { text: isZh ? "護士站處理中" : "Nurse Bay", live: true };
   }
   switch (status) {
     case "needs_decision":
@@ -158,7 +172,14 @@ function statusBadgeLabel(status: string, baton: string | null | undefined, isZh
 }
 
 export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppProps) {
-  const [journeyKey, setJourneyKey] = useState<string>(initialJourney);
+  const [demoPack, setDemoPack] = useState<DemoPack>(() => initialPackFromUrl());
+  const [journeyKey, setJourneyKey] = useState<string>(() => {
+    const pack = initialPackFromUrl();
+    if (pack === "corporate_health" && initialJourney === "wingyan") {
+      return "corp_flu_clean";
+    }
+    return initialJourney;
+  });
   const [lang, setLang] = useState<"en" | "zh-HK">("en");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showPrompts, setShowPrompts] = useState(true);
@@ -187,6 +208,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const isZh = lang === "zh-HK";
+  const isCorporatePack = demoPack === "corporate_health";
 
   const scrollToBottom = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -198,9 +220,10 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
     scrollToBottom();
   }, [messages.length, typing, scrollToBottom]);
 
-  const refreshJourneys = useCallback(async () => {
+  const refreshJourneys = useCallback(async (overridePack?: DemoPack) => {
     try {
-      const res = await v2Api.liveDemoJourneys();
+      const targetPack = overridePack || demoPack;
+      const res = await v2Api.liveDemoJourneys(targetPack === "corporate_health" ? "corporate_health" : undefined);
       if (Array.isArray(res.journeys)) {
         setJourneys(res.journeys);
       }
@@ -210,7 +233,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
     } catch {
       // ignore transient network errors
     }
-  }, []);
+  }, [demoPack]);
 
   /**
    * Core QR / Journey Start Sequence:
@@ -493,10 +516,16 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           >
             <Menu size={18} />
           </button>
-          <div className="pc-avatar" aria-hidden="true">CM</div>
+          <div className="pc-avatar" aria-hidden="true">{isCorporatePack ? "CH" : "CM"}</div>
           <div className="pc-header-title-wrap">
             <div className="pc-header-title">
-              {isZh ? "中環及半山家庭醫務中心" : "Central Medical"}
+              {isCorporatePack
+                ? isZh
+                  ? "Central Health · 企業健康示範"
+                  : "Central Health · Wellness"
+                : isZh
+                  ? "中環及半山家庭醫務中心"
+                  : "Central Medical"}
             </div>
             <div className="pc-header-sub">
               <span className="pc-online-dot" />
@@ -1247,11 +1276,27 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
         </button>
       </form>
 
-      {/* Slide-Over Patient Journeys Sidebar (Focused 4 Core Real-Time Demo Cases) */}
+      {/* Slide-Over Patient Journeys Sidebar (GP Flagship OR Central Health Corporate Wellness Pack) */}
       {drawerOpen && (() => {
-        const visibleJourneys = CORE_4_DEMO_KEYS
+        const activeKeys: readonly string[] = isCorporatePack ? CORPORATE_4_DEMO_KEYS : CORE_4_DEMO_KEYS;
+        const activeGroups = isCorporatePack ? CORPORATE_JOURNEY_GROUPS : JOURNEY_GROUPS;
+        const visibleJourneys = activeKeys
           .map((k) => journeys.find((j) => j.key === k))
           .filter((j): j is JourneyMeta => Boolean(j));
+        const switchPack = (nextPack: DemoPack) => {
+          if (nextPack === demoPack) return;
+          setDemoPack(nextPack);
+          const nextDefault = nextPack === "corporate_health" ? "corp_flu_clean" : "wingyan";
+          const url = new URL(window.location.href);
+          if (nextPack === "corporate_health") {
+            url.searchParams.set("pack", "corporate_health");
+          } else {
+            url.searchParams.delete("pack");
+          }
+          window.history.replaceState({}, "", url.toString());
+          void refreshJourneys(nextPack);
+          handleSelectJourney(nextDefault, false);
+        };
         return (
           <>
             <div className="pc-drawer-backdrop" onClick={() => setDrawerOpen(false)} />
@@ -1259,10 +1304,22 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
               <div className="pc-drawer-head">
                 <div>
                   <div className="pc-drawer-title">
-                    {isZh ? `核心示範個案（${visibleJourneys.length} 位）` : `Core Demo Cases (${visibleJourneys.length})`}
+                    {isCorporatePack
+                      ? isZh
+                        ? "Central Health · 企業健康示範"
+                        : "Central Health · Wellness Demo"
+                      : isZh
+                        ? `核心示範個案（${visibleJourneys.length} 位）`
+                        : `Core GP Cases (${visibleJourneys.length})`}
                   </div>
                   <div className="pc-drawer-sub">
-                    {isZh ? "URTI · UTI · 出院房顫 · 心臟慢病" : "URTI · UTI · Post-Discharge AFib · Cardiac"}
+                    {isCorporatePack
+                      ? isZh
+                        ? "Harbour Capital · 流感疫苗、安全篩查、長壽預防"
+                        : "Harbour Capital · Flu Bay · Safety · Longevity"
+                      : isZh
+                        ? "URTI · UTI · 出院房顫 · 心臟慢病"
+                        : "URTI · UTI · Post-Discharge AFib · Cardiac"}
                   </div>
                 </div>
                 <button type="button" className="pc-icon-btn" onClick={() => setDrawerOpen(false)} aria-label="Close sidebar">
@@ -1270,8 +1327,45 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
                 </button>
               </div>
 
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, padding: "10px 14px 4px" }}>
+                <button
+                  type="button"
+                  data-testid="pack-switch-gp"
+                  onClick={() => switchPack("gp")}
+                  style={{
+                    padding: "6px 8px",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: !isCorporatePack ? "1.5px solid #0f766e" : "1px solid #d6d3d1",
+                    background: !isCorporatePack ? "#eef7f5" : "#fafaf9",
+                    color: !isCorporatePack ? "#0f6b58" : "#57534e",
+                    cursor: "pointer",
+                  }}
+                >
+                  {isZh ? "GP 門診示範 (4)" : "GP Demo (4)"}
+                </button>
+                <button
+                  type="button"
+                  data-testid="pack-switch-corporate"
+                  onClick={() => switchPack("corporate_health")}
+                  style={{
+                    padding: "6px 8px",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: isCorporatePack ? "1.5px solid #0f766e" : "1px solid #d6d3d1",
+                    background: isCorporatePack ? "#eef7f5" : "#fafaf9",
+                    color: isCorporatePack ? "#0f6b58" : "#57534e",
+                    cursor: "pointer",
+                  }}
+                >
+                  {isZh ? "Central Health 企業 (4)" : "Central Health Wellness (4)"}
+                </button>
+              </div>
+
               <div className="pc-drawer-list">
-                {JOURNEY_GROUPS.map((grp) => {
+                {activeGroups.map((grp) => {
                   const items = visibleJourneys.filter((j) => (j.category || "acute") === grp.key);
                   if (items.length === 0) return null;
                   return (

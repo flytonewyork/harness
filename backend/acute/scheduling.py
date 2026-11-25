@@ -179,6 +179,45 @@ _JOURNEY_BOOKING_PROFILE: dict[str, dict[str, Any]] = {
         "reason_en": "Guideline 2–4 week follow-up with {doctor} after BP medication adjustment (not needed today; Day-7 AI BP check-in runs first)",
         "reason_zh": "按臨床指引安排 2–4 星期後由 {doctor} 覆核血壓及藥效（無須今日覆診，第 7 日會先由 AI 助手機動跟進家居血壓）",
     },
+    "corp_flu_clean": {
+        "preferred_doctors": ["nurse_chan"],
+        "preferred_times": ["09:15", "09:45", "10:15", "11:00"],
+        "visit_type_en": "10-min Nurse Flu Vaccination Bay (Harbour Capital)",
+        "visit_type_zh": "10 分鐘護士流感疫苗接種站（企業計劃）",
+        "duration_min": 10,
+        "modality": "in_clinic",
+        "allow_teleconsult": False,
+        "prep_note_en": "Harbour Capital Partners 2026 campaign covered · Zero doctor wait · Bring HKID/staff badge; 15-min post-jab lounge rest",
+        "prep_note_zh": "Harbour Capital Partners 2026 企業計劃全額涵蓋・無須等候醫生・請帶備身份證／員工證，接種後休息 15 分鐘",
+        "reason_en": "Direct 10-min Nurse Vaccination Bay slot with {doctor} — zero doctor slot consumed",
+        "reason_zh": "直接安排 {doctor} 10 分鐘疫苗接種站空檔——無須佔用醫生診症時間",
+    },
+    "corp_prev_bundle": {
+        "preferred_doctors": ["nurse_chan", "doc_dr_wong"],
+        "preferred_times": ["08:30", "09:15", "09:45"],
+        "visit_type_en": "Morning Fasting Bloods + Flu & Shingrix Nurse Bay",
+        "visit_type_zh": "早段空腹抽血＋流感針及生蛇針接種",
+        "duration_min": 20,
+        "modality": "in_clinic",
+        "allow_teleconsult": False,
+        "prep_note_en": "Fast 8–10 hours (plain water OK) for ApoB/Lp(a)/Lipids/HbA1c; corporate flu shot & Shingrix Dose 1 bundled in one visit",
+        "prep_note_zh": "請空腹 8–10 小時（可飲清水）以便抽血檢驗 ApoB/Lp(a)/血脂/血糖；企業流感針及生蛇針第一針同場完成",
+        "reason_en": "Bundled morning nurse slot with {doctor} so fasting longevity bloods, flu shot, and Shingrix are completed in a single visit",
+        "reason_zh": "已挑選 {doctor} 早段空檔，一次過完成空腹長壽驗血、企業流感針及生蛇針",
+    },
+    "corp_flu_flag": {
+        "preferred_doctors": ["doc_dr_wong", "doc_dr_lam"],
+        "preferred_times": ["11:30", "14:15", "14:00"],
+        "visit_type_en": "15-min GP Pre-Vax Review & Observed Flu Shot",
+        "visit_type_zh": "15 分鐘醫生疫苗前評估及監督接種",
+        "duration_min": 15,
+        "modality": "in_clinic",
+        "allow_teleconsult": False,
+        "prep_note_en": "Doctor-supervised egg-free recombinant vaccine with 30-min clinic observation and firm 2-min IM pressure (Apixaban)",
+        "prep_note_zh": "醫生監督下接種無蛋成分重組流感疫苗、留院觀察 30 分鐘，並按薄血藥指引輕按針口 2 分鐘",
+        "reason_en": "Doctor-supervised clinic slot with {doctor} for safe egg-free vaccination & 30-min observation",
+        "reason_zh": "安排 {doctor} 醫生監督診症時段，安全接種無蛋成分疫苗及進行 30 分鐘觀察",
+    },
 }
 
 _DEFAULT_BOOKING_PROFILE: dict[str, Any] = {
@@ -399,9 +438,12 @@ def should_attach_booking_offer(
         for m in existing_chat
     )
 
-    if j_key in ("wingyan", "tang_uti") and new_state == "running":
-        # Wait until Sam finishes red-flag & home-vitals history taking before offering a booking slot
-        return False
+    if j_key in ("wingyan", "tang_uti", "corp_flu_clean", "corp_flu_flag", "corp_prev_bundle", "corp_flu_defer") and not has_signed:
+        if j_key in ("wingyan", "tang_uti") and new_state != "running":
+            pass
+        else:
+            # Corporate cases never auto-attach booking cards until screening clears (_attach_preventive_booking) or doctor signs off
+            return False
 
     if explicit_booking or llm_requested_booking:
         # Avoid back-to-back duplicate card on the exact previous turn unless they asked to reschedule/pick another time
@@ -431,13 +473,17 @@ def select_booking_offer(
 ) -> dict[str, Any]:
     """Inspect live clinic availability, pick the best open doctor/nurse & time, and build a BookingOfferCard payload."""
     is_preventive = purpose == "preventive_checkup"
+    is_corp_nurse = j_key in ("corp_flu_clean", "corp_prev_bundle")
     roster = build_clinic_availability(
         session,
         tenant_id,
         for_case_key=j_key,
-        include_preventive_nurse=is_preventive,
+        include_preventive_nurse=(is_preventive or is_corp_nurse),
     )
-    profile = _PREVENTIVE_BOOKING_PROFILE if is_preventive else _JOURNEY_BOOKING_PROFILE.get(j_key, _DEFAULT_BOOKING_PROFILE)
+    if is_corp_nurse and j_key in _JOURNEY_BOOKING_PROFILE:
+        profile = _JOURNEY_BOOKING_PROFILE[j_key]
+    else:
+        profile = _PREVENTIVE_BOOKING_PROFILE if is_preventive else _JOURNEY_BOOKING_PROFILE.get(j_key, _DEFAULT_BOOKING_PROFILE)
     low = (patient_text or "").lower()
 
     # Check if patient explicitly asked for tomorrow, afternoon, or teleconsult

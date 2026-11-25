@@ -417,6 +417,16 @@ HK_CHRONIC_GP_FORMULARY: dict[str, dict[str, Any]] = {
         "class": "cephalosporin", "hk_schedule": "PART_I_POISON", "max_daily_mg": 4000, "max_single_mg": 1000,
         "g6pd_risk": False, "allergy_group": "cephalosporin",
     },
+    "shingrix": {
+        "rxnorm": "1986821", "atc": "J07BK03", "display": "Shingrix (Recombinant Zoster Vaccine) 0.5mL IM", "display_zh": "生蛇針（重組帶狀皰疹疫苗 Shingrix）0.5毫升肌肉注射",
+        "class": "vaccine_zoster", "hk_schedule": "PART_I_POISON", "max_daily_mg": 1, "max_single_mg": 1,
+        "g6pd_risk": False, "allergy_group": "zoster_vaccine",
+    },
+    "flublok": {
+        "rxnorm": "2596765", "atc": "J07BB02", "display": "Flublok (Recombinant Quadrivalent Influenza Vaccine · CVX 185) 0.5mL IM", "display_zh": "無蛋成分重組四價流感疫苗（Flublok · CVX 185）0.5毫升肌肉注射",
+        "class": "vaccine_influenza", "hk_schedule": "PART_I_POISON", "max_daily_mg": 1, "max_single_mg": 1,
+        "g6pd_risk": False, "allergy_group": "recombinant_influenza_vaccine",
+    },
 }
 
 HK_PRIMARY_CARE_FORMULARY: dict[str, dict[str, Any]] = {
@@ -500,6 +510,8 @@ _CHRONIC_ALIASES: dict[str, str] = {
     "neomercazole": "carbimazole", "卡比馬唑": "carbimazole",
     "monurol": "fosfomycin", "磷黴素": "fosfomycin",
     "keflex": "cephalexin", "cefalexin": "cephalexin", "頭孢氨苄": "cephalexin",
+    "recombinant zoster vaccine": "shingrix", "zoster vaccine": "shingrix", "生蛇針": "shingrix",
+    "recombinant influenza vaccine": "flublok", "cvx 185": "flublok", "無蛋成分流感疫苗": "flublok",
 }
 
 

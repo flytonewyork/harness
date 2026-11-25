@@ -1350,12 +1350,16 @@ def create_acute_app(
 
     # ================================================================================== LIVE PHONE-TO-WORKSPACE DEMO CHAT
     @app.get("/api/v1/demo/live/journeys")
-    def demo_live_journeys(request: Request, all: bool = Query(default=False)):
-        """List the 4 flagship HK GP patient demo journeys by default (pass ?all=1 for all 12)."""
+    def demo_live_journeys(
+        request: Request,
+        all: bool = Query(default=False),
+        pack: str | None = Query(default=None),
+    ):
+        """List flagship 4 HK GP journeys by default, 4 Central Health Corporate Wellness journeys for ?pack=corporate_health, or all for ?all=1."""
         if not _is_demo_mode():
             raise HTTPException(404, "Demo endpoints disabled in production")
         tenant_id = _workspace_tenant(request)
-        return get_live_journeys_status(database, tenant_id, live_bus, include_all=all)
+        return get_live_journeys_status(database, tenant_id, live_bus, include_all=all, pack=pack)
 
     @app.post("/api/v1/demo/live/chat/start")
     def demo_live_chat_start(body: LiveChatStartReq, request: Request):
@@ -1982,7 +1986,11 @@ def create_acute_app(
                         case_row.next_checkpoint_label = "Plan signed"
                 else:
                     # Signed for today, handed off to # ai-team background loop
-                    if nurse_orders and "inr" in lab_blob:
+                    if "flublok" in drugs_low or "recombinant" in drugs_low:
+                        case_row.next_checkpoint_label = "Flublok · 30m supervised jab"
+                    elif "shingrix" in drugs_low or "apob" in lab_blob:
+                        case_row.next_checkpoint_label = "Bundle signed · AI Week-8 recall"
+                    elif nurse_orders and "inr" in lab_blob:
                         case_row.next_checkpoint_label = "Nurse call · AI watching 7d INR"
                     elif nurse_orders:
                         case_row.next_checkpoint_label = f"With {nurse_assignee_lbl.split('(')[0].strip()}"

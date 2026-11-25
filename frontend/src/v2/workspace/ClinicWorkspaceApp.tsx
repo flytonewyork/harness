@@ -701,10 +701,16 @@ export function ClinicWorkspaceApp() {
   const sseRefreshTimer = useRef<number | null>(null);
   const sessionEpochRef = useRef<string | null>(null);
 
+  const [demoPack, setDemoPack] = useState<"gp" | "corporate_health">(() => {
+    const p = new URLSearchParams(window.location.search).get("pack") || "";
+    return ["corporate", "corporate_health", "wellness"].includes(p.toLowerCase()) ? "corporate_health" : "gp";
+  });
+  const isCorporatePack = demoPack === "corporate_health";
+
   const phoneQrUrl = useMemo(() => {
     const cleanBase = publicBaseUrl.trim().replace(/\/+$/, "") || window.location.origin;
-    return `${cleanBase}/p/chat`;
-  }, [publicBaseUrl]);
+    return isCorporatePack ? `${cleanBase}/p/chat?pack=corporate_health` : `${cleanBase}/p/chat`;
+  }, [publicBaseUrl, isCorporatePack]);
 
   useEffect(() => {
     QRCode.toDataURL(phoneQrUrl, {
@@ -1281,11 +1287,42 @@ export function ClinicWorkspaceApp() {
     <div className="ws-shell">
       <header className="ws-topbar">
         <div className="ws-brand">
-          <span>Central Medical</span>
-          <span className="ws-pill">Connected to Clinic EMR (Sole SoT)</span>
+          <span>{isCorporatePack ? "Central Health · Wellness Demo" : "Central Medical"}</span>
+          <span className="ws-pill">{isCorporatePack ? "Harbour Capital · 2026 Flu & Preventive" : "Connected to Clinic EMR (Sole SoT)"}</span>
           <span className="ws-pill ws-pill-jade">Practice Graph {graph?.version_tag}</span>
         </div>
         <div className="ws-top-actions">
+          <button
+            type="button"
+            className={isCorporatePack ? "ws-btn ws-btn-active" : "ws-btn"}
+            data-testid="workspace-pack-toggle-btn"
+            onClick={() => {
+              const nextPack = isCorporatePack ? "gp" : "corporate_health";
+              setDemoPack(nextPack);
+              const url = new URL(window.location.href);
+              if (nextPack === "corporate_health") {
+                url.searchParams.set("pack", "corporate_health");
+              } else {
+                url.searchParams.delete("pack");
+              }
+              window.history.replaceState({}, "", url.toString());
+            }}
+            title="Switch between GP Demo and Central Health Corporate Wellness Demo"
+          >
+            {isCorporatePack ? "Wellness Demo ✓" : "Central Health Wellness"}
+          </button>
+          {isCorporatePack && (
+            <a
+              href="/corp"
+              target="_blank"
+              rel="noreferrer"
+              className="ws-btn"
+              style={{ textDecoration: "none" }}
+              data-testid="open-corp-hr-portal-link"
+            >
+              HR Portal (/corp) ↗
+            </a>
+          )}
           <button type="button" className={role === "locum" ? "ws-btn ws-btn-active" : "ws-btn"} onClick={() => { setRole("locum"); setView("my_work"); }}>Locum Dr. Sarah</button>
           <button type="button" className={role === "nurse" ? "ws-btn ws-btn-active" : "ws-btn"} onClick={() => { setRole("nurse"); setView("clinic_team"); }}>Nurse Rachel</button>
           <button
@@ -1360,6 +1397,10 @@ export function ClinicWorkspaceApp() {
               if (key === "tang_uti") return "Acute Uncomplicated UTI";
               if (key === "chan") return "Post-QEH AFib · Warfarin";
               if (key === "lau_chest") return "Hypertension & CVD Risk";
+              if (key === "corp_flu_clean") return "Corporate Flu · Routine";
+              if (key === "corp_flu_flag") return "Flu · Vaccine Precaution";
+              if (key === "corp_prev_bundle") return "Preventive & Longevity";
+              if (key === "corp_flu_defer") return "Flu · Fever Deferral";
               const issueName = String(c.summary?.issues?.[0]?.name || "").replace(/^\d+\.\s*/, "").split("—")[0].trim();
               if (issueName) return issueName.split(/\s+/).slice(0, 4).join(" ");
               const aiTitle = String(c.ai_title || "").split("—")[0].trim();
@@ -1474,7 +1515,9 @@ export function ClinicWorkspaceApp() {
           {view === "my_work" && cases.length === 0 && (
             <div className="ws-qr-stage" data-testid="workspace-blank-qr-stage">
               <div className="ws-qr-card">
-                <div className="ws-section-kicker">Central Medical · Live Clinic Demo</div>
+                <div className="ws-section-kicker">
+                  {isCorporatePack ? "Central Health · Corporate Wellness Demo" : "Central Medical · Live Clinic Demo"}
+                </div>
                 <h1 className="ws-ai-title" style={{ marginTop: 4 }}>Scan QR on your phone to begin</h1>
                 <p className="ws-lead" style={{ maxWidth: 480, textAlign: "center" }}>
                   This workspace starts blank. Once a patient scans the QR code and starts messaging the clinic AI, live threads, clinical widgets, and agent workflows populate here in real time.
@@ -1708,6 +1751,10 @@ export function ClinicWorkspaceApp() {
               if (key === "chan") return "Wakes on-duty GP if INR out of 2.0–3.0, overdue, or bleeding reported";
               if (key === "lau_chest") return "Wakes on-duty GP if Day-7 BP > 140/90, dizzy, or fasting labs abnormal";
               if (key === "tang_uti") return "Wakes on-duty GP if urine culture resistant, fever, or symptoms persist >48h";
+              if (key === "corp_flu_clean") return "Wakes on-duty GP only if Day +2 post-vax fever >38.5°C, hives, or severe arm swelling";
+              if (key === "corp_flu_flag") return "Wakes on-duty GP if any post-observation allergic symptoms or injection-site haematoma";
+              if (key === "corp_prev_bundle") return "Auto-books Shingrix Dose 2 at Week 8; wakes GP if ApoB/Lp(a)/HbA1c, mammogram, or FIT abnormal";
+              if (key === "corp_flu_defer") return "Auto-rebooks Nurse Flu Bay on Day +5 once fever-free 48h; wakes GP if fever persists >3 days";
               return "Wakes on-duty GP only if red flags, worsening symptoms, or extra sick-leave requested";
             };
             return (

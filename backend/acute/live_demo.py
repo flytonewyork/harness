@@ -66,6 +66,14 @@ from .db import (
 )
 from .emr_connector import ingest_external_document
 from .live_bus import LiveHarnessBus
+from .live_journeys_corporate import (
+    CORPORATE_4_JOURNEY_KEYS,
+    CORPORATE_JOURNEY_KEYS,
+    CORPORATE_LIVE_JOURNEYS,
+    build_corporate_initial_summary,
+    compile_corporate_journey_turn,
+    seed_corporate_journey_prior_record,
+)
 from .live_journeys_extra import (
     EXTRA_LIVE_JOURNEYS,
     build_extra_initial_summary,
@@ -250,11 +258,11 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
     },
 )
 
-LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (*CORE_LIVE_JOURNEYS, *EXTRA_LIVE_JOURNEYS)
+LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (*CORE_LIVE_JOURNEYS, *EXTRA_LIVE_JOURNEYS, *CORPORATE_LIVE_JOURNEYS)
 JOURNEY_BY_KEY: dict[str, dict[str, Any]] = {j["key"]: j for j in LIVE_JOURNEYS}
 JOURNEY_BY_PATIENT_ID: dict[str, dict[str, Any]] = {j["patient_id"]: j for j in LIVE_JOURNEYS}
 
-# Flagship 4 HK GP demo cases exposed by default in the UI picker (?all=1 exposes all 12 for test/eval)
+# Flagship 4 HK GP demo cases exposed by default in the UI picker (?pack=corporate_health exposes Central Health Corporate Wellness; ?all=1 exposes all)
 FLAGSHIP_4_JOURNEY_KEYS: tuple[str, ...] = ("wingyan", "tang_uti", "chan", "lau_chest")
 
 _POST_SIGN_REPLIES_EN: list[str] = [
@@ -399,6 +407,11 @@ def _suggested_replies_for(
             if stage == "awaiting_cvd_inputs":
                 return [static_list[2]]
             return []
+        if j.get("key") in CORPORATE_JOURNEY_KEYS and len(static_list) >= 2:
+            stage = (summary or {}).get("_corp_stage") if isinstance(summary, dict) else None
+            if stage in ("awaiting_screen", "awaiting_reaction_detail", "awaiting_preventive_goals", "awaiting_defer_confirm"):
+                return [static_list[1]]
+            return []
         return static_list[1:]
     return static_list[:1]
 
@@ -455,6 +468,8 @@ live_demo_coordinator = LiveDemoCoordinator()
 # -------------------------------------------------------------------------------------- Journey Case Builders (5/5 Linter Clean)
 def _seed_journey_prior_record(session: Session, tenant_id: str, j_key: str) -> tuple[str | None, str, str]:
     """Ensure the journey's verified historical EMR document & memory exist (returns doc_id, label, quote)."""
+    if j_key in CORPORATE_JOURNEY_KEYS:
+        return seed_corporate_journey_prior_record(session, tenant_id, j_key)
     if j_key in EXTRA_JOURNEY_KEYS:
         return seed_extra_journey_prior_record(session, tenant_id, j_key)
 
@@ -550,6 +565,8 @@ def _seed_journey_prior_record(session: Session, tenant_id: str, j_key: str) -> 
 def _build_initial_summary(j_key: str, doc_id: str | None, doc_label: str, doc_quote: str, welcome_msg: str) -> dict[str, Any]:
     """Initial clean 5/5-linted summary when patient scans QR & Sam starts welcoming them."""
     j = JOURNEY_BY_KEY[j_key]
+    if j_key in CORPORATE_JOURNEY_KEYS:
+        return build_corporate_initial_summary(j_key, doc_id, doc_label, doc_quote, welcome_msg, _hkt_hhmm())
     if j_key in EXTRA_JOURNEY_KEYS:
         return build_extra_initial_summary(j_key, j, doc_id, doc_label, doc_quote, welcome_msg, _hkt_hhmm())
     chat = [{"actor": "Sam", "time": _hkt_hhmm(), "text": welcome_msg, "lang": "zh-HK" if _CJK_RE.search(welcome_msg) else "en"}]
@@ -929,13 +946,19 @@ def get_live_journeys_status(
     live_bus: LiveHarnessBus,
     *,
     include_all: bool = False,
+    pack: str | None = None,
 ) -> dict[str, Any]:
-    """List flagship 4 HK GP patient journeys by default (or all 12 when include_all=True / ?all=1)."""
-    visible_journeys = (
-        list(LIVE_JOURNEYS)
-        if include_all
-        else [JOURNEY_BY_KEY[k] for k in FLAGSHIP_4_JOURNEY_KEYS if k in JOURNEY_BY_KEY]
-    )
+    """List flagship 4 HK GP journeys by default, or 4 Central Health Corporate Wellness journeys when pack='corporate_health'."""
+    norm_pack = (pack or "gp").strip().lower()
+    if norm_pack in ("corporate", "corporate_health", "wellness"):
+        visible_journeys = [JOURNEY_BY_KEY[k] for k in CORPORATE_4_JOURNEY_KEYS if k in JOURNEY_BY_KEY]
+        active_pack = "corporate_health"
+    elif include_all:
+        visible_journeys = [*CORE_LIVE_JOURNEYS, *EXTRA_LIVE_JOURNEYS]
+        active_pack = "all"
+    else:
+        visible_journeys = [JOURNEY_BY_KEY[k] for k in FLAGSHIP_4_JOURNEY_KEYS if k in JOURNEY_BY_KEY]
+        active_pack = "gp"
     with db.tenant_session(tenant_id) as session:
         cases = session.scalars(
             select(CaseLoop).where(CaseLoop.tenant_id == tenant_id)
@@ -976,6 +999,7 @@ def get_live_journeys_status(
     snap = live_demo_coordinator.snapshot()
     return {
         **snap,
+        "pack": active_pack,
         "journeys": items,
         "recent_tool_calls": _collect_live_tool_calls(live_bus, limit=25),
     }
@@ -1777,6 +1801,21 @@ def _compile_journey_turn_update(
             summary,
             reply,
             steps,
+        )
+
+    if j_key in CORPORATE_JOURNEY_KEYS:
+        return compile_corporate_journey_turn(
+            session=session,
+            tenant_id=tenant_id,
+            j_key=j_key,
+            patient_text=patient_text,
+            existing_summary=existing_summary,
+            prior_patient_msgs=prior_patient_msgs,
+            is_followup_turn=is_followup_turn,
+            is_simple_ack=is_simple_ack,
+            cds_blocked_drugs=cds_blocked_drugs,
+            is_zh=is_zh,
+            hhmm=_hkt_hhmm(),
         )
 
     if j_key in EXTRA_JOURNEY_KEYS:
@@ -3485,6 +3524,40 @@ _LEAFLET_CATALOG: dict[str, dict[str, Any]] = {
             "每晚定時服用降膽固醇藥，並按期完成空腹血脂抽血覆檢。",
         ],
     },
+    "flu_post_vax_hk": {
+        "title_en": "Seasonal Flu Shot & Post-Vaccination Safety Guide",
+        "title_zh": "季節性流感疫苗及接種後安全護理單張",
+        "template": "Central Health · Vaccination Safety Sheet",
+        "summary_en": "What to expect after your supervised recombinant flu vaccination and anticoagulant injection care.",
+        "summary_zh": "醫生監督接種無蛋成分重組流感疫苗及薄血藥針口護理指引。",
+        "bullets_en": [
+            "Remain comfortably in the clinic lounge for 30 minutes after your supervised vaccination.",
+            "Apply firm, gentle pressure over the injection site for 2 minutes (do not rub) to prevent bruising on blood thinners.",
+            "Mild arm soreness for 24–48 hours is normal; seek urgent medical review if you notice hives, wheezing, or lip/throat swelling.",
+        ],
+        "bullets_zh": [
+            "完成醫生監督接種後，請於診所休息區留院觀察 30 分鐘。",
+            "服食薄血藥期間，請輕按針口 2 分鐘（切勿搓揉）以減低瘀青。",
+            "針口輕微痠痛 1–2 日屬正常；如出現風癩、喘鳴或嘴唇／喉嚨腫脹，請立即通知醫護。",
+        ],
+    },
+    "longevity_preventive_hk": {
+        "title_en": "Executive Preventive Screening & Longevity Biomarker Guide",
+        "title_zh": "高管預防篩查及長壽健康指標指南",
+        "template": "Central Health · Preventive & Longevity Care Sheet",
+        "summary_en": "Preparation guide for your bundled corporate flu shot, Shingrix vaccine, fasting longevity bloods, and imaging.",
+        "summary_zh": "企業流感針、生蛇針、空腹長壽驗血及影像檢查一站式準備指南。",
+        "bullets_en": [
+            "Fast 8–10 hours overnight (plain water is fine) ahead of your morning ApoB, Lp(a), hs-CRP, Lipids & HbA1c blood draw.",
+            "Your corporate flu shot and Shingrix Dose 1 are bundled cleanly in the same morning nurse visit (opposite arms).",
+            "Our Clinic AI Resident will automatically follow up in Week 8 to book your Shingrix Dose 2 and review your biomarker results.",
+        ],
+        "bullets_zh": [
+            "抽血檢驗 ApoB、Lp(a)、hs-CRP、血脂及血糖前請空腹 8 至 10 小時（可飲清水）。",
+            "企業流感針同生蛇針第一針可於同一個早上護士時段一次過完成（左右手臂分開接種）。",
+            "診所 AI 助手會於第 8 星期自動通知你預約生蛇針第二針及跟進報告。",
+        ],
+    },
 }
 
 
@@ -3528,7 +3601,12 @@ def _build_patient_lab_slip(order: dict[str, Any], display_doc: str, mchk_reg_no
     when = str(order.get("when") or "As scheduled")
     ref = f"LABHK-{str(order.get('id') or new_id('lab'))[-6:].upper()}"
 
-    if "dipstick" in low_n or "msu" in low_n or "urine" in low_n:
+    if "apob" in low_n or "lp(a)" in low_n or "hs-crp" in low_n:
+        title_en = "Executive Preventive & Longevity Blood Panel (Lipids, ApoB, Lp(a), hs-CRP, HbA1c, Kidney & FIT)"
+        title_zh = "高管預防及長壽空腹驗血（血脂、ApoB、Lp(a)、hs-CRP、血糖、腎功能及大腸癌 FIT）"
+        instr_en = "Fast 8–10 hours overnight (plain water fine). Bundled cleanly with your morning Central Health nurse flu & Shingrix visit."
+        instr_zh = "抽血前請空腹 8 至 10 小時（可飲清水），早上到 Central Health 護士站抽血並一併接種流感針及生蛇針。"
+    elif "dipstick" in low_n or "msu" in low_n or "urine" in low_n:
         title_en = "Urine Test (Clinic / Lab)"
         title_zh = "小便化驗檢查"
         instr_en = "Provide a clean mid-stream urine sample at the clinic counter or KingMed centre before starting your antibiotics (no fasting needed)."
@@ -3843,6 +3921,30 @@ def append_doctor_signed_chat_bubble(
             "text_zh": followup_zh,
             "trace_id": trace_id,
             "booking_offer": followup_offer,
+        })
+    elif case.case_key in ("corp_prev_bundle", "corp_flu_flag") and not already_booked:
+        corp_offer = select_booking_offer(
+            session,
+            case.tenant_id,
+            j_key=case.case_key,
+            patient_text="morning bundled corporate wellness visit",
+            purpose="preventive_checkup" if case.case_key == "corp_prev_bundle" else "standard",
+        )
+        if case.case_key == "corp_prev_bundle":
+            f_en = "Everything is approved — pick a morning slot below to complete your fasting longevity blood draw, corporate flu shot, and Shingrix Dose 1 in one visit. I'll also remind you automatically in Week 8 for Shingrix Dose 2."
+            f_zh = "所有項目已經批核——你可以喺下方揀選早上空檔，一次過完成空腹長壽抽血、企業流感針及生蛇針第一針。第 8 星期我亦會自動提你預約第二針。"
+        else:
+            f_en = "Dr. Sarah Wong has cleared you for a doctor-supervised, egg-free flu vaccination with 30-minute clinic observation. Pick a convenient slot below."
+            f_zh = "黃莎拉醫生已經批核由醫生監督嘅無蛋成分流感疫苗及 30 分鐘觀察。請喺下方揀選合適時段。"
+        chat.append({
+            "actor": "Sam",
+            "role": "assistant",
+            "time": hhmm,
+            "text": f_en,
+            "text_en": f_en,
+            "text_zh": f_zh,
+            "trace_id": trace_id,
+            "booking_offer": corp_offer,
         })
 
     summary["original_chat"] = chat

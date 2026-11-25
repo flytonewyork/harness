@@ -342,7 +342,10 @@ export const v2Api = {
   // Execution Layer & 3-Layer Practice Knowledge Graph (Loops 1–5)
   workspaceOverview: (mode: "live" | "seeded" = "live") =>
     req<Record<string, any>>(`/api/v1/workspace/overview?mode=${encodeURIComponent(mode)}`),
-  liveDemoJourneys: () => req<Record<string, any>>("/api/v1/demo/live/journeys"),
+  liveDemoJourneys: (pack?: string) =>
+    req<Record<string, any>>(
+      pack ? `/api/v1/demo/live/journeys?pack=${encodeURIComponent(pack)}` : "/api/v1/demo/live/journeys",
+    ),
   liveChatStart: (journeyKey: string, lang: "en" | "zh-HK" = "en", forceRestart = false) =>
     req<Record<string, any>>("/api/v1/demo/live/chat/start", {
       method: "POST",
