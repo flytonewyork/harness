@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { v2Api } from "../api";
 import "./workspace.css";
 
-type NavView = "my_work" | "clinic_team" | "playbook" | "curator" | string;
+type NavView = "my_work" | "clinic_team" | "ai_team" | "playbook" | "curator" | string;
 
 export type OrderType = "rx" | "cert" | "lab" | "imaging" | "refer" | "goal" | "leaflet" | "nurse" | "book";
 export type RxVerb = "start" | "update" | "stop" | "continue";
@@ -812,7 +812,7 @@ export function ClinicWorkspaceApp() {
 
   // If the currently viewed case disappeared (e.g., global reset triggered from phone), return cleanly to #my-work
   useEffect(() => {
-    if (view !== "my_work" && view !== "clinic_team" && view !== "playbook" && view !== "curator" && data && !activeCase) {
+    if (view !== "my_work" && view !== "clinic_team" && view !== "ai_team" && view !== "playbook" && view !== "curator" && data && !activeCase) {
       setView("my_work");
     }
   }, [view, data, activeCase]);
@@ -1342,6 +1342,12 @@ export function ClinicWorkspaceApp() {
             <button type="button" className={`ws-nav-btn ${view === "clinic_team" ? "is-active" : ""}`} onClick={() => setView("clinic_team")}>
               <span># clinic-team</span><span className="ws-badge">{data.team_handoffs.length}</span>
             </button>
+            <button type="button" className={`ws-nav-btn ${view === "ai_team" ? "is-active" : ""}`} onClick={() => setView("ai_team")} data-testid="nav-ai-team-btn">
+              <span># ai-team</span>
+              <span className="ws-badge" style={{ background: "#eef7f5", color: "#0f6b58" }}>
+                {cases.filter((c: any) => c.state === "scheduled" || (c.state === "closed" && (c.summary?.scheduled_tasks || []).length > 0)).length}
+              </span>
+            </button>
             <button type="button" className={`ws-nav-btn ${view === "playbook" ? "is-active" : ""}`} onClick={() => setView("playbook")}>
               <span>@ Clinic Playbook</span>
               <span className="ws-badge" style={{ background: "#f5f5f4", color: "#57534e" }}>
@@ -1378,16 +1384,14 @@ export function ClinicWorkspaceApp() {
                   <div style={{ padding: "4px 8px", fontSize: 12, color: "var(--ws-ink-3)" }}>None yet</div>
                 ) : otherPatients.map((c: any) => {
                   const isRunning = c.state === "running";
-                  const isClosed = c.state === "closed";
+                  const isDoneForDoctor = c.state === "closed" || c.state === "scheduled";
                   const subLabel =
                     c.next_checkpoint_label ||
                     (isRunning
                       ? c.baton === "with_nurse"
                         ? "With Nurse Rachel"
                         : "Active"
-                      : isClosed
-                        ? "Closed"
-                        : "");
+                      : "Signed · Done for today");
                   return (
                     <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
                       <div style={{ minWidth: 0 }}>
@@ -1397,14 +1401,12 @@ export function ClinicWorkspaceApp() {
                         </div>
                         {subLabel && <div className="ws-nav-sub">{subLabel}</div>}
                       </div>
-                      {isClosed ? (
-                        <span className="ws-badge" title="Loop closed">✓</span>
+                      {isDoneForDoctor ? (
+                        <span className="ws-badge" title="Done for doctor today · background loop owned by # ai-team">✓</span>
                       ) : c.baton === "with_nurse" ? (
                         <span className="ws-badge" style={{ background: "#fef3c7", color: "#92400e" }} title="With Nurse">Nurse</span>
-                      ) : c.baton === "with_patient" ? (
-                        <span className="ws-badge" style={{ background: "#e0f2fe", color: "#075985" }} title="Active with patient">Chat</span>
                       ) : (
-                        <span className="ws-badge" style={{ background: "#f5f5f4", color: "#57534e" }} title="Open loop awaiting pending step">Open</span>
+                        <span className="ws-badge" style={{ background: "#e0f2fe", color: "#075985" }} title="Active with patient">Chat</span>
                       )}
                     </button>
                   );
@@ -1668,6 +1670,84 @@ export function ClinicWorkspaceApp() {
               ))}
             </div>
           )}
+
+          {view === "ai_team" && (() => {
+            const aiLoops = cases.filter(
+              (c: any) =>
+                c.state === "scheduled" ||
+                (c.state === "closed" && (c.summary?.scheduled_tasks || []).length > 0),
+            );
+            const wakeRuleFor = (c: any): string => {
+              const key = String(c.case_key || "");
+              if (key === "chan") return "Wakes on-duty GP if INR out of 2.0–3.0, overdue, or bleeding reported";
+              if (key === "lau_chest") return "Wakes on-duty GP if Day-7 BP > 140/90, dizzy, or fasting labs abnormal";
+              if (key === "tang_uti") return "Wakes on-duty GP if urine culture resistant, fever, or symptoms persist >48h";
+              return "Wakes on-duty GP only if red flags, worsening symptoms, or extra sick-leave requested";
+            };
+            return (
+              <div style={{ maxWidth: 820, display: "flex", flexDirection: "column", gap: 14 }} data-testid="ai-team-loops-view">
+                <div>
+                  <div className="ws-section-kicker" style={{ color: "#0f6b58" }}>Clinic AI Background Loops · Doctor Done for Today</div>
+                  <h1 className="ws-ai-title" style={{ marginTop: 2 }}># ai-team</h1>
+                  <div style={{ fontSize: 13, color: "var(--ws-ink-3)", marginTop: 2 }}>
+                    Longitudinal monitoring owned by the Clinic AI Resident across days and weeks. These stay completely out of the doctor&apos;s inbox unless an abnormal result, overdue lab, or red flag fires.
+                  </div>
+                </div>
+                {aiLoops.length === 0 ? (
+                  <div className="ws-card">
+                    <div className="ws-lead">No active background AI loops yet. Once a doctor signs off a care plan, pending labs, Day-3/Day-7 AI check-ins, and follow-up recalls move here automatically.</div>
+                  </div>
+                ) : (
+                  aiLoops.map((c: any) => {
+                    const tasks: any[] = c.summary?.scheduled_tasks || [];
+                    return (
+                      <div key={c.id} className="ws-card" style={{ gap: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 15, color: "var(--ws-ink)" }}>
+                              {c.patient_name} ({c.patient_age_sex})
+                            </div>
+                            <div style={{ fontSize: 12.5, color: "var(--ws-ink-3)", marginTop: 2 }}>
+                              {c.next_checkpoint_label || c.ai_title}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span className="ws-pill ws-pill-jade">AI Watching · Quiet Loop</span>
+                            <button type="button" className="ws-btn" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => openCase(c.id)}>
+                              View chart →
+                            </button>
+                          </div>
+                        </div>
+                        {tasks.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {tasks.map((t: any, ti: number) => (
+                              <div
+                                key={ti}
+                                style={{
+                                  fontSize: 12.5,
+                                  color: "var(--ws-ink-2)",
+                                  padding: "6px 10px",
+                                  borderRadius: 8,
+                                  background: "#f7fcfa",
+                                  border: "1px solid #d7ede7",
+                                }}
+                              >
+                                {t.label}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 12, color: "var(--ws-ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
+                          <strong style={{ color: "var(--ws-ink-2)" }}>Wake-up trigger:</strong>
+                          <span>{wakeRuleFor(c)}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            );
+          })()}
 
           {view === "playbook" && (() => {
             const allNodes: any[] = data.practice_graph?.nodes || [];

@@ -1981,27 +1981,25 @@ def create_acute_app(
                     else:
                         case_row.next_checkpoint_label = "Plan signed"
                 else:
-                    # Open loop: explicitly show the blocking step preventing closure!
+                    # Signed for today, handed off to # ai-team background loop
                     if nurse_orders and "inr" in lab_blob:
-                        case_row.next_checkpoint_label = "Nurse call · Awaiting 7d INR"
+                        case_row.next_checkpoint_label = "Nurse call · AI watching 7d INR"
                     elif nurse_orders:
-                        case_row.next_checkpoint_label = f"Awaiting {nurse_assignee_lbl.split('(')[0].strip()}"
+                        case_row.next_checkpoint_label = f"With {nurse_assignee_lbl.split('(')[0].strip()}"
                     elif "inr" in lab_blob:
-                        case_row.next_checkpoint_label = "Awaiting 7d INR result"
+                        case_row.next_checkpoint_label = "Warfarin 3mg · AI watching 7d INR"
                     elif "urine" in lab_blob or "dipstick" in lab_blob or "msu" in lab_blob:
-                        case_row.next_checkpoint_label = "Augmentin · Awaiting urine test"
+                        case_row.next_checkpoint_label = "Augmentin · AI watching urine lab"
                     elif "lipid" in lab_blob or "hba1c" in lab_blob or "renal" in lab_blob:
-                        case_row.next_checkpoint_label = "Awaiting Day-7 BP & fasting labs"
+                        case_row.next_checkpoint_label = "Perindopril 8mg · AI Day-7 BP loop"
                     elif lab_orders:
-                        first_lab = str(lab_orders[0].get("test_name") or lab_orders[0].get("testName") or "lab").split("(")[0].strip()
-                        case_row.next_checkpoint_label = f"Awaiting {first_lab[:22]}"
+                        case_row.next_checkpoint_label = "Signed · AI watching lab results"
                     elif img_orders:
-                        mod = str(img_orders[0].get("modality") or "imaging").strip()
-                        case_row.next_checkpoint_label = f"Awaiting {mod[:22]}"
+                        case_row.next_checkpoint_label = "Signed · AI watching imaging"
                     elif book_orders:
-                        case_row.next_checkpoint_label = "Awaiting follow-up visit"
+                        case_row.next_checkpoint_label = "Signed · AI follow-up scheduled"
                     else:
-                        case_row.next_checkpoint_label = "Tracking home BP target"
+                        case_row.next_checkpoint_label = "Signed · AI tracking home BP"
             s.flush()
 
         trace_dict["emr_addendum"] = enriched_addendum
