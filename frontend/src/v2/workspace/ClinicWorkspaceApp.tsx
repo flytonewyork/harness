@@ -1353,62 +1353,91 @@ export function ClinicWorkspaceApp() {
             </button>
           </div>
 
-          <div className="ws-nav-group">
-            <div className="ws-nav-heading"><span>Needs Decision</span><span>{data.counts.needs_decision}</span></div>
-            {data.grouped.needs_decision.length === 0 ? (
-              <div style={{ padding: "4px 8px", fontSize: 12, color: "var(--ws-ink-3)" }}>None pending</div>
-            ) : data.grouped.needs_decision.map((c: any) => (
-              <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
-                <div style={{ minWidth: 0 }}>
-                  <div>{c.patient_name} ({c.patient_age_sex})</div>
-                  <div className="ws-nav-sub">{c.next_checkpoint_label}</div>
-                </div>
-                <span className="ws-badge">1</span>
-              </button>
-            ))}
-          </div>
-
           {(() => {
+            const shortDxTitle = (c: any): string => {
+              const key = String(c.case_key || "");
+              if (key === "wingyan") return "Acute Viral URTI";
+              if (key === "tang_uti") return "Acute Uncomplicated UTI";
+              if (key === "chan") return "Post-QEH AFib · Warfarin";
+              if (key === "lau_chest") return "Hypertension & CVD Risk";
+              const issueName = String(c.summary?.issues?.[0]?.name || "").replace(/^\d+\.\s*/, "").split("—")[0].trim();
+              if (issueName) return issueName.split(/\s+/).slice(0, 4).join(" ");
+              const aiTitle = String(c.ai_title || "").split("—")[0].trim();
+              return aiTitle ? aiTitle.split(/\s+/).slice(0, 4).join(" ") : "";
+            };
             const otherPatients = [
               ...data.grouped.running,
               ...data.grouped.scheduled,
               ...data.grouped.closed,
             ];
             return (
-              <div className="ws-nav-group" data-testid="sidebar-patients-group">
-                <div className="ws-nav-heading"><span>Patients</span><span>{otherPatients.length}</span></div>
-                {otherPatients.length === 0 ? (
-                  <div style={{ padding: "4px 8px", fontSize: 12, color: "var(--ws-ink-3)" }}>None yet</div>
-                ) : otherPatients.map((c: any) => {
-                  const isRunning = c.state === "running";
-                  const isDoneForDoctor = c.state === "closed" || c.state === "scheduled";
-                  const subLabel =
-                    c.next_checkpoint_label ||
-                    (isRunning
-                      ? c.baton === "with_nurse"
-                        ? "With Nurse Rachel"
-                        : "Active"
-                      : "Signed · Done for today");
-                  return (
-                    <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {isRunning && <span className="ws-live-dot" />}
-                          <span>{c.patient_name}{c.patient_age_sex ? ` (${c.patient_age_sex})` : ""}</span>
+              <>
+                <div className="ws-nav-group">
+                  <div className="ws-nav-heading"><span>Needs Decision</span><span>{data.counts.needs_decision}</span></div>
+                  {data.grouped.needs_decision.length === 0 ? (
+                    <div style={{ padding: "4px 8px", fontSize: 12, color: "var(--ws-ink-3)" }}>None pending</div>
+                  ) : data.grouped.needs_decision.map((c: any) => {
+                    const dxTitle = shortDxTitle(c);
+                    const statusSub = c.next_checkpoint_label && c.next_checkpoint_label !== dxTitle ? c.next_checkpoint_label : "";
+                    return (
+                      <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
+                        <div style={{ minWidth: 0 }}>
+                          <div>{c.patient_name} ({c.patient_age_sex})</div>
+                          {dxTitle && (
+                            <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ws-ink-2)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {dxTitle}
+                            </div>
+                          )}
+                          {statusSub && <div className="ws-nav-sub">{statusSub}</div>}
                         </div>
-                        {subLabel && <div className="ws-nav-sub">{subLabel}</div>}
-                      </div>
-                      {isDoneForDoctor ? (
-                        <span className="ws-badge" title="Done for doctor today · background loop owned by # ai-team">✓</span>
-                      ) : c.baton === "with_nurse" ? (
-                        <span className="ws-badge" style={{ background: "#fef3c7", color: "#92400e" }} title="With Nurse">Nurse</span>
-                      ) : (
-                        <span className="ws-badge" style={{ background: "#e0f2fe", color: "#075985" }} title="Active with patient">Chat</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                        <span className="ws-badge">1</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="ws-nav-group" data-testid="sidebar-patients-group">
+                  <div className="ws-nav-heading"><span>Patients</span><span>{otherPatients.length}</span></div>
+                  {otherPatients.length === 0 ? (
+                    <div style={{ padding: "4px 8px", fontSize: 12, color: "var(--ws-ink-3)" }}>None yet</div>
+                  ) : otherPatients.map((c: any) => {
+                    const isRunning = c.state === "running";
+                    const isDoneForDoctor = c.state === "closed" || c.state === "scheduled";
+                    const dxTitle = shortDxTitle(c);
+                    const rawSub =
+                      c.next_checkpoint_label ||
+                      (isRunning
+                        ? c.baton === "with_nurse"
+                          ? "With Nurse Rachel"
+                          : "Active"
+                        : "Signed · Done for today");
+                    const subLabel = rawSub && rawSub !== dxTitle ? rawSub : "";
+                    return (
+                      <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            {isRunning && <span className="ws-live-dot" />}
+                            <span>{c.patient_name}{c.patient_age_sex ? ` (${c.patient_age_sex})` : ""}</span>
+                          </div>
+                          {dxTitle && (
+                            <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ws-ink-2)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {dxTitle}
+                            </div>
+                          )}
+                          {subLabel && <div className="ws-nav-sub">{subLabel}</div>}
+                        </div>
+                        {isDoneForDoctor ? (
+                          <span className="ws-badge" title="Done for doctor today · background loop owned by # ai-team">✓</span>
+                        ) : c.baton === "with_nurse" ? (
+                          <span className="ws-badge" style={{ background: "#fef3c7", color: "#92400e" }} title="With Nurse">Nurse</span>
+                        ) : (
+                          <span className="ws-badge" style={{ background: "#e0f2fe", color: "#075985" }} title="Active with patient">Chat</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
             );
           })()}
 
