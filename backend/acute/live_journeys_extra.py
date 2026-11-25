@@ -94,12 +94,14 @@ EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
             "劉女士你好，我係中環及半山家庭醫務中心嘅 AI 駐診助手 Sam。你今日覺得點樣？"
         ),
         "suggested_replies_en": [
-            "My home blood pressure has been creeping up to around 148/92 this week on Perindopril 4mg — no chest pain or shortness of breath. Could Dr. Wong review my blood pressure, cholesterol, and any routine checkups I'm due for?",
-            "Yes, I take my Perindopril and Rosuvastatin every day with no side effects, and I sit for 5 minutes before checking — please include my flu shot and routine checks in the plan.",
+            "My home blood pressure has been creeping up to around 148/92 this week on Perindopril 4mg — no chest pain or shortness of breath. Could Dr. Wong review my blood pressure and routine checkups?",
+            "Yes, I take my Perindopril 4mg and Rosuvastatin 10mg every day with no side effects, and I sit quietly for 5 minutes before checking.",
+            "I have never smoked, no diabetes, and my father had high blood pressure in his 60s. I feel fine walking briskly — happy to arrange preventive blood tests and leaflets too.",
         ],
         "suggested_replies_zh": [
-            "今個星期食住 Perindopril 4mg 屋企血壓升到大約 148/92，冇心口痛亦冇氣促。請問黃醫生需唔需要覆核血壓藥、膽固醇，同埋我有冇常規檢查到期？",
-            "有呀，每日都有準時食 Perindopril 同 Rosuvastatin，冇咩副作用，亦都有靜坐 5 分鐘先量血壓——麻煩將流感針同常規檢查一併加入計劃。",
+            "今個星期食住 Perindopril 4mg 屋企血壓升到大約 148/92，冇心口痛亦冇氣促。請問黃醫生需唔需要覆核血壓同埋常規檢查？",
+            "有呀，每日都有準時食 Perindopril 4mg 同 Rosuvastatin 10mg，冇咩副作用，亦都有靜坐 5 分鐘先量血壓。",
+            "我從來唔食煙、冇糖尿病，爸爸六十幾歲時有高血壓。平時行快少少都冇氣促——好呀，順便安排預防性驗血同健康單張。",
         ],
     },
     # ---- Hospital Follow-Up & Chronic Care ----
@@ -647,7 +649,7 @@ def compile_extra_journey_turn(
             "with_doctor",
             "Acute Uncomplicated UTI — Doctor Review",
             f"Burning urination & frequency (<24h){f', home temp {temp_val}' if temp_val else ''}, red flags & pregnancy clear; G6PD-safe Augmentin 375mg TDS x5d staged.",
-            "Ready for sign-off",
+            "Acute Uncomplicated UTI",
             summary,
             reply,
             steps,
@@ -1078,78 +1080,172 @@ def compile_extra_journey_turn(
         ]
         confirmed_adherence = any(
             k in all_low or k in all_text
-            for k in ("every day", "take my perindopril", "no side effects", "每日都有準時食", "冇咩副作用", "準時食藥")
+            for k in (
+                "every day", "take my perindopril", "no side effects", "5 minutes", "sit quietly",
+                "每日都有準時食", "冇咩副作用", "準時食藥", "靜坐 5 分鐘",
+            )
         )
+        confirmed_cvd_inputs = any(
+            k in all_low or k in all_text
+            for k in (
+                "never smoked", "non-smoker", "don't smoke", "no diabetes", "not diabetic",
+                "family", "father", "mother", "walking briskly",
+                "唔食煙", "冇糖尿病", "爸爸", "媽媽", "家族", "行快",
+            )
+        )
+        smoker_flag = any(k in all_low or k in all_text for k in ("i smoke", "smoker", "smoking", "有食煙")) and not any(
+            k in all_low or k in all_text for k in ("never smoked", "non-smoker", "don't smoke", "唔食煙")
+        )
+        cvd_score = compute_cvd_10yr_tier(age=64, smoker=smoker_flag, systolic_bp=148, ldl_mmol_l=2.9, sex="F", on_bp_treatment=True)
+        summary["clinical_scores"] = [cvd_score]
+
+        vitals_items = [
+            {"label": "Home BP", "val": "148/92 mmHg (upward trend · seated 5 min)" if confirmed_adherence else "148/92 mmHg (upward trend)"},
+            {"label": "Current Rx", "val": "Perindopril 4mg OM · Rosuvastatin 10mg ON" + (" (adherent, no side effects)" if confirmed_adherence else "")},
+            {"label": "Red flags", "val": "Denies chest pain, dyspnoea, or diaphoresis"},
+        ]
+        if confirmed_cvd_inputs:
+            vitals_items.append({"label": "CVD Risk Inputs", "val": f"{'Smoker' if smoker_flag else 'Non-smoker'} · Non-diabetic · FHx hypertension (father)"})
+        summary["vitals_exam"] = {
+            "source": f"Patient Careline · Today {hhmm}",
+            "encounter_context": "Inbound Remote · Home BP Logged",
+            "items": vitals_items,
+        }
+
+        summary["scheduled_tasks"] = [
+            {
+                "status": "auto",
+                "label": "Day +7 · Autonomous AI Home BP & Side-Effect Check-In (escalates to Dr. Wong only if BP > 140/90 or dizzy)",
+            },
+            {
+                "status": "staged",
+                "label": "Weeks 2–4 · Guideline GP BP & Renal Panel Follow-Up Rebook (after Perindopril titration)",
+            },
+        ]
+
         summary["issues"] = [{
             "id": "iss_lau_cardiac",
             "name": "1. Chronic hypertension & cardiovascular risk optimization",
             "bullets": [
-                "Home BP drifted upward over 8 weeks on Perindopril 4mg; asymptomatic at rest with no chest pain or dyspnoea.",
-                "LDL remains above high-risk target on Rosuvastatin 10mg alongside mild baseline LVH on Oct ECG (see 10-Yr CVD Risk Score & BP Trend).",
+                "Home BP drifted upward over recent weeks on Perindopril; asymptomatic at rest with no chest pain or dyspnoea (see BP Trend).",
+                (
+                    f"History & CVD risk inputs verified ({'smoker' if smoker_flag else 'non-smoker'}, non-diabetic, FHx HTN, daily adherence confirmed); LDL remains above target on Rosuvastatin (see 10-Yr CVD Risk Score & Lab Panel)."
+                    if confirmed_cvd_inputs
+                    else "LDL remains above high-risk target on Rosuvastatin alongside mild baseline LVH on Oct ECG (see 10-Yr CVD Risk Score & BP Trend)."
+                ),
             ],
             "safety_gap": (
-                "Adherence confirmed (daily Perindopril 4mg & Rosuvastatin 10mg, no side effects); verify seated clinic BP before titration."
-                if confirmed_adherence
-                else "Confirm seated 5-minute home BP technique & medication adherence before Perindopril titration."
+                None
+                if (confirmed_adherence and confirmed_cvd_inputs)
+                else (
+                    "Adherence confirmed; collecting conversational CVD risk inputs (smoking, diabetes, family history) before finalizing plan."
+                    if confirmed_adherence
+                    else "Confirm seated 5-minute home BP technique & daily medication adherence before Perindopril titration."
+                )
             ),
             "suggested_orders": [
-                {"id": "lau_rx_perind", "type": "rx", "action": "update", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "drug": "Perindopril 8mg", "freq": "OM daily", "days": "30d", "note": "Consider titration after confirming clinic BP & renal panel"},
-                {"id": "lau_lab", "type": "lab", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "fasting": True, "when": "Before clinic review"},
+                {"id": "lau_rx_perind", "type": "rx", "action": "update", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "drug": "Perindopril 8mg", "freq": "OM daily", "days": "30d", "note": "Titrate from 4mg; Day +7 AI BP check-in + 2–4w GP & renal panel review"},
+                {"id": "lau_lab", "type": "lab", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "fasting": True, "when": "Within 2 weeks (pre-review)"},
+                {"id": "lau_book_2w", "type": "book", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "visitType": "GP BP & Renal Titration Review", "when": "In 2–4 weeks (guideline titration check)"},
                 {"id": "lau_goal_bp", "type": "goal", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "metric": "Blood Pressure", "targetSys": 135, "targetDia": 85},
+                {
+                    "id": "lau_leaflet_bp",
+                    "type": "goal",
+                    "issue": "1. Chronic hypertension & cardiovascular risk optimization",
+                    "metric": "Home Blood Pressure & Heart-Healthy Diet Leaflet",
+                    "leaflet_id": "low_sodium_bp_hk",
+                    "title": "Home Blood Pressure & Heart-Healthy Diet Leaflet",
+                    "template": "Central Medical · Hypertension & Lipid Care Sheet",
+                    "target_text": "Target home BP < 135/85 mmHg. Check seated after 5 min rest; reduce sodium (< 2g/day); expect Day +7 AI BP check-in and 2–4 week follow-up review.",
+                },
             ],
         }]
         summary["sam_proactive_insight"] = (
             f"10-year CVD risk ({cvd_score.get('value', '5–10%')} · {cvd_score.get('band', 'Borderline')}) with upward home BP drift (132 → 148 mmHg on Perindopril 4mg), "
-            "LDL above target on Rosuvastatin 10mg, and mild LVH on baseline ECG. Consider Perindopril titration after RFT/eGFR check and bundle due CV-priority flu shot & biennial mammogram."
+            "LDL 2.9 on Rosuvastatin 10mg, and mild LVH on baseline ECG. Staged Perindopril 8mg titration with Day +7 autonomous AI BP check-in, 2–4 week guideline GP review, preventive bloods, and patient education leaflet."
         )
         agent_thread = list(summary.get("agent_thread") or [])
-        if not any("10-year CVD risk" in str(x.get("text", "")) for x in agent_thread):
-            agent_thread.append({
-                "actor": "Sam",
-                "time": hhmm,
-                "text": (
-                    f"AI Resident reasoning: Confirmed asymptomatic at rest (no chest pain or dyspnoea) → computed deterministic 10-year CVD risk ({cvd_score.get('value', '5–10%')} · {cvd_score.get('band', 'Borderline')}) "
-                    "and mounted BP trend, Perindopril/Rosuvastatin profile, Oct ECG/Echo, and cardiovascular labs → staged Perindopril titration option, Fasting Lipid + HbA1c + RFT/eGFR panel, BP target goal, and preventive checkups (CV-priority flu shot & biennial mammogram)."
-                ),
-            })
-        summary["agent_thread"] = agent_thread[-4:]
-        steps.append(f"PracticeGraph · Computed Python 10-Yr CVD Risk ({cvd_score.get('value', '5–10%')}) & mounted Cardiac Prevention Canvas")
 
-        if not confirmed_adherence and not is_followup_turn:
+        # Turn 1: Gather medication adherence, side effects, and BP measurement technique
+        if not confirmed_adherence and not confirmed_cvd_inputs:
+            summary["_lau_stage"] = "awaiting_adherence"
+            if not any("Step 1/3" in str(x.get("text", "")) for x in agent_thread):
+                agent_thread.append({
+                    "actor": "Sam",
+                    "time": hhmm,
+                    "text": "AI Resident reasoning (Step 1/3): Noted upward home BP drift (132 → 148/92 mmHg) with red flags clear (no chest pain/dyspnoea). Checking daily Perindopril/Rosuvastatin adherence, side effects, and seated 5-min BP technique before calculating CVD risk.",
+                })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("AI Resident · Step 1/3: Checking medication adherence & home BP technique")
             reply = (
-                "多謝你定期記錄血壓。幫黃莎拉醫生整理血壓趨勢同常規檢查建議之前，想先確認兩件事：你每日有冇準時食 Perindopril 同 Rosuvastatin，有冇任何副作用？另外量血壓前有冇先靜坐休息 5 分鐘？"
+                "多謝你定期記錄血壓。幫黃莎拉醫生更新你嘅心血管風險評估前，想先確認：你每日有冇準時食 Perindopril 4mg 同 Rosuvastatin 10mg，有冇頭暈或乾咳等副作用？另外量血壓前有冇先靜坐休息 5 分鐘？"
                 if is_zh
-                else "Thank you for tracking your readings. Before I brief Dr. Sarah Wong on your BP trend and routine checkups, have you been taking Perindopril and Rosuvastatin every day without side effects, and do you rest seated for 5 minutes before checking?"
+                else "Thank you for tracking your readings. Before I update your cardiovascular profile for Dr. Sarah Wong, have you been taking your Perindopril 4mg and Rosuvastatin 10mg every day without side effects, and do you rest seated for 5 minutes before checking?"
             )
             return (
                 "running",
                 "with_patient",
-                "Cardiac & BP Check-In — Gathering History",
-                "Home BP drifted to 148/92; AI Resident is confirming daily medication adherence and seated BP technique before briefing Dr. Wong.",
-                "Gathering history",
+                "Cardiac & BP Check-In — Adherence Check",
+                "Home BP drifted to 148/92; AI Resident is confirming daily medication adherence and seated BP technique.",
+                "Cardiac · Adherence Check",
                 summary,
                 reply,
                 steps,
             )
 
-        if is_followup_turn or confirmed_adherence:
+        # Turn 2: Conversational CVD risk score inputs (smoking, diabetes, family history, exertional tolerance)
+        if not confirmed_cvd_inputs:
+            summary["_lau_stage"] = "awaiting_cvd_inputs"
+            if not any("Step 2/3" in str(x.get("text", "")) for x in agent_thread):
+                agent_thread.append({
+                    "actor": "Sam",
+                    "time": hhmm,
+                    "text": "AI Resident reasoning (Step 2/3): Confirmed daily adherence to Perindopril 4mg & Rosuvastatin 10mg (zero side effects) and proper 5-min seated BP technique. Now gathering conversational CVD risk score inputs (smoking, diabetes, family history, exertional tolerance).",
+                })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("AI Resident · Step 2/3: Collecting conversational CVD risk inputs (smoking, diabetes, FHx)")
             reply = (
-                "多謝你確認每日有準時服藥同冇副作用。我已經將你嘅血壓趨勢（148/92）、10 年心血管風險評估、過往心電圖，以及心血管優先流感針、兩年一度乳房造影同空腹血脂／腎功能抽血建議一併交畀黃莎拉醫生審閱。醫生確認計劃後，我會即時通知你並幫你安排覆診時間。"
+                "好高興聽到你每日準時服藥而且冇副作用。為咗幫醫生準確計算你嘅 10 年心血管風險評分，請問你以前有冇吸煙習慣、有冇糖尿病，或者屋企直系親屬有冇早發心臟病？平時行快少少有冇氣促？"
                 if is_zh
-                else "Thank you for confirming daily adherence with no side effects. I've sent your BP trend (148/92), 10-year cardiovascular profile, baseline ECG, and routine checkup requests (flu shot, mammogram, and fasting lipid and renal panel) to Dr. Sarah Wong for review — once she confirms the plan, I'll share the details here and help you book a follow-up with her."
+                else "Good to hear you are tolerating both medicines well. To calculate your 10-year heart risk score accurately for Dr. Wong, could you confirm whether you have ever smoked, whether you have diabetes, or if anyone in your immediate family had early heart disease — and how you feel walking briskly?"
             )
-        else:
-            reply = (
-                "多謝你提供資料。我已經將你嘅血壓趨勢同心血管風險評估交畀黃莎拉醫生審閱，醫生確認計劃後我會即時通知你。"
-                if is_zh
-                else "Thank you for sharing that. I've sent your BP trend and cardiovascular profile to Dr. Sarah Wong for review — once she confirms your plan, I'll share the details here and help you book a follow-up."
+            return (
+                "running",
+                "with_patient",
+                "Cardiac & BP Check-In — CVD Risk Intake",
+                "Adherence confirmed; AI Resident is collecting smoking, diabetes, and family history inputs for 10-year CVD risk score.",
+                "Cardiac · CVD Risk Intake",
+                summary,
+                reply,
+                steps,
             )
+
+        # Turn 3: Complete multi-step reasoning + autonomous preventive bloods & leaflet discussion -> Dr. Sarah Wong
+        summary["_lau_stage"] = "ready"
+        if not any("Step 3/3" in str(x.get("text", "")) for x in agent_thread):
+            agent_thread.append({
+                "actor": "Sam",
+                "time": hhmm,
+                "text": (
+                    f"AI Resident reasoning (Step 3/3): Computed deterministic 10-Yr CVD Risk ({cvd_score.get('value', '5–10%')} · {cvd_score.get('band', 'Borderline')}; non-smoker, non-diabetic, SBP 148, LDL 2.9 on statin) → "
+                    "staged Perindopril 4→8mg titration, Fasting Lipid + HbA1c + RFT/eGFR preventive bloods, Home BP & Heart-Healthy Leaflet, 2–4 week guideline GP follow-up rebook (not today), and Day +7 autonomous AI BP check-in loop."
+                ),
+            })
+        summary["agent_thread"] = agent_thread[-4:]
+        steps.append(f"PracticeGraph · Computed Python 10-Yr CVD Risk ({cvd_score.get('value', '5–10%')}) & mounted Cardiac Prevention Canvas")
+        steps.append("CareAgent · Staged preventive bloods, education leaflet, Day +7 AI BP loop & 2–4 week guideline rebook")
+
+        reply = (
+            "多謝你提供詳細資料，我已經為黃莎拉醫生更新你嘅 10 年心血管風險評估。因為最近血壓偏高同上次驗膽固醇已經隔咗幾個月，我亦主動為你準備咗預防性驗血（空腹血脂、血糖及腎功能）、流感針及乳房造影提示，仲有一份家居血壓同護心飲食健康單張交畀醫生一併批核。醫生簽署調整藥物後，我會喺第 7 日自動喺呢度同你跟進家居血壓，再幫你預約 2 至 4 星期後覆診。"
+            if is_zh
+            else "Thank you — I've updated your 10-year cardiovascular risk profile for Dr. Sarah Wong. Since your blood pressure has drifted up and your last blood panel was a few months ago, I've also lined up preventive blood tests (fasting cholesterol, blood sugar, and kidney check), your due flu shot and mammogram, and a home blood pressure and heart-healthy diet leaflet for Dr. Wong to approve. Once she signs off, I'll check in with you automatically in 7 days to review your home readings and help book a 2–4 week follow-up visit."
+        )
         return (
             "needs_decision",
             "with_doctor",
             "Cardiac Chronic Disease & Prevention — BP Drift & CVD Risk",
-            "64F on Perindopril + Rosuvastatin with upward home BP drift (148/92); adherence confirmed, 10-Yr CVD risk score, ECG/Echo & preventive checkups staged.",
-            "Ready for sign-off",
+            "64F on Perindopril + Rosuvastatin with upward home BP drift (148/92); multi-turn history & 10-Yr CVD risk complete, preventive bloods, leaflet, Day +7 AI BP loop & 2–4w rebook staged.",
+            "Cardiac · BP & CVD Risk",
             summary,
             reply,
             steps,

@@ -685,6 +685,8 @@ export function ClinicWorkspaceApp() {
   const [overrideReasonMap, setOverrideReasonMap] = useState<Record<string, string>>({});
   const [receipts, setReceipts] = useState<Record<string, CommitReceipt | null>>({});
   const [aiFollowupMap, setAiFollowupMap] = useState<Record<string, boolean>>({});
+  const [sentLeaflets, setSentLeaflets] = useState<Record<string, boolean>>({});
+  const [sendingLeaflet, setSendingLeaflet] = useState<string | null>(null);
   const [showPatientChatMap, setShowPatientChatMap] = useState<Record<string, boolean>>({});
   const [seenTodayOpen, setSeenTodayOpen] = useState(false);
   const [postSignGuide, setPostSignGuide] = useState<{
@@ -1375,15 +1377,15 @@ export function ClinicWorkspaceApp() {
                 ) : otherPatients.map((c: any) => {
                   const isRunning = c.state === "running";
                   const isClosed = c.state === "closed";
-                  const subLabel = isRunning
-                    ? (c.baton === "with_nurse"
+                  const subLabel =
+                    c.next_checkpoint_label ||
+                    (isRunning
+                      ? c.baton === "with_nurse"
                         ? "With Nurse Rachel"
-                        : c.baton === "with_patient"
-                          ? "Careline active · agents working"
-                          : "Dispatched today")
-                    : isClosed
-                      ? (c.next_checkpoint_label || "Closed")
-                      : c.next_checkpoint_label;
+                        : "Active"
+                      : isClosed
+                        ? "Closed"
+                        : "");
                   return (
                     <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
                       <div style={{ minWidth: 0 }}>
@@ -2526,7 +2528,48 @@ export function ClinicWorkspaceApp() {
                                     <strong style={{ fontSize: 12.5, color: "#0f6b58" }}>
                                       {item.title || "Patient Information Leaflet"}
                                     </strong>
-                                    <span className="ws-pill ws-pill-jade">AI Personalised · Clinic Template</span>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                      <span className="ws-pill ws-pill-jade">AI Personalised · Clinic Template</span>
+                                      {(() => {
+                                        const lfKey = `${activeCase.id}:${item.id || item.leaflet_id || idx}`;
+                                        const alreadySent =
+                                          Boolean(sentLeaflets[lfKey]) ||
+                                          (Array.isArray(activeCase.summary?.sent_leaflet_ids) &&
+                                            activeCase.summary.sent_leaflet_ids.includes(item.id));
+                                        const isSending = sendingLeaflet === lfKey;
+                                        return (
+                                          <button
+                                            type="button"
+                                            data-testid="send-leaflet-btn"
+                                            disabled={isSending || alreadySent}
+                                            onClick={async () => {
+                                              setSendingLeaflet(lfKey);
+                                              try {
+                                                await v2Api.workspaceSendLeaflet(activeCase.id, item, "Dr. Sarah Wong");
+                                                setSentLeaflets((prev) => ({ ...prev, [lfKey]: true }));
+                                                setBanner(`Leaflet sent to ${activeCase.patient_name}'s phone.`);
+                                              } catch (err: any) {
+                                                setBanner(err?.message || "Could not send leaflet.");
+                                              } finally {
+                                                setSendingLeaflet(null);
+                                              }
+                                            }}
+                                            style={{
+                                              padding: "3px 9px",
+                                              borderRadius: 6,
+                                              fontSize: 11.5,
+                                              fontWeight: 600,
+                                              border: alreadySent ? "1px solid #99d5c9" : "1px solid #0f766e",
+                                              background: alreadySent ? "#ecfdf5" : "#0f766e",
+                                              color: alreadySent ? "#065f46" : "#ffffff",
+                                              cursor: alreadySent ? "default" : "pointer",
+                                            }}
+                                          >
+                                            {alreadySent ? "Sent ✓" : isSending ? "Sending…" : "Send"}
+                                          </button>
+                                        );
+                                      })()}
+                                    </div>
                                   </div>
                                   <div style={{ fontSize: 11.5, color: "var(--ws-ink-3)" }}>
                                     Template: {item.template || "Central Medical · Care Sheet"}
@@ -2802,7 +2845,7 @@ export function ClinicWorkspaceApp() {
                                 color: "#065f46",
                               }}
                             >
-                              AI Harness · Zero Doctor Workload
+                              AI Resident
                             </span>
                           </div>
                           <div style={{ fontSize: 12, color: "#44403c", marginTop: 2, lineHeight: 1.4 }}>

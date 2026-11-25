@@ -161,23 +161,23 @@ _JOURNEY_BOOKING_PROFILE: dict[str, dict[str, Any]] = {
         "duration_min": 15,
         "modality": "teleconsult",
         "allow_teleconsult": True,
-        "prep_note_en": "Teleconsult link is sent 10 minutes before; quick urine dipstick is available if you choose In-Clinic",
-        "prep_note_zh": "視像連結會於診症前 10 分鐘發送；如選親臨診所可即時安排小便試紙檢查",
+        "prep_note_en": "Teleconsult link is sent 10 minutes before; a quick urine test is available if you choose In-Clinic",
+        "prep_note_zh": "視像連結會於診症前 10 分鐘發送；如選親臨診所可即時安排小便檢查",
         "reason_en": "Earliest open slot with {doctor} (Acute & Women's Care) today",
         "reason_zh": "{doctor}（急症及婦女健康）今日最早空檔",
     },
     "lau_chest": {
         "preferred_doctors": ["doc_dr_wong", "doc_dr_lam", "doc_dr_cheung"],
         "preferred_times": ["14:15", "14:00", "11:30"],
-        "visit_type_en": "GP Cardiovascular & BP Review",
-        "visit_type_zh": "心血管及血壓覆診",
+        "visit_type_en": "GP BP & Medication Review (2–4 Weeks)",
+        "visit_type_zh": "血壓及藥物調整覆診（2–4 星期後）",
         "duration_min": 20,
         "modality": "teleconsult",
         "allow_teleconsult": True,
-        "prep_note_en": "Have your home blood pressure log and current tablets ready (switch to In-Clinic if you want your flu shot or ECG at the same visit)",
-        "prep_note_zh": "請準備好近期家居血壓紀錄及現正服用的藥物（如需同日打流感針或做心電圖，可改選親臨診所）",
-        "reason_en": "20-min teleconsult review with {doctor} for BP, lipid & preventive review (or switch to In-Clinic for same-day flu shot)",
-        "reason_zh": "為你挑選{doctor} 20 分鐘視像覆診空檔，一併檢視血壓、膽固醇及預防檢查（或可改選親臨診所同日打流感針）",
+        "prep_note_en": "Bring your 2-week home blood pressure log (after your Day-7 AI BP check-in) and fasting blood results",
+        "prep_note_zh": "請帶備 2 星期家居血壓紀錄（配合第 7 日 AI 血壓跟進）及空腹驗血報告",
+        "reason_en": "Guideline 2–4 week follow-up with {doctor} after BP medication adjustment (not needed today; Day-7 AI BP check-in runs first)",
+        "reason_zh": "按臨床指引安排 2–4 星期後由 {doctor} 覆核血壓及藥效（無須今日覆診，第 7 日會先由 AI 助手機動跟進家居血壓）",
     },
 }
 
@@ -823,7 +823,7 @@ def confirm_live_chat_booking(
             sched_label = f"Doctor Review · {target_doc['name_en']} ({booking_ref})"
             tl_label = f"SchedulingAgent · Confirmed doctor review with {target_doc['name_en']} ({booking_ref})."
         else:
-            confirm_en = f"{'Updated and confirmed' if is_reschedule else 'Booked'} your {modality_en.lower()} appointment with {target_doc['name_en']} for {target_slot['short_day_en']} at {target_slot['time']} (Ref {booking_ref}). I've synced this straight to the clinic schedule and clinician workspace."
+            confirm_en = f"{'Updated and confirmed' if is_reschedule else 'Booked'} your {modality_en.lower()} appointment with {target_doc['name_en']} for {target_slot['short_day_en']} at {target_slot['time']} (Ref {booking_ref}). I've synced this straight to your clinic schedule and doctor's chart."
             confirm_zh = f"已為你{'更改並' if is_reschedule else ''}確認預約：{target_slot['short_day_zh']} {target_slot['time']} · {target_doc['name_zh']}（{modality_zh}，參考編號 {booking_ref}）。我已同步更新診所時間表及醫生摘要。"
             sched_label = f"{target_slot['short_day_en']} {target_slot['time']} · {target_doc['name_en']} ({modality_en} · {profile['visit_type_en']} · {booking_ref})"
             tl_label = f"SchedulingAgent · {'Rescheduled' if is_reschedule else 'Booked'} {target_doc['name_en']} ({target_slot['short_day_en']} {target_slot['time']}, {modality_en}, {booking_ref})."

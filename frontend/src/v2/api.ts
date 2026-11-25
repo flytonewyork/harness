@@ -350,10 +350,22 @@ export const v2Api = {
     }),
   liveChatState: (journeyKey: string, lang: "en" | "zh-HK" = "en") =>
     req<Record<string, any>>(`/api/v1/demo/live/chat/state/${encodeURIComponent(journeyKey)}?lang=${encodeURIComponent(lang)}`),
-  liveChatTurn: (journeyKey: string, message: string, lang: "en" | "zh-HK" = "en", isPreset = false) =>
+  liveChatTurn: (
+    journeyKey: string,
+    message: string,
+    lang: "en" | "zh-HK" = "en",
+    isPreset = false,
+    attachment?: Record<string, any>,
+  ) =>
     req<Record<string, any>>("/api/v1/demo/live/chat/turn", {
       method: "POST",
-      body: JSON.stringify({ journey_key: journeyKey, message, lang, is_preset: isPreset }),
+      body: JSON.stringify({
+        journey_key: journeyKey,
+        message,
+        lang,
+        is_preset: isPreset,
+        ...(attachment ? { attachment } : {}),
+      }),
     }),
   liveAvailability: (journeyKey?: string) =>
     req<Record<string, any>>(
@@ -390,6 +402,11 @@ export const v2Api = {
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/preview`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText }) }),
   workspaceAsk: (caseId: string, question: string, actorName = "Locum Dr. Sarah Wong") =>
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/ask`, { method: "POST", body: JSON.stringify({ instruction_text: question, actor_name: actorName }) }),
+  workspaceSendLeaflet: (caseId: string, leaflet: Record<string, any>, actorName = "Dr. Sarah Wong") =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/send-leaflet`, {
+      method: "POST",
+      body: JSON.stringify({ leaflet, actor_name: actorName }),
+    }),
   workspaceRecordExam: (
     caseId: string,
     body: {

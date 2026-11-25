@@ -423,7 +423,8 @@ def test_qr_welcomes_are_clean_no_premature_clinical_dump_and_no_false_999_on_co
     conf_body = r_conf.json()
     assert conf_body["crisis"] is None
     assert conf_body["case_state"] == "running"
-    assert "warfarin" in conf_body["reply"].lower()
+    assert "discharge summary" in conf_body["reply"].lower()
+    assert "photo" in conf_body["reply"].lower() or "upload" in conf_body["reply"].lower()
 
     # 4. Every non-crisis suggested reply across all 12 journeys must NOT trigger 999
     for j in LIVE_JOURNEYS:
@@ -830,6 +831,7 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
 
     ov2_2 = client.get("/api/v1/workspace/overview?mode=live").json()
     tang_case_2 = next(c for c in ov2_2["cases"] if c["case_key"] == "tang_uti")
+    assert tang_case_2["next_checkpoint_label"] == "Acute Uncomplicated UTI"
     assert not any("pregnancy" in a["label"].lower() for a in tang_case_2["summary"]["alerts"])
     assert tang_case_2["summary"]["issues"][0]["safety_gap"] is None
     assert "36.8" in str(tang_case_2["summary"].get("vitals_exam") or "")
@@ -839,27 +841,50 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert "augmentin" in tang_blob
     assert "jargon-free" not in tang_blob
 
-    # Doctor signs Tang UTI Rx only -> closes cleanly (NOT running/with_nurse!)
+    # Direct Send on UTI leaflet delivers a Patient Education Leaflet card immediately to the phone
+    lf_res = client.post(
+        f"/api/v1/workspace/cases/{tang_case_2['id']}/send-leaflet",
+        json={
+            "actor_name": "Dr. Sarah Wong",
+            "leaflet": {"id": "tang_leaflet", "type": "leaflet", "leaflet_id": "uti_hydration_hk", "title": "Acute UTI Hydration & Red-Flag Care Leaflet"},
+        },
+    )
+    assert lf_res.status_code == 200
+    assert lf_res.json()["leaflet"]["leaflet_id"] == "uti_hydration_hk"
+
+    # Doctor signs Tang UTI Rx + Lab -> delivers Teleconsult divider, Investigation Order Slip (zero dipstick/MSU jargon), and updates sidebar to 'Augmentin prescribed'
     conf_tang = client.post(
         f"/api/v1/workspace/cases/{tang_case_2['id']}/confirm",
         json={
             "actor_name": "Locum Dr. Sarah Wong",
             "mchk_reg_no": "M16412",
-            "instruction_text": "Augmentin 375mg TDS x5d",
+            "instruction_text": "Augmentin 375mg TDS x5d + Urine Test",
             "orders": [
                 {"id": "tang_rx_augmentin", "type": "rx", "action": "start", "issue": "1. Acute uncomplicated cystitis", "drug": "Amoxicillin-Clavulanate (Augmentin) 375mg", "freq": "TDS", "days": "5d"},
+                {"id": "tang_lab_msu", "type": "lab", "issue": "1. Acute uncomplicated cystitis", "testName": "Urine Dipstick / MSU Culture", "lab": "Clinic / KingMed", "fasting": False, "when": "Before starting Abx"},
             ],
         },
     )
     assert conf_tang.status_code == 200
-    assert conf_tang.json()["case_state"] == "closed"
+    tang_state_post = client.get("/api/v1/demo/live/chat/state/tang_uti?lang=en").json()
+    tang_msgs = tang_state_post["messages"]
+    assert any(m.get("leaflet") for m in tang_msgs)
+    assert any(m.get("role") == "system" and "teleconsult completed" in m.get("text", "").lower() for m in tang_msgs)
+    signed_tang_msg = next(m for m in tang_msgs if m.get("care_plan"))
+    assert len(signed_tang_msg["care_plan"]["lab_slips"]) == 1
+    assert signed_tang_msg["care_plan"]["lab_slips"][0]["title_en"] == "Urine Test (Clinic / Lab)"
+    assert "dipstick" not in signed_tang_msg["text"].lower()
+    assert "msu" not in signed_tang_msg["text"].lower()
+    ov2_post = client.get("/api/v1/workspace/overview?mode=live").json()
+    tang_case_post = next(c for c in ov2_post["cases"] if c["case_key"] == "tang_uti")
+    assert tang_case_post["next_checkpoint_label"] == "Augmentin prescribed"
 
-    # ---- CASE 3: chan (Post-Discharge AFib — Cantonese default, 2-step conversational intake, live EN/ZH toggle) ----
+    # ---- CASE 3: chan (Post-Discharge AFib — Cantonese default, 3-step EMR check -> photo upload -> separate symptom & hold bubbles) ----
     s3 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "chan", "lang": "zh-HK"}).json()
     assert len(s3["suggested_replies"]) == 1
     assert s3["journey"]["default_lang"] == "zh-HK"
     assert s3["messages"][0].get("text_en") and s3["messages"][0].get("text_zh")
-    # Turn 1: Safety hold + ask about bruising/bleeding/discomfort and stop (NO abrupt booking card!)
+    # Turn 1: AI Resident checks Clinic EMR for QEH discharge summary first & requests photo upload
     t3_1 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "chan", "message": s3["suggested_replies"][0], "lang": "zh-HK", "is_preset": True},
@@ -867,22 +892,37 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert t3_1["case_state"] == "running"
     assert "！" not in t3_1["reply"] and "!" not in t3_1["reply"]
     assert t3_1["messages"][-1].get("text_en") and t3_1["messages"][-1].get("text_zh")
-    assert t3_1["messages"][-2].get("text_en") and t3_1["messages"][-2].get("text_zh")
     assert t3_1["booking_offer"] is None
+    assert "出院" in t3_1["reply"] and ("相片" in t3_1["reply"] or "上載" in t3_1["reply"])
     assert len(t3_1["suggested_replies"]) == 1
-    assert "布洛芬" in t3_1["suggested_replies"][0]
+    assert "出院總結相片" in t3_1["suggested_replies"][0]
 
-    # Turn 2: Patient denies bleeding & asks about ibuprofen -> Sam blocks NSAID, logs reasoning & awaits Dr. Sarah Wong's dose review
-    t3 = client.post(
+    # Turn 2: Patient uploads QEH discharge summary photo -> visual attachment card rendered + Sam asks ONLY symptom check
+    t3_2 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "chan", "message": t3_1["suggested_replies"][0], "lang": "zh-HK", "is_preset": True},
+    ).json()
+    assert t3_2["case_state"] == "running"
+    assert t3_2["booking_offer"] is None
+    assert any(m.get("attachment", {}).get("name") == "QEH_Discharge_Summary_Chan.jpg" for m in t3_2["messages"])
+    assert "瘀傷" in t3_2["reply"] or "流牙血" in t3_2["reply"]
+    assert len(t3_2["suggested_replies"]) == 1
+    assert "布洛芬" in t3_2["suggested_replies"][0]
+
+    # Turn 3: Patient denies bleeding & asks about ibuprofen -> Sam blocks NSAID + sends separate doctor-hold bubble & escalates
+    t3 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "chan", "message": t3_2["suggested_replies"][0], "lang": "zh-HK", "is_preset": True},
     ).json()
     assert t3["case_state"] == "needs_decision"
     assert "！" not in t3["reply"] and "!" not in t3["reply"]
     assert t3["booking_offer"] is None
+    # Two crisp separated bubbles at the end (NSAID warning + doctor-hold)
+    assert t3["messages"][-1]["actor"] == "Sam" and t3["messages"][-2]["actor"] == "Sam"
     assert t3["messages"][-1].get("text_en") and t3["messages"][-1].get("text_zh")
     ov3 = client.get("/api/v1/workspace/overview?mode=live").json()
     chan_case = next(c for c in ov3["cases"] if c["case_key"] == "chan")
+    assert chan_case["next_checkpoint_label"] == "AFib · Warfarin Dose Check"
     assert len(chan_case["summary"]["clinical_scores"]) == 2
     assert chan_case["summary"]["med_diff"]["rows"]
     assert chan_case["summary"]["trend_chart"]["kind"] == "inr"
@@ -916,10 +956,10 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert "do not need to fast" in t3_post["reply"].lower()
     assert "bruising" in t3_post["reply"].lower()
 
-    # ---- CASE 4: lau_chest (Cardiac Chronic Disease & Prevention — 2-step intake, post-sign prevention confirmation + Dr. Wong follow-up booking) ----
+    # ---- CASE 4: lau_chest (Cardiac Chronic Disease & Prevention — 3-step multi-turn CVD intake + Day 7 AI BP loop + 2-4w guideline rebook + preventive bloods & leaflet) ----
     s4 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "lau_chest", "lang": "en"}).json()
     assert len(s4["suggested_replies"]) == 1
-    # Turn 1: Sam confirms daily adherence & seated BP technique first (stays running, NO premature booking card!)
+    # Turn 1: Sam confirms daily adherence & seated BP technique first
     t4_1 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "lau_chest", "message": s4["suggested_replies"][0], "lang": "en", "is_preset": True},
@@ -930,37 +970,55 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert len(t4_1["suggested_replies"]) == 1
     assert "perindopril" in t4_1["suggested_replies"][0].lower()
 
-    # Turn 2: Patient confirms adherence + asks to bundle flu shot & routine checks -> escalates to Dr. Wong (still no premature booking card!)
+    # Turn 2: Patient confirms adherence -> Sam asks conversational CVD risk score inputs (smoking, diabetes, family history)
     t4_2 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "lau_chest", "message": t4_1["suggested_replies"][0], "lang": "en", "is_preset": True},
     ).json()
-    assert t4_2["case_state"] == "needs_decision"
-    assert t4_2["lint_report"]["passed"] is True
-    assert "!" not in t4_2["reply"]
+    assert t4_2["case_state"] == "running"
     assert t4_2["booking_offer"] is None
+    assert "smok" in t4_2["reply"].lower() and "diabetes" in t4_2["reply"].lower()
+    assert len(t4_2["suggested_replies"]) == 1
+
+    # Turn 3: Patient gives CVD risk inputs -> autonomous preventive bloods & leaflet discussion -> escalates to Dr. Wong
+    t4_3 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "lau_chest", "message": t4_2["suggested_replies"][0], "lang": "en", "is_preset": True},
+    ).json()
+    assert t4_3["case_state"] == "needs_decision"
+    assert t4_3["lint_report"]["passed"] is True
+    assert "!" not in t4_3["reply"]
+    assert t4_3["booking_offer"] is None
+    assert "leaflet" in t4_3["reply"].lower() and "7 days" in t4_3["reply"].lower()
     ov4 = client.get("/api/v1/workspace/overview?mode=live").json()
     lau_case = next(c for c in ov4["cases"] if c["case_key"] == "lau_chest")
+    assert lau_case["next_checkpoint_label"] == "Cardiac · BP & CVD Risk"
     lau_sum = lau_case["summary"]
     assert len(lau_sum.get("clinical_scores") or []) >= 1
     assert lau_sum["clinical_scores"][0]["id"] == "hk_cvd_10yr"
     assert len(lau_sum.get("preventive_care") or []) >= 2
     assert "troponin" not in str(lau_sum).lower()
-    assert not any(o["type"] == "book" for o in lau_sum["issues"][0]["suggested_orders"])
+    assert any("Step 1/3" in str(x.get("text", "")) for x in lau_sum.get("agent_thread") or [])
+    assert any("Step 2/3" in str(x.get("text", "")) for x in lau_sum.get("agent_thread") or [])
+    assert any("Step 3/3" in str(x.get("text", "")) for x in lau_sum.get("agent_thread") or [])
+    assert any("2–4 weeks" in str(o.get("when", "")) for o in lau_sum["issues"][0]["suggested_orders"] if o["type"] == "book")
+    assert any(o.get("leaflet_id") == "low_sodium_bp_hk" for o in lau_sum["issues"][0]["suggested_orders"])
     assert any(
         o["type"] == "lab" and "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)" in o.get("testName", "")
         for o in lau_sum["issues"][0]["suggested_orders"]
     )
-    # Doctor signs Perindopril + Fasting Lipid/RFT + Flu Shot + Mammogram -> Sam confirms ALL prevention items & starts Dr. Wong post-tests booking flow!
+    # Doctor signs Perindopril + Fasting Lipid/RFT + 2-4w Review + Leaflet -> phone receives Lab Slip, Leaflet, Day +7 AI BP check-in & 2-4w booking flow!
     conf_lau = client.post(
         f"/api/v1/workspace/cases/{lau_case['id']}/confirm",
         json={
             "actor_name": "Locum Dr. Sarah Wong",
             "mchk_reg_no": "M16412",
-            "instruction_text": "Perindopril 8mg + Fasting Lipid/RFT + Flu Shot + Mammogram",
+            "instruction_text": "Perindopril 8mg + Fasting Lipid/RFT + 2-4w Review + Leaflet",
             "orders": [
                 {"id": "lau_rx_perind", "type": "rx", "action": "update", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "drug": "Perindopril 8mg", "freq": "OM daily", "days": "30d"},
-                {"id": "lau_lab", "type": "lab", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "when": "Before clinic review"},
+                {"id": "lau_lab", "type": "lab", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "fasting": True, "when": "Within 2 weeks"},
+                {"id": "lau_book_2w", "type": "book", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "visitType": "GP BP & Renal Titration Review", "when": "In 2–4 weeks (guideline titration check)"},
+                {"id": "lau_leaflet_bp", "type": "leaflet", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "leaflet_id": "low_sodium_bp_hk", "title": "Home Blood Pressure & Heart-Healthy Diet Leaflet"},
                 {"id": "ord_lau_flu", "type": "book", "issue": "Preventive Care", "visitType": "10-min Nurse Flu Shot", "when": "At clinic review"},
                 {"id": "ord_lau_mammo", "type": "imaging", "issue": "Preventive Care", "modality": "Bilateral Screening Mammogram", "indication": "HK biennial breast screening (64F)"},
             ],
@@ -970,9 +1028,15 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert conf_lau.json()["case_state"] == "scheduled"
     st4_after = client.get("/api/v1/demo/live/chat/state/lau_chest?lang=en").json()
     signed_plan_msg = next(m for m in reversed(st4_after["messages"]) if m.get("care_plan"))
-    assert "Fasting Lipid Profile" in signed_plan_msg["text"]
+    assert len(signed_plan_msg["care_plan"]["lab_slips"]) == 1
+    assert len(signed_plan_msg["care_plan"]["leaflets"]) == 1
+    assert "Fasting Cholesterol, Blood Sugar & Kidney Blood Test" in signed_plan_msg["text"]
     assert "Mammogram" in signed_plan_msg["text"]
     assert "Flu Shot" in signed_plan_msg["text"]
+    assert "Day 7" in signed_plan_msg["text"]
+    ov4_post = client.get("/api/v1/workspace/overview?mode=live").json()
+    lau_case_post = next(c for c in ov4_post["cases"] if c["case_key"] == "lau_chest")
+    assert lau_case_post["next_checkpoint_label"] == "Perindopril 8mg · 2-4w review"
     booking_followup_msg = st4_after["messages"][-1]
     assert booking_followup_msg.get("booking_offer") is not None
     assert booking_followup_msg["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_wong"

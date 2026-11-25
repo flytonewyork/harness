@@ -165,11 +165,13 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
             "陳先生你好，我係中環及半山家庭醫務中心嘅 AI 駐診助手 Sam。你今日覺得點樣，有咩可以幫到你？"
         ),
         "suggested_replies_en": [
-            "I just got discharged from QEH yesterday — they gave me Warfarin 3mg and Atorvastatin, but I still have 5mg Warfarin and Simvastatin at home. Which should I take?",
+            "I was discharged from QEH yesterday with new Warfarin and cholesterol tablets, but I still have my old clinic pills at home — which should I take?",
+            "Here is a photo of my QEH discharge summary.",
             "No bruising or bleeding at all. Can I take ibuprofen for a mild headache?",
         ],
         "suggested_replies_zh": [
-            "尋日喺伊利沙伯醫院出院，醫院開咗 3mg 薄血丸同新降膽固醇藥，但我屋企仲有之前診所 5mg 同舊藥，應該食邊隻？",
+            "尋日喺伊利沙伯醫院出院，醫院開咗新薄血丸同降膽固醇藥，但我屋企仲有之前診所嘅舊藥，應該食邊隻？",
+            "呢張係我伊利沙伯醫院嘅出院總結相片，上載咗畀你核對。",
             "冇瘀傷亦都冇流牙血。頭有少少痛，可唔可以食布洛芬止痛？",
         ],
     },
@@ -383,6 +385,20 @@ def _suggested_replies_for(
             if case_state == "running":
                 return [static_list[1]]
             return [static_list[3]]
+        if j.get("key") == "chan" and len(static_list) >= 3:
+            stage = (summary or {}).get("_chan_stage") if isinstance(summary, dict) else None
+            if stage == "awaiting_discharge_photo":
+                return [static_list[1]]
+            if stage == "awaiting_symptoms":
+                return [static_list[2]]
+            return []
+        if j.get("key") == "lau_chest" and len(static_list) >= 3:
+            stage = (summary or {}).get("_lau_stage") if isinstance(summary, dict) else None
+            if stage == "awaiting_adherence":
+                return [static_list[1]]
+            if stage == "awaiting_cvd_inputs":
+                return [static_list[2]]
+            return []
         return static_list[1:]
     return static_list[:1]
 
@@ -2049,7 +2065,7 @@ def _compile_journey_turn_update(
             "with_doctor",
             "Acute Viral URTI — Doctor Review",
             f"Sore throat & fever ({vitals_inline}), red flags clear; doctor review for symptomatic relief and {days_off}-day sick leave.",
-            "Ready for sign-off",
+            "Acute Viral URTI",
             summary,
             reply,
             steps,
@@ -2068,16 +2084,24 @@ def _compile_journey_turn_update(
         )
         asked_appt = any(k in low for k in ("appointment", "11:30", "when", "time", "visit", "doctor", "覆診", "幾點", "預約"))
         mentioned_no_bleed = any(k in low for k in ("no bruising", "no bleeding", "冇瘀", "冇流"))
+        chat_hist = list(summary.get("original_chat") or [])
+        has_uploaded_discharge = bool(summary.get("_chan_discharge_uploaded")) or any(
+            isinstance(m, dict) and bool(m.get("attachment"))
+            for m in chat_hist
+        ) or any(
+            k in low or k in patient_text
+            for k in ("photo", "upload", "attached", "discharge summary", "出院紙", "出院總結", "相片", "上載", "附上")
+        )
 
-        if not (asked_nsaid or asked_meds or asked_appt or mentioned_no_bleed):
+        if not (asked_nsaid or asked_meds or asked_appt or mentioned_no_bleed or has_uploaded_discharge):
             steps.append("CareAgent · Replied to patient's message and offered help with visit or medications")
             r_en = "Got it — how can I best help you right now? I can help check your medications, note any symptoms for Dr. Sarah Wong, or confirm your visit details."
-            r_zh = "收到。請問你今日想查詢邊方面——係醫院出院後嘅用藥安排、身體有冇唔舒服，定係想確認今日 11:30 嘅覆診？"
+            r_zh = "收到。請問你今日想查詢邊方面——係醫院出院後嘅用藥安排、身體有冇唔舒服，定係想確認覆診安排？"
             summary["_last_reply_bilingual"] = (r_en, r_zh)
             reply = r_zh if is_zh else r_en
             return (current_state, current_baton, current_title or "Post-QEH Discharge Check-In", current_lead, current_cp, summary, reply, steps)
 
-        if asked_appt and not (asked_nsaid or asked_meds):
+        if asked_appt and not (asked_nsaid or asked_meds or has_uploaded_discharge):
             steps.append("CareAgent · Checked live doctor availability for post-discharge follow-up")
             r_en = "I checked today's clinic schedule — Dr. Sarah Wong has an open 11:30 slot for your post-discharge review below (or you can pick another doctor or time). Please bring all of your hospital and clinic medicine bags so we can review them together."
             r_zh = "我查閱咗今日診所時間表——黃莎拉醫生今日上午 11:30 有空檔幫你覆診及核對藥袋（可喺下方確認或揀其他醫生時間）。麻煩記得帶齊你屋企所有醫院新藥袋同舊藥過嚟核對。"
@@ -2085,15 +2109,50 @@ def _compile_journey_turn_update(
             reply = r_zh if is_zh else r_en
             return (current_state, current_baton, current_title or "Post-QEH Discharge Check-In", current_lead, current_cp, summary, reply, steps)
 
+        agent_thread = list(summary.get("agent_thread") or [])
+
+        # Step 1: Check EMR for QEH discharge summary FIRST; request photo upload before jumping into dosing
+        if not has_uploaded_discharge and not (asked_nsaid or mentioned_no_bleed):
+            summary["_chan_stage"] = "awaiting_discharge_photo"
+            if not any("Checked Clinic EMR" in str(x.get("text", "")) for x in agent_thread):
+                agent_thread.append({
+                    "actor": "Sam",
+                    "time": _hkt_hhmm(),
+                    "text": "AI Resident intake (Step 1/3): Checked Clinic EMR & HA eHRSS for QEH discharge summary — not yet synced. Requested photo upload of Mr. Chan's discharge summary before reconciling Warfarin & statin doses.",
+                })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("EMRConnector · Checked Clinic EMR for QEH discharge summary (not yet received) → requested photo upload")
+            r_en = (
+                "I just checked our clinic system and your QEH discharge summary has not arrived yet. "
+                "Could you snap a photo of your discharge summary or tap '+' below to upload it so I can check your exact doses?"
+            )
+            r_zh = (
+                "我剛剛查過診所病歷系統，伊利沙伯醫院嘅出院總結仲未同步到。"
+                "方便幫我影張出院紙相片，或者按左下角「＋」上載畀我核對劑量嗎？"
+            )
+            summary["_last_reply_bilingual"] = (r_en, r_zh)
+            return (
+                "running",
+                "with_patient",
+                "Post-QEH AFib — Awaiting Discharge Summary",
+                "Checked Clinic EMR for QEH discharge summary (not yet received); requested patient photo upload.",
+                "Awaiting discharge summary",
+                summary,
+                r_zh if is_zh else r_en,
+                steps,
+            )
+
+        # Once discharge summary photo is uploaded (or patient answers symptoms directly), mount full MedDiff canvas
+        summary["_chan_discharge_uploaded"] = True
         summary["issues"] = [
             {
                 "id": "iss_afib",
                 "name": "1. AFib — Warfarin dose reduction",
                 "bullets": [
-                    "Discharged from QEH yesterday after AFib rate-control admission; patient flagged home pill-bottle confusion via Careline.",
-                    "Discharge plan reduced daily Warfarin dose with a 7-day repeat check (see Med Diff & INR Trend).",
+                    "Discharged from QEH yesterday after AFib rate-control admission; patient uploaded QEH discharge summary photo via Careline (3-point ID matched).",
+                    "Discharge plan reduced daily Warfarin dose (5mg → 3mg) with a 7-day repeat INR check (see Med Diff & INR Trend).",
                 ],
-                "safety_gap": "Confirm current home Warfarin tablet strength and screen for bleeding or bruising at 11:30.",
+                "safety_gap": "Confirm current home Warfarin tablet strength and screen for bleeding or bruising before dose sign-off.",
                 "suggested_orders": [
                     {"id": "ch_rx_warf", "type": "rx", "action": "update", "issue": "1. AFib — Warfarin dose reduction", "drug": "Warfarin 3mg", "freq": "PO daily", "days": "30d", "note": "Matches QEH discharge p.2"},
                     {"id": "ch_lab_inr", "type": "lab", "issue": "1. AFib — Warfarin dose reduction", "testName": "Repeat INR (7 days)", "lab": "KingMed", "fasting": False, "when": "Sun 29 Nov 2026"},
@@ -2104,7 +2163,7 @@ def _compile_journey_turn_update(
                 "id": "iss_lipids",
                 "name": "2. Dyslipidaemia — Statin switch",
                 "bullets": [
-                    "Hospital transitioned statin therapy on discharge; Clinic EMR still lists prior agent (see Med Diff).",
+                    "Hospital transitioned statin therapy on discharge (Simvastatin → Atorvastatin 20mg); Clinic EMR still lists prior agent (see Med Diff).",
                 ],
                 "safety_gap": "Confirm prior Simvastatin supply is removed at home to prevent duplicate statin dosing.",
                 "suggested_orders": [
@@ -2120,66 +2179,63 @@ def _compile_journey_turn_update(
         steps.append("PracticeGraph · Traversed ebm.pathway.post_discharge_anticoag (Python CHA₂DS₂-VASc=3, HAS-BLED=1)")
         steps.append("PresentationCompiler · Mounted MedDiff (Warfarin 5→3mg, Statin switch) & INR Trend (5/5 linter)")
 
-        agent_thread = list(summary.get("agent_thread") or [])
-        if asked_nsaid or mentioned_no_bleed:
-            if not any("QEH discharge med diff" in str(x.get("text", "")) for x in agent_thread):
+        # Step 2: Discharge summary uploaded — ask ONLY the symptom check (short, one point at a time!)
+        if not (asked_nsaid or mentioned_no_bleed):
+            summary["_chan_stage"] = "awaiting_symptoms"
+            if not any("Step 2/3" in str(x.get("text", "")) for x in agent_thread):
                 agent_thread.append({
                     "actor": "Sam",
                     "time": _hkt_hhmm(),
-                    "text": "AI Resident reasoning: Screened bleeding/bruising (denied) and blocked Ibuprofen/NSAID on Warfarin → compiled QEH discharge med diff (Warfarin 5→3mg, Simvastatin→Atorvastatin), CHA₂DS₂-VASc 3 / HAS-BLED 1, and 7-day INR plan for Dr. Sarah Wong's dose review.",
+                    "text": "AI Resident intake (Step 2/3): Extracted QEH discharge summary photo (3-point ID verified) → Warfarin 5→3mg & Simvastatin→Atorvastatin mounted on MedDiff. Screening for bruising or bleeding symptoms before escalating.",
                 })
             summary["agent_thread"] = agent_thread[-4:]
-
-            if asked_nsaid:
-                reply_en = (
-                    "Please avoid ibuprofen (and other NSAIDs) while taking Warfarin — combining them significantly raises bleeding risk. "
-                    "I've noted that you have no bruising or bleeding and sent the full QEH medication comparison (Warfarin 5mg to 3mg, Atorvastatin replacing Simvastatin) to Dr. Sarah Wong for her dose review — your updated plan will appear right here once confirmed."
-                )
-                reply_zh = (
-                    "服食薄血丸（Warfarin）期間請避免服食布洛芬（Ibuprofen）或其他消炎止痛藥，因為會大幅增加出血風險。"
-                    "我已經記低你冇瘀傷或流血，並將伊利沙伯醫院出院改藥對照（薄血丸 5mg 轉 3mg、轉用 Atorvastatin）交畀黃莎拉醫生覆核劑量，確認後更新計劃會直接喺呢度發送畀你。"
-                )
-            else:
-                reply_en = (
-                    "Good to hear there is no bruising or bleeding. I've sent your QEH discharge medication comparison (Warfarin 5mg to 3mg, Atorvastatin replacing Simvastatin) to Dr. Sarah Wong for her dose review — your updated plan will appear right here once confirmed."
-                )
-                reply_zh = (
-                    "冇瘀傷亦都冇流血就好放心。我已經將伊利沙伯醫院出院改藥對照（薄血丸 5mg 轉 3mg、轉用 Atorvastatin）交畀黃莎拉醫生覆核劑量，確認後更新計劃會直接喺呢度發送畀你。"
-                )
-            summary["_last_reply_bilingual"] = (reply_en, reply_zh)
+            r_en = (
+                "Got your QEH discharge summary — I've noted the dose changes. "
+                "Have you noticed any unusual bruising, gum bleeding, dark stools, or dizziness today?"
+            )
+            r_zh = (
+                "收到你嘅伊利沙伯醫院出院總結，我已經核對好改藥紀錄。"
+                "請問你今日有冇容易瘀傷、流牙血、大便變黑或者頭暈？"
+            )
+            summary["_last_reply_bilingual"] = (r_en, r_zh)
             return (
-                "needs_decision",
-                "with_doctor",
-                "Post-QEH AFib Discharge — Medication Review",
-                "Post-discharge Warfarin 5→3mg & statin switch; bleeding denied & NSAID blocked — awaiting Dr. Sarah Wong's dose review.",
-                "Ready for dose review",
+                "running",
+                "with_patient",
+                "Post-QEH AFib — Screening Symptoms",
+                "QEH discharge summary photo verified (Warfarin 5→3mg, statin switch); screening for bleeding or bruising.",
+                "AFib · Screening Symptoms",
                 summary,
-                reply_zh if is_zh else reply_en,
+                r_zh if is_zh else r_en,
                 steps,
             )
 
-        # Turn 1: One thing at a time — safety hold first, ask about symptoms/discomfort/bleeding, and stop (no abrupt booking card)
-        agent_thread.append({
-            "actor": "Sam",
-            "time": _hkt_hhmm(),
-            "text": "AI Resident intake (Step 1/2): Advised holding duplicate statins until Dr. Sarah Wong confirms doses; screening for bruising, bleeding, or discomfort before escalating.",
-        })
+        # Step 3: Symptoms answered (+ optional Ibuprofen/NSAID block) -> separate short doctor-hold bubble & escalate!
+        summary["_chan_stage"] = "ready"
+        if not any("Step 3/3" in str(x.get("text", "")) for x in agent_thread):
+            agent_thread.append({
+                "actor": "Sam",
+                "time": _hkt_hhmm(),
+                "text": "AI Resident reasoning (Step 3/3): Bleeding/bruising denied and Ibuprofen/NSAID blocked on Warfarin → compiled QEH discharge med diff (Warfarin 5→3mg, Simvastatin→Atorvastatin), CHA₂DS₂-VASc 3 / HAS-BLED 1, and 7-day INR plan for Dr. Sarah Wong's dose review.",
+            })
         summary["agent_thread"] = agent_thread[-4:]
-        reply_en = (
-            "Thank you for checking before taking anything — please do not take both statins together, and wait for Dr. Sarah Wong to confirm your exact Warfarin and cholesterol doses. "
-            "Before I send this over to her, have you noticed any unusual bruising, bleeding, or any other symptoms or discomfort today?"
-        )
-        reply_zh = (
-            "好多謝你食藥前先問清楚——請千祈唔好同時食兩隻降膽固醇藥，並等黃莎拉醫生確認你嘅薄血丸同降膽固醇藥劑量後先好服食今日嘅藥。"
-            "交畀醫生審閱前，你今日有冇發現容易瘀傷、流牙血或者其他唔舒服？"
-        )
+
+        if asked_nsaid:
+            reply_en = "Please avoid ibuprofen or other NSAID painkillers while taking Warfarin, as they significantly increase bleeding risk."
+            reply_zh = "服食薄血丸（Warfarin）期間請避免服食布洛芬（Ibuprofen）或其他消炎止痛藥，因為會大幅增加出血風險。"
+        else:
+            reply_en = "Good to hear you have no bruising or bleeding today."
+            reply_zh = "冇瘀傷亦都冇流牙血就好放心。"
+
+        hold_en = "Please hold off taking both cholesterol tablets and wait for Dr. Sarah Wong to confirm your exact Warfarin and cholesterol doses — I've sent your QEH comparison to her now."
+        hold_zh = "請先唔好同時食兩隻降膽固醇藥，等黃莎拉醫生確認你嘅薄血丸同降膽固醇藥劑量後先服食——我已經將出院改藥對照交畀佢覆核。"
         summary["_last_reply_bilingual"] = (reply_en, reply_zh)
+        summary["_extra_sam_bubble"] = (hold_en, hold_zh)
         return (
-            "running",
-            "with_patient",
-            "Post-QEH AFib Discharge — Screening Symptoms",
-            "Patient flagged QEH Warfarin/statin mismatch; AI Resident advised holding duplicate statins and is screening for bleeding or discomfort.",
-            "Screening symptoms",
+            "needs_decision",
+            "with_doctor",
+            "Post-QEH AFib Discharge — Medication Review",
+            "Post-discharge Warfarin 5→3mg & statin switch; QEH summary verified, bleeding denied & NSAID blocked — awaiting Dr. Sarah Wong's dose review.",
+            "AFib · Warfarin Dose Check",
             summary,
             reply_zh if is_zh else reply_en,
             steps,
@@ -2555,6 +2611,7 @@ def handle_live_chat_turn(
     live_bus: LiveHarnessBus,
     lang: str = "en",
     is_preset: bool = False,
+    attachment: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Process a patient chat turn: defined presets run 100% deterministically; free text invokes live LLM with deterministic pre-gates."""
     t_turn_start = time.perf_counter()
@@ -2602,7 +2659,23 @@ def handle_live_chat_turn(
         hhmm = _hkt_hhmm()
         summary = copy.deepcopy(case.summary_json or {})
         chat = list(summary.get("original_chat") or [])
-        chat.append({"actor": j["patient_name"], "time": hhmm, "text": text, "lang": "zh-HK" if is_zh else "en"})
+        resolved_attachment = dict(attachment) if isinstance(attachment, dict) else None
+        if resolved_attachment is None and j_key == "chan":
+            low_t = text.lower()
+            if any(k in low_t or k in text for k in ("photo", "upload", "attached", "discharge summary", "出院紙", "出院總結", "相片", "上載", "附上")):
+                resolved_attachment = {
+                    "name": "QEH_Discharge_Summary_Chan.jpg",
+                    "kind": "image",
+                    "size_label": "1.4 MB · Photo",
+                    "preview_title_en": "QEH Discharge Summary (p.2 · Medications)",
+                    "preview_title_zh": "伊利沙伯醫院出院總結（第 2 頁 · 藥物）",
+                    "preview_summary_en": "Warfarin 3mg daily (reduced from 5mg) · Atorvastatin 20mg nocte · Repeat INR 7d",
+                    "preview_summary_zh": "Warfarin 3mg 每日一次（由 5mg 減量）· Atorvastatin 20mg 睡前 · 7 日後覆檢 INR",
+                }
+        pt_msg: dict[str, Any] = {"actor": j["patient_name"], "time": hhmm, "text": text, "lang": "zh-HK" if is_zh else "en"}
+        if resolved_attachment:
+            pt_msg["attachment"] = resolved_attachment
+        chat.append(pt_msg)
         summary["original_chat"] = chat
         session.add(
             Message(
@@ -3130,6 +3203,7 @@ def handle_live_chat_turn(
 
         is_preventive_handoff = bool(updated_summary.pop("_attach_preventive_booking", False))
         append_closed_pill = bool(updated_summary.pop("_append_case_closed_pill", False))
+        extra_sam_bubble = updated_summary.pop("_extra_sam_bubble", None)
 
         if attach_booking:
             booking_offer = select_booking_offer(
@@ -3147,6 +3221,18 @@ def handle_live_chat_turn(
             )
 
         chat.append(sam_msg)
+        if isinstance(extra_sam_bubble, (list, tuple)) and len(extra_sam_bubble) == 2:
+            ex_en = _plain_chat_text(str(extra_sam_bubble[0]))
+            ex_zh = _plain_chat_text(str(extra_sam_bubble[1]))
+            chat.append({
+                "actor": "Sam",
+                "role": "assistant",
+                "time": hhmm,
+                "text": ex_zh if is_zh else ex_en,
+                "text_en": ex_en,
+                "text_zh": ex_zh,
+                "lang": "zh-HK" if is_zh else "en",
+            })
         if append_closed_pill:
             chat.append({
                 "actor": "Clinic",
@@ -3347,6 +3433,186 @@ def book_live_chat_slot(
     )
 
 
+_LEAFLET_CATALOG: dict[str, dict[str, Any]] = {
+    "uti_hydration_hk": {
+        "title_en": "Acute UTI Hydration & Recovery Guide",
+        "title_zh": "急性尿道炎飲水及康復護理單張",
+        "template": "Central Medical · Uncomplicated UTI Care Sheet",
+        "summary_en": "Simple steps to relieve burning symptoms and help your antibiotic work smoothly.",
+        "summary_zh": "紓緩小便刺痛及配合抗生素療程嘅實用護理重點。",
+        "bullets_en": [
+            "Drink at least 2 litres of plain water daily to help flush bacteria from your bladder.",
+            "Take your full 5-day antibiotic course on schedule even if symptoms ease after 1–2 days.",
+            "Seek urgent medical review if you develop fever (>38°C), chills, lower back pain, or vomiting.",
+        ],
+        "bullets_zh": [
+            "每日飲用至少 2 公升清水，幫助沖走膀胱細菌。",
+            "即使服藥 1 至 2 日後症狀減退，亦請按指示完成整個 5 日抗生素療程。",
+            "如出現發燒（超過 38°C）、發冷、腰背痛或嘔吐，請立即求醫。",
+        ],
+    },
+    "low_sodium_bp_hk": {
+        "title_en": "Home Blood Pressure & Heart-Healthy Diet Guide",
+        "title_zh": "家居血壓監測及護心低鹽飲食單張",
+        "template": "Central Medical · Hypertension & Lipid Care Sheet",
+        "summary_en": "Practical Hong Kong guide to accurate home BP checks, lower-sodium eating, and cholesterol control.",
+        "summary_zh": "香港家庭實用指南：正確家居量血壓、減鹽護心飲食及血脂管理。",
+        "bullets_en": [
+            "Target home blood pressure: below 135/85 mmHg. Rest seated quietly for 5 minutes before checking.",
+            "Keep sodium below 2g/day — go light on soy sauce, soup stocks, cured meats, and cha chaan teng sauces.",
+            "Expect an automated AI blood pressure check-in on Day 7 and a follow-up doctor review in 2–4 weeks.",
+        ],
+        "bullets_zh": [
+            "家居血壓目標：低於 135/85 mmHg；量血壓前請先靜坐休息 5 分鐘。",
+            "每日鈉攝取少於 2 克——減少豉油、老火湯鹽分、臘味及茶餐廳醬汁。",
+            "第 7 日會有 AI 助手主動跟進你的家居血壓，並於 2 至 4 星期後安排醫生覆診。",
+        ],
+    },
+    "heart_healthy_ldl_hk": {
+        "title_en": "Heart-Healthy Cholesterol & Lipid Guide",
+        "title_zh": "護心降膽固醇飲食及生活單張",
+        "template": "Central Medical · Cardiovascular Prevention Sheet",
+        "summary_en": "Evidence-based nutrition and activity habits to help reach your LDL cholesterol goal.",
+        "summary_zh": "以實證為本嘅飲食與運動習慣，助你達致理想低密度膽固醇目標。",
+        "bullets_en": [
+            "Swap fatty cuts and deep-fried foods for steamed fish, tofu, oats, and leafy greens.",
+            "Aim for 150 minutes of brisk walking or moderate exercise each week.",
+            "Take your statin consistently every evening and complete your fasting blood panel as scheduled.",
+        ],
+        "bullets_zh": [
+            "多選蒸魚、豆腐、燕麥及綠葉蔬菜，減少肥肉及油炸食物。",
+            "每星期進行約 150 分鐘急步行或中等強度運動。",
+            "每晚定時服用降膽固醇藥，並按期完成空腹血脂抽血覆檢。",
+        ],
+    },
+}
+
+
+def _build_patient_leaflet(order: dict[str, Any], signed_by: str) -> dict[str, Any]:
+    lid = str(order.get("leaflet_id") or order.get("leafletId") or "clinic_care_sheet").strip()
+    meta = _LEAFLET_CATALOG.get(lid)
+    if meta:
+        return {
+            "id": str(order.get("id") or new_id("lf")),
+            "leaflet_id": lid,
+            "title_en": str(order.get("title") or meta["title_en"]),
+            "title_zh": meta["title_zh"],
+            "template": str(order.get("template") or meta["template"]),
+            "summary_en": meta["summary_en"],
+            "summary_zh": meta["summary_zh"],
+            "bullets_en": list(meta["bullets_en"]),
+            "bullets_zh": list(meta["bullets_zh"]),
+            "signed_by": signed_by,
+        }
+    title_fallback = str(order.get("title") or order.get("metric") or "Patient Care Guide")
+    body_fallback = str(order.get("target_text") or "Follow your doctor's care plan and let us know if any new symptoms develop.")
+    return {
+        "id": str(order.get("id") or new_id("lf")),
+        "leaflet_id": lid,
+        "title_en": title_fallback,
+        "title_zh": title_fallback,
+        "template": str(order.get("template") or "Central Medical · Patient Care Sheet"),
+        "summary_en": body_fallback,
+        "summary_zh": body_fallback,
+        "bullets_en": [body_fallback],
+        "bullets_zh": [body_fallback],
+        "signed_by": signed_by,
+    }
+
+
+def _build_patient_lab_slip(order: dict[str, Any], display_doc: str, mchk_reg_no: str) -> dict[str, Any]:
+    raw_name = str(order.get("test_name") or order.get("testName") or "Clinic Blood / Lab Test").strip()
+    low_n = raw_name.lower()
+    lab_name = str(order.get("lab") or "Central Medical / KingMed Diagnostics")
+    fasting = bool(order.get("fasting"))
+    when = str(order.get("when") or "As scheduled")
+    ref = f"LABHK-{str(order.get('id') or new_id('lab'))[-6:].upper()}"
+
+    if "dipstick" in low_n or "msu" in low_n or "urine" in low_n:
+        title_en = "Urine Test (Clinic / Lab)"
+        title_zh = "小便化驗檢查"
+        instr_en = "Provide a clean mid-stream urine sample at the clinic counter or KingMed centre before starting your antibiotics (no fasting needed)."
+        instr_zh = "請於開始服食抗生素前，到診所或金域檢驗中心遞交中段小便樣本（無須空腹）。"
+    elif "lipid" in low_n or "hba1c" in low_n or "renal" in low_n:
+        title_en = "Fasting Cholesterol, Blood Sugar & Kidney Blood Test"
+        title_zh = "空腹血脂、血糖及腎功能抽血檢查"
+        instr_en = "Fast for 8–10 hours overnight (plain water and usual blood pressure tablets are fine) before your morning blood draw at the clinic or KingMed."
+        instr_zh = "抽血前請空腹 8 至 10 小時（可飲清水及如常服血壓藥），早上到診所或金域檢驗中心抽血。"
+    elif "inr" in low_n:
+        title_en = "Repeat Blood-Thinner Clotting Test (INR)"
+        title_zh = "覆檢凝血指數 (INR) 抽血檢查"
+        instr_en = "No fasting required. Present this slip at the clinic or KingMed on the scheduled date so Dr. Sarah Wong can verify your Warfarin dose."
+        instr_zh = "無須空腹。請於指定日期帶同此化驗單到診所或金域檢驗中心抽血，以便黃莎拉醫生覆核薄血丸劑量。"
+    else:
+        title_en = raw_name
+        title_zh = raw_name
+        instr_en = (
+            "Fast for 8–10 hours overnight (plain water is fine) before presenting this order slip at the clinic or KingMed."
+            if fasting
+            else "No fasting required. Present this investigation order slip with your HKID at the clinic or KingMed."
+        )
+        instr_zh = (
+            "請空腹 8 至 10 小時（可飲清水），帶同此化驗單及身份證到診所或金域檢驗中心。"
+            if fasting
+            else "無須空腹。請帶同此化驗單及身份證到診所或金域檢驗中心。"
+        )
+
+    return {
+        "id": str(order.get("id") or new_id("lab")),
+        "order_ref": ref,
+        "title_en": title_en,
+        "title_zh": title_zh,
+        "lab": lab_name,
+        "fasting": fasting,
+        "when": when,
+        "instructions_en": instr_en,
+        "instructions_zh": instr_zh,
+        "signed_by": display_doc,
+        "mchk_reg_no": mchk_reg_no,
+    }
+
+
+def send_patient_leaflet_message(
+    session: Session,
+    *,
+    case_id: str,
+    leaflet_order: dict[str, Any],
+    actor_name: str,
+) -> dict[str, Any]:
+    """Deliver a standalone Patient Education Leaflet card directly into the patient phone chat."""
+    case = session.get(CaseLoop, case_id)
+    if case is None:
+        raise ValueError("Case not found.")
+    summary = copy.deepcopy(case.summary_json or {})
+    chat = list(summary.get("original_chat") or [])
+    hhmm = _hkt_hhmm()
+    display_doc = re.sub(r"^Locum\s+", "", actor_name or "Dr. Sarah Wong", flags=re.I).strip()
+    leaflet_card = _build_patient_leaflet(leaflet_order, display_doc)
+
+    text_en = f"{display_doc} shared a care leaflet with you: {leaflet_card['title_en']}."
+    text_zh = f"{display_doc} 已傳送一份健康護理單張給你：{leaflet_card['title_zh']}。"
+    msg = {
+        "actor": "Sam",
+        "role": "assistant",
+        "time": hhmm,
+        "text": text_en,
+        "text_en": text_en,
+        "text_zh": text_zh,
+        "leaflet": leaflet_card,
+    }
+    chat.append(msg)
+    summary["original_chat"] = chat
+    sent_ids = list(summary.get("sent_leaflet_ids") or [])
+    if leaflet_card["id"] not in sent_ids:
+        sent_ids.append(leaflet_card["id"])
+    summary["sent_leaflet_ids"] = sent_ids
+    case.summary_json = summary
+    flag_modified(case, "summary_json")
+    case.updated_at = utcnow()
+    session.flush()
+    return {"case_id": case.id, "patient_id": case.patient_id, "leaflet": leaflet_card, "message": msg}
+
+
 def append_doctor_signed_chat_bubble(
     session: Session,
     *,
@@ -3365,9 +3631,9 @@ def append_doctor_signed_chat_bubble(
 
     - When `nurse_handover_only=True`: notifies patient that Nurse Rachel will perform vitals/exam first
       (NEVER claims clinical review is complete and NEVER attaches sick leave or prescriptions).
-    - Otherwise: delivers full structured e-Prescription details (dose, route, frequency, duration, quantity,
-      dispensing details, PDF download ID), MCHK Sick-Leave PDF, explicit confirmation of signed lab/imaging/
-      preventive orders, and (for Case 4 / post-tests reviews) a follow-up booking flow with Dr. Sarah Wong.
+    - Otherwise: prepends teleconsult/exam completion divider, then delivers full structured e-Prescription
+      details, MCHK Sick-Leave PDF, patient-friendly Investigation Order Slips, Patient Education Leaflets,
+      and (for Case 4 / medication titration) Day +7 AI BP check-in + 2–4 week follow-up booking flow.
     """
     case = session.get(CaseLoop, case_id)
     if case is None:
@@ -3430,19 +3696,30 @@ def append_doctor_signed_chat_bubble(
             "items": enriched_items,
         })
 
-    # Collect human-readable confirmations for lab, imaging, preventive, booking, and goal orders
+    # Collect patient-friendly confirmations, structured Lab Order Slips, and Patient Education Leaflets
     orders_list = list(signed_orders or [])
     confirmed_items_en: list[str] = []
     confirmed_items_zh: list[str] = []
+    lab_slips_out: list[dict[str, Any]] = []
+    leaflets_out: list[dict[str, Any]] = []
+    already_sent_leaflets = set(summary.get("sent_leaflet_ids") or [])
     has_tests_or_prev = False
+
     for o in orders_list:
         otype = str(o.get("type") or "").lower()
         if otype == "lab":
             has_tests_or_prev = True
-            tname = o.get("test_name") or o.get("testName") or "Blood / Lab Test"
-            when = f" ({o.get('when')})" if o.get("when") else ""
-            confirmed_items_en.append(f"{tname}{when}")
-            confirmed_items_zh.append(f"{tname}{when}")
+            slip = _build_patient_lab_slip(o, display_doc, mchk_reg_no)
+            lab_slips_out.append(slip)
+            when = f" ({slip['when']})" if slip.get("when") else ""
+            confirmed_items_en.append(f"{slip['title_en']}{when}")
+            confirmed_items_zh.append(f"{slip['title_zh']}{when}")
+        elif otype == "leaflet" or (otype == "goal" and (o.get("leaflet_id") or o.get("leafletId")) and not (o.get("target_sys") or o.get("targetSys"))):
+            lf = _build_patient_leaflet(o, display_doc)
+            if lf["id"] not in already_sent_leaflets:
+                leaflets_out.append(lf)
+            confirmed_items_en.append(lf["title_en"])
+            confirmed_items_zh.append(lf["title_zh"])
         elif otype == "imaging":
             has_tests_or_prev = True
             mod = o.get("modality") or "Imaging Referral"
@@ -3451,8 +3728,9 @@ def append_doctor_signed_chat_bubble(
         elif otype == "book":
             has_tests_or_prev = True
             vt = o.get("visit_type") or o.get("visitType") or "Clinic Visit"
-            confirmed_items_en.append(vt)
-            confirmed_items_zh.append(vt)
+            when = f" ({o.get('when')})" if o.get("when") else ""
+            confirmed_items_en.append(f"{vt}{when}")
+            confirmed_items_zh.append(f"{vt}{when}")
         elif otype == "goal":
             metric = o.get("metric") or o.get("title") or ""
             if o.get("target_sys") and o.get("target_dia"):
@@ -3478,28 +3756,29 @@ def append_doctor_signed_chat_bubble(
         parts_zh.append("醫生已經確認你的護理計劃。")
 
     if confirmed_items_en:
-        parts_en.append("Confirmed orders and preventive checks: " + "; ".join(confirmed_items_en) + ".")
-        parts_zh.append("已確認檢查及預防項目：" + "；".join(confirmed_items_zh) + "。")
+        parts_en.append("Included in your plan: " + "; ".join(confirmed_items_en) + ".")
+        parts_zh.append("計劃已包括：" + "；".join(confirmed_items_zh) + "。")
     elif bookings_out:
         parts_en.append(f"{len(bookings_out)} follow-up booking(s) queued.")
         parts_zh.append(f"已安排 {len(bookings_out)} 項跟進預約。")
 
-    if not (case.case_key == "lau_chest" and has_tests_or_prev):
+    if case.case_key == "lau_chest":
+        parts_en.append("I will check in with you automatically on Day 7 to review your home blood pressure before your 2–4 week doctor follow-up.")
+        parts_zh.append("我會喺第 7 日自動喺呢度同你覆核家居血壓，再配合你 2 至 4 星期後嘅醫生覆診。")
+    else:
         parts_en.append("I will check in with you here in 3 days to see how you are recovering.")
         parts_zh.append("我會喺 3 日後主動喺呢度跟進你嘅康復情況。")
 
     eg = dict(summary.get("exam_gate") or {})
     exam_done = eg.get("doctor_exam_status") == "completed"
-    divider_en = (
-        f"{display_doc} completed your examination and signed your care plan"
-        if exam_done
-        else f"{display_doc} completed your clinical review"
-    )
-    divider_zh = (
-        f"{display_doc} 已完成檢查並簽署你的護理計劃"
-        if exam_done
-        else f"{display_doc} 已完成臨床審閱"
-    )
+    exam_mod = str(eg.get("doctor_exam_modality") or "")
+    if exam_done and exam_mod != "live_video":
+        divider_en = f"Examination completed with {display_doc} · Care plan signed"
+        divider_zh = f"已與 {display_doc} 完成診症檢查 · 護理計劃已簽署"
+    else:
+        divider_en = f"Teleconsult completed with {display_doc} · Care plan signed"
+        divider_zh = f"已與 {display_doc} 完成視像診症 · 護理計劃已簽署"
+
     chat.append({
         "actor": "Clinic",
         "role": "system",
@@ -3523,6 +3802,8 @@ def append_doctor_signed_chat_bubble(
             "mchk_reg_no": mchk_reg_no,
             "rx_lines": rx_lines,
             "prescriptions": structured_prescriptions,
+            "lab_slips": lab_slips_out,
+            "leaflets": leaflets_out,
             "certificates": [
                 {
                     "id": c["id"],
@@ -3536,22 +3817,22 @@ def append_doctor_signed_chat_bubble(
         },
     })
 
-    # For Case 4 (lau_chest) after tests/preventive orders are confirmed, start a post-tests follow-up booking flow with Dr. Sarah Wong
+    # For Case 4 (lau_chest) after medication change & preventive orders, offer a smart 2-4 week follow-up booking (not today)
     already_booked = isinstance(summary.get("booked_appointment"), dict) and summary["booked_appointment"].get("status") == "confirmed"
     if case.case_key == "lau_chest" and has_tests_or_prev and not already_booked:
         followup_offer = select_booking_offer(
             session,
             case.tenant_id,
             j_key="lau_chest",
-            patient_text="follow-up review after blood tests",
+            patient_text="follow-up review in 2-4 weeks after BP titration and blood tests",
         )
         followup_en = (
-            "Once your blood tests and preventive checks are done, let's book a follow-up review with Dr. Sarah Wong to go over your results and blood pressure together. "
-            "Would you prefer Teleconsult or In-Clinic? Pick a suitable time with Dr. Wong below."
+            "Because Dr. Sarah Wong adjusted your blood pressure medication, guidelines recommend an early AI blood pressure check-in in 7 days (which I'll run automatically here) "
+            "followed by a doctor review in 2–4 weeks once your fasting blood tests are back. You can reserve your follow-up review with Dr. Wong below."
         )
         followup_zh = (
-            "等你完成抽血同預防檢查之後，我哋可以幫你預約黃莎拉醫生覆診一齊睇報告同跟進血壓。"
-            "你想揀視像診症定親臨診所？你可以喺下方揀選合適時間。"
+            "由於黃莎拉醫生調整咗你嘅血壓藥，按臨床指引我會先喺第 7 日自動喺呢度同你覆核家居血壓，"
+            "並於 2 至 4 星期後連同空腹驗血報告安排醫生覆診。你可以喺下方預留覆診時段。"
         )
         chat.append({
             "actor": "Sam",
@@ -3567,8 +3848,11 @@ def append_doctor_signed_chat_bubble(
     summary["original_chat"] = chat
     summary.pop("_dynamic_suggested_replies", None)
     tasks = list(summary.get("scheduled_tasks") or [])
-    if not any("3-day AI" in str(t.get("label", "")) for t in tasks):
-        tasks.append({"status": "auto", "label": "Day 3 · Autonomous AI Careline post-visit check-in (zero doctor workload)"})
+    if case.case_key == "lau_chest":
+        if not any("Day +7" in str(t.get("label", "")) for t in tasks):
+            tasks.append({"status": "auto", "label": "Day +7 · Autonomous AI Home BP & Side-Effect Check-In"})
+    elif not any("3-day AI" in str(t.get("label", "")) or "Day 3" in str(t.get("label", "")) for t in tasks):
+        tasks.append({"status": "auto", "label": "Day 3 · Autonomous AI Resident post-visit check-in"})
     summary["scheduled_tasks"] = tasks
     case.summary_json = summary
     flag_modified(case, "summary_json")

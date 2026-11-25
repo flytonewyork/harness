@@ -89,6 +89,7 @@ from .live_demo import (
     record_case_clinical_exam,
     reset_live_demo,
     retract_doctor_signed_chat_bubble,
+    send_patient_leaflet_message,
     start_live_journey,
     trigger_post_sign_checkin,
 )
@@ -464,6 +465,12 @@ class LiveChatTurnReq(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     lang: str = Field(default="en", max_length=12)
     is_preset: bool = False
+    attachment: dict[str, Any] | None = None
+
+
+class WorkspaceSendLeafletReq(BaseModel):
+    leaflet: dict[str, Any]
+    actor_name: str = Field(default="Dr. Sarah Wong", max_length=120)
 
 
 class LiveChatBookReq(BaseModel):
@@ -1388,6 +1395,7 @@ def create_acute_app(
                 live_bus=live_bus,
                 lang=body.lang,
                 is_preset=body.is_preset,
+                attachment=body.attachment,
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc))
@@ -1947,6 +1955,25 @@ def create_acute_app(
                 nurse_assignee=nurse_assignee_lbl,
                 signed_orders=parsed_orders,
             )
+            if case_row is not None and not nurse_handover_only:
+                drug_names = [str(o.get("drug") or "") for o in active_rx_orders]
+                drugs_low = " ".join(drug_names).lower()
+                if "augmentin" in drugs_low or "amoxicillin" in drugs_low:
+                    case_row.next_checkpoint_label = "Augmentin prescribed"
+                elif "warfarin" in drugs_low:
+                    case_row.next_checkpoint_label = "Warfarin 3mg reconciled"
+                elif "perindopril" in drugs_low:
+                    case_row.next_checkpoint_label = "Perindopril 8mg · 2-4w review"
+                elif "paracetamol" in drugs_low and certificates_out:
+                    d_off = certificates_out[0].get("days_off", 2)
+                    case_row.next_checkpoint_label = f"Paracetamol & {d_off}d MC signed"
+                elif drug_names:
+                    short_drug = drug_names[0].split("(")[0].strip().split()[0]
+                    case_row.next_checkpoint_label = f"{short_drug} prescribed"
+                elif certificates_out:
+                    case_row.next_checkpoint_label = f"{certificates_out[0].get('days_off', 1)}d MC signed"
+                else:
+                    case_row.next_checkpoint_label = "Plan signed"
             s.flush()
 
         trace_dict["emr_addendum"] = enriched_addendum
@@ -2035,6 +2062,33 @@ def create_acute_app(
     def workspace_case_commit(case_id: str, body: WorkspaceInstructionReq, request: Request):
         """Backward-compatible alias to `/confirm`."""
         return _handle_workspace_case_confirm(case_id, body, request)
+
+    @app.post("/api/v1/workspace/cases/{case_id}/send-leaflet")
+    def workspace_case_send_leaflet(case_id: str, body: WorkspaceSendLeafletReq, request: Request):
+        """Send a Patient Education Leaflet directly into the patient phone chat with live SSE push."""
+        tenant_id = _workspace_tenant(request)
+        with database.tenant_session(tenant_id) as s:
+            try:
+                out = send_patient_leaflet_message(
+                    s,
+                    case_id=case_id,
+                    leaflet_order=body.leaflet,
+                    actor_name=body.actor_name,
+                )
+            except ValueError as exc:
+                raise HTTPException(404, str(exc))
+        pid = out.get("patient_id") or None
+        live_bus.publish(
+            "patient.care_plan_delivered",
+            patient_id=pid,
+            data={"case_id": case_id, "patient_id": pid, "leaflet": out["leaflet"]},
+        )
+        live_bus.publish(
+            "case.updated",
+            patient_id=pid,
+            data={"case_id": case_id, "patient_id": pid, "leaflet_sent": True},
+        )
+        return {"ok": True, **out}
 
     @app.post("/api/v1/workspace/cases/{case_id}/record-exam")
     def workspace_case_record_exam(case_id: str, body: RecordExamReq, request: Request):

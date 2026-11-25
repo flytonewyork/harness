@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowUp, FileText, Menu, RotateCcw, Sparkles, X } from "lucide-react";
+import { ArrowUp, BookOpen, FileText, FlaskConical, Menu, Paperclip, RotateCcw, Sparkles, X } from "lucide-react";
 import { v2Api } from "../api";
 import { BookingOfferCard } from "./BookingOfferCard";
 import type { BookingOfferPayload } from "./BookingOfferCard";
@@ -38,6 +38,43 @@ interface StructuredPrescription {
   items: StructuredRxItem[];
 }
 
+interface StructuredLabSlip {
+  id: string;
+  order_ref?: string;
+  title_en: string;
+  title_zh?: string;
+  lab?: string;
+  fasting?: boolean;
+  when?: string;
+  instructions_en?: string;
+  instructions_zh?: string;
+  signed_by?: string;
+  mchk_reg_no?: string;
+}
+
+interface StructuredLeaflet {
+  id: string;
+  leaflet_id?: string;
+  title_en: string;
+  title_zh?: string;
+  template?: string;
+  summary_en?: string;
+  summary_zh?: string;
+  bullets_en?: string[];
+  bullets_zh?: string[];
+  signed_by?: string;
+}
+
+interface ChatAttachment {
+  name: string;
+  kind?: string;
+  size_label?: string;
+  preview_title_en?: string;
+  preview_title_zh?: string;
+  preview_summary_en?: string;
+  preview_summary_zh?: string;
+}
+
 interface ChatMsg {
   actor: string;
   role?: "doctor" | "assistant" | "patient" | "system";
@@ -48,6 +85,8 @@ interface ChatMsg {
   lang?: string;
   is_crisis?: boolean;
   trace_id?: string;
+  attachment?: ChatAttachment;
+  leaflet?: StructuredLeaflet;
   booking_offer?: BookingOfferPayload;
   care_plan?: {
     signed_by: string;
@@ -55,6 +94,8 @@ interface ChatMsg {
     ai_followup_note?: string;
     rx_lines?: string[];
     prescriptions?: StructuredPrescription[];
+    lab_slips?: StructuredLabSlip[];
+    leaflets?: StructuredLeaflet[];
     certificates?: Array<{
       id: string;
       days_off: number;
@@ -310,7 +351,7 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
     };
   }, [journeyKey, lang, sending, startJourneyFlow, refreshJourneys]);
 
-  const handleSend = async (overrideText?: string, isPreset = false) => {
+  const handleSend = async (overrideText?: string, isPreset = false, attachment?: ChatAttachment) => {
     const txt = (overrideText ?? input).trim();
     if (!txt || sending || typing) return;
     setInput("");
@@ -320,9 +361,12 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
     // Optimistic patient bubble on right; fire API immediately while pacing realistic typing bubble
     const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
     const patName = activeJourneyInfo?.patient_name || "You";
-    setMessages((prev) => [...prev, { actor: patName, role: "patient", time: nowTime, text: txt }]);
+    setMessages((prev) => [
+      ...prev,
+      { actor: patName, role: "patient", time: nowTime, text: txt, ...(attachment ? { attachment } : {}) },
+    ]);
 
-    const reqPromise = v2Api.liveChatTurn(journeyKey, txt, lang, isPreset);
+    const reqPromise = v2Api.liveChatTurn(journeyKey, txt, lang, isPreset, attachment);
     // Crisp read beat before Sam's typing dots appear
     await new Promise((r) => window.setTimeout(r, 120));
     setTyping(true);
@@ -702,6 +746,98 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
                     <span className="pc-bubble-time">{m.time}</span>
                   </div>
                 ))}
+
+                {/* 4. Standalone Investigation / Lab Order Slip Card(s) */}
+                {(m.care_plan.lab_slips || []).map((slip) => (
+                  <div key={slip.id} className="pc-row is-doctor" data-testid="chat-lab-order-slip-card">
+                    <div
+                      className="pc-doctor-card"
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid #cbd5e1",
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, borderBottom: "1px solid #e2e8f0", paddingBottom: 6 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <FlaskConical size={14} color="#0f6b58" />
+                          <strong style={{ fontSize: 12, color: "#0f6b58", letterSpacing: "0.03em", textTransform: "uppercase" }}>
+                            {isZh ? "化驗／檢查轉介單" : "Investigation Order Slip"}
+                          </strong>
+                        </span>
+                        <span style={{ fontSize: 11, fontFamily: "ui-monospace, monospace", color: "#57534e" }}>
+                          {slip.order_ref || slip.id}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1c1917" }}>
+                        {isZh ? (slip.title_zh || slip.title_en) : slip.title_en}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, fontSize: 11.5 }}>
+                        <span style={{ padding: "2px 7px", borderRadius: 999, background: "#f1f5f9", color: "#334155", fontWeight: 600 }}>
+                          {slip.lab || "Clinic / KingMed"}
+                        </span>
+                        <span style={{ padding: "2px 7px", borderRadius: 999, background: slip.fasting ? "#fff7ed" : "#ecfdf5", color: slip.fasting ? "#9a3412" : "#065f46", fontWeight: 600 }}>
+                          {slip.fasting ? (isZh ? "需空腹 8–10 小時" : "Fasting 8–10h") : (isZh ? "無須空腹" : "No fasting needed")}
+                        </span>
+                        {slip.when && (
+                          <span style={{ padding: "2px 7px", borderRadius: 999, background: "#f8fafc", border: "1px solid #e2e8f0", color: "#475569" }}>
+                            {slip.when}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12.2, color: "#44403c", lineHeight: 1.45 }}>
+                        {isZh ? (slip.instructions_zh || slip.instructions_en) : slip.instructions_en}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "#64748b", borderTop: "1px solid #f1f5f9", paddingTop: 6 }}>
+                        {isZh ? "轉介醫生：" : "Ordered by: "}
+                        {slip.signed_by || m.care_plan?.signed_by} (MCHK {slip.mchk_reg_no || m.care_plan?.mchk_reg_no})
+                      </div>
+                    </div>
+                    <span className="pc-bubble-time">{m.time}</span>
+                  </div>
+                ))}
+
+                {/* 5. Patient Education Leaflet Card(s) */}
+                {(m.care_plan.leaflets || []).map((lf) => (
+                  <div key={lf.id} className="pc-row is-doctor" data-testid="chat-leaflet-card">
+                    <div
+                      className="pc-doctor-card"
+                      style={{
+                        background: "#f7fcfa",
+                        border: "1px solid #bde2d9",
+                        gap: 7,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, borderBottom: "1px solid #d7ede7", paddingBottom: 6 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <BookOpen size={14} color="#0f6b58" />
+                          <strong style={{ fontSize: 12, color: "#0f6b58", letterSpacing: "0.03em", textTransform: "uppercase" }}>
+                            {isZh ? "診所病人護理單張" : "Patient Care Leaflet"}
+                          </strong>
+                        </span>
+                        <span style={{ fontSize: 10.5, color: "#0f6b58", background: "#dff3ed", padding: "1px 7px", borderRadius: 999, fontWeight: 600 }}>
+                          {isZh ? "個人化指引" : "Care Guide"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1c1917" }}>
+                        {isZh ? (lf.title_zh || lf.title_en) : lf.title_en}
+                      </div>
+                      {(isZh ? lf.summary_zh || lf.summary_en : lf.summary_en) && (
+                        <div style={{ fontSize: 12.2, color: "#44403c", lineHeight: 1.4 }}>
+                          {isZh ? (lf.summary_zh || lf.summary_en) : lf.summary_en}
+                        </div>
+                      )}
+                      {((isZh ? lf.bullets_zh : lf.bullets_en) || []).length > 0 && (
+                        <ul className="pc-doctor-list" style={{ margin: "2px 0 0", paddingLeft: 18, fontSize: 12.2, color: "#292524", lineHeight: 1.45 }}>
+                          {((isZh ? lf.bullets_zh : lf.bullets_en) || []).map((b, bi) => (
+                            <li key={bi}>{b}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <span className="pc-bubble-time">{m.time}</span>
+                  </div>
+                ))}
               </div>
             );
           }
@@ -727,7 +863,77 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           return (
             <div key={idx} className={`pc-row ${isPatient ? "is-patient" : "is-clinic"}${hasBooking ? " has-booking" : ""}`}>
               {!isPatient && <span className="pc-sender-label">Sam · {isZh ? "AI 駐診助手" : "AI Resident"}</span>}
-              <div className="pc-bubble">{renderBoldText(localizedText)}</div>
+              <div className="pc-bubble">
+                {isPatient && m.attachment && (
+                  <div
+                    data-testid="chat-message-attachment"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 4,
+                      padding: "8px 10px",
+                      borderRadius: 10,
+                      background: "rgba(255,255,255,0.16)",
+                      border: "1px solid rgba(255,255,255,0.28)",
+                      marginBottom: 7,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700 }}>
+                      <Paperclip size={13} />
+                      <span>{m.attachment.name}</span>
+                    </div>
+                    {m.attachment.size_label && (
+                      <div style={{ fontSize: 11, opacity: 0.88 }}>{m.attachment.size_label}</div>
+                    )}
+                    {(isZh ? m.attachment.preview_title_zh || m.attachment.preview_title_en : m.attachment.preview_title_en) && (
+                      <div style={{ fontSize: 11.5, fontWeight: 600, marginTop: 2 }}>
+                        {isZh ? (m.attachment.preview_title_zh || m.attachment.preview_title_en) : m.attachment.preview_title_en}
+                      </div>
+                    )}
+                    {(isZh ? m.attachment.preview_summary_zh || m.attachment.preview_summary_en : m.attachment.preview_summary_en) && (
+                      <div style={{ fontSize: 11.2, opacity: 0.92, lineHeight: 1.35 }}>
+                        {isZh ? (m.attachment.preview_summary_zh || m.attachment.preview_summary_en) : m.attachment.preview_summary_en}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {renderBoldText(localizedText)}
+              </div>
+              {!isPatient && m.leaflet && (
+                <div
+                  className="pc-doctor-card"
+                  data-testid="chat-leaflet-card"
+                  style={{
+                    background: "#f7fcfa",
+                    border: "1px solid #bde2d9",
+                    gap: 7,
+                    marginTop: 6,
+                    maxWidth: "92%",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, borderBottom: "1px solid #d7ede7", paddingBottom: 6 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <BookOpen size={14} color="#0f6b58" />
+                      <strong style={{ fontSize: 12, color: "#0f6b58", letterSpacing: "0.03em", textTransform: "uppercase" }}>
+                        {isZh ? "診所病人護理單張" : "Patient Care Leaflet"}
+                      </strong>
+                    </span>
+                    <span style={{ fontSize: 10.5, color: "#0f6b58", background: "#dff3ed", padding: "1px 7px", borderRadius: 999, fontWeight: 600 }}>
+                      {isZh ? "醫生已發送" : "Shared by Doctor"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1c1917" }}>
+                    {isZh ? (m.leaflet.title_zh || m.leaflet.title_en) : m.leaflet.title_en}
+                  </div>
+                  {((isZh ? m.leaflet.bullets_zh : m.leaflet.bullets_en) || []).length > 0 && (
+                    <ul className="pc-doctor-list" style={{ margin: "2px 0 0", paddingLeft: 18, fontSize: 12.2, color: "#292524", lineHeight: 1.45 }}>
+                      {((isZh ? m.leaflet.bullets_zh : m.leaflet.bullets_en) || []).map((b, bi) => (
+                        <li key={bi}>{b}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
               {hasBooking && m.booking_offer && (
                 <BookingOfferCard
                   offer={m.booking_offer}
@@ -983,14 +1189,41 @@ export function PatientChatApp({ initialJourney = "wingyan" }: PatientChatAppPro
           type="button"
           className="pc-icon-btn"
           style={{ width: 32, height: 32, borderRadius: "50%", color: "var(--pc-ink-2)", fontWeight: 600, fontSize: 16 }}
-          title={isZh ? "附上化驗報告或相片" : "Attach photo or lab report"}
+          title={isZh ? "附上出院總結或報告相片" : "Attach discharge summary or photo"}
+          data-testid="patient-attach-photo-btn"
           onClick={() => {
             if (!consentDone) setConsentDone(true);
-            setInput(
-              isZh
-                ? "我附上了最近嘅化驗報告／家居血壓讀數相片，請幫我交畀醫生參考。"
-                : "I've attached a photo of my recent lab report / home reading for the doctor to review.",
-            );
+            if (journeyKey === "chan") {
+              void handleSend(
+                isZh
+                  ? "呢張係我伊利沙伯醫院嘅出院總結相片，上載咗畀你核對。"
+                  : "Here is a photo of my QEH discharge summary.",
+                true,
+                {
+                  name: "QEH_Discharge_Summary_Chan.jpg",
+                  kind: "image",
+                  size_label: "1.4 MB · Photo",
+                  preview_title_en: "QEH Discharge Summary (p.2 · Medications)",
+                  preview_title_zh: "伊利沙伯醫院出院總結（第 2 頁 · 藥物）",
+                  preview_summary_en: "Warfarin 3mg daily (reduced from 5mg) · Atorvastatin 20mg nocte · Repeat INR 7d",
+                  preview_summary_zh: "Warfarin 3mg 每日一次（由 5mg 減量）· Atorvastatin 20mg 睡前 · 7 日後覆檢 INR",
+                },
+              );
+            } else {
+              void handleSend(
+                isZh
+                  ? "我附上了最近嘅化驗報告／家居血壓讀數相片，請幫我交畀醫生參考。"
+                  : "I've attached a photo of my recent lab report / home reading for the doctor to review.",
+                false,
+                {
+                  name: "Clinic_Report_Photo.jpg",
+                  kind: "image",
+                  size_label: "980 KB · Photo",
+                  preview_title_en: "Uploaded Photo Attachment",
+                  preview_title_zh: "已上載相片附件",
+                },
+              );
+            }
           }}
         >
           +
