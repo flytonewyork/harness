@@ -14,7 +14,17 @@ UVICORN_PID=""
 cleanup() {
   if [[ -n "${UVICORN_PID}" ]] && kill -0 "${UVICORN_PID}" 2>/dev/null; then
     kill "${UVICORN_PID}" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6; do
+      kill -0 "${UVICORN_PID}" 2>/dev/null || break
+      sleep 0.5
+    done
+    if kill -0 "${UVICORN_PID}" 2>/dev/null; then
+      kill -9 "${UVICORN_PID}" 2>/dev/null || true
+      sleep 0.3
+    fi
+    wait "${UVICORN_PID}" 2>/dev/null || true
   fi
+  UVICORN_PID=""
 }
 trap cleanup EXIT INT TERM
 
