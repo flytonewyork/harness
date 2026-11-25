@@ -330,6 +330,15 @@ def compile_corporate_journey_turn(
             {"status": "auto", "label": "Nurse Vaccination Bay · 10-min QIV Flu Shot (Harbour Capital HCP-FLU-2026)"},
             {"status": "auto", "label": "Day +2 · Autonomous # ai-team Post-Vaccination Symptom Check-In"},
         ]
+        summary["admin_handoffs"] = [
+            {
+                "id": "adm_corp_flu_clean",
+                "route": "Sam (AI Resident) → Nurse Rachel · Vaccination Bay",
+                "task": "Routine Corporate QIV Flu Shot (Harbour Capital HCP-FLU-2026) · HK CHP 4-pt screen cleared · Zero doctor workload",
+                "status": "pending_nurse",
+                "created_at": f"Today {hhmm}",
+            }
+        ]
         summary["issues"] = [{
             "id": "iss_corp_flu_clean",
             "name": "1. Seasonal influenza vaccination (routine corporate)",
@@ -695,6 +704,15 @@ def compile_corporate_journey_turn(
     summary["scheduled_tasks"] = [
         {"status": "auto", "label": "Tomorrow 10:15 Nurse Bay · Released back to Harbour Capital booking pool"},
         {"status": "auto", "label": "Day +5 · Autonomous # ai-team Fever-Free Check & Corporate Flu Auto-Rebook"},
+    ]
+    summary["admin_handoffs"] = [
+        {
+            "id": "adm_corp_flu_defer",
+            "route": "Sam (AI Resident) → Front Desk & Nurse Bay",
+            "task": "Fever deferral (38.6°C) · Released tomorrow 10:15 Nurse Bay slot back to Harbour Capital pool (prevented no-show) · Day +5 auto-rebook armed",
+            "status": "done",
+            "created_at": f"Today {hhmm}",
+        }
     ]
     summary["issues"] = [{
         "id": "iss_corp_flu_defer",

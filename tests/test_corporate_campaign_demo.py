@@ -94,7 +94,27 @@ def test_corporate_wellness_pack_4_cases_end_to_end(tmp_path: Path):
     ov2 = client.get("/api/v1/workspace/overview?mode=live").json()
     flag_case = next(c for c in ov2["cases"] if c["case_key"] == "corp_flu_flag")
     assert flag_case["next_checkpoint_label"] == "Flu · GP Clearance Needed"
-    assert any("Flublok" in str(o.get("drug", "")) for o in flag_case["summary"]["issues"][0]["suggested_orders"])
+    flag_orders = flag_case["summary"]["issues"][0]["suggested_orders"]
+    assert any("Flublok" in str(o.get("drug", "")) for o in flag_orders)
+
+    # Doctor signs Flublok + supervised GP consult + post-vax leaflet -> delivers e-Rx, Leaflet, and doctor-supervised booking card!
+    conf_flag = client.post(
+        f"/api/v1/workspace/cases/{flag_case['id']}/confirm",
+        json={
+            "actor_name": "Locum Dr. Sarah Wong",
+            "mchk_reg_no": "M16412",
+            "instruction_text": "Flublok CVX 185 + 30-min observation + safety guide",
+            "orders": flag_orders,
+        },
+    )
+    assert conf_flag.status_code == 200
+    st2_post = client.get("/api/v1/demo/live/chat/state/corp_flu_flag?lang=en").json()
+    signed_flag = next(m for m in reversed(st2_post["messages"]) if m.get("care_plan"))
+    assert len(signed_flag["care_plan"]["prescriptions"]) == 1
+    assert len(signed_flag["care_plan"]["leaflets"]) == 1
+    assert signed_flag["care_plan"]["leaflets"][0]["leaflet_id"] == "flu_post_vax_hk"
+    assert st2_post["messages"][-1].get("booking_offer") is not None
+    assert st2_post["messages"][-1]["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_wong"
 
     # ---- CASE 3: corp_prev_bundle (Cantonese default -> HK Preventive + Longevity ApoB/Lp(a)/hs-CRP/DEXA Upsell) ----
     s3 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "corp_prev_bundle", "lang": "zh-HK"}).json()
@@ -163,3 +183,9 @@ def test_corporate_wellness_pack_4_cases_end_to_end(tmp_path: Path):
     defer_case = next(c for c in ov4["cases"] if c["case_key"] == "corp_flu_defer")
     assert defer_case["next_checkpoint_label"] == "Slot released · AI Day-5 rebook"
     assert any("Day +5" in str(t.get("label", "")) for t in defer_case["summary"]["scheduled_tasks"])
+
+    # Verify Inbox Zero for doctor & # clinic-team handoffs populated for both zero-doctor corporate cases
+    assert ov4["counts"]["needs_decision"] == 0
+    handoff_ids = {h["id"] for h in ov4["team_handoffs"]}
+    assert "adm_corp_flu_clean" in handoff_ids
+    assert "adm_corp_flu_defer" in handoff_ids

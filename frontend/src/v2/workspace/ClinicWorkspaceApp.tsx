@@ -1512,6 +1512,51 @@ export function ClinicWorkspaceApp() {
         <main className="ws-content">
           {banner && <div className="ws-safety-gap">{banner}</div>}
 
+          {isCorporatePack && cases.length > 0 && (view === "my_work" || view === "clinic_team" || view === "ai_team") && (() => {
+            const corpCases = cases.filter((c: any) => String(c.case_key || "").startsWith("corp_"));
+            if (corpCases.length === 0) return null;
+            const zeroDocCount = corpCases.filter((c: any) => c.case_key === "corp_flu_clean" || c.case_key === "corp_flu_defer").filter((c: any) => c.state === "scheduled" || c.state === "closed").length;
+            const gpEscalations = corpCases.filter((c: any) => c.case_key === "corp_flu_flag" && (c.state === "needs_decision" || c.state === "scheduled" || c.state === "closed")).length;
+            const upsellCount = corpCases.filter((c: any) => c.case_key === "corp_prev_bundle" && (c.state === "needs_decision" || c.state === "scheduled" || c.state === "closed")).length;
+            const slotsSaved = corpCases.filter((c: any) => c.case_key === "corp_flu_defer" && c.state === "scheduled").length;
+            return (
+              <div
+                data-testid="corporate-campaign-kpi-strip"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
+                  gap: 10,
+                  marginBottom: 14,
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  background: "#f4fbf8",
+                  border: "1px solid #cce6de",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#0f6b58", textTransform: "uppercase", letterSpacing: "0.04em" }}>Campaign Cohort</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ws-ink)", marginTop: 2 }}>{corpCases.length} <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ws-ink-3)" }}>screened</span></div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#0f6b58", textTransform: "uppercase", letterSpacing: "0.04em" }}>Zero-Doctor Handled</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#0f6b58", marginTop: 2 }}>{zeroDocCount} <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ws-ink-3)" }}>nurse / AI</span></div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.04em" }}>Safety Escalations</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ws-ink)", marginTop: 2 }}>{gpEscalations} <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ws-ink-3)" }}>GP cleared</span></div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#0f6b58", textTransform: "uppercase", letterSpacing: "0.04em" }}>Longevity Upsells</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ws-ink)", marginTop: 2 }}>{upsellCount} <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ws-ink-3)" }}>converted</span></div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#0f6b58", textTransform: "uppercase", letterSpacing: "0.04em" }}>No-Shows Prevented</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ws-ink)", marginTop: 2 }}>{slotsSaved} <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ws-ink-3)" }}>slot released</span></div>
+                </div>
+              </div>
+            );
+          })()}
+
           {view === "my_work" && cases.length === 0 && (
             <div className="ws-qr-stage" data-testid="workspace-blank-qr-stage">
               <div className="ws-qr-card">
