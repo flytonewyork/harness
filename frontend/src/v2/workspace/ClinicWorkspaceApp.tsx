@@ -1396,10 +1396,14 @@ export function ClinicWorkspaceApp() {
                         {subLabel && <div className="ws-nav-sub">{subLabel}</div>}
                       </div>
                       {isClosed ? (
-                        <span className="ws-badge">✓</span>
-                      ) : c.goal?.target ? (
-                        <span className="ws-badge">{c.goal.status === "on_track" ? "Goal ✓" : "!"}</span>
-                      ) : null}
+                        <span className="ws-badge" title="Loop closed">✓</span>
+                      ) : c.baton === "with_nurse" ? (
+                        <span className="ws-badge" style={{ background: "#fef3c7", color: "#92400e" }} title="With Nurse">Nurse</span>
+                      ) : c.baton === "with_patient" ? (
+                        <span className="ws-badge" style={{ background: "#e0f2fe", color: "#075985" }} title="Active with patient">Chat</span>
+                      ) : (
+                        <span className="ws-badge" style={{ background: "#f5f5f4", color: "#57534e" }} title="Open loop awaiting pending step">Open</span>
+                      )}
                     </button>
                   );
                 })}

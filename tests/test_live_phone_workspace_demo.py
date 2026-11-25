@@ -877,7 +877,8 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert "msu" not in signed_tang_msg["text"].lower()
     ov2_post = client.get("/api/v1/workspace/overview?mode=live").json()
     tang_case_post = next(c for c in ov2_post["cases"] if c["case_key"] == "tang_uti")
-    assert tang_case_post["next_checkpoint_label"] == "Augmentin prescribed"
+    assert tang_case_post["state"] == "scheduled"
+    assert tang_case_post["next_checkpoint_label"] == "Augmentin · Awaiting urine test"
 
     # ---- CASE 3: chan (Post-Discharge AFib — Cantonese default, 3-step EMR check -> photo upload -> separate symptom & hold bubbles) ----
     s3 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "chan", "lang": "zh-HK"}).json()
@@ -1036,7 +1037,8 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert "Day 7" in signed_plan_msg["text"]
     ov4_post = client.get("/api/v1/workspace/overview?mode=live").json()
     lau_case_post = next(c for c in ov4_post["cases"] if c["case_key"] == "lau_chest")
-    assert lau_case_post["next_checkpoint_label"] == "Perindopril 8mg · 2-4w review"
+    assert lau_case_post["state"] == "scheduled"
+    assert lau_case_post["next_checkpoint_label"] == "Awaiting Day-7 BP & fasting labs"
     booking_followup_msg = st4_after["messages"][-1]
     assert booking_followup_msg.get("booking_offer") is not None
     assert booking_followup_msg["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_wong"

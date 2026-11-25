@@ -1876,21 +1876,31 @@ def commit_case_instruction(
                 run_after=undo_exp,
             )
 
-        # Loop 4 state transition: Needs Decision -> Running (only when nurse task ordered), Scheduled, or Closed
+        # Loop 4 state transition: Needs Decision -> Running (nurse task), Scheduled (blocking future step), or Closed (✓)
+        def _is_blocking_future_order(o: dict[str, Any]) -> bool:
+            otype = str(o.get("type") or "").lower()
+            if otype in ("lab", "imaging", "book", "referral", "refer"):
+                return True
+            if otype == "goal":
+                # Delivered patient education leaflets do NOT keep a clinical loop open
+                has_leaflet = bool(o.get("leaflet_id") or o.get("leafletId"))
+                has_numeric_target = any(o.get(k) is not None for k in ("target_sys", "targetSys", "target_value", "targetValue"))
+                return not (has_leaflet and not has_numeric_target)
+            return False
+
         if explicit_orders is not None:
             has_nurse_order = any(o.get("type") == "nurse" for o in parsed_orders)
             if not has_nurse_order:
                 plan["nurse_handoff"] = None
-            has_future_order = any(
-                o.get("type") in ("lab", "imaging", "book", "referral", "goal")
-                for o in parsed_orders
-            )
+            has_future_order = any(_is_blocking_future_order(o) for o in parsed_orders)
             if has_nurse_order:
                 case.state = "running"
                 case.baton = "with_nurse"
+                case.next_checkpoint_label = "Awaiting nurse follow-up"
             elif has_future_order:
                 case.state = "scheduled"
                 case.baton = "idle"
+                case.next_checkpoint_label = "Awaiting pending results"
             else:
                 case.state = "closed"
                 case.baton = "idle"
@@ -1900,12 +1910,15 @@ def commit_case_instruction(
             if has_nurse_order:
                 case.state = "running"
                 case.baton = "with_nurse"
+                case.next_checkpoint_label = "Awaiting nurse follow-up"
             elif plan["categorised_plan"]["patient_task"]:
                 case.state = "running"
                 case.baton = "with_patient"
+                case.next_checkpoint_label = "Awaiting patient response"
             else:
                 case.state = "scheduled"
                 case.baton = "idle"
+                case.next_checkpoint_label = "Awaiting pending results"
 
         # Update Wong goal if tightened
         if case.case_key == "wong" and ("130" in eff_instruction or any(o.get("type") == "goal" and o.get("target_sys") == 130 for o in parsed_orders)):

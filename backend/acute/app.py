@@ -1958,22 +1958,50 @@ def create_acute_app(
             if case_row is not None and not nurse_handover_only:
                 drug_names = [str(o.get("drug") or "") for o in active_rx_orders]
                 drugs_low = " ".join(drug_names).lower()
-                if "augmentin" in drugs_low or "amoxicillin" in drugs_low:
-                    case_row.next_checkpoint_label = "Augmentin prescribed"
-                elif "warfarin" in drugs_low:
-                    case_row.next_checkpoint_label = "Warfarin 3mg reconciled"
-                elif "perindopril" in drugs_low:
-                    case_row.next_checkpoint_label = "Perindopril 8mg · 2-4w review"
-                elif "paracetamol" in drugs_low and certificates_out:
-                    d_off = certificates_out[0].get("days_off", 2)
-                    case_row.next_checkpoint_label = f"Paracetamol & {d_off}d MC signed"
-                elif drug_names:
-                    short_drug = drug_names[0].split("(")[0].strip().split()[0]
-                    case_row.next_checkpoint_label = f"{short_drug} prescribed"
-                elif certificates_out:
-                    case_row.next_checkpoint_label = f"{certificates_out[0].get('days_off', 1)}d MC signed"
+                lab_orders = [o for o in parsed_orders if str(o.get("type") or "").lower() == "lab"]
+                img_orders = [o for o in parsed_orders if str(o.get("type") or "").lower() == "imaging"]
+                book_orders = [o for o in parsed_orders if str(o.get("type") or "").lower() == "book"]
+                lab_blob = " ".join(str(o.get("test_name") or o.get("testName") or "") for o in lab_orders).lower()
+
+                if case_row.state == "closed":
+                    if "augmentin" in drugs_low or "amoxicillin" in drugs_low:
+                        case_row.next_checkpoint_label = "Augmentin prescribed"
+                    elif "warfarin" in drugs_low:
+                        case_row.next_checkpoint_label = "Warfarin 3mg reconciled"
+                    elif "perindopril" in drugs_low:
+                        case_row.next_checkpoint_label = "Perindopril 8mg signed"
+                    elif "paracetamol" in drugs_low and certificates_out:
+                        d_off = certificates_out[0].get("days_off", 2)
+                        case_row.next_checkpoint_label = f"Paracetamol & {d_off}d MC signed"
+                    elif drug_names:
+                        short_drug = drug_names[0].split("(")[0].strip().split()[0]
+                        case_row.next_checkpoint_label = f"{short_drug} prescribed"
+                    elif certificates_out:
+                        case_row.next_checkpoint_label = f"{certificates_out[0].get('days_off', 1)}d MC signed"
+                    else:
+                        case_row.next_checkpoint_label = "Plan signed"
                 else:
-                    case_row.next_checkpoint_label = "Plan signed"
+                    # Open loop: explicitly show the blocking step preventing closure!
+                    if nurse_orders and "inr" in lab_blob:
+                        case_row.next_checkpoint_label = "Nurse call · Awaiting 7d INR"
+                    elif nurse_orders:
+                        case_row.next_checkpoint_label = f"Awaiting {nurse_assignee_lbl.split('(')[0].strip()}"
+                    elif "inr" in lab_blob:
+                        case_row.next_checkpoint_label = "Awaiting 7d INR result"
+                    elif "urine" in lab_blob or "dipstick" in lab_blob or "msu" in lab_blob:
+                        case_row.next_checkpoint_label = "Augmentin · Awaiting urine test"
+                    elif "lipid" in lab_blob or "hba1c" in lab_blob or "renal" in lab_blob:
+                        case_row.next_checkpoint_label = "Awaiting Day-7 BP & fasting labs"
+                    elif lab_orders:
+                        first_lab = str(lab_orders[0].get("test_name") or lab_orders[0].get("testName") or "lab").split("(")[0].strip()
+                        case_row.next_checkpoint_label = f"Awaiting {first_lab[:22]}"
+                    elif img_orders:
+                        mod = str(img_orders[0].get("modality") or "imaging").strip()
+                        case_row.next_checkpoint_label = f"Awaiting {mod[:22]}"
+                    elif book_orders:
+                        case_row.next_checkpoint_label = "Awaiting follow-up visit"
+                    else:
+                        case_row.next_checkpoint_label = "Tracking home BP target"
             s.flush()
 
         trace_dict["emr_addendum"] = enriched_addendum
