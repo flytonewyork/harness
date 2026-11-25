@@ -414,12 +414,8 @@ def should_attach_booking_offer(
                 return False
         return True
 
-    # Proactively offer on the first clinical turn that genuinely requires an immediate in-clinic visit (chan).
-    # Cases 1 & 2 proceed via chat review unless requested; Case 4 (lau_chest) offers booking after Dr. Wong confirms tests/prevention plan.
-    if not already_offered and not has_signed and new_state == "needs_decision":
-        if j_key == "chan":
-            return True
-
+    # All 4 flagship cases proceed conversationally without abruptly prompting for a booking during intake.
+    # Booking cards attach when the patient explicitly asks to book, or post-sign (Case 4 post-tests / Day+3 preventive).
     return False
 
 

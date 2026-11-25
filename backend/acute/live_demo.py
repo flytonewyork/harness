@@ -2120,39 +2120,66 @@ def _compile_journey_turn_update(
         steps.append("PracticeGraph · Traversed ebm.pathway.post_discharge_anticoag (Python CHA₂DS₂-VASc=3, HAS-BLED=1)")
         steps.append("PresentationCompiler · Mounted MedDiff (Warfarin 5→3mg, Statin switch) & INR Trend (5/5 linter)")
 
-        if asked_nsaid:
-            reply_en = (
-                "Please avoid ibuprofen (and other NSAIDs) while taking Warfarin — combining them significantly raises bleeding risk. "
-                "I've flagged this for Dr. Sarah Wong ahead of your review today so she can confirm a safe pain-relief option and reconcile your medication bags with you."
+        agent_thread = list(summary.get("agent_thread") or [])
+        if asked_nsaid or mentioned_no_bleed:
+            if not any("QEH discharge med diff" in str(x.get("text", "")) for x in agent_thread):
+                agent_thread.append({
+                    "actor": "Sam",
+                    "time": _hkt_hhmm(),
+                    "text": "AI Resident reasoning: Screened bleeding/bruising (denied) and blocked Ibuprofen/NSAID on Warfarin → compiled QEH discharge med diff (Warfarin 5→3mg, Simvastatin→Atorvastatin), CHA₂DS₂-VASc 3 / HAS-BLED 1, and 7-day INR plan for Dr. Sarah Wong's dose review.",
+                })
+            summary["agent_thread"] = agent_thread[-4:]
+
+            if asked_nsaid:
+                reply_en = (
+                    "Please avoid ibuprofen (and other NSAIDs) while taking Warfarin — combining them significantly raises bleeding risk. "
+                    "I've noted that you have no bruising or bleeding and sent the full QEH medication comparison (Warfarin 5mg to 3mg, Atorvastatin replacing Simvastatin) to Dr. Sarah Wong for her dose review — your updated plan will appear right here once confirmed."
+                )
+                reply_zh = (
+                    "服食薄血丸（Warfarin）期間請避免服食布洛芬（Ibuprofen）或其他消炎止痛藥，因為會大幅增加出血風險。"
+                    "我已經記低你冇瘀傷或流血，並將伊利沙伯醫院出院改藥對照（薄血丸 5mg 轉 3mg、轉用 Atorvastatin）交畀黃莎拉醫生覆核劑量，確認後更新計劃會直接喺呢度發送畀你。"
+                )
+            else:
+                reply_en = (
+                    "Good to hear there is no bruising or bleeding. I've sent your QEH discharge medication comparison (Warfarin 5mg to 3mg, Atorvastatin replacing Simvastatin) to Dr. Sarah Wong for her dose review — your updated plan will appear right here once confirmed."
+                )
+                reply_zh = (
+                    "冇瘀傷亦都冇流血就好放心。我已經將伊利沙伯醫院出院改藥對照（薄血丸 5mg 轉 3mg、轉用 Atorvastatin）交畀黃莎拉醫生覆核劑量，確認後更新計劃會直接喺呢度發送畀你。"
+                )
+            summary["_last_reply_bilingual"] = (reply_en, reply_zh)
+            return (
+                "needs_decision",
+                "with_doctor",
+                "Post-QEH AFib Discharge — Medication Review",
+                "Post-discharge Warfarin 5→3mg & statin switch; bleeding denied & NSAID blocked — awaiting Dr. Sarah Wong's dose review.",
+                "Ready for dose review",
+                summary,
+                reply_zh if is_zh else reply_en,
+                steps,
             )
-            reply_zh = (
-                "服食薄血丸（Warfarin）期間請避免服食布洛芬（Ibuprofen）或其他消炎止痛藥，因為會大幅增加出血風險。"
-                "我已經通知咗黃莎拉醫生，覆診時會同你逐一核對藥袋同安排安全嘅止痛選擇。"
-            )
-        elif mentioned_no_bleed and not asked_meds:
-            reply_en = (
-                "Good to hear there's no bruising or bleeding — I've noted that for Dr. Sarah Wong ahead of your review today. "
-                "Please bring all of your hospital and clinic medicine bags so we can confirm everything cleanly."
-            )
-            reply_zh = (
-                "冇瘀傷亦都冇流血就好放心——我已經幫你記低畀黃莎拉醫生知。覆診時麻煩帶齊所有醫院同診所藥袋過嚟核對。"
-            )
-        else:
-            reply_en = (
-                "Thank you for checking before taking anything — please do not take both statins together, and wait for Dr. Sarah Wong to confirm your exact Warfarin and cholesterol doses.\n\n"
-                "I've flagged the QEH discharge changes (Warfarin 3mg vs. 5mg, Atorvastatin replacing Simvastatin) in Dr. Sarah Wong's workspace and checked today's schedule — she has an open 11:30 slot below so we can reconcile your medicine bags in person. Have you noticed any unusual bruising or bleeding?"
-            )
-            reply_zh = (
-                "好多謝你食藥前先問清楚——請千祈唔好同時食兩隻降膽固醇藥，並等黃莎拉醫生確認你嘅薄血丸同降膽固醇藥劑量後先好服食今日嘅藥。\n\n"
-                "我已經將伊利沙伯醫院出院改藥對照放咗喺黃莎拉醫生嘅工作台，亦查閱咗今日診所時間表——黃莎拉醫生今日 11:30 有空檔幫你當面核對藥袋（可喺下方確認或揀其他時段）。你最近有冇發現容易瘀傷或者流牙血？"
-            )
+
+        # Turn 1: One thing at a time — safety hold first, ask about symptoms/discomfort/bleeding, and stop (no abrupt booking card)
+        agent_thread.append({
+            "actor": "Sam",
+            "time": _hkt_hhmm(),
+            "text": "AI Resident intake (Step 1/2): Advised holding duplicate statins until Dr. Sarah Wong confirms doses; screening for bruising, bleeding, or discomfort before escalating.",
+        })
+        summary["agent_thread"] = agent_thread[-4:]
+        reply_en = (
+            "Thank you for checking before taking anything — please do not take both statins together, and wait for Dr. Sarah Wong to confirm your exact Warfarin and cholesterol doses. "
+            "Before I send this over to her, have you noticed any unusual bruising, bleeding, or any other symptoms or discomfort today?"
+        )
+        reply_zh = (
+            "好多謝你食藥前先問清楚——請千祈唔好同時食兩隻降膽固醇藥，並等黃莎拉醫生確認你嘅薄血丸同降膽固醇藥劑量後先好服食今日嘅藥。"
+            "交畀醫生審閱前，你今日有冇發現容易瘀傷、流牙血或者其他唔舒服？"
+        )
         summary["_last_reply_bilingual"] = (reply_en, reply_zh)
         return (
-            "needs_decision",
-            "with_doctor",
-            "Post-QEH AFib Discharge — Medication Review",
-            "Post-discharge Warfarin 5→3mg & statin switch flagged via patient Careline ahead of 11:30 visit.",
-            "Today 11:30 visit",
+            "running",
+            "with_patient",
+            "Post-QEH AFib Discharge — Screening Symptoms",
+            "Patient flagged QEH Warfarin/statin mismatch; AI Resident advised holding duplicate statins and is screening for bleeding or discomfort.",
+            "Screening symptoms",
             summary,
             reply_zh if is_zh else reply_en,
             steps,

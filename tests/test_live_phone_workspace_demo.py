@@ -124,7 +124,7 @@ def test_blank_start_qr_scan_natural_chat_doctor_sign_undo_and_reset(tmp_path):
         },
     )
     assert r_chan_turn.status_code == 200
-    assert r_chan_turn.json()["case_state"] == "needs_decision"
+    assert r_chan_turn.json()["case_state"] == "running"
 
     # 7. Switch journey -> WONG Mei Ling (on-target BP stays quietly Scheduled -> elevated BP wakes up!)
     client.post("/api/v1/demo/live/chat/start", json={"journey_key": "wong", "lang": "en"})
@@ -422,8 +422,8 @@ def test_qr_welcomes_are_clean_no_premature_clinical_dump_and_no_false_999_on_co
     assert r_conf.status_code == 200
     conf_body = r_conf.json()
     assert conf_body["crisis"] is None
-    assert conf_body["case_state"] == "needs_decision"
-    assert "warfarin 3mg" in conf_body["reply"].lower()
+    assert conf_body["case_state"] == "running"
+    assert "warfarin" in conf_body["reply"].lower()
 
     # 4. Every non-crisis suggested reply across all 12 journeys must NOT trigger 999
     for j in LIVE_JOURNEYS:
@@ -854,25 +854,33 @@ def test_flagship_4_cases_clinical_accuracy_no_static_fallback_and_erx_pdf(tmp_p
     assert conf_tang.status_code == 200
     assert conf_tang.json()["case_state"] == "closed"
 
-    # ---- CASE 3: chan (Post-Discharge AFib — Cantonese default, live EN/ZH toggle on messages) ----
+    # ---- CASE 3: chan (Post-Discharge AFib — Cantonese default, 2-step conversational intake, live EN/ZH toggle) ----
     s3 = client.post("/api/v1/demo/live/chat/start", json={"journey_key": "chan", "lang": "zh-HK"}).json()
     assert len(s3["suggested_replies"]) == 1
     assert s3["journey"]["default_lang"] == "zh-HK"
     assert s3["messages"][0].get("text_en") and s3["messages"][0].get("text_zh")
-    t3 = client.post(
+    # Turn 1: Safety hold + ask about bruising/bleeding/discomfort and stop (NO abrupt booking card!)
+    t3_1 = client.post(
         "/api/v1/demo/live/chat/turn",
         json={"journey_key": "chan", "message": s3["suggested_replies"][0], "lang": "zh-HK", "is_preset": True},
     ).json()
+    assert t3_1["case_state"] == "running"
+    assert "！" not in t3_1["reply"] and "!" not in t3_1["reply"]
+    assert t3_1["messages"][-1].get("text_en") and t3_1["messages"][-1].get("text_zh")
+    assert t3_1["messages"][-2].get("text_en") and t3_1["messages"][-2].get("text_zh")
+    assert t3_1["booking_offer"] is None
+    assert len(t3_1["suggested_replies"]) == 1
+    assert "布洛芬" in t3_1["suggested_replies"][0]
+
+    # Turn 2: Patient denies bleeding & asks about ibuprofen -> Sam blocks NSAID, logs reasoning & awaits Dr. Sarah Wong's dose review
+    t3 = client.post(
+        "/api/v1/demo/live/chat/turn",
+        json={"journey_key": "chan", "message": t3_1["suggested_replies"][0], "lang": "zh-HK", "is_preset": True},
+    ).json()
     assert t3["case_state"] == "needs_decision"
     assert "！" not in t3["reply"] and "!" not in t3["reply"]
+    assert t3["booking_offer"] is None
     assert t3["messages"][-1].get("text_en") and t3["messages"][-1].get("text_zh")
-    assert t3["messages"][-2].get("text_en") and t3["messages"][-2].get("text_zh")
-    assert t3["booking_offer"] is not None
-    assert t3["booking_offer"]["modality"] == "in_clinic"
-    assert t3["booking_offer"]["recommended"]["doctor_id"] == "doc_dr_wong"
-    assert t3["booking_offer"]["recommended"]["time"] == "11:30"
-    assert len(t3["suggested_replies"]) == 1
-    assert "布洛芬" in t3["suggested_replies"][0]
     ov3 = client.get("/api/v1/workspace/overview?mode=live").json()
     chan_case = next(c for c in ov3["cases"] if c["case_key"] == "chan")
     assert len(chan_case["summary"]["clinical_scores"]) == 2
@@ -1176,13 +1184,13 @@ def test_agent_checks_doctor_availability_offers_slot_confirms_and_prevents_doub
     client = _make_client(tmp_path)
     assert client.post("/api/v1/demo/live/reset").status_code == 200
 
-    # 1. Start CHAN Tai Man (Post-QEH Warfarin discharge) and ask about medications -> Sam checks availability & attaches booking_offer
+    # 1. Start CHAN Tai Man (Post-QEH Warfarin discharge) and explicitly ask to book -> Sam checks availability & attaches booking_offer
     assert client.post("/api/v1/demo/live/chat/start", json={"journey_key": "chan", "lang": "en"}).status_code == 200
     t_chan = client.post(
         "/api/v1/demo/live/chat/turn",
         json={
             "journey_key": "chan",
-            "message": "I just got discharged from QEH yesterday — they gave me Warfarin 3mg and Atorvastatin, but I still have 5mg Warfarin and Simvastatin at home. Which should I take?",
+            "message": "I just got discharged from QEH yesterday — can I book an appointment with Dr. Sarah Wong today to review my Warfarin and cholesterol pills?",
             "lang": "en",
         },
     ).json()
