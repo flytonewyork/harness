@@ -679,7 +679,7 @@ export function ClinicWorkspaceApp() {
   const [samReadMap, setSamReadMap] = useState<Record<string, boolean>>({});
   const [samInput, setSamInput] = useState("");
   const [playbookAns, setPlaybookAns] = useState<Record<string, any> | null>(null);
-  const [playbookFilter, setPlaybookFilter] = useState<"all" | "safety" | "pathway" | "triage">("all");
+  const [playbookInput, setPlaybookInput] = useState("");
   const [banner, setBanner] = useState<string | null>(null);
   const [cdsFeedback, setCdsFeedback] = useState<Record<string, CdsFeedbackState | null>>({});
   const [overrideReasonMap, setOverrideReasonMap] = useState<Record<string, string>>({});
@@ -1350,9 +1350,6 @@ export function ClinicWorkspaceApp() {
             </button>
             <button type="button" className={`ws-nav-btn ${view === "playbook" ? "is-active" : ""}`} onClick={() => setView("playbook")}>
               <span>@ Clinic Playbook</span>
-              <span className="ws-badge" style={{ background: "#f5f5f4", color: "#57534e" }}>
-                {(data.practice_graph?.nodes || []).length}
-              </span>
             </button>
           </div>
 
@@ -1749,96 +1746,74 @@ export function ClinicWorkspaceApp() {
             );
           })()}
 
-          {view === "playbook" && (() => {
-            const allNodes: any[] = data.practice_graph?.nodes || [];
-            const filteredNodes = allNodes.filter((n) => {
-              if (playbookFilter === "all") return true;
-              const nid = String(n.id || "");
-              if (playbookFilter === "safety") return Boolean(n.safety_floor) || nid.startsWith("ebm.safety.");
-              if (playbookFilter === "pathway") return nid.startsWith("ebm.pathway.");
-              if (playbookFilter === "triage") return nid.startsWith("ebm.triage.") || (!nid.startsWith("ebm.safety.") && !nid.startsWith("ebm.pathway."));
-              return true;
-            });
-            return (
-              <div style={{ maxWidth: 820, display: "flex", flexDirection: "column", gap: 14 }} data-testid="clinic-playbook-guidelines-view">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-                  <div>
-                    <h1 className="ws-ai-title">@ Clinic Playbook</h1>
-                    <div style={{ fontSize: 12.5, color: "var(--ws-ink-3)", marginTop: 2 }}>
-                      Approved Clinic Guidelines &amp; Practice Standards · {data.practice_graph?.version_tag || "v2.4"} · Approved by {data.practice_graph?.approved_by || "Lead GP"}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {(
-                      [
-                        { id: "all", label: `All (${allNodes.length})` },
-                        { id: "pathway", label: "Clinical Pathways" },
-                        { id: "safety", label: "Safety Floor" },
-                        { id: "triage", label: "Triage & Standards" },
-                      ] as const
-                    ).map((tab) => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        className={playbookFilter === tab.id ? "ws-btn-primary" : "ws-btn"}
-                        style={{ padding: "4px 10px", fontSize: 12 }}
-                        onClick={() => setPlaybookFilter(tab.id)}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Quick Guideline Lookup */}
-                <div className="ws-card" style={{ gap: 10 }}>
-                  <div className="ws-section-kicker">Quick Guideline Lookup</div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {[
-                      "How do we handle QEH Warfarin discharges?",
-                      "What is our UTI & G6PD antibiotic protocol?",
-                      "Acute URTI & sick leave standards?",
-                    ].map((q) => (
-                      <button key={q} type="button" className="ws-btn" style={{ fontSize: 12 }} onClick={() => runPlaybookQuery(q)}>
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                  {playbookAns && (
-                    <div className="ws-attachment">
-                      <div style={{ fontSize: 12, color: "var(--ws-ink-3)" }}>
-                        Clinic Guideline {playbookAns.graph_version_tag} · Approved by {playbookAns.approved_by}
-                      </div>
-                      <ul style={{ margin: 0, paddingLeft: 18 }}>
-                        {(playbookAns.answer_bullets || []).map((b: string, i: number) => (
-                          <li key={i}>{b}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {/* Read-Only Clinic Guidelines List */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {filteredNodes.map((node: any) => (
-                    <div key={node.id} className="ws-card" style={{ gap: 6, padding: "14px 16px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <div style={{ fontWeight: 600, fontSize: 14.5, color: "var(--ws-ink)" }}>{node.title}</div>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          {node.safety_floor && <span className="ws-pill ws-pill-amber">Safety Floor</span>}
-                          {node.practice_customized && <span className="ws-pill ws-pill-jade">Clinic Standard</span>}
-                          {node.guideline_ref && (
-                            <span style={{ fontSize: 11.5, color: "var(--ws-ink-3)" }}>{node.guideline_ref}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="ws-lead" style={{ fontSize: 13 }}>{node.summary}</div>
-                    </div>
-                  ))}
+          {view === "playbook" && (
+            <div style={{ maxWidth: 760, display: "flex", flexDirection: "column", gap: 14 }} data-testid="clinic-playbook-guidelines-view">
+              <div>
+                <h1 className="ws-ai-title">@ Clinic Playbook</h1>
+                <div style={{ fontSize: 12.5, color: "var(--ws-ink-3)", marginTop: 2 }}>
+                  Clinic Guidelines · {data.practice_graph?.version_tag || "v2.4"} · Approved by {data.practice_graph?.approved_by || "Lead GP"}
                 </div>
               </div>
-            );
-          })()}
+
+              <div className="ws-card" style={{ gap: 12 }}>
+                <div className="ws-section-kicker">Quick Guideline Lookup</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {[
+                    "How do we handle QEH Warfarin discharges?",
+                    "What is our UTI & G6PD antibiotic protocol?",
+                    "Acute URTI & sick leave standards?",
+                  ].map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      className="ws-btn"
+                      style={{ fontSize: 12 }}
+                      onClick={() => {
+                        setPlaybookInput(q);
+                        void runPlaybookQuery(q);
+                      }}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+
+                {playbookAns && (
+                  <div className="ws-attachment">
+                    <div style={{ fontSize: 12, color: "var(--ws-ink-3)" }}>
+                      Clinic Guideline {playbookAns.graph_version_tag} · Approved by {playbookAns.approved_by}
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {(playbookAns.answer_bullets || []).map((b: string, i: number) => (
+                        <li key={i}>{b}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <form
+                  className="ws-input-row"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const q = playbookInput.trim();
+                    if (!q) return;
+                    void runPlaybookQuery(q);
+                  }}
+                >
+                  <input
+                    className="ws-text-input"
+                    value={playbookInput}
+                    onChange={(e) => setPlaybookInput(e.target.value)}
+                    placeholder="Ask a clinic guideline question…"
+                    data-testid="playbook-chat-input"
+                  />
+                  <button type="submit" className="ws-btn-primary" disabled={busy || !playbookInput.trim()}>
+                    Ask
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
 
           {view === "curator" && (
             <div style={{ maxWidth: 820, display: "flex", flexDirection: "column", gap: 14 }} data-testid="internal-clinic-curator-view">
