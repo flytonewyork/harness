@@ -1361,50 +1361,49 @@ export function ClinicWorkspaceApp() {
             ))}
           </div>
 
-          <div className="ws-nav-group">
-            <div className="ws-nav-heading"><span>Running · Today</span><span>{data.counts.running}</span></div>
-            {data.grouped.running.length === 0 ? (
-              <div style={{ padding: "4px 8px", fontSize: 12, color: "var(--ws-ink-3)" }}>Waiting for patient</div>
-            ) : data.grouped.running.map((c: any) => (
-              <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span className="ws-live-dot" />
-                    <span>{c.patient_name} ({c.patient_age_sex})</span>
-                  </div>
-                  <div className="ws-nav-sub">
-                    {c.baton === "with_nurse"
-                      ? "With Nurse Rachel"
-                      : c.baton === "with_patient"
-                        ? "Careline active · agents working"
-                        : "Dispatched today"}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <div className="ws-nav-group">
-            <div className="ws-nav-heading"><span>Seen Today · Done</span><span>{data.counts.scheduled}</span></div>
-            {data.grouped.scheduled.map((c: any) => (
-              <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
-                <div style={{ minWidth: 0 }}>
-                  <div>{c.patient_name} ({c.patient_age_sex})</div>
-                  <div className="ws-nav-sub">{c.next_checkpoint_label}</div>
-                </div>
-                {c.goal?.target && <span className="ws-badge">{c.goal.status === "on_track" ? "Goal ✓" : "!"}</span>}
-              </button>
-            ))}
-          </div>
-
-          <div className="ws-nav-group">
-            <div className="ws-nav-heading"><span>Closed</span><span>{data.counts.closed}</span></div>
-            {data.grouped.closed.map((c: any) => (
-              <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
-                <span>{c.patient_name}</span><span className="ws-badge">✓</span>
-              </button>
-            ))}
-          </div>
+          {(() => {
+            const otherPatients = [
+              ...data.grouped.running,
+              ...data.grouped.scheduled,
+              ...data.grouped.closed,
+            ];
+            return (
+              <div className="ws-nav-group" data-testid="sidebar-patients-group">
+                <div className="ws-nav-heading"><span>Patients</span><span>{otherPatients.length}</span></div>
+                {otherPatients.length === 0 ? (
+                  <div style={{ padding: "4px 8px", fontSize: 12, color: "var(--ws-ink-3)" }}>None yet</div>
+                ) : otherPatients.map((c: any) => {
+                  const isRunning = c.state === "running";
+                  const isClosed = c.state === "closed";
+                  const subLabel = isRunning
+                    ? (c.baton === "with_nurse"
+                        ? "With Nurse Rachel"
+                        : c.baton === "with_patient"
+                          ? "Careline active · agents working"
+                          : "Dispatched today")
+                    : isClosed
+                      ? (c.next_checkpoint_label || "Closed")
+                      : c.next_checkpoint_label;
+                  return (
+                    <button key={c.id} type="button" className={`ws-nav-btn ${view === c.id ? "is-active" : ""}`} onClick={() => openCase(c.id)}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {isRunning && <span className="ws-live-dot" />}
+                          <span>{c.patient_name}{c.patient_age_sex ? ` (${c.patient_age_sex})` : ""}</span>
+                        </div>
+                        {subLabel && <div className="ws-nav-sub">{subLabel}</div>}
+                      </div>
+                      {isClosed ? (
+                        <span className="ws-badge">✓</span>
+                      ) : c.goal?.target ? (
+                        <span className="ws-badge">{c.goal.status === "on_track" ? "Goal ✓" : "!"}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </aside>
 
         {/* CENTER WORKSPACE */}
