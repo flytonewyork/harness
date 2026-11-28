@@ -1,0 +1,2173 @@
+# Wave 1 Pod C: Neurology, Mental Health, MSK, Pain, Eye & Dermatology Core Knowledge Pack
+# Licensing: Tier-1 open operational spine (SNOMED CT GPS, LOINC, UCUM, WHO INN, FDA GSRS UNII,
+# RxNorm SAB=RXNORM); Tier-2 bare code-only export pointers (ICPC-2, ICD-10, ATC — zero rubric tables).
+# Strict Asymmetric Authority: clinician_only differentials/rationales; bilingual en + zh_hk on all
+# concepts, aliases, and patient-facing text; zero hardcoded 999/000 or banned reassurance claims.
+
+concepts:
+  # =========================================================================
+  # REASONS FOR ENCOUNTER (RFEs) — 8 Primary Care Presentations (Wave 1)
+  # =========================================================================
+  - id: rfe:headache
+    kind: rfe
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "25064002", display: "Headache (finding)" }
+      icpc2: { code: "N01", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R51", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Headache", zh_hk: "頭痛" }
+    aliases:
+      en: ["headache", "migraine", "head pain", "pounding head", "tension headache"]
+      zh_hk: ["頭痛", "偏頭痛", "頭赤", "頭脹痛", "太陽穴痛", "個頭好痛"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rfe:dizziness_vertigo
+    kind: rfe
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "404640003", display: "Dizziness (finding)" }
+      icpc2: { code: "N17", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R42", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Dizziness / vertigo", zh_hk: "頭暈／眩暈" }
+    aliases:
+      en: ["dizziness", "vertigo", "room spinning", "lightheaded", "unsteady", "giddy"]
+      zh_hk: ["頭暈", "天旋地轉", "眩暈", "耳水不平衡", "頭重腳輕", "企唔穩"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rfe:low_back_pain
+    kind: rfe
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "279039007", display: "Low back pain (finding)" }
+      icpc2: { code: "L03", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M54.5", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Low back pain", zh_hk: "腰痛／下背痛" }
+    aliases:
+      en: ["low back pain", "lower back pain", "LBP", "backache", "sciatica", "slipped disc"]
+      zh_hk: ["腰痛", "下背痛", "腰骨痛", "閃親腰", "坐骨神經痛", "椎間盤突出"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rfe:joint_pain
+    kind: rfe
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "57676002", display: "Pain of joint (finding)" }
+      icpc2: { code: "L20", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M25.5", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Joint pain / swelling", zh_hk: "關節痛／關節腫脹" }
+    aliases:
+      en: ["joint pain", "arthralgia", "swollen joint", "knee pain", "arthritis flare", "gout attack"]
+      zh_hk: ["關節痛", "關節腫", "風濕痛", "膝頭痛", "腳趾公腫痛", "骨痛"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rfe:rash
+    kind: rfe
+    wave: W1
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "271807003", display: "Eruption of skin (disorder)" }
+      icpc2: { code: "S06", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R21", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Skin rash / eruption", zh_hk: "皮疹／出疹" }
+    aliases:
+      en: ["rash", "skin rash", "itchy rash", "hives", "blisters", "red spots", "shingles rash"]
+      zh_hk: ["出疹", "皮疹", "紅疹", "皮膚痕", "起風癩", "生蛇", "出粒粒"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rfe:red_eye
+    kind: rfe
+    wave: W1
+    cluster: C12_ophthalmology
+    bindings:
+      snomed_gps: { code: "75705005", display: "Red eye (finding)" }
+      icpc2: { code: "F02", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H57.8", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Red eye / painful eye", zh_hk: "紅眼／眼痛" }
+    aliases:
+      en: ["red eye", "pink eye", "bloodshot eye", "eye pain", "sticky eye", "sore eye"]
+      zh_hk: ["眼紅", "紅眼症", "眼痛", "眼膠多", "紅筋", "隻眼好紅"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rfe:anxiety_low_mood
+    kind: rfe
+    wave: W1
+    cluster: C06_mental_health
+    bindings:
+      snomed_gps: { code: "48694002", display: "Anxiety (finding)" }
+      icpc2: { code: "P01", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R45.8", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Anxiety / low mood / stress", zh_hk: "焦慮／情緒低落／壓力" }
+    aliases:
+      en: ["anxiety", "low mood", "depressed", "stressed", "panic attack", "overwhelmed", "anxious"]
+      zh_hk: ["焦慮", "情緒低落", "唔開心", "好大壓力", "驚恐發作", "緊張", "情緒困擾"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rfe:insomnia
+    kind: rfe
+    wave: W1
+    cluster: C06_mental_health
+    bindings:
+      snomed_gps: { code: "193462001", display: "Insomnia (disorder)" }
+      icpc2: { code: "P06", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G47.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Insomnia / sleep disturbance", zh_hk: "失眠／睡眠困難" }
+    aliases:
+      en: ["insomnia", "can't sleep", "trouble sleeping", "waking up early", "poor sleep"]
+      zh_hk: ["失眠", "瞓唔著", "易醒", "早醒", "冇覺好瞓", "睡眠質素差"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  # =========================================================================
+  # RED-FLAG FINDINGS (8) — Positive Exclusions & Emergency Safety Floor
+  # =========================================================================
+  - id: rf:thunderclap_headache
+    kind: red_flag
+    wave: W1
+    cluster: C09_neurology
+    display: { en: "Sudden maximal-intensity ('thunderclap') headache reaching peak within 1 minute", zh_hk: "突發雷擊樣劇烈頭痛（一分鐘內達致最痛）" }
+    aliases:
+      en: ["thunderclap headache", "worst headache of my life", "sudden explosive headache"]
+      zh_hk: ["雷擊樣頭痛", "爆裂性頭痛", "一生最痛嘅頭痛", "突然劇烈頭痛"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rf:focal_neuro_deficit_fast
+    kind: red_flag
+    wave: W1
+    cluster: C09_neurology
+    display: { en: "Acute focal neurological deficit (FAST: facial droop, limb weakness/numbness, slurred speech, visual field loss, ataxia)", zh_hk: "突發局部神經缺損（面部歪斜、單側手腳無力或麻痺、口齒不清、視野缺損或行路不穩）" }
+    aliases:
+      en: ["facial droop", "slurred speech", "arm weakness", "one-sided weakness", "FAST positive", "double vision"]
+      zh_hk: ["口歪眼斜", "手腳無力", "講嘢唔正", "口齒不清", "半身麻痺", "談笑用兵", "重影"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rf:cauda_equina_signs
+    kind: red_flag
+    wave: W1
+    cluster: C05_msk
+    display: { en: "Cauda equina signs (saddle anaesthesia, new urinary retention/incontinence, faecal incontinence, bilateral leg weakness)", zh_hk: "馬尾神經受壓徵象（會陰麻痺、突發尿瀦留或大小便失禁、雙下肢無力）" }
+    aliases:
+      en: ["saddle numbness", "unable to pass urine", "bladder incontinence", "bowel incontinence", "bilateral sciatica"]
+      zh_hk: ["會陰麻痺", "屙唔出尿", "小便失禁", "大便失禁", "雙腳麻痺無力"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rf:acute_visual_loss_painful_eye
+    kind: red_flag
+    wave: W1
+    cluster: C12_ophthalmology
+    bindings:
+      snomed_gps: { code: "15203004", display: "Sudden visual loss (disorder)" }
+    display: { en: "Acute visual loss, severe eye pain, haloes around lights, or marked photophobia", zh_hk: "突發視力下降或喪失、眼部劇痛、視物見光環或嚴重畏光" }
+    aliases:
+      en: ["sudden vision loss", "haloes around lights", "severe eye pain", "cloudy cornea", "photophobia"]
+      zh_hk: ["突然睇唔到嘢", "視力急降", "睇燈有彩虹光圈", "眼球劇痛", "嚴重怕光"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rf:hot_swollen_single_joint
+    kind: red_flag
+    wave: W1
+    cluster: C05_msk
+    display: { en: "Acute hot, red, severely swollen single joint with inability to bear weight or fever", zh_hk: "單一關節急性紅腫熱痛、無法活動或負重（或伴發燒）" }
+    aliases:
+      en: ["hot swollen joint", "unable to weight bear", "red tender joint with fever", "monoarthritis"]
+      zh_hk: ["關節發熱紅腫", "痛到行唔到", "單一關節劇腫", "關節紅腫兼發燒"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rf:anaphylaxis_airway_swelling
+    kind: red_flag
+    wave: W1
+    cluster: C10_dermatology
+    display: { en: "Airway or facial swelling (lips/tongue/throat), hoarse voice, stridor, wheeze, or collapse with hives", zh_hk: "嘴唇／舌頭／喉嚨腫脹、聲沙、喘鳴、呼吸困難或風疹伴頭暈休克" }
+    aliases:
+      en: ["swollen lips", "swollen tongue", "throat closing", "stridor", "hives and wheezing", "anaphylaxis"]
+      zh_hk: ["嘴唇腫", "脷腫", "喉嚨哽住腫脹", "氣喘出風癩", "嚴重過敏休克"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rf:jaw_claudication_temporal_pain
+    kind: red_flag
+    wave: W1
+    cluster: C09_neurology
+    display: { en: "New temporal headache with jaw pain on chewing (jaw claudication), scalp tenderness, or visual disturbance (age >=50)", zh_hk: "五十歲以上新發太陽穴頭痛、咀嚼時下顎痛、頭皮觸痛或視力異常" }
+    aliases:
+      en: ["jaw claudication", "pain chewing", "tender temple", "scalp tenderness", "transient vision loss"]
+      zh_hk: ["咬嘢下巴痛", "太陽穴按壓痛", "梳頭頭皮痛", "短暫眼矇"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: rf:ophthalmic_zoster_tip_nose
+    kind: red_flag
+    wave: W1
+    cluster: C12_ophthalmology
+    display: { en: "Vesicular rash on forehead, eyelid, or tip of nose (Hutchinson's sign — herpes zoster ophthalmicus)", zh_hk: "額頭、眼皮或鼻尖出現水泡皮疹（眼部帶狀疱疹／生蛇上眼徵象）" }
+    aliases:
+      en: ["shingles near eye", "blisters on nose tip", "Hutchinson sign", "ophthalmic zoster"]
+      zh_hk: ["生蛇上眼", "額頭生蛇", "鼻尖起水泡", "眼皮水泡疹"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  # =========================================================================
+  # CONDITIONS (25) — Neurology, Mental Health, MSK, Eye & Dermatology
+  # =========================================================================
+  - id: cond:tension_headache
+    kind: condition
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "398057008", display: "Tension-type headache (disorder)" }
+      icpc2: { code: "N95", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G44.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Tension-type headache", zh_hk: "緊張性頭痛" }
+    aliases:
+      en: ["tension headache", "TTH", "stress headache", "band-like headache"]
+      zh_hk: ["緊張性頭痛", "壓力性頭痛", "緊箍式頭痛"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:migraine
+    kind: condition
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "37796009", display: "Migraine (disorder)" }
+      icpc2: { code: "N89", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G43.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Migraine", zh_hk: "偏頭痛" }
+    aliases:
+      en: ["migraine", "migraine with aura", "migraine without aura"]
+      zh_hk: ["偏頭痛", "有先兆偏頭痛"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:sah
+    kind: condition
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "21454007", display: "Subarachnoid intracranial hemorrhage (disorder)" }
+      icpc2: { code: "K90", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I60.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Subarachnoid haemorrhage (SAH)", zh_hk: "蛛網膜下腔出血" }
+    aliases:
+      en: ["subarachnoid haemorrhage", "SAH", "ruptured brain aneurysm"]
+      zh_hk: ["蛛網膜下腔出血", "腦動脈瘤破裂", "爆血管"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:gca
+    kind: condition
+    wave: W1
+    cluster: C09_neurology
+    parent_ids: ["cond:connective_tissue_disease"]
+    bindings:
+      snomed_gps: { code: "400130008", display: "Temporal arteritis (disorder)" }
+      icpc2: { code: "K99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M31.6", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Giant cell arteritis (temporal arteritis)", zh_hk: "巨細胞動脈炎（顳動脈炎）" }
+    aliases:
+      en: ["giant cell arteritis", "GCA", "temporal arteritis"]
+      zh_hk: ["巨細胞動脈炎", "顳動脈炎"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:stroke_tia
+    kind: condition
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "230690007", display: "Cerebrovascular accident (disorder)" }
+      icpc2: { code: "K90", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I64", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute stroke / transient ischaemic attack (TIA)", zh_hk: "急性中風／短暫性腦缺血發作（小中風）" }
+    aliases:
+      en: ["stroke", "CVA", "TIA", "mini-stroke", "ischaemic stroke", "posterior circulation stroke"]
+      zh_hk: ["中風", "腦中風", "小中風", "短暫性腦缺血"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:bppv
+    kind: condition
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "111541001", display: "Benign paroxysmal positional vertigo (disorder)" }
+      icpc2: { code: "H82", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H81.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Benign paroxysmal positional vertigo (BPPV)", zh_hk: "良性陣發性位置性眩暈（耳石移位）" }
+    aliases:
+      en: ["BPPV", "positional vertigo", "inner ear crystals"]
+      zh_hk: ["耳石移位", "耳石鬆脫", "耳水不平衡", "良性陣發性位置性眩暈"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:bells_palsy
+    kind: condition
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "193093009", display: "Bell's palsy (disorder)" }
+      icpc2: { code: "N91", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G51.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Bell's palsy (idiopathic facial nerve palsy)", zh_hk: "貝爾氏面癱（特發性顏面神經麻痺）" }
+    aliases:
+      en: ["Bell's palsy", "facial palsy", "CN VII palsy"]
+      zh_hk: ["面癱", "貝爾氏面癱", "顏面神經麻痺", "歪嘴"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:epilepsy
+    kind: condition
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "84757009", display: "Epilepsy (disorder)" }
+      icpc2: { code: "N88", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G40.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Epilepsy / seizure disorder", zh_hk: "腦癇症（癲癇）" }
+    aliases:
+      en: ["epilepsy", "seizure disorder", "fits", "convulsions"]
+      zh_hk: ["腦癇症", "癲癇", "發羊吊", "抽筋"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:dementia
+    kind: condition
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "52448006", display: "Dementia (disorder)" }
+      icpc2: { code: "P70", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F03", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Dementia / major neurocognitive disorder", zh_hk: "認知障礙症（腦退化症）" }
+    aliases:
+      en: ["dementia", "Alzheimer's disease", "cognitive decline", "memory loss"]
+      zh_hk: ["認知障礙症", "腦退化症", "老人癡呆症", "阿茲海默症"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:gad
+    kind: condition
+    wave: W1
+    cluster: C06_mental_health
+    bindings:
+      snomed_gps: { code: "21897009", display: "Generalized anxiety disorder (disorder)" }
+      icpc2: { code: "P74", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F41.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Generalised anxiety disorder (GAD)", zh_hk: "廣泛性焦慮症" }
+    aliases:
+      en: ["generalised anxiety disorder", "GAD", "chronic anxiety"]
+      zh_hk: ["廣泛性焦慮症", "焦慮症"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:panic_disorder
+    kind: condition
+    wave: W1
+    cluster: C06_mental_health
+    bindings:
+      snomed_gps: { code: "371631005", display: "Panic disorder (disorder)" }
+      icpc2: { code: "P74", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F41.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Panic disorder", zh_hk: "驚恐症" }
+    aliases:
+      en: ["panic disorder", "panic attacks", "acute anxiety attack"]
+      zh_hk: ["驚恐症", "恐慌症", "驚恐發作"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:alcohol_use_disorder
+    kind: condition
+    wave: W1
+    cluster: C06_mental_health
+    bindings:
+      snomed_gps: { code: "7200002", display: "Alcoholism (disorder)" }
+      icpc2: { code: "P15", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F10.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Alcohol use disorder / hazardous drinking", zh_hk: "酒精使用障礙／酗酒" }
+    aliases:
+      en: ["alcohol use disorder", "AUD", "alcohol dependence", "heavy drinking"]
+      zh_hk: ["酒精使用障礙", "酗酒", "酒癮", "飲酒過量"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:gout
+    kind: condition
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "90560007", display: "Gout (disorder)" }
+      icpc2: { code: "T92", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M10.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute / chronic gout", zh_hk: "痛風（急性／慢性）" }
+    aliases:
+      en: ["gout", "gout flare", "acute gout", "podagra", "crystal arthritis"]
+      zh_hk: ["痛風", "痛風發作", "尿酸高關節炎"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:osteoarthritis
+    kind: condition
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "396275006", display: "Osteoarthritis (disorder)" }
+      icpc2: { code: "L91", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M19.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Osteoarthritis (OA)", zh_hk: "退化性關節炎（骨關節炎）" }
+    aliases:
+      en: ["osteoarthritis", "OA", "degenerative joint disease", "wear and tear arthritis"]
+      zh_hk: ["退化性關節炎", "骨關節炎", "關節退化", "生骨刺"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:rheumatoid_arthritis
+    kind: condition
+    wave: W1
+    cluster: C05_msk
+    parent_ids: ["cond:connective_tissue_disease"]
+    bindings:
+      snomed_gps: { code: "69896004", display: "Rheumatoid arthritis (disorder)" }
+      icpc2: { code: "L88", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M06.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Rheumatoid arthritis (RA)", zh_hk: "類風濕性關節炎" }
+    aliases:
+      en: ["rheumatoid arthritis", "RA", "inflammatory polyarthritis"]
+      zh_hk: ["類風濕性關節炎", "類風濕"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:osteoporosis
+    kind: condition
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "64859006", display: "Osteoporosis (disorder)" }
+      icpc2: { code: "L95", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M81.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Osteoporosis", zh_hk: "骨質疏鬆症" }
+    aliases:
+      en: ["osteoporosis", "low bone density", "fragility fracture"]
+      zh_hk: ["骨質疏鬆症", "骨質疏鬆", "骨頭脆"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:cauda_equina
+    kind: condition
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "192970008", display: "Cauda equina syndrome (disorder)" }
+      icpc2: { code: "L86", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G83.4", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Cauda equina syndrome", zh_hk: "馬尾綜合症" }
+    aliases:
+      en: ["cauda equina syndrome", "CES", "acute spinal cord compression"]
+      zh_hk: ["馬尾綜合症", "馬尾神經受壓"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:septic_arthritis
+    kind: condition
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "48245008", display: "Bacterial arthritis (disorder)" }
+      icpc2: { code: "L70", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M00.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Septic arthritis", zh_hk: "化膿性關節炎（細菌性關節炎）" }
+    aliases:
+      en: ["septic arthritis", "bacterial arthritis", "infected joint"]
+      zh_hk: ["化膿性關節炎", "細菌性關節炎", "關節感染"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:acute_glaucoma
+    kind: condition
+    wave: W1
+    cluster: C12_ophthalmology
+    bindings:
+      snomed_gps: { code: "392291006", display: "Angle-closure glaucoma (disorder)" }
+      icpc2: { code: "F93", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H40.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute angle-closure glaucoma", zh_hk: "急性閉角型青光眼" }
+    aliases:
+      en: ["acute angle-closure glaucoma", "AACG", "narrow-angle glaucoma", "acute glaucoma"]
+      zh_hk: ["急性青光眼", "急性閉角型青光眼", "眼壓急升"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:conjunctivitis
+    kind: condition
+    wave: W1
+    cluster: C12_ophthalmology
+    bindings:
+      snomed_gps: { code: "9826008", display: "Conjunctivitis (disorder)" }
+      icpc2: { code: "F70", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H10.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Conjunctivitis (viral / bacterial / allergic)", zh_hk: "結膜炎（紅眼症）" }
+    aliases:
+      en: ["conjunctivitis", "pink eye", "allergic conjunctivitis", "viral conjunctivitis"]
+      zh_hk: ["結膜炎", "紅眼症", "眼敏感"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:eczema
+    kind: condition
+    wave: W1
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "24079001", display: "Atopic dermatitis (disorder)" }
+      icpc2: { code: "S87", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "L20.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Atopic dermatitis / eczema", zh_hk: "異位性皮炎／濕疹" }
+    aliases:
+      en: ["eczema", "atopic dermatitis", "dermatitis", "eczema flare"]
+      zh_hk: ["濕疹", "異位性皮炎", "皮膚敏感"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:cellulitis
+    kind: condition
+    wave: W1
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "128045006", display: "Cellulitis (disorder)" }
+      icpc2: { code: "S76", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "L03.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Cellulitis", zh_hk: "蜂窩組織炎" }
+    aliases:
+      en: ["cellulitis", "skin infection", "spreading red skin"]
+      zh_hk: ["蜂窩組織炎", "皮膚細菌感染"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:herpes_zoster
+    kind: condition
+    wave: W1
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "4740000", display: "Herpes zoster (disorder)" }
+      icpc2: { code: "S70", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B02.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Herpes zoster (shingles)", zh_hk: "帶狀疱疹（生蛇）" }
+    aliases:
+      en: ["herpes zoster", "shingles", "zoster", "herpes zoster ophthalmicus"]
+      zh_hk: ["帶狀疱疹", "生蛇", "蛇串瘡"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:anaphylaxis
+    kind: condition
+    wave: W1
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "39579001", display: "Anaphylaxis (disorder)" }
+      icpc2: { code: "A92", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "T78.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Anaphylaxis / acute severe urticaria-angioedema", zh_hk: "過敏性休克／嚴重急性蕁麻疹及血管性水腫" }
+    aliases:
+      en: ["anaphylaxis", "severe allergic reaction", "angioedema", "urticaria", "hives"]
+      zh_hk: ["過敏性休克", "嚴重過敏反應", "血管性水腫", "急性蕁麻疹", "風癩"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: cond:melanoma
+    kind: condition
+    wave: W1
+    cluster: C10_dermatology
+    parent_ids: ["cond:malignancy_occult"]
+    bindings:
+      snomed_gps: { code: "372244006", display: "Malignant melanoma (disorder)" }
+      icpc2: { code: "S77", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "C43.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Cutaneous malignant melanoma", zh_hk: "惡性黑色素瘤" }
+    aliases:
+      en: ["melanoma", "malignant melanoma", "changing mole", "acral melanoma", "skin cancer"]
+      zh_hk: ["黑色素瘤", "惡性黑色素瘤", "皮膚癌", "癦變大變色"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  # =========================================================================
+  # PHARMACOGENOMIC MARKER (1)
+  # =========================================================================
+  - id: pgx:hla_b_1502
+    kind: pgx_marker
+    wave: W1
+    cluster: X2_pharmacology
+    bindings:
+      loinc: { code: "57979-7", display: "HLA-B*15:02 [Presence]" }
+    display: { en: "HLA-B*15:02 allele (Carbamazepine / oxcarbazepine / phenytoin SJS/TEN risk)", zh_hk: "HLA-B*15:02 基因檢測（卡馬西平嚴重皮膚反應風險）" }
+    aliases:
+      en: ["HLA-B*15:02", "HLA-B1502", "carbamazepine PGx"]
+      zh_hk: ["HLA-B*15:02 基因", "卡馬西平基因檢測"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  # =========================================================================
+  # DRUG CLASSES (11) — Authored Open IS_A DAG
+  # =========================================================================
+  - id: drug_class:ssri
+    kind: drug_class
+    wave: W1
+    cluster: C06_mental_health
+    bindings:
+      atc: { code: "N06AB", system: "http://www.whocc.no/atc" }
+    display: { en: "Selective serotonin reuptake inhibitor (SSRI)", zh_hk: "選擇性血清素再攝取抑制劑 (SSRI)" }
+    purpose_phrases:
+      en: ["antidepressant", "anxiety medication", "depression medication"]
+      zh_hk: ["血清素藥", "抗抑鬱藥", "焦慮藥"]
+    drug_facet:
+      no_gap: true
+      bleedy: true
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug_class:snri
+    kind: drug_class
+    wave: W1
+    cluster: C06_mental_health
+    bindings:
+      atc: { code: "N06AX", system: "http://www.whocc.no/atc" }
+    display: { en: "Serotonin-noradrenaline reuptake inhibitor (SNRI)", zh_hk: "血清素及去甲腎上腺素再攝取抑制劑 (SNRI)" }
+    purpose_phrases:
+      en: ["antidepressant", "nerve pain", "anxiety medication"]
+      zh_hk: ["抗抑鬱藥", "情緒藥", "神經痛藥"]
+    drug_facet:
+      no_gap: true
+      bleedy: true
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug_class:benzodiazepine
+    kind: drug_class
+    wave: W1
+    cluster: C06_mental_health
+    bindings:
+      atc: { code: "N05BA", system: "http://www.whocc.no/atc" }
+    display: { en: "Benzodiazepine", zh_hk: "苯二氮平類鎮靜劑／安眠藥" }
+    purpose_phrases:
+      en: ["sleeping pill", "calming pill", "sedative", "benzo"]
+      zh_hk: ["鎮靜劑", "安眠藥", "放鬆藥"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pregnancy_caution: "caution"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug_class:z_drug
+    kind: drug_class
+    wave: W1
+    cluster: C06_mental_health
+    bindings:
+      atc: { code: "N05CF", system: "http://www.whocc.no/atc" }
+    display: { en: "Z-drug hypnotic (non-benzodiazepine sedative)", zh_hk: "非苯二氮平類安眠藥 (Z-drug)" }
+    purpose_phrases:
+      en: ["sleeping tablet", "sleep aid", "hypnotic"]
+      zh_hk: ["安眠藥", "助眠藥"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pregnancy_caution: "caution"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug_class:triptan
+    kind: drug_class
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      atc: { code: "N02CC", system: "http://www.whocc.no/atc" }
+    display: { en: "Triptan (5-HT1B/1D agonist for acute migraine)", zh_hk: "曲坦類偏頭痛急性止痛藥" }
+    purpose_phrases:
+      en: ["migraine tablet", "migraine relief"]
+      zh_hk: ["偏頭痛藥", "急性偏頭痛止痛藥"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug_class:anticonvulsant
+    kind: drug_class
+    wave: W1
+    cluster: C09_neurology
+    bindings:
+      atc: { code: "N03A", system: "http://www.whocc.no/atc" }
+    display: { en: "Anticonvulsant / anti-seizure & neuropathic pain agent", zh_hk: "抗腦癇藥／神經痛藥物" }
+    purpose_phrases:
+      en: ["seizure medication", "epilepsy drug", "nerve pain medication"]
+      zh_hk: ["腦癇藥", "抽筋藥", "神經痛藥"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug_class:bisphosphonate
+    kind: drug_class
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      atc: { code: "M05BA", system: "http://www.whocc.no/atc" }
+    display: { en: "Bisphosphonate (anti-resorptive bone therapy)", zh_hk: "雙膦酸鹽類骨質疏鬆藥" }
+    purpose_phrases:
+      en: ["bone medication", "osteoporosis pill"]
+      zh_hk: ["補骨藥", "骨質疏鬆藥"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug_class:gout_acute
+    kind: drug_class
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      atc: { code: "M04AC", system: "http://www.whocc.no/atc" }
+    display: { en: "Acute gout anti-inflammatory agent (colchicine)", zh_hk: "急性痛風消炎藥" }
+    purpose_phrases:
+      en: ["gout flare medication"]
+      zh_hk: ["急性痛風藥", "痛風發作藥"]
+    drug_facet:
+      high_risk: true
+      short_course: true
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug_class:antiviral_herpes
+    kind: drug_class
+    wave: W1
+    cluster: C10_dermatology
+    bindings:
+      atc: { code: "J05AB", system: "http://www.whocc.no/atc" }
+    display: { en: "Anti-herpesvirus nucleoside antiviral", zh_hk: "抗疱疹病毒藥" }
+    purpose_phrases:
+      en: ["shingles medication", "herpes antiviral"]
+      zh_hk: ["生蛇藥", "抗疱疹藥"]
+    drug_facet:
+      short_course: true
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug_class:topical_steroid
+    kind: drug_class
+    wave: W1
+    cluster: C10_dermatology
+    bindings:
+      atc: { code: "D07A", system: "http://www.whocc.no/atc" }
+    display: { en: "Topical corticosteroid", zh_hk: "外用類固醇藥膏" }
+    purpose_phrases:
+      en: ["eczema cream", "steroid cream", "itch cream"]
+      zh_hk: ["濕疹膏", "類固醇藥膏", "止痕藥膏"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug_class:mood_stabiliser
+    kind: drug_class
+    wave: W1
+    cluster: C06_mental_health
+    bindings:
+      atc: { code: "N05AN", system: "http://www.whocc.no/atc" }
+    display: { en: "Mood stabiliser (lithium)", zh_hk: "情緒穩定劑（鋰劑）" }
+    purpose_phrases:
+      en: ["mood stabiliser", "bipolar medication"]
+      zh_hk: ["情緒穩定劑", "躁鬱症藥"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  # =========================================================================
+  # ESSENTIAL DRUGS (21) — Anchored on WHO INN + RxNorm / FDA GSRS UNII
+  # =========================================================================
+  - id: drug:sertraline
+    kind: drug
+    wave: W1
+    cluster: C06_mental_health
+    parent_ids: ["drug_class:ssri"]
+    bindings:
+      inn: "sertraline"
+      rxnorm: { code: "36437", display: "sertraline" }
+      atc: { code: "N06AB06", system: "http://www.whocc.no/atc" }
+    display: { en: "Sertraline", zh_hk: "舍曲林" }
+    aliases:
+      en: ["Zoloft", "Eleva", "Setrona"]
+      zh_hk: ["舍曲林", "樂復得"]
+    drug_facet:
+      no_gap: true
+      bleedy: true
+      max_daily_mg: 200
+      dosing_pearl: { en: "Start 25-50 mg OD; review within 1-2 weeks for activation/suicidality (especially <25y) and GI bleeding risk if combined with NSAIDs." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:escitalopram
+    kind: drug
+    wave: W1
+    cluster: C06_mental_health
+    parent_ids: ["drug_class:ssri"]
+    bindings:
+      inn: "escitalopram"
+      rxnorm: { code: "321988", display: "escitalopram" }
+      atc: { code: "N06AB10", system: "http://www.whocc.no/atc" }
+    display: { en: "Escitalopram", zh_hk: "艾司西酞普蘭" }
+    aliases:
+      en: ["Lexapro", "Esipram", "Cipralex"]
+      zh_hk: ["艾司西酞普蘭", "立普能"]
+    drug_facet:
+      no_gap: true
+      bleedy: true
+      max_daily_mg: 20
+      dosing_pearl: { en: "Dose-dependent QTc prolongation; cap max daily dose at 10 mg/day in adults >=65y or hepatic impairment." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:fluoxetine
+    kind: drug
+    wave: W1
+    cluster: C06_mental_health
+    parent_ids: ["drug_class:ssri"]
+    bindings:
+      inn: "fluoxetine"
+      rxnorm: { code: "4493", display: "fluoxetine" }
+      atc: { code: "N06AB03", system: "http://www.whocc.no/atc" }
+    display: { en: "Fluoxetine", zh_hk: "氟西汀" }
+    aliases:
+      en: ["Prozac", "Lovan", "Zactin"]
+      zh_hk: ["氟西汀", "百憂解"]
+    drug_facet:
+      no_gap: true
+      bleedy: true
+      max_daily_mg: 60
+      dosing_pearl: { en: "Long half-life (norfluoxetine persists weeks) and potent CYP2D6 inhibitor; allow washout when switching to serotonergic/MAOI agents." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:venlafaxine
+    kind: drug
+    wave: W1
+    cluster: C06_mental_health
+    parent_ids: ["drug_class:snri"]
+    bindings:
+      inn: "venlafaxine"
+      rxnorm: { code: "39786", display: "venlafaxine" }
+      atc: { code: "N06AX16", system: "http://www.whocc.no/atc" }
+    display: { en: "Venlafaxine", zh_hk: "文拉法辛" }
+    aliases:
+      en: ["Efexor-XR", "Effexor", "Enlafax"]
+      zh_hk: ["文拉法辛", "怡諾思"]
+    drug_facet:
+      no_gap: true
+      bleedy: true
+      max_daily_mg: 375
+      dosing_pearl: { en: "Monitor BP at >=150 mg/day; abrupt cessation causes marked discontinuation syndrome — taper gradually." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:lorazepam
+    kind: drug
+    wave: W1
+    cluster: C06_mental_health
+    parent_ids: ["drug_class:benzodiazepine"]
+    bindings:
+      inn: "lorazepam"
+      rxnorm: { code: "6470", display: "lorazepam" }
+      atc: { code: "N05BA06", system: "http://www.whocc.no/atc" }
+    display: { en: "Lorazepam", zh_hk: "勞拉西泮" }
+    aliases:
+      en: ["Ativan", "Lorapam"]
+      zh_hk: ["勞拉西泮", "安定文", "鎮靜劑"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pregnancy_caution: "caution"
+      dosing_pearl: { en: "Limit to shortest possible course (<=2-4 weeks); avoid concurrent opioids; high falls/delirium risk in older adults." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:diazepam
+    kind: drug
+    wave: W1
+    cluster: C06_mental_health
+    parent_ids: ["drug_class:benzodiazepine"]
+    bindings:
+      inn: "diazepam"
+      rxnorm: { code: "3322", display: "diazepam" }
+      atc: { code: "N05BA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Diazepam", zh_hk: "地西泮" }
+    aliases:
+      en: ["Valium", "Antenex", "Valpam"]
+      zh_hk: ["地西泮", "安定", "鎮靜丸"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pregnancy_caution: "caution"
+      dosing_pearl: { en: "Long-acting active metabolites accumulate in elderly and liver disease; never co-prescribe with opioids without explicit risk mitigation." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:zolpidem
+    kind: drug
+    wave: W1
+    cluster: C06_mental_health
+    parent_ids: ["drug_class:z_drug"]
+    bindings:
+      inn: "zolpidem"
+      rxnorm: { code: "39993", display: "zolpidem" }
+      atc: { code: "N05CF02", system: "http://www.whocc.no/atc" }
+    display: { en: "Zolpidem", zh_hk: "唑吡坦" }
+    aliases:
+      en: ["Stilnox", "Ambien", "Stilnoct"]
+      zh_hk: ["唑吡坦", "使蒂諾斯", "安眠藥"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      max_single_mg: 10
+      max_daily_mg: 10
+      pregnancy_caution: "caution"
+      dosing_pearl: { en: "Max 5 mg in women and adults >=65y; counsel on complex sleep behaviours (sleep-driving/walking) and prioritise CBT-I." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:zopiclone
+    kind: drug
+    wave: W1
+    cluster: C06_mental_health
+    parent_ids: ["drug_class:z_drug"]
+    bindings:
+      inn: "zopiclone"
+      unii: "03A5ORL08Q"
+      atc: { code: "N05CF01", system: "http://www.whocc.no/atc" }
+    display: { en: "Zopiclone", zh_hk: "佐匹克隆" }
+    aliases:
+      en: ["Imovane", "Zimovane"]
+      zh_hk: ["佐匹克隆", "宜眠安", "白瓜子"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      max_single_mg: 7.5
+      max_daily_mg: 7.5
+      pregnancy_caution: "caution"
+      dosing_pearl: { en: "Use 3.75 mg in older adults; short-term use only (<=2-4 weeks) alongside CBT-I due to dependence and next-day driving impairment." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:sumatriptan
+    kind: drug
+    wave: W1
+    cluster: C09_neurology
+    parent_ids: ["drug_class:triptan"]
+    bindings:
+      inn: "sumatriptan"
+      rxnorm: { code: "37418", display: "sumatriptan" }
+      atc: { code: "N02CC01", system: "http://www.whocc.no/atc" }
+    display: { en: "Sumatriptan", zh_hk: "舒馬曲坦" }
+    aliases:
+      en: ["Imigran", "Imitrex", "Sumagran"]
+      zh_hk: ["舒馬曲坦", "偏頭痛特效藥"]
+    drug_facet:
+      max_single_mg: 100
+      max_daily_mg: 300
+      dosing_pearl: { en: "Contraindicated in ischaemic heart disease, stroke/TIA, uncontrolled HTN, or hemiplegic migraine; limit to <10 days/month to prevent MOH." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:carbamazepine
+    kind: drug
+    wave: W1
+    cluster: C09_neurology
+    parent_ids: ["drug_class:anticonvulsant"]
+    bindings:
+      inn: "carbamazepine"
+      rxnorm: { code: "2002", display: "carbamazepine" }
+      atc: { code: "N03AF01", system: "http://www.whocc.no/atc" }
+    display: { en: "Carbamazepine", zh_hk: "卡馬西平" }
+    aliases:
+      en: ["Tegretol", "Tegretol CR"]
+      zh_hk: ["卡馬西平", "得理多"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      pregnancy_caution: "contraindicated"
+      dosing_pearl: { en: "Check HLA-B*15:02 prior to initiation in at-risk Asian ancestries (SJS/TEN risk); strong CYP450 inducer (reduces DOAC/OCP efficacy); monitor Na+/CBC/LFT." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:gabapentin
+    kind: drug
+    wave: W1
+    cluster: C09_neurology
+    parent_ids: ["drug_class:anticonvulsant"]
+    bindings:
+      inn: "gabapentin"
+      rxnorm: { code: "25480", display: "gabapentin" }
+      atc: { code: "N02BF01", system: "http://www.whocc.no/atc" }
+    display: { en: "Gabapentin", zh_hk: "加巴噴丁" }
+    aliases:
+      en: ["Neurontin", "Pendine"]
+      zh_hk: ["加巴噴丁", "鎮頑癲", "神經痛藥"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      renal_note: "100% renally excreted: reduce dose if eGFR <60 mL/min; risk of sedation/respiratory depression with opioids."
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:alendronate
+    kind: drug
+    wave: W1
+    cluster: C05_msk
+    parent_ids: ["drug_class:bisphosphonate"]
+    bindings:
+      inn: "alendronic acid"
+      rxnorm: { code: "46041", display: "alendronate" }
+      atc: { code: "M05BA04", system: "http://www.whocc.no/atc" }
+    display: { en: "Alendronate (alendronic acid)", zh_hk: "阿侖膦酸鈉" }
+    aliases:
+      en: ["Fosamax", "Fosamax Plus", "alendronic acid"]
+      zh_hk: ["阿侖膦酸鈉", "福善美", "骨質疏鬆丸"]
+    drug_facet:
+      renal_note: "Contraindicated when eGFR <35 mL/min/1.73m2; correct hypocalcaemia and Vitamin D deficiency before starting."
+      dosing_pearl: { en: "Take weekly on empty stomach with full glass of plain water; remain upright >=30 min (oesophagitis risk); dental review before starting (MRONJ)." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:colchicine
+    kind: drug
+    wave: W1
+    cluster: C05_msk
+    parent_ids: ["drug_class:gout_acute"]
+    bindings:
+      inn: "colchicine"
+      rxnorm: { code: "2683", display: "colchicine" }
+      atc: { code: "M04AC01", system: "http://www.whocc.no/atc" }
+    display: { en: "Colchicine", zh_hk: "秋水仙鹼" }
+    aliases:
+      en: ["Colgout", "Lengout"]
+      zh_hk: ["秋水仙鹼", "痛風止痛丸"]
+    drug_facet:
+      high_risk: true
+      short_course: true
+      renal_note: "Contraindicated if eGFR <30 mL/min or concurrent strong CYP3A4/P-gp inhibitor (clarithromycin); narrow therapeutic index."
+      dosing_pearl: { en: "Low-dose acute flare regimen (e.g. 1 mg then 0.5 mg 1h later, then max 0.5 mg BD-TDS) — stop immediately if diarrhoea/vomiting develops." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:valaciclovir
+    kind: drug
+    wave: W1
+    cluster: C10_dermatology
+    parent_ids: ["drug_class:antiviral_herpes"]
+    bindings:
+      inn: "valaciclovir"
+      rxnorm: { code: "73645", display: "valacyclovir" }
+      unii: "MZ1IW7Q79D"
+      atc: { code: "J05AB11", system: "http://www.whocc.no/atc" }
+    display: { en: "Valaciclovir", zh_hk: "伐昔洛韋" }
+    aliases:
+      en: ["Valtrex", "valacyclovir", "Vaclovir"]
+      zh_hk: ["伐昔洛韋", "生蛇特效藥"]
+    drug_facet:
+      short_course: true
+      renal_note: "Start <=72h of zoster rash (or anytime if ophthalmic/immunocompromised); reduce dose if eGFR <50 mL/min (neurotoxicity risk)."
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:hydrocortisone_topical
+    kind: drug
+    wave: W1
+    cluster: C10_dermatology
+    parent_ids: ["drug_class:topical_steroid"]
+    bindings:
+      inn: "hydrocortisone"
+      rxnorm: { code: "5492", display: "hydrocortisone" }
+      atc: { code: "D07AA02", system: "http://www.whocc.no/atc" }
+    display: { en: "Hydrocortisone topical (0.5% / 1%)", zh_hk: "外用氫化可的松藥膏" }
+    aliases:
+      en: ["Dermaid", "Sigmacort", "hydrocortisone cream"]
+      zh_hk: ["氫化可的松藥膏", "輕效類固醇膏"]
+    drug_facet:
+      dosing_pearl: { en: "Mild potency topical steroid suitable for face, flexures, and mild eczema flares alongside liberal emollients." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:betamethasone_topical
+    kind: drug
+    wave: W1
+    cluster: C10_dermatology
+    parent_ids: ["drug_class:topical_steroid"]
+    bindings:
+      inn: "betamethasone"
+      rxnorm: { code: "1514", display: "betamethasone" }
+      unii: "9842X06Q6M"
+      atc: { code: "D07AC01", system: "http://www.whocc.no/atc" }
+    display: { en: "Betamethasone topical (valerate / dipropionate)", zh_hk: "外用倍他米松藥膏" }
+    aliases:
+      en: ["Betnovate", "Diprosone", "Eleuphrat", "betamethasone cream"]
+      zh_hk: ["倍他米松藥膏", "強效類固醇膏"]
+    drug_facet:
+      dosing_pearl: { en: "Potent topical corticosteroid for trunk/limb eczema or psoriasis plaques; avoid prolonged use on face, eyelids, or groins (skin atrophy/glaucoma risk)." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:naproxen
+    kind: drug
+    wave: W1
+    cluster: C05_msk
+    parent_ids: ["drug_class:nsaid"]
+    bindings:
+      inn: "naproxen"
+      rxnorm: { code: "7258", display: "naproxen" }
+      atc: { code: "M01AE02", system: "http://www.whocc.no/atc" }
+    display: { en: "Naproxen", zh_hk: "萘普生" }
+    aliases:
+      en: ["Naprosyn", "Naprogesic", "Aleve", "Inza"]
+      zh_hk: ["萘普生"]
+    drug_facet:
+      allergy_group_id: "allergy:nsaid"
+      max_daily_mg: 1000
+      pregnancy_caution: "avoid_t3"
+      renal_note: "Avoid if eGFR <30 mL/min, active GI bleed, or Triple Whammy; co-prescribe PPI if GI risk factors."
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:celecoxib
+    kind: drug
+    wave: W1
+    cluster: C05_msk
+    parent_ids: ["drug_class:nsaid"]
+    bindings:
+      inn: "celecoxib"
+      rxnorm: { code: "140587", display: "celecoxib" }
+      atc: { code: "M01AH01", system: "http://www.whocc.no/atc" }
+    display: { en: "Celecoxib", zh_hk: "塞來昔布" }
+    aliases:
+      en: ["Celebrex", "COX-2 inhibitor"]
+      zh_hk: ["塞來昔布", "西樂葆", "新一代消炎止痛藥"]
+    drug_facet:
+      allergy_group_id: "allergy:nsaid"
+      max_daily_mg: 400
+      pregnancy_caution: "avoid_t3"
+      renal_note: "Lower GI ulcer risk than non-selective NSAIDs but STILL causes renal AKI (Triple Whammy), fluid retention, and cardiovascular thrombotic risk; avoid in sulfonamide allergy."
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:tramadol
+    kind: drug
+    wave: W1
+    cluster: C05_msk
+    parent_ids: ["drug_class:opioid"]
+    bindings:
+      inn: "tramadol"
+      rxnorm: { code: "10689", display: "tramadol" }
+      atc: { code: "N02AX02", system: "http://www.whocc.no/atc" }
+    display: { en: "Tramadol", zh_hk: "曲馬多" }
+    aliases:
+      en: ["Tramal", "Zydol", "Ultram"]
+      zh_hk: ["曲馬多", "強效止痛藥"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      max_daily_mg: 400
+      pediatric_min_age_years: 12
+      pregnancy_caution: "caution"
+      dosing_pearl: { en: "Dual mu-opioid + SNRI activity: lowers seizure threshold and precipitates serotonin syndrome with SSRIs/SNRIs; avoid in <12y and elderly fall risk." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:adrenaline_autoinjector
+    kind: drug
+    wave: W1
+    cluster: C10_dermatology
+    bindings:
+      inn: "epinephrine"
+      rxnorm: { code: "3992", display: "epinephrine" }
+      atc: { code: "C01CA24", system: "http://www.whocc.no/atc" }
+    display: { en: "Adrenaline (epinephrine) autoinjector", zh_hk: "腎上腺素自動注射筆（救命針）" }
+    aliases:
+      en: ["EpiPen", "Anapen", "EpiPen Jr", "adrenaline pen", "epinephrine autoinjector"]
+      zh_hk: ["腎上腺素筆", "救命針", "EpiPen"]
+    drug_facet:
+      high_risk: true
+      dosing_pearl: { en: "First-line emergency treatment for anaphylaxis: inject IM into outer mid-thigh (300 mcg >=20-30 kg; 150 mcg 7.5-20 kg), lay patient flat, call emergency services." }
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: drug:lithium
+    kind: drug
+    wave: W1
+    cluster: C06_mental_health
+    parent_ids: ["drug_class:mood_stabiliser"]
+    bindings:
+      inn: "lithium carbonate"
+      rxnorm: { code: "6448", display: "lithium" }
+      atc: { code: "N05AN01", system: "http://www.whocc.no/atc" }
+    display: { en: "Lithium (carbonate / citrate)", zh_hk: "碳酸鋰（鋰劑）" }
+    aliases:
+      en: ["Lithicarb", "Quilonum SR", "Camcolit", "Priadel"]
+      zh_hk: ["碳酸鋰", "鋰劑", "情緒穩定藥"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      pregnancy_caution: "caution"
+      renal_note: "Narrow therapeutic index (0.6-0.8 mmol/L maintenance); toxicity triggered by dehydration, NSAIDs, ACEi/ARBs, and thiazide diuretics; monitor Li, eGFR, TSH, Ca2+."
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  # =========================================================================
+  # OBSERVATIONS (7) — Verified LOINC + UCUM
+  # =========================================================================
+  - id: obs:urate
+    kind: observation
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      loinc: { code: "14933-6", display: "Urate [Moles/volume] in Serum or Plasma" }
+      ucum: "mmol/L"
+    display: { en: "Serum urate (uric acid)", zh_hk: "血清尿酸" }
+    aliases:
+      en: ["urate", "uric acid", "serum uric acid", "SUA"]
+      zh_hk: ["尿酸", "血清尿酸"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: obs:calcium
+    kind: observation
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      loinc: { code: "2000-8", display: "Calcium [Moles/volume] in Serum or Plasma" }
+      ucum: "mmol/L"
+    display: { en: "Serum calcium (corrected)", zh_hk: "血清鈣（校正鈣）" }
+    aliases:
+      en: ["calcium", "corrected calcium", "Ca2+", "serum calcium"]
+      zh_hk: ["血鈣", "校正血鈣"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: obs:esr
+    kind: observation
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      loinc: { code: "4537-7", display: "Erythrocyte [Sedimentation Rate] in Blood by Westergren method" }
+      # ucum: "mm/h" deferred until VALID_UCUM in backend/ontology/lint.py adds "mm/h" (see w1_pod_c_overlays.yaml)
+    display: { en: "Erythrocyte sedimentation rate (ESR)", zh_hk: "紅血球沉降率 (ESR)" }
+    aliases:
+      en: ["ESR", "sed rate", "erythrocyte sedimentation rate"]
+      zh_hk: ["紅血球沉降率", "血沉降", "發炎指數ESR"]
+    provenance:
+      author: "ontology_pod_w1_c"
+      review_status: "draft"
+      notes: "ObservationRule obs_rule:esr staged in w1_pod_c_overlays.yaml pending addition of UCUM 'mm/h' to VALID_UCUM in lint.py."
+
+  - id: obs:ck
+    kind: observation
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      loinc: { code: "2157-6", display: "Creatine kinase [Enzymatic activity/volume] in Serum or Plasma" }
+      ucum: "U/L"
+    display: { en: "Creatine kinase (CK)", zh_hk: "肌酸激酶 (CK)" }
+    aliases:
+      en: ["CK", "CPK", "creatine kinase", "creatine phosphokinase"]
+      zh_hk: ["肌酸激酶", "肌肉酵素", "CK酵素"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: obs:vitamin_d
+    kind: observation
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      loinc: { code: "68438-1", display: "25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Moles/volume] in Serum or Plasma" }
+      ucum: "nmol/L"
+    display: { en: "25-hydroxyvitamin D", zh_hk: "維他命D (25-OH Vitamin D)" }
+    aliases:
+      en: ["Vitamin D", "25-OH Vitamin D", "25(OH)D", "Vit D"]
+      zh_hk: ["維他命D", "維生素D"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: obs:lithium
+    kind: observation
+    wave: W1
+    cluster: C06_mental_health
+    bindings:
+      loinc: { code: "14334-7", display: "Lithium [Moles/volume] in Serum or Plasma" }
+      ucum: "mmol/L"
+    display: { en: "Serum lithium (12h trough)", zh_hk: "血清鋰濃度" }
+    aliases:
+      en: ["lithium level", "serum lithium", "Li level"]
+      zh_hk: ["血鋰濃度", "鋰濃度"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: obs:anti_ccp
+    kind: observation
+    wave: W1
+    cluster: C05_msk
+    bindings:
+      loinc: { code: "33935-8", display: "Cyclic citrullinated peptide IgG Ab [Units/volume] in Serum or Plasma" }
+      ucum: "U/mL"
+    display: { en: "Anti-CCP IgG antibody", zh_hk: "抗環瓜氨酸肽抗體 (Anti-CCP)" }
+    aliases:
+      en: ["anti-CCP", "ACPA", "cyclic citrullinated peptide antibody"]
+      zh_hk: ["抗環瓜氨酸肽抗體", "類風濕抗體CCP"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+# ===========================================================================
+# DETERMINISTIC CLINICAL EDGES (17) — PGx, DDIs, Renal Gates & Red-Flag Floor
+# ===========================================================================
+edges:
+  - id: edge:carbamazepine_pgx_hla_b_1502
+    source_id: drug:carbamazepine
+    relation: REQUIRES_PGX_CHECK
+    target_id: pgx:hla_b_1502
+    severity: high
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    when:
+      all:
+        - { fact: ethnicity, op: in, value: ["han_chinese", "thai", "malay", "southeast_asian", "south_asian"] }
+        - { fact: hla_b_1502, op: ne, value: "negative" }
+    clinician_rationale:
+      en: "HLA-B*15:02 carries a >100-fold risk of fatal Stevens-Johnson syndrome / toxic epidermal necrolysis (SJS/TEN) with carbamazepine in East/Southeast/South Asian ancestries."
+      zh_hk: "東亞／東南亞／南亞裔人士若帶有 HLA-B*15:02 基因，服用卡馬西平引發致命性史蒂文斯-強森綜合症／中毒性表皮壞死鬆解症 (SJS/TEN) 風險極高。"
+    clinician_action_prompt:
+      en: "Verify negative HLA-B*15:02 result before initiating carbamazepine; select alternative agent (e.g. levetiracetam, gabapentin for neuropathic pain) if positive or pending."
+      zh_hk: "處方卡馬西平前必須確認 HLA-B*15:02 呈陰性；如陽性或未有結果應考慮替代藥物。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:ssri_nsaid_gi_bleed
+    source_id: drug_class:ssri
+    relation: INTERACTS_WITH
+    target_id: drug_class:nsaid
+    bidirectional: true
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Concurrent SSRI + systemic NSAID impairs platelet serotonin uptake and gastric mucosal protection, increasing upper GI bleeding risk 3-6x."
+      zh_hk: "同時使用 SSRI 與口服非類固醇消炎止痛藥 (NSAID) 會顯著增加上消化道出血風險（約3至6倍）。"
+    clinician_action_prompt:
+      en: "Avoid systemic NSAID if possible (use paracetamol or topical NSAID); if clinically essential, add PPI gastroprotection and counsel on melaena red flags."
+      zh_hk: "盡量避免併用口服消炎止痛藥；如確有需要應處方質子泵抑制劑 (PPI) 護胃並提醒黑便警號。"
+    patient_safety_net:
+      en: "If you notice black tarry stools, vomiting blood, or severe upper stomach pain while taking these medicines, seek urgent medical care immediately."
+      zh_hk: "服藥期間如出現黑便、吐血或劇烈上腹痛，請立即尋求緊急醫療評估。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:ssri_tramadol_serotonin
+    source_id: drug_class:ssri
+    relation: INTERACTS_WITH
+    target_id: drug:tramadol
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "SSRI + tramadol causes potentially life-threatening serotonin toxicity (agitation, clonus, hyperreflexia, diaphoresis, hyperthermia) and lowers seizure threshold (and CYP2D6 SSRIs like fluoxetine block tramadol analgesia)."
+      zh_hk: "SSRI 與曲馬多併用可引致嚴重血清素症候群及降低抽搐閾值，且氟西汀等 CYP2D6 抑制劑會削弱曲馬多止痛效力。"
+    clinician_action_prompt:
+      en: "Avoid tramadol in patients on SSRIs/SNRIs; propose non-serotonergic analgesic alternative for doctor review."
+      zh_hk: "避免為正服用 SSRI/SNRI 的病人處方曲馬多，建議醫生考慮非血清素能止痛替代方案。"
+    patient_safety_net:
+      en: "If you develop sudden confusion, fever, heavy sweating, shivering, fast heartbeat, or muscle twitching, seek emergency medical care immediately."
+      zh_hk: "如突然出現意識混亂、發燒、大汗、顫抖、心跳過快或肌肉抽搐，請立即尋求緊急醫療協助。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:benzo_opioid_respiratory_depression
+    source_id: drug_class:benzodiazepine
+    relation: INTERACTS_WITH
+    target_id: drug_class:opioid
+    bidirectional: true
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Co-prescribing benzodiazepines with opioids causes synergistic CNS and fatal respiratory depression, overdose, and falls."
+      zh_hk: "同時處方苯二氮平類鎮靜劑與鴉片類止痛藥會引致協同中樞神經及致命性呼吸抑制。"
+    clinician_action_prompt:
+      en: "Hard-block concurrent benzodiazepine + opioid draft; require direct clinician review, deprescribing/tapering plan, and take-home naloxone consideration if unavoidable."
+      zh_hk: "禁止自動同時處方鎮靜劑與鴉片類藥物；必須由醫生直接評估、制定減藥方案及考慮安全措施。"
+    patient_safety_net:
+      en: "Combining sedative and strong opioid medicines can dangerously slow breathing. If extreme drowsiness, slurred speech, or slow/shallow breathing occurs, seek emergency medical help immediately."
+      zh_hk: "同時服用鎮靜安眠藥與鴉片類止痛藥可引致危險的呼吸抑制；如出現極度嗜睡、口齒不清或呼吸緩慢微弱，請立即尋求緊急救援。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:colchicine_macrolide_toxicity
+    source_id: drug:colchicine
+    relation: INTERACTS_WITH
+    target_id: drug_class:macrolide_antibiotic
+    bidirectional: true
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Strong CYP3A4 / P-gp inhibition by macrolides (especially clarithromycin) causes rapid, potentially fatal colchicine accumulation (pancytopenia, multiorgan failure, myoneuropathy)."
+      zh_hk: "大環內酯類抗生素（特別是克拉黴素）強力抑制 CYP3A4 及 P-gp，與秋水仙鹼併用可引致致命性藥物積聚中毒（全血細胞減少、多器官衰竭）。"
+    clinician_action_prompt:
+      en: "Hard-block colchicine + clarithromycin combination; select non-interacting antibiotic or alternative acute gout therapy (e.g. short prednisolone course)."
+      zh_hk: "嚴禁併用秋水仙鹼與克拉黴素；應由醫生改選無相互作用的抗生素或以短期類固醇替代處理急性痛風。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:colchicine_renal_ci
+    source_id: drug:colchicine
+    relation: CONTRAINDICATED_IN
+    target_id: cond:ckd
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      fact: egfr_ml_min
+      op: lt
+      value: 30
+    clinician_rationale:
+      en: "Colchicine clearance is severely reduced when eGFR <30 mL/min/1.73m2, carrying high risk of fatal toxicity (bone marrow suppression, rhabdomyolysis, GI haemorrhage)."
+      zh_hk: "當腎小球過濾率 eGFR 低於 30 mL/min 時，秋水仙鹼排泄顯著下降，極易引致致命性中毒（骨髓抑制、橫紋肌溶解）。"
+    clinician_action_prompt:
+      en: "Block colchicine in stage 4-5 CKD (eGFR <30); propose short course oral prednisolone (or intra-articular steroid) for acute gout flare."
+      zh_hk: "eGFR <30 禁用秋水仙鹼；建議醫生改用短期口服類固醇或關節內注射處理急性痛風。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:alendronate_renal_ci
+    source_id: drug:alendronate
+    relation: CONTRAINDICATED_IN
+    target_id: cond:ckd
+    severity: hard_block
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    when:
+      fact: egfr_ml_min
+      op: lt
+      value: 35
+    clinician_rationale:
+      en: "Oral bisphosphonates (alendronate) are contraindicated when eGFR <35 mL/min/1.73m2 due to impaired renal excretion, nephrotoxicity, and adynamic bone disease / severe hypocalcaemia risk."
+      zh_hk: "當 eGFR 低於 35 mL/min 時禁用口服雙膦酸鹽（阿侖膦酸鈉），以免引起藥物積聚、腎損傷及低血鈣風險。"
+    clinician_action_prompt:
+      en: "Block alendronate; check serum calcium, Vitamin D, and PTH, and consider specialist/renal-safe osteoporosis management."
+      zh_hk: "停用或避免處方阿侖膦酸鈉；檢查血鈣、維他命D及副甲狀腺素，由醫生評估腎病適用之骨質疏鬆方案。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:lithium_monitored_by_level
+    source_id: drug:lithium
+    relation: MONITORED_BY
+    target_id: obs:lithium
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 7
+      repeat_interval_days: 90
+      grace_days: 7
+      applies_on: both
+    clinician_rationale:
+      en: "Lithium has a narrow therapeutic index (0.6-0.8 mmol/L): requires 12-hour post-dose trough serum lithium 5-7 days after initiation/dose change and every 3 months once stable, plus 6-monthly RFT, TSH, and serum calcium."
+      zh_hk: "碳酸鋰治療窗狹窄（0.6–0.8 mmol/L）：開始或調藥後5至7日須驗服藥後12小時血鋰濃度，穩定後每3個月覆檢，並每6個月監察腎功能、TSH及血鈣。"
+    clinician_action_prompt:
+      en: "Order 12-hour trough serum lithium (+ RFT/TSH/Ca2+ if due); screen for tremor, ataxia, polyuria, and interacting drugs (NSAIDs, ACEi/ARB, thiazides)."
+      zh_hk: "安排服藥後12小時血鋰濃度及腎功能／甲狀腺／血鈣檢查，並評估震顫、步態不穩及藥物相互作用。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:lithium_nsaid_toxicity
+    source_id: drug:lithium
+    relation: INTERACTS_WITH
+    target_id: drug_class:nsaid
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "NSAIDs reduce renal prostaglandin-mediated lithium clearance, raising serum lithium levels by 15-60% and precipitating acute neuro- and nephrotoxicity."
+      zh_hk: "非類固醇消炎止痛藥 (NSAID) 會減少腎臟排泄鋰劑，令血鋰濃度急升並誘發急性鋰中毒。"
+    clinician_action_prompt:
+      en: "Avoid systemic NSAIDs (including OTC ibuprofen/naproxen) in patients taking lithium; if exposure occurred, check urgent serum lithium and RFT."
+      zh_hk: "服用鋰劑人士應避免口服消炎止痛藥（包括非處方藥物）；如已服用應盡快覆檢血鋰及腎功能。"
+    patient_safety_net:
+      en: "If you take lithium and develop coarse shaking, slurred speech, severe vomiting/diarrhoea, drowsiness, or unsteadiness, seek urgent emergency medical review immediately."
+      zh_hk: "服用鋰劑期間如出現手震加劇、口齒不清、嚴重嘔吐腹瀉、嗜睡或行路不穩，請立即前往急症室作緊急評估。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:cauda_equina_emergency
+    source_id: rf:cauda_equina_signs
+    relation: RED_FLAG_FOR
+    target_id: cond:cauda_equina
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Saddle anaesthesia, new bladder/bowel dysfunction, or bilateral progressive leg weakness with back pain indicates suspected cauda equina syndrome — surgical decompression emergency (<24-48h)."
+      zh_hk: "腰痛伴隨會陰麻痺、突發尿瀦留／大小便失禁或雙下肢進行性無力，高度懷疑馬尾綜合症，屬緊急神經外科手術指徵。"
+    clinician_action_prompt:
+      en: "Immediate emergency department transfer for urgent lumbosacral MRI and neurosurgical/orthopaedic decompression assessment."
+      zh_hk: "立即轉送急症室安排緊急腰椎磁力共振 (MRI) 及神經外科／骨科減壓手術評估。"
+    patient_safety_net:
+      en: "Numbness around the groin/buttocks, difficulty passing urine, loss of bladder or bowel control, or weakness in both legs requires immediate emergency hospital assessment."
+      zh_hk: "如出現會陰或臀部麻痺、排尿困難、大小便失禁或雙腳無力，必須立即前往急症室作緊急處理。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:thunderclap_headache_sah
+    source_id: rf:thunderclap_headache
+    relation: RED_FLAG_FOR
+    target_id: cond:sah
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Sudden-onset maximal headache reaching peak within 60 seconds is subarachnoid haemorrhage until proven otherwise (urgent non-contrast CT head +/- LP)."
+      zh_hk: "一分鐘內達致頂峰的突發雷擊樣劇烈頭痛必須先排除蛛網膜下腔出血，須即時送院作急診腦部電腦掃描。"
+    clinician_action_prompt:
+      en: "Immediate ambulance transfer to emergency department for urgent CT brain; do not delay for outpatient imaging."
+      zh_hk: "立即安排救護車送往急症室進行緊急腦部電腦掃描，切勿安排門診輪候檢查。"
+    patient_safety_net:
+      en: "A sudden, explosive 'worst-ever' headache peaking within a minute is a medical emergency — call emergency services immediately."
+      zh_hk: "突發如雷擊般的極劇烈頭痛屬緊急醫療情況，請立即致電緊急救援服務。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:focal_neuro_deficit_stroke
+    source_id: rf:focal_neuro_deficit_fast
+    relation: RED_FLAG_FOR
+    target_id: cond:stroke_tia
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Acute focal neurological deficit (FAST positive: facial droop, limb weakness, dysarthria/aphasia, acute ataxia, visual field defect) requires time-critical stroke thrombolysis/thrombectomy evaluation."
+      zh_hk: "突發面部歪斜、肢體無力、言語障礙或急性步態不穩屬急性中風警號，須爭分奪秒送院評估溶栓或取栓治療。"
+    clinician_action_prompt:
+      en: "Record exact 'last known well' time and activate immediate emergency ambulance stroke pathway."
+      zh_hk: "記錄最後正常時間並立即啟動緊急救護車急性中風轉送程序。"
+    patient_safety_net:
+      en: "Sudden face drooping, arm or leg weakness, slurred speech, or sudden loss of balance/vision is a medical emergency — call emergency services right away."
+      zh_hk: "如突然出現面部歪斜、手腳無力、說話含糊或視力／平衡驟失，請立即致電緊急救援服務。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:acute_visual_loss_glaucoma
+    source_id: rf:acute_visual_loss_painful_eye
+    relation: RED_FLAG_FOR
+    target_id: cond:acute_glaucoma
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Painful red eye with acute visual decline, rainbow haloes around lights, headache/nausea, or fixed mid-dilated pupil indicates sight-threatening emergency (acute angle-closure glaucoma, microbial keratitis, or endophthalmitis)."
+      zh_hk: "眼紅伴隨劇痛、視力驟降、視物見光環、頭痛嘔吐或瞳孔散大固定，高度懷疑急性閉角型青光眼等致盲急症。"
+    clinician_action_prompt:
+      en: "Immediate same-hour emergency ophthalmology / A&E referral; do not prescribe topical steroids or dilating drops."
+      zh_hk: "即時轉介急症室眼科作緊急降眼壓處理；切勿處方外用類固醇眼藥水或散瞳劑。"
+    patient_safety_net:
+      en: "Sudden loss or blurring of vision, severe eye pain, or seeing rainbow haloes around lights needs immediate emergency eye assessment to protect your sight."
+      zh_hk: "如出現突發視力模糊或下降、眼睛劇痛或看燈光時出現彩虹光環，請立即前往急症室作緊急眼科評估以保護視力。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:jaw_claudication_gca
+    source_id: rf:jaw_claudication_temporal_pain
+    relation: RED_FLAG_FOR
+    target_id: cond:gca
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    when:
+      fact: age_years
+      op: ge
+      value: 50
+    clinician_rationale:
+      en: "New temporal headache with jaw claudication, scalp tenderness, or visual symptoms in an adult >=50y strongly suggests giant cell arteritis (GCA) — high risk of irreversible bilateral blindness if steroid initiation is delayed."
+      zh_hk: "五十歲或以上人士新出現太陽穴痛、咀嚼下顎痛、頭皮壓痛或視力異常，高度懷疑巨細胞動脈炎，延誤類固醇治療可致永久失明。"
+    clinician_action_prompt:
+      en: "Arrange same-day urgent GP/hospital assessment, immediate CRP/ESR/CBC, and immediate high-dose corticosteroid protocol (IV methylprednisolone if visual symptoms) without waiting for temporal artery biopsy."
+      zh_hk: "安排即日緊急醫生／急症室評估及即時檢測 CRP/ESR/全血計數，按指引即時啟動高劑量類固醇治療（如有視力症狀須即時急症室靜脈給藥）。"
+    patient_safety_net:
+      en: "If you are over 50 with new temple pain, jaw pain when chewing, or any sudden blurring/double vision, seek urgent medical assessment today — go to emergency care immediately if vision changes."
+      zh_hk: "如年滿五十歲並新出現太陽穴痛、咀嚼時下顎痠痛，請今天內盡快求醫；若出現任何視力模糊、重影或短暫失明，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:hot_swollen_joint_septic
+    source_id: rf:hot_swollen_single_joint
+    relation: RED_FLAG_FOR
+    target_id: cond:septic_arthritis
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "An acute hot, swollen, painful monoarthritis (especially with fever, prosthetic joint, or inability to move/weight-bear) is septic arthritis until proven otherwise by joint aspiration."
+      zh_hk: "單一關節急性紅腫熱痛並無法活動或負重（尤伴發燒或人工關節），未經關節液抽驗前必須先排除化膿性關節炎。"
+    clinician_action_prompt:
+      en: "Same-day emergency orthopaedic/A&E referral for synovial fluid aspiration (Gram stain, culture, crystals) BEFORE starting antibiotics."
+      zh_hk: "即日轉送急症室骨科作關節穿刺抽液化驗（細菌培養及結晶體檢查），切勿於抽液前胡亂先處方口服抗生素。"
+    patient_safety_net:
+      en: "A single hot, red, severely swollen joint — especially with fever or inability to move or stand on it — needs urgent hospital assessment today."
+      zh_hk: "如單一關節突然發熱紅腫劇痛、無法郁動或負重，或同時發燒，請立即前往急症室作緊急檢查。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:anaphylaxis_emergency_adrenaline
+    source_id: rf:anaphylaxis_airway_swelling
+    relation: RED_FLAG_FOR
+    target_id: cond:anaphylaxis
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Mucocutaneous hives/angioedema with airway swelling, respiratory compromise, or hypotension is anaphylaxis — immediate IM adrenaline is life-saving; antihistamines/steroids are second-line only."
+      zh_hk: "皮疹或面部腫脹伴隨喉頭水腫、呼吸困難或血壓下降屬過敏性休克，即時肌肉注射腎上腺素為唯一救命一線治療。"
+    clinician_action_prompt:
+      en: "Administer IM adrenaline immediately (or instruct immediate autoinjector use), lay patient flat with legs elevated (sit upright only if severe breathing distress), and call emergency services."
+      zh_hk: "立即肌肉注射腎上腺素（或即時使用隨身腎上腺素筆），讓病人平躺（僅於嚴重氣促時微坐）並立即召喚緊急救援。"
+    patient_safety_net:
+      en: "Swelling of the lips, tongue, or throat, trouble breathing, hoarse voice, or feeling faint with a rash is an emergency — use an adrenaline autoinjector if prescribed, lie flat, and call emergency services immediately."
+      zh_hk: "如出現嘴唇、舌頭或喉嚨腫脹、呼吸困難、聲沙或出風癩伴頭暈休克，屬危急情況；如有隨身腎上腺素筆請立即使用，平躺並即時致電緊急救援服務。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: edge:ophthalmic_zoster_urgent_eye
+    source_id: rf:ophthalmic_zoster_tip_nose
+    relation: RED_FLAG_FOR
+    target_id: cond:herpes_zoster
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Herpes zoster affecting the trigeminal V1 dermatome (forehead, upper eyelid, or nasal tip — Hutchinson's sign) carries high risk of keratitis, uveitis, and permanent visual loss."
+      zh_hk: "三叉神經第一分支（額頭、上眼瞼或鼻尖水泡，即 Hutchinson 徵象）生蛇極易波及角膜及葡萄膜，可致視力受損。"
+    clinician_action_prompt:
+      en: "Initiate oral valaciclovir immediately (even >72h if new vesicles or ocular involvement) and arrange same-day ophthalmology slit-lamp assessment."
+      zh_hk: "立即處方口服伐昔洛韋抗病毒治療，並安排即日眼科裂隙燈檢查以排除角膜炎。"
+    patient_safety_net:
+      en: "A blistering shingles rash on your forehead, eyelid, or tip of your nose needs urgent same-day doctor and eye specialist review — seek emergency care if eye pain or blurry vision develops."
+      zh_hk: "如額頭、眼皮或鼻尖生蛇起水泡，必須即日由醫生及眼科評估；如出現眼紅、眼痛或視力模糊，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+# ===========================================================================
+# PRESENTATION FRAMES (8) — Murtagh PROMPT + openEHR Positive Exclusions + Safety Netting
+# ===========================================================================
+frames:
+  - id: frame:headache
+    rfe_concept_id: rfe:headache
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_tth, concept_id: cond:tension_headache, prevalence_note: "Most common primary headache" }
+        - { id: p_migraine, concept_id: cond:migraine, key_discriminators: ["unilateral throbbing", "nausea/photophobia", "aura"] }
+        - { id: p_urti, concept_id: cond:urti, prevalence_note: "Viral / sinus headache" }
+      serious_not_to_be_missed:
+        - { id: s_sah, concept_id: cond:sah, key_discriminators: ["thunderclap onset <1 min", "occipital", "neck stiffness"] }
+        - { id: s_meningitis, concept_id: cond:meningitis, key_discriminators: ["fever", "neck stiffness", "photophobia", "non-blanching rash"] }
+        - { id: s_gca, concept_id: cond:gca, key_discriminators: ["age >=50", "temporal tenderness", "jaw claudication", "visual loss"] }
+        - { id: s_stroke, concept_id: cond:stroke_tia, key_discriminators: ["acute focal deficit", "ataxia"] }
+        - { id: s_glaucoma, concept_id: cond:acute_glaucoma, key_discriminators: ["painful red eye", "haloes", "nausea"] }
+        - { id: s_malignancy, concept_id: cond:malignancy_occult, key_discriminators: ["progressive morning headache", "new onset >50y", "cancer history"] }
+      pitfalls_often_missed:
+        - { id: o_moh, concept_id: cond:drug_adverse_effect, key_discriminators: ["medication-overuse headache (>=10-15 analgesic/triptan days/month)"] }
+        - { id: o_htn, concept_id: cond:hypertension, key_discriminators: ["severe BP >=180/120 / hypertensive emergency"] }
+      masquerades:
+        - { id: mq_depression, tier: primary, masquerade: depression, concept_id: cond:depression, clue_prompt: { en: "Screen for chronic stress, depression, or sleep disturbance driving daily headaches." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Audit OTC analgesic, triptan, caffeine, and nitrate frequency (medication-overuse headache)." } }
+        - { id: mq_spine, tier: primary, masquerade: spinal_dysfunction, concept_id: cond:spinal_dysfunction, clue_prompt: { en: "Assess cervicogenic headache from cervical facet/postural dysfunction." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Directly ask whether the patient fears a brain tumour or aneurysm, or has high work/family stress." }
+    positive_exclusions:
+      - id: ex_thunderclap
+        finding_concept_id: rf:thunderclap_headache
+        question: { en: "Did the headache come on suddenly like a thunderclap, reaching maximum intensity within a minute?", zh_hk: "請問頭痛是否像雷擊一樣突然發作，在一分鐘內達致最劇烈程度？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_meningism
+        finding_concept_id: rf:stiff_neck_meningism
+        question: { en: "Do you have a fever, stiff neck, confusion, or a new rash that does not fade when pressed?", zh_hk: "請問你有沒有同時發燒、頸部僵硬、意識混亂，或按壓不退色的新皮疹？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_focal_neuro
+        finding_concept_id: rf:focal_neuro_deficit_fast
+        question: { en: "Have you noticed any weakness or numbness on one side, slurred speech, facial droop, or sudden vision loss?", zh_hk: "請問你有否出現單側手腳無力或麻痺、口齒不清、面部歪斜或突發視力異常？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_gca_jaw
+        finding_concept_id: rf:jaw_claudication_temporal_pain
+        question: { en: "Do you have pain in your jaw when chewing, scalp tenderness when brushing hair, or tender temples?", zh_hk: "請問你咀嚼食物時有否下顎痠痛、梳頭時頭皮痛或太陽穴壓痛？" }
+        urgency_if_present: 3
+        mandatory: true
+        when: { fact: age_years, op: ge, value: 50 }
+    safety_netting:
+      - id: sn_headache_emergency
+        trigger_condition: { en: "Sudden thunderclap pain, fever/stiff neck, weakness/slurred speech, confusion, or sudden vision change", zh_hk: "突發雷擊樣劇痛、發燒頸梗、手腳無力／口齒不清、意識混亂或視力驟變" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency medical care if your headache suddenly becomes explosive, or if you develop fever, a stiff neck, confusion, vision changes, or weakness/slurred speech."
+          zh_hk: "如頭痛突然劇烈加劇，或伴隨發燒、頸部僵硬、意識混亂、視力變化、肢體無力或口齒不清，請立即尋求緊急醫療協助。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: frame:dizziness_vertigo
+    rfe_concept_id: rfe:dizziness_vertigo
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_bppv, concept_id: cond:bppv, key_discriminators: ["brief <60s spinning triggered by rolling in bed/looking up", "Dix-Hallpike+"] }
+        - { id: p_drugs, concept_id: cond:drug_adverse_effect, key_discriminators: ["orthostatic hypotension from antihypertensives/sedatives"] }
+        - { id: p_anxiety, concept_id: cond:gad, key_discriminators: ["non-rotational lightheadedness/hyperventilation"] }
+      serious_not_to_be_missed:
+        - { id: s_stroke, concept_id: cond:stroke_tia, key_discriminators: ["posterior circulation stroke — HINTS central signs, truncal ataxia, diplopia/dysarthria"] }
+        - { id: s_acs, concept_id: cond:acs, key_discriminators: ["presyncope / arrhythmia / silent ischaemia"] }
+        - { id: s_anaemia, concept_id: cond:anaemia, key_discriminators: ["orthostatic dizziness + pallor / occult GI bleed"] }
+      pitfalls_often_missed:
+        - { id: o_migraine, concept_id: cond:migraine, key_discriminators: ["vestibular migraine (vertigo +/- headache)"] }
+        - { id: o_hypoglycaemia, concept_id: cond:t2dm, key_discriminators: ["sulfonylurea/insulin hypoglycaemia"] }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Check lying/standing BP and review antihypertensives, diuretics, and sedatives." } }
+        - { id: mq_anaemia, tier: primary, masquerade: anaemia, concept_id: cond:anaemia, clue_prompt: { en: "Check Hb and screen for occult GI blood loss if presyncopal." } }
+        - { id: mq_neuro, tier: secondary, masquerade: neurological_dilemma, concept_id: cond:neurological_dilemma, clue_prompt: { en: "Perform targeted cerebellar, cranial nerve, and gait exam to exclude central vertigo." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore fear of stroke, recent falls at home, and driving safety concerns." }
+    positive_exclusions:
+      - id: ex_focal_neuro
+        finding_concept_id: rf:focal_neuro_deficit_fast
+        question: { en: "Do you have double vision, slurred speech, difficulty swallowing, limb weakness/numbness, or inability to walk unaided?", zh_hk: "請問你有否出現重影、口齒不清、吞嚥困難、手腳無力麻痺或完全無法自行站立行走？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_syncope
+        finding_concept_id: rf:syncope
+        question: { en: "Have you actually fainted, blacked out, or collapsed?", zh_hk: "請問你有沒有真正暈倒、短暫失去知覺或休克？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_chest_pain
+        finding_concept_id: rf:chest_pain_cardiac
+        question: { en: "Are you having any chest pain, palpitations, or shortness of breath?", zh_hk: "請問你有沒有伴隨胸痛、心悸或氣促？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_dizziness_emergency
+        trigger_condition: { en: "New weakness, slurred speech, double vision, severe headache, fainting, chest pain, or inability to walk", zh_hk: "新出現肢體無力、口齒不清、重影、劇烈頭痛、暈倒、胸痛或無法行走" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Do not drive while dizzy. Seek immediate emergency care if you develop slurred speech, double vision, weakness, severe headache, chest pain, fainting, or cannot walk safely."
+          zh_hk: "頭暈期間請勿駕駛。如出現口齒不清、重影、肢體無力、劇烈頭痛、胸痛、暈倒或無法安全站立行走，請立即尋求緊急醫療協助。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: frame:low_back_pain
+    rfe_concept_id: rfe:low_back_pain
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_mechanical, concept_id: cond:spinal_dysfunction, prevalence_note: "Non-specific mechanical LBP (~85-90%)" }
+        - { id: p_oa, concept_id: cond:osteoarthritis, key_discriminators: ["lumbar facet OA / spinal stenosis in older adults"] }
+      serious_not_to_be_missed:
+        - { id: s_cauda, concept_id: cond:cauda_equina, key_discriminators: ["saddle numbness", "urinary retention/incontinence", "bilateral leg weakness"] }
+        - { id: s_malignancy, concept_id: cond:malignancy_occult, key_discriminators: ["history of cancer", "unexplained weight loss", "relentless night pain"] }
+        - { id: s_sepsis, concept_id: cond:sepsis, key_discriminators: ["spinal epidural abscess / discitis — fever, IVDU, immunocompromised"] }
+        - { id: s_dissection, concept_id: cond:aortic_dissection, key_discriminators: ["sudden tearing back pain / ruptured AAA in older smoker"] }
+      pitfalls_often_missed:
+        - { id: o_osteoporotic_fx, concept_id: cond:osteoporosis, key_discriminators: ["vertebral fragility fracture in older adult or chronic steroid user"] }
+        - { id: o_zoster, concept_id: cond:herpes_zoster, key_discriminators: ["pre-eruptive dermatomal burning pain before vesicles appear"] }
+      masquerades:
+        - { id: mq_malignancy, tier: secondary, masquerade: malignancy, concept_id: cond:malignancy_occult, clue_prompt: { en: "Screen red flags: prior cancer, age >50 new onset, unexplained weight loss, night pain." } }
+        - { id: mq_depression, tier: primary, masquerade: depression, concept_id: cond:depression, clue_prompt: { en: "Assess yellow flags (fear-avoidance, mood, workplace distress) for chronic LBP risk." } }
+        - { id: mq_uti, tier: primary, masquerade: uti, concept_id: cond:uti, clue_prompt: { en: "Consider pyelonephritis / renal colic when flank pain accompanies fever or dysuria." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore expectations for MRI/X-ray (avoid routine imaging in uncomplicated LBP), work capacity, and fear of paralysis." }
+    positive_exclusions:
+      - id: ex_cauda_equina
+        finding_concept_id: rf:cauda_equina_signs
+        question: { en: "Have you noticed numbness around your groin/buttocks, difficulty passing urine, loss of bladder or bowel control, or weakness in both legs?", zh_hk: "請問你有否感到會陰或臀部麻痺、排尿困難、大小便失禁或雙腳無力？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_weight_loss
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Have you had unexplained weight loss, fever, night sweats, or a history of cancer?", zh_hk: "請問你有沒有無故體重下降、發燒、夜間盜汗或癌症病史？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_syncope_vascular
+        finding_concept_id: rf:syncope
+        question: { en: "Did the pain start suddenly and severely with feeling faint, sweating, or abdominal pain?", zh_hk: "請問腰痛是否突然劇烈發作，並伴隨頭暈欲暈、冒冷汗或腹痛？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_lbp_cauda_emergency
+        trigger_condition: { en: "Groin/saddle numbness, inability to pass urine, loss of bladder/bowel control, or new leg weakness", zh_hk: "會陰麻痺、無法排尿、大小便失禁或新出現下肢無力" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Go to an emergency department immediately if you develop numbness around the groin/buttocks, difficulty passing urine, loss of bladder or bowel control, or progressive leg weakness."
+          zh_hk: "如出現會陰／臀部麻痺、排尿困難、大小便失禁或下肢無力加劇，請立即前往急症室作緊急評估。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: frame:joint_pain
+    rfe_concept_id: rfe:joint_pain
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_oa, concept_id: cond:osteoarthritis, key_discriminators: ["activity-related pain", "brief <30 min morning stiffness", "crepitus"] }
+        - { id: p_gout, concept_id: cond:gout, key_discriminators: ["abrupt severe nocturnal monoarthritis (1st MTP/ankle/knee)", "erythema"] }
+      serious_not_to_be_missed:
+        - { id: s_septic, concept_id: cond:septic_arthritis, key_discriminators: ["hot swollen single joint", "fever", "markedly restricted passive ROM", "prosthetic joint"] }
+        - { id: s_ra, concept_id: cond:rheumatoid_arthritis, key_discriminators: ["symmetrical small joint synovitis", "morning stiffness >60 min", "anti-CCP/RF"] }
+        - { id: s_malignancy, concept_id: cond:malignancy_occult, key_discriminators: ["persistent bony/night pain", "systemic B-symptoms"] }
+      pitfalls_often_missed:
+        - { id: o_gca_pmr, concept_id: cond:gca, key_discriminators: ["bilateral shoulder/hip girdle stiffness >50y (PMR) — screen GCA symptoms"] }
+        - { id: o_haemochr, concept_id: cond:haemochromatosis, key_discriminators: ["2nd/3rd MCP arthropathy"] }
+      masquerades:
+        - { id: mq_ctd, tier: secondary, masquerade: connective_tissue, concept_id: cond:connective_tissue_disease, clue_prompt: { en: "Screen symmetrical synovitis, rash, oral ulcers, Raynaud's, or inflammatory markers." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Check thiazides/diuretics triggering gout, or statin myalgia (check CK)." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore functional impact on work/mobility, fear of long-term disability, and self-medication with OTC NSAIDs or TCM." }
+    positive_exclusions:
+      - id: ex_hot_joint
+        finding_concept_id: rf:hot_swollen_single_joint
+        question: { en: "Is a single joint very hot, red, and swollen, or are you unable to move it or put weight on it?", zh_hk: "請問是否有單一關節明顯發熱、紅腫劇痛，或完全無法屈伸／負重？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_weight_loss
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Have you had fevers, drenching night sweats, or unexplained weight loss?", zh_hk: "請問你有沒有同時發燒、夜間盜汗或無故體重下降？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_gca_screen
+        finding_concept_id: rf:jaw_claudication_temporal_pain
+        question: { en: "If you have shoulder/hip stiffness, have you also had temple headaches, jaw pain when chewing, or visual changes?", zh_hk: "如有肩頸或髖部僵硬，請問有否伴隨太陽穴頭痛、咀嚼下顎痛或視力變化？" }
+        urgency_if_present: 3
+        mandatory: false
+        when: { fact: age_years, op: ge, value: 50 }
+    safety_netting:
+      - id: sn_joint_septic_emergency
+        trigger_condition: { en: "Rapidly worsening hot swollen joint, fever/chills, inability to bear weight, or prosthetic joint redness", zh_hk: "關節迅速發熱紅腫劇痛、發燒發冷、無法負重或人工關節部位紅腫" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek urgent emergency hospital assessment if a joint becomes hot, red, and severely swollen — especially if you develop a fever, feel unwell, or have an artificial joint."
+          zh_hk: "如關節變得發熱、紅腫劇痛，特別是伴隨發燒、身體不適或該處為人工關節，請立即前往急症室作緊急評估。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: frame:rash
+    rfe_concept_id: rfe:rash
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_eczema, concept_id: cond:eczema, key_discriminators: ["itchy dry flexural plaques", "atopic history"] }
+        - { id: p_zoster, concept_id: cond:herpes_zoster, key_discriminators: ["unilateral dermatomal painful vesicles"] }
+        - { id: p_cellulitis, concept_id: cond:cellulitis, key_discriminators: ["spreading warm tender erythema", "unilateral limb"] }
+      serious_not_to_be_missed:
+        - { id: s_anaphylaxis, concept_id: cond:anaphylaxis, key_discriminators: ["acute urticaria + lip/throat swelling, wheeze, or hypotension"] }
+        - { id: s_meningitis, concept_id: cond:meningitis, key_discriminators: ["non-blanching petechial/purpuric rash + fever"] }
+        - { id: s_scar, concept_id: cond:drug_adverse_effect, key_discriminators: ["SJS/TEN/DRESS — painful dusky skin, mucosal erosions, fever after new drug (allopurinol/carbamazepine)"] }
+        - { id: s_melanoma, concept_id: cond:melanoma, key_discriminators: ["ABCDE changing/ugly-duckling pigmented lesion or acral/nail streak"] }
+        - { id: s_sepsis, concept_id: cond:sepsis, key_discriminators: ["rapidly spreading cellulitis / necrotising fasciitis (pain out of proportion)"] }
+      pitfalls_often_missed:
+        - { id: o_ophthalmic_zoster, concept_id: cond:herpes_zoster, key_discriminators: ["V1 forehead/nasal tip zoster (Hutchinson's sign)"] }
+        - { id: o_ctd, concept_id: cond:connective_tissue_disease, key_discriminators: ["malar/photosensitive lupus rash or vasculitis"] }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Reconcile ALL new Rx, OTC, and TCM/herbal products started within the last 8 weeks (SCAR screen)." } }
+        - { id: mq_hiv, tier: secondary, masquerade: hiv, concept_id: cond:hiv, clue_prompt: { en: "Consider HIV seroconversion rash or secondary syphilis in generalised non-itchy palmoplantar eruption." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore fear of contagion, skin cancer worry, steroid phobia in eczema, or distress over cosmetic appearance." }
+    positive_exclusions:
+      - id: ex_anaphylaxis
+        finding_concept_id: rf:anaphylaxis_airway_swelling
+        question: { en: "Do you have any swelling of your lips, tongue, or throat, trouble breathing, hoarseness, or dizziness?", zh_hk: "請問你有沒有嘴唇、舌頭或喉嚨腫脹、呼吸困難、聲沙或頭暈？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_non_blanching
+        finding_concept_id: rf:stiff_neck_meningism
+        question: { en: "Do you have a fever with a purple/red rash that does not fade when pressed, or painful blisters in your mouth or eyes?", zh_hk: "請問你有沒有發燒並出現按壓不退色的紫紅斑，或口腔／眼部起痛性水泡？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_ophthalmic_zoster
+        finding_concept_id: rf:ophthalmic_zoster_tip_nose
+        question: { en: "Are there painful blisters on your forehead, eyelid, or the tip of your nose?", zh_hk: "請問你的額頭、眼皮或鼻尖有沒有出現疼痛的水泡疹？" }
+        urgency_if_present: 3
+        mandatory: true
+    safety_netting:
+      - id: sn_rash_emergency
+        trigger_condition: { en: "Lip/tongue/throat swelling, breathing trouble, non-blanching purple rash, mouth/eye blistering, or rapidly spreading painful redness with fever", zh_hk: "嘴唇／舌頭／喉嚨腫脹、呼吸困難、按壓不退色紫疹、口腔或眼部起水泡，或紅腫劇痛迅速擴散伴發燒" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency care if you develop lip, tongue, or throat swelling, breathing difficulty, a rash that does not fade when pressed, painful mouth/eye blisters, or rapidly spreading redness with fever."
+          zh_hk: "如出現嘴唇、舌頭或喉嚨腫脹、呼吸困難、按壓不退色的皮疹、口腔或眼部起水泡，或紅腫伴發燒迅速擴散，請立即尋求緊急醫療協助。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: frame:red_eye
+    rfe_concept_id: rfe:red_eye
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_conjunctivitis, concept_id: cond:conjunctivitis, key_discriminators: ["gritty/watery/sticky discharge", "preserved visual acuity", "no severe deep pain"] }
+      serious_not_to_be_missed:
+        - { id: s_glaucoma, concept_id: cond:acute_glaucoma, key_discriminators: ["severe unilateral eye/brow pain", "blurred vision + haloes", "nausea/vomiting", "hazy cornea/mid-dilated pupil"] }
+        - { id: s_zoster_eye, concept_id: cond:herpes_zoster, key_discriminators: ["V1 shingles / Hutchinson's sign"] }
+        - { id: s_cellulitis, concept_id: cond:cellulitis, key_discriminators: ["orbital cellulitis — painful eye movement, proptosis, diplopia, fever"] }
+        - { id: s_gca, concept_id: cond:gca, key_discriminators: ["acute painless/painful ischaemic visual loss in age >=50"] }
+      pitfalls_often_missed:
+        - { id: o_contact_lens, concept_id: cond:conjunctivitis, key_discriminators: ["contact lens wearer with red painful eye = suspect Pseudomonas keratitis until slit-lamp excluded"] }
+        - { id: o_uveitis, concept_id: cond:connective_tissue_disease, key_discriminators: ["anterior uveitis — photophobia, ciliary flush, small irregular pupil, HLA-B27/RA"] }
+      masquerades:
+        - { id: mq_ctd, tier: secondary, masquerade: connective_tissue, concept_id: cond:connective_tissue_disease, clue_prompt: { en: "Screen autoimmune disease (spondyloarthritis, RA, sarcoidosis) in recurrent painful photophobic red eye." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Check recent anticholinergics/topiramate/sympathomimetics precipitating angle closure, or unmonitored steroid eye drops." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Always ask about contact lens wear, chemical/foreign body exposure, or prior eye surgery." }
+    positive_exclusions:
+      - id: ex_visual_loss_pain
+        finding_concept_id: rf:acute_visual_loss_painful_eye
+        question: { en: "Do you have any blurred or reduced vision, severe eye pain, sensitivity to light, or rainbow haloes around lights?", zh_hk: "請問你有沒有視力模糊或下降、眼睛劇痛、畏光，或看燈光時見到彩虹光環？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_ophthalmic_zoster
+        finding_concept_id: rf:ophthalmic_zoster_tip_nose
+        question: { en: "Do you have any blistering rash on your forehead, eyelid, or tip of your nose?", zh_hk: "請問你的額頭、眼皮或鼻尖有沒有水泡皮疹？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_focal_diplopia
+        finding_concept_id: rf:focal_neuro_deficit_fast
+        question: { en: "Do you have double vision or pain when moving your eye?", zh_hk: "請問你有沒有看東西重影，或轉動眼球時感到疼痛？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_red_eye_emergency
+        trigger_condition: { en: "Any decrease in vision, severe eye pain, sensitivity to light, haloes, chemical splash, or contact lens-associated eye pain", zh_hk: "視力下降、眼部劇痛、嚴重畏光、視物有光環、化學品濺眼或戴隱形眼鏡後眼痛" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Remove contact lenses immediately and do not use leftover steroid eye drops. Seek immediate emergency eye care if you notice reduced vision, severe eye pain, light sensitivity, or haloes around lights."
+          zh_hk: "請立即除下隱形眼鏡，切勿自行使用舊有的類固醇眼藥水。如出現視力下降、眼睛劇痛、嚴重畏光或見彩虹光環，請立即前往急症室作緊急眼科評估。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: frame:anxiety_low_mood
+    rfe_concept_id: rfe:anxiety_low_mood
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_gad, concept_id: cond:gad, key_discriminators: ["excessive uncontrollable worry >=6m", "GAD-7"] }
+        - { id: p_dep, concept_id: cond:depression, key_discriminators: ["anhedonia", "persistent low mood >=2w", "PHQ-9"] }
+        - { id: p_panic, concept_id: cond:panic_disorder, key_discriminators: ["abrupt surges of intense fear/palpitations/dyspnoea peaking within minutes"] }
+      serious_not_to_be_missed:
+        - { id: s_dep_suicide, concept_id: cond:depression, key_discriminators: ["active suicidal ideation, plan, or self-harm risk"] }
+        - { id: s_acs, concept_id: cond:acs, key_discriminators: ["do not attribute acute chest pain/dyspnoea to panic without cardiac/PE exclusion"] }
+        - { id: s_aud, concept_id: cond:alcohol_use_disorder, key_discriminators: ["alcohol withdrawal risk / co-occurring substance misuse"] }
+      pitfalls_often_missed:
+        - { id: o_thyroid, concept_id: cond:hypothyroidism, key_discriminators: ["thyroid dysfunction mimicking depression or anxiety"] }
+        - { id: o_dementia, concept_id: cond:dementia, key_discriminators: ["new late-life anxiety/apathy or depressive pseudodementia"] }
+      masquerades:
+        - { id: mq_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hypothyroidism, clue_prompt: { en: "Order TSH to exclude hyper- or hypothyroidism." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Screen alcohol (AUDIT-C), caffeine, stimulants, corticosteroids, and beta-agonists." } }
+        - { id: mq_anaemia, tier: primary, masquerade: anaemia, concept_id: cond:anaemia, clue_prompt: { en: "Check CBC, ferritin, and Vitamin B12 if co-existing fatigue or cognitive fog." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Gently explore stigma around mental health care, domestic/workplace stress, trauma, and preference for talking therapy vs medication." }
+    positive_exclusions:
+      - id: ex_suicidal
+        finding_concept_id: rf:suicidal_ideation
+        question: { en: "Have you had any thoughts of hurting yourself, ending your life, or feeling you cannot keep yourself safe?", zh_hk: "請問你最近有沒有傷害自己、輕生的念頭，或覺得無法保障自己安全？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_cardiac_cp
+        finding_concept_id: rf:chest_pain_cardiac
+        question: { en: "Are you currently having chest pain, chest tightness, or fainting?", zh_hk: "請問你現時有沒有胸痛、心口壓迫或暈倒？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_confusion
+        finding_concept_id: rf:confusion
+        question: { en: "Have you or your family noticed severe confusion, hallucinations, or extreme agitation?", zh_hk: "請問你或家人有否察覺嚴重意識混亂、幻覺或極度躁動？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_mental_health_crisis
+        trigger_condition: { en: "Thoughts of self-harm or suicide, feeling unable to stay safe, or acute crisis", zh_hk: "出現自殘或輕生念頭、感到無法保持安全或情緒危急" }
+        escalation_channel: crisis_hotline
+        patient_instruction:
+          en: "Support is available right now. If you have thoughts of harming yourself or feel unsafe, contact a 24-hour crisis support hotline or emergency services immediately."
+          zh_hk: "你並不孤單，隨時有專業支援陪伴。如出現傷害自己或輕生念頭，請立即致電24小時情緒支援熱線或緊急救援服務。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: frame:insomnia
+    rfe_concept_id: rfe:insomnia
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_insomnia, concept_id: cond:sleep_apnoea_insomnia, prevalence_note: "Primary chronic/acute insomnia (first-line CBT-I)" }
+        - { id: p_gad, concept_id: cond:gad, key_discriminators: ["sleep-onset insomnia with rumination"] }
+        - { id: p_dep, concept_id: cond:depression, key_discriminators: ["early morning wakening", "anhedonia"] }
+      serious_not_to_be_missed:
+        - { id: s_dep_suicide, concept_id: cond:depression, key_discriminators: ["severe insomnia strongly elevates acute suicide risk"] }
+        - { id: s_osa, concept_id: cond:sleep_apnoea_insomnia, key_discriminators: ["loud snoring, witnessed apnoeas, daytime somnolence, driving risk"] }
+        - { id: s_aud, concept_id: cond:alcohol_use_disorder, key_discriminators: ["using alcohol as a sleep aid / withdrawal insomnia"] }
+      pitfalls_often_missed:
+        - { id: o_drugs, concept_id: cond:drug_adverse_effect, key_discriminators: ["late caffeine, SSRIs, corticosteroids, decongestants, hypnotic rebound"] }
+        - { id: o_iron_rls, concept_id: cond:iron_deficiency_anaemia, key_discriminators: ["restless legs syndrome — check serum ferritin (<50-75 ug/L)"] }
+      masquerades:
+        - { id: mq_depression, tier: primary, masquerade: depression, concept_id: cond:depression, clue_prompt: { en: "Screen PHQ-2/PHQ-9 and active suicidality in every insomnia presentation." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Review alcohol, caffeine, nicotine, steroids, SSRIs, and prior hypnotic dependence." } }
+        - { id: mq_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hypothyroidism, clue_prompt: { en: "Consider thyroid function testing if palpitations, weight change, or heat/cold intolerance." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore expectations for sleeping pills (benzodiazepine/Z-drug), shift-work strain, or fear of losing daytime functioning." }
+    positive_exclusions:
+      - id: ex_suicidal
+        finding_concept_id: rf:suicidal_ideation
+        question: { en: "Have you had any thoughts of harming yourself or feeling that life is not worth living?", zh_hk: "請問你最近有沒有想過傷害自己，或覺得生無可戀？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_dyspnoea_sleep
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Do you wake up gasping for air, choking, or unable to breathe when lying flat?", zh_hk: "請問你睡眠時有否因窒息感、透唔到氣或平躺氣促而驚醒？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_confusion
+        finding_concept_id: rf:confusion
+        question: { en: "Have you had episodes of severe confusion, hallucinations, or sudden daytime sleep attacks while driving?", zh_hk: "請問你有否出現嚴重意識混亂、幻覺，或日間駕駛時突然無法控制地睡著？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_insomnia_crisis_safety
+        trigger_condition: { en: "Thoughts of self-harm, severe daytime drowsiness risking driving safety, or waking gasping for air", zh_hk: "自殘或輕生念頭、日間極度嗜睡影響駕駛安全，或睡夢中呼吸困難驚醒" }
+        escalation_channel: crisis_hotline
+        patient_instruction:
+          en: "Avoid driving or operating machinery if severely sleep-deprived or after sedative medicines. If you have any thoughts of self-harm, contact a 24-hour crisis support hotline or emergency services immediately."
+          zh_hk: "如嚴重睡眠不足或服用助眠藥物後，切勿駕駛或操作機械。如出現傷害自己或輕生念頭，請立即致電24小時情緒支援熱線或緊急救援服務。"
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+# ===========================================================================
+# OBSERVATION RULES (6) — Quantitative Bands, Conversions & Clinician Plans
+# Note: obs_rule:esr (canonical_ucum: "mm/h") is staged in w1_pod_c_overlays.yaml
+# pending addition of "mm/h" to VALID_UCUM in backend/ontology/lint.py.
+# ===========================================================================
+observation_rules:
+  - id: obs_rule:urate
+    observation_concept_id: obs:urate
+    canonical_ucum: "mmol/L"
+    display_ucum: "mmol/L"
+    unit_conversions:
+      # Convert umol/L -> canonical mmol/L (divide by 1000)
+      - { from_ucum: "umol/L", factor: 0.001, offset: 0.0 }
+    reference_intervals:
+      - { id: ri_adult_default, low: 0.15, high: 0.42, priority: 0 }
+      - { id: ri_adult_male, low: 0.21, high: 0.42, priority: 10, when: { fact: sex, op: eq, value: "M" } }
+      - { id: ri_adult_female, low: 0.14, high: 0.36, priority: 10, when: { fact: sex, op: eq, value: "F" } }
+    severity_bands:
+      significant: { gt: 0.48 }
+      urgent: { gt: 0.60 }
+      critical: { gt: 0.72 }
+    direction_templates:
+      H:
+        working_problem: { en: "hyperuricaemia", zh_hk: "高尿酸血症" }
+        plan_template:
+          en: "Confirm gout history (serum urate may be falsely normal during an acute flare — repeat 2-4 weeks post-flare). Target <0.36 mmol/L (<0.30 mmol/L if tophi) on ULT; check eGFR and HLA-B*58:01 before allopurinol."
+          zh_hk: "核實痛風病史（急性發作期血尿酸可假性正常，應於發作後2至4星期覆檢）；降尿酸目標 <0.36 mmol/L（有痛風石 <0.30 mmol/L），處方別嘌醇前須核對腎功能及 HLA-B*58:01。"
+        relevant_med_class_ids: ["drug_class:xanthine_oxidase_inhibitor", "drug_class:gout_acute", "drug_class:diuretic"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: obs_rule:calcium
+    observation_concept_id: obs:calcium
+    canonical_ucum: "mmol/L"
+    display_ucum: "mmol/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 2.15, high: 2.55, priority: 0 }
+    severity_bands:
+      significant: { lt: 2.00, gt: 2.75 }
+      urgent: { lt: 1.90, gt: 3.00 }
+      critical: { lt: 1.75, gt: 3.50 }
+    direction_templates:
+      H:
+        working_problem: { en: "hypercalcaemia", zh_hk: "高血鈣症" }
+        plan_template:
+          en: "Verify albumin-corrected/ionised calcium and order PTH, eGFR, Vitamin D, and myeloma/malignancy workup; review thiazides, lithium, and Vitamin D/calcium supplements; urgent hospital care if >=3.0 mmol/L or symptomatic."
+          zh_hk: "核實校正血鈣並檢查副甲狀腺素 (PTH)、腎功能、維他命D及排除腫瘤／骨髓瘤；檢視利尿藥、鋰劑及補充劑；如 >=3.0 mmol/L 或有症狀須緊急送院。"
+        relevant_med_class_ids: ["drug_class:diuretic", "drug_class:mood_stabiliser"]
+      L:
+        working_problem: { en: "hypocalcaemia", zh_hk: "低血鈣症" }
+        plan_template:
+          en: "Verify corrected calcium, magnesium, Vitamin D, PTH, and eGFR; screen perioral/digital paraesthesiae, tetany, or QTc prolongation; urgent hospital treatment if <1.9 mmol/L or symptomatic; hold bisphosphonates."
+          zh_hk: "核實校正血鈣、血鎂、維他命D、PTH及腎功能；篩查口周麻痺、抽搐或心電圖 QTc 延長；如 <1.9 mmol/L 或有症狀須緊急處理，並暫緩雙膦酸鹽。"
+        relevant_med_class_ids: ["drug_class:bisphosphonate"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: obs_rule:ck
+    observation_concept_id: obs:ck
+    canonical_ucum: "U/L"
+    display_ucum: "U/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 30.0, high: 200.0, priority: 0 }
+      - { id: ri_adult_male, low: 40.0, high: 250.0, priority: 10, when: { fact: sex, op: eq, value: "M" } }
+      - { id: ri_adult_female, low: 30.0, high: 170.0, priority: 10, when: { fact: sex, op: eq, value: "F" } }
+    severity_bands:
+      significant: { gt: 500.0 }
+      urgent: { gt: 1000.0 }
+      critical: { gt: 5000.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "elevated creatine kinase (myopathy / rhabdomyolysis risk)", zh_hk: "肌酸激酶 (CK) 偏高（肌病變／橫紋肌溶解風險）" }
+        plan_template:
+          en: "Assess muscle pain/weakness, dark tea-coloured urine, vigorous exercise, hypothyroidism, and culprit drugs (statins, colchicine, macrolide DDIs). If CK >5x ULN (~1000 U/L) hold statin and check RFT/K+; if >=5000 U/L or AKI/dark urine escalate urgently to hospital."
+          zh_hk: "評估肌肉痛／無力、茶色尿、劇烈運動、甲減及誘發藥物（他汀、秋水仙鹼）；若 CK >1000 U/L 應暫停他汀並覆檢腎功能／血鉀，>=5000 U/L 或伴腎損傷須緊急送院。"
+        relevant_med_class_ids: ["drug_class:statin", "drug_class:gout_acute", "drug_class:macrolide_antibiotic"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: obs_rule:vitamin_d
+    observation_concept_id: obs:vitamin_d
+    canonical_ucum: "nmol/L"
+    display_ucum: "nmol/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 50.0, high: 150.0, priority: 0 }
+    severity_bands:
+      significant: { lt: 30.0, gt: 200.0 }
+      urgent: { lt: 15.0, gt: 250.0 }
+    direction_templates:
+      L:
+        working_problem: { en: "Vitamin D deficiency", zh_hk: "維他命D缺乏" }
+        plan_template:
+          en: "Replace with colecalciferol (especially prior to osteoporosis/bisphosphonate therapy); check serum calcium and renal function; assess fracture/falls risk."
+          zh_hk: "補充維他命D3（特別於開始骨質疏鬆雙膦酸鹽治療前），並檢查血鈣、腎功能及評估跌倒／骨折風險。"
+        relevant_med_class_ids: ["drug_class:bisphosphonate"]
+      H:
+        working_problem: { en: "hypervitaminosis D", zh_hk: "維他命D過量" }
+        plan_template:
+          en: "Stop high-dose Vitamin D supplements and check corrected serum calcium and renal function."
+          zh_hk: "停服高劑量維他命D補充劑，並覆檢校正血鈣及腎功能。"
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: obs_rule:lithium
+    observation_concept_id: obs:lithium
+    canonical_ucum: "mmol/L"
+    display_ucum: "mmol/L"
+    reference_intervals:
+      - { id: ri_maintenance, low: 0.6, high: 0.8, priority: 0, source_note: "12-hour post-dose trough maintenance range (0.6-1.0 mmol/L acute mania)" }
+    severity_bands:
+      significant: { lt: 0.4, gt: 1.0 }
+      urgent: { gt: 1.2 }
+      critical: { gt: 1.5 }
+    trend_rules:
+      - id: tr_lithium_acute_rise
+        direction: rise
+        delta_abs: 0.3
+        window_days: 30
+        urgency_floor: 3
+        clinician_rationale:
+          en: "Serum lithium rise >=0.3 mmol/L within 30 days — check hydration, eGFR, and newly added NSAIDs, ACEi/ARBs, or thiazide diuretics."
+          zh_hk: "30日內血鋰濃度上升 >=0.3 mmol/L，須即時排查脫水、腎功能惡化或新併用消炎止痛藥／血壓藥／利尿藥。"
+    direction_templates:
+      H:
+        working_problem: { en: "supratherapeutic lithium / toxicity risk", zh_hk: "血鋰濃度過高／鋰中毒風險" }
+        plan_template:
+          en: "Verify 12h trough timing; screen tremor, ataxia, dysarthria, GI upset, confusion; hold lithium and arrange immediate emergency assessment if >=1.5 mmol/L or symptomatic; check eGFR/electrolytes and interacting drugs."
+          zh_hk: "核實抽血時間是否服藥後12小時；評估手震、步態不穩、口齒不清及嘔吐；如 >=1.5 mmol/L 或出現中毒症狀須暫停鋰劑並立即送急症室。"
+        relevant_med_class_ids: ["drug_class:mood_stabiliser", "drug_class:nsaid", "drug_class:raas_agent", "drug_class:diuretic"]
+      L:
+        working_problem: { en: "subtherapeutic serum lithium", zh_hk: "血鋰濃度偏低" }
+        plan_template:
+          en: "Assess adherence, timing of sample, and relapse symptoms before dose adjustment with psychiatrist/GP."
+          zh_hk: "評估服藥依從性、抽血時間及情緒復發徵兆，再由醫生考慮調整劑量。"
+        relevant_med_class_ids: ["drug_class:mood_stabiliser"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: obs_rule:anti_ccp
+    observation_concept_id: obs:anti_ccp
+    canonical_ucum: "U/mL"
+    display_ucum: "U/mL"
+    reference_intervals:
+      - { id: ri_default, low: null, high: 20.0, priority: 0 }
+    severity_bands:
+      significant: { ge: 20.0 }
+      urgent: { ge: 60.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "positive anti-CCP (suspected rheumatoid arthritis)", zh_hk: "抗環瓜氨酸肽抗體陽性（懷疑類風濕性關節炎）" }
+        plan_template:
+          en: "High specificity (>95%) for rheumatoid arthritis; check CRP, ESR, CBC, LFT, RFT, and arrange early rheumatology referral for timely DMARD initiation."
+          zh_hk: "對類風濕性關節炎具高度特異性 (>95%)；建議檢查發炎指數及肝腎功能，並盡早轉介風濕病科評估啟動抗風濕藥 (DMARD)。"
+        relevant_med_class_ids: ["drug_class:dmard", "drug_class:nsaid"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+# ===========================================================================
+# PATHWAY POINTERS (3) — Strict Asymmetric Authority (<= L1_propose_only)
+# ===========================================================================
+pointers:
+  - id: ptr:neuro_ophthalmic_emergency_escalation
+    trigger_concepts:
+      - "rf:thunderclap_headache"
+      - "rf:focal_neuro_deficit_fast"
+      - "rf:cauda_equina_signs"
+      - "rf:acute_visual_loss_painful_eye"
+      - "rf:anaphylaxis_airway_swelling"
+      - "rf:hot_swollen_single_joint"
+    trigger_edges:
+      - "edge:thunderclap_headache_sah"
+      - "edge:focal_neuro_deficit_stroke"
+      - "edge:cauda_equina_emergency"
+      - "edge:acute_visual_loss_glaucoma"
+      - "edge:anaphylaxis_emergency_adrenaline"
+      - "edge:hot_swollen_joint_septic"
+    target_kind: protocol_yaml
+    target_ref: "protocols/acute_emergency_escalation_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "onset_time", "red_flags", "jurisdiction"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: ptr:mental_health_crisis_and_psych_meds
+    trigger_concepts:
+      - "rfe:anxiety_low_mood"
+      - "rfe:insomnia"
+      - "cond:gad"
+      - "cond:panic_disorder"
+      - "drug:lithium"
+    trigger_edges:
+      - "edge:ssri_tramadol_serotonin"
+      - "edge:benzo_opioid_respiratory_depression"
+      - "edge:lithium_monitored_by_level"
+      - "edge:lithium_nsaid_toxicity"
+    trigger_observations:
+      - "obs_rule:lithium"
+    target_kind: journey_module
+    target_ref: "backend.journeys.mental_health"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["phq9_item9", "on_meds", "egfr_ml_min", "jurisdiction"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }
+
+  - id: ptr:msk_pgx_and_bone_safety_monitoring
+    trigger_concepts:
+      - "pgx:hla_b_1502"
+      - "cond:gca"
+      - "cond:rheumatoid_arthritis"
+      - "cond:osteoporosis"
+    trigger_edges:
+      - "edge:carbamazepine_pgx_hla_b_1502"
+      - "edge:colchicine_macrolide_toxicity"
+      - "edge:colchicine_renal_ci"
+      - "edge:alendronate_renal_ci"
+      - "edge:jaw_claudication_gca"
+      - "edge:ophthalmic_zoster_urgent_eye"
+    trigger_observations:
+      - "obs_rule:urate"
+      - "obs_rule:calcium"
+      - "obs_rule:ck"
+      - "obs_rule:vitamin_d"
+      - "obs_rule:anti_ccp"
+    target_kind: engine_family
+    target_ref: "drug_monitoring"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "ethnicity", "hla_b_1502", "egfr_ml_min", "on_meds", "obs_values"]
+    provenance: { author: "ontology_pod_w1_c", review_status: "draft" }

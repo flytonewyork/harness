@@ -1,0 +1,1476 @@
+# Wave 0 + Gold-Standard Vertical Slices 1–3: Shared Universal Primary Care Core Concepts
+# Licensing: Tier-1 open spine (SNOMED CT GPS, LOINC, UCUM, WHO INN, FDA UNII, RxNorm SAB=RXNORM);
+# Tier-2 bare code-only export pointers (ICPC-2, ICD-10, ATC — zero redistributed rubric tables).
+
+concepts:
+  # =========================================================================
+  # REASONS FOR ENCOUNTER (RFEs) — Slices 2 & 3
+  # =========================================================================
+  - id: rfe:cough
+    kind: rfe
+    wave: W0
+    cluster: C03_respiratory
+    bindings:
+      snomed_gps: { code: "49727002", display: "Cough (finding)" }
+      icpc2: { code: "R05", system: "http://hl7.org/fhir/sid/icpc-2" }
+    display: { en: "Cough", zh_hk: "咳嗽" }
+    aliases:
+      en: ["cough", "chesty cough", "dry cough", "phlegm", "coughing"]
+      zh_hk: ["咳", "有痰", "乾咳", "咳唔停", "氣管敏感"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rfe:fever
+    kind: rfe
+    wave: W0
+    cluster: C03_respiratory
+    bindings:
+      snomed_gps: { code: "386661006", display: "Fever (finding)" }
+      icpc2: { code: "A03", system: "http://hl7.org/fhir/sid/icpc-2" }
+    display: { en: "Fever", zh_hk: "發燒" }
+    aliases:
+      en: ["fever", "high temperature", "chills", "rigors"]
+      zh_hk: ["發熱", "發冷", "發冷發熱", "打冷震", "低燒"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rfe:dyspnoea
+    kind: rfe
+    wave: W0
+    cluster: C03_respiratory
+    bindings:
+      snomed_gps: { code: "267036007", display: "Dyspnea (finding)" }
+      icpc2: { code: "R02", system: "http://hl7.org/fhir/sid/icpc-2" }
+    display: { en: "Shortness of breath / dyspnoea", zh_hk: "呼吸困難／氣促" }
+    aliases:
+      en: ["shortness of breath", "SOB", "breathless", "difficulty breathing", "wheezing"]
+      zh_hk: ["氣促", "抖唔到氣", "氣喘", "喘氣", "呼吸困難", "扯蝦"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rfe:chest_pain
+    kind: rfe
+    wave: W0
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "29857009", display: "Chest pain (finding)" }
+      icpc2: { code: "K01", system: "http://hl7.org/fhir/sid/icpc-2" }
+    display: { en: "Chest pain", zh_hk: "胸痛／心口痛" }
+    aliases:
+      en: ["chest pain", "chest tightness", "pressure in chest", "heart pain"]
+      zh_hk: ["心口痛", "胸痛", "胸口翳悶", "心口翳", "心口壓住痛"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rfe:fatigue
+    kind: rfe
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      snomed_gps: { code: "84229001", display: "Fatigue (finding)" }
+      icpc2: { code: "A04", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R53", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Fatigue / tiredness", zh_hk: "疲倦／乏力" }
+    aliases:
+      en: ["fatigue", "tired all the time", "TATT", "exhausted", "no energy", "lethargy"]
+      zh_hk: ["攰", "好攰", "容易攰", "無力", "乏力", "精神唔好", "唔夠精神"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  # =========================================================================
+  # RED-FLAG FINDINGS & SYMPTOMS (For openEHR Positive Exclusions & Safety Floor)
+  # =========================================================================
+  - id: rf:chest_pain_cardiac
+    kind: red_flag
+    wave: W0
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "29857009", display: "Chest pain (finding)" }
+    display: { en: "Exertional or crushing chest pain / tightness", zh_hk: "胸痛或心口壓迫感" }
+    aliases:
+      en: ["crushing chest pain", "chest tightness radiating to arm", "tearing back pain"]
+      zh_hk: ["心口壓住痛", "心口扯住背脊痛", "胸口劇痛"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rf:dyspnoea_at_rest
+    kind: red_flag
+    wave: W0
+    cluster: C03_respiratory
+    bindings:
+      snomed_gps: { code: "267036007", display: "Dyspnea (finding)" }
+    display: { en: "Severe shortness of breath at rest / unable to speak full sentences", zh_hk: "靜止時嚴重氣促／無法說完整句子" }
+    aliases:
+      en: ["can't breathe", "gasping for air", "unable to finish sentences"]
+      zh_hk: ["唞唔到氣", "透唔到氣", "講唔到完整句子"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rf:haemoptysis
+    kind: red_flag
+    wave: W0
+    cluster: C03_respiratory
+    bindings:
+      snomed_gps: { code: "66857006", display: "Hemoptysis (finding)" }
+    display: { en: "Coughing up blood (haemoptysis)", zh_hk: "咳血" }
+    aliases:
+      en: ["coughing up blood", "blood in sputum", "haemoptysis"]
+      zh_hk: ["咳血", "痰中帶血"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rf:syncope
+    kind: red_flag
+    wave: W0
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "271594007", display: "Syncope (disorder)" }
+    display: { en: "Fainting / syncope / collapse", zh_hk: "暈厥／昏倒" }
+    aliases:
+      en: ["fainted", "passed out", "collapsed", "syncope"]
+      zh_hk: ["暈低", "休克", "昏迷", "暈厥"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rf:confusion
+    kind: red_flag
+    wave: W0
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "40917007", display: "Clouded consciousness (finding)" }
+    display: { en: "New confusion / drowsiness / altered consciousness", zh_hk: "意識混亂／嗜睡" }
+    aliases:
+      en: ["confused", "drowsy", "hard to wake", "altered mental status"]
+      zh_hk: ["神智不清", "意識混亂", "叫唔醒"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rf:stiff_neck_meningism
+    kind: red_flag
+    wave: W0
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "161882006", display: "Stiff neck (finding)" }
+    display: { en: "Stiff neck with fever or non-blanching rash", zh_hk: "發燒伴頸部僵硬或按壓不退色皮疹" }
+    aliases:
+      en: ["stiff neck", "non-blanching rash", "photophobia"]
+      zh_hk: ["頸部僵硬", "頸梗", "按壓唔退色紅疹"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rf:gi_bleeding
+    kind: red_flag
+    wave: W0
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "74474003", display: "Gastrointestinal hemorrhage (disorder)" }
+    display: { en: "Black tarry stools (melaena), rectal bleeding, or vomiting blood", zh_hk: "黑便／大便帶血／吐血" }
+    aliases:
+      en: ["black tarry stool", "melaena", "rectal bleeding", "vomiting blood", "coffee ground vomit"]
+      zh_hk: ["黑便", "大便變黑", "屙血", "吐血", "嘔血"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rf:unintentional_weight_loss
+    kind: red_flag
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      snomed_gps: { code: "89362005", display: "Weight loss (finding)" }
+    display: { en: "Unintentional weight loss or drenching night sweats", zh_hk: "體重異常下降或夜間盜汗" }
+    aliases:
+      en: ["unintentional weight loss", "losing weight without trying", "night sweats"]
+      zh_hk: ["體重無故下降", "暴瘦", "夜間盜汗"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: rf:suicidal_ideation
+    kind: red_flag
+    wave: W0
+    cluster: C06_mental_health
+    bindings:
+      snomed_gps: { code: "6471006", display: "Suicidal thoughts (finding)" }
+    display: { en: "Suicidal thoughts or self-harm risk", zh_hk: "自殺念頭或自殘風險" }
+    aliases:
+      en: ["suicidal", "want to end my life", "self-harm", "PHQ9 item 9 positive"]
+      zh_hk: ["想死", "唔想做人", "自殺念頭", "傷害自己"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  # =========================================================================
+  # CONDITIONS — Slices 1, 2 & 3 (with IS_A hierarchy)
+  # =========================================================================
+  - id: cond:hypertension
+    kind: condition
+    wave: W0
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "38341003", display: "Hypertensive disorder, systemic arterial (disorder)" }
+      icpc2: { code: "K86", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I10", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Essential hypertension", zh_hk: "原發性高血壓" }
+    aliases:
+      en: ["hypertension", "high blood pressure", "HTN"]
+      zh_hk: ["高血壓", "血壓高"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:t2dm
+    kind: condition
+    wave: W0
+    cluster: C02_endocrine
+    bindings:
+      snomed_gps: { code: "44054006", display: "Diabetes mellitus type 2 (disorder)" }
+      icpc2: { code: "T90", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E11", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Type 2 diabetes mellitus", zh_hk: "二型糖尿病" }
+    aliases:
+      en: ["type 2 diabetes", "T2DM", "diabetes"]
+      zh_hk: ["二型糖尿病", "糖尿病", "糖尿"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:ckd
+    kind: condition
+    wave: W0
+    cluster: C07_renal
+    bindings:
+      snomed_gps: { code: "709044004", display: "Chronic kidney disease (disorder)" }
+      icpc2: { code: "U99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N18", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Chronic kidney disease (CKD)", zh_hk: "慢性腎病" }
+    aliases:
+      en: ["chronic kidney disease", "CKD", "renal impairment"]
+      zh_hk: ["慢性腎病", "腎功能衰退"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:hyperlipidaemia
+    kind: condition
+    wave: W0
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "55822004", display: "Hyperlipidemia (disorder)" }
+      icpc2: { code: "T93", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E78", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Hyperlipidaemia / dyslipidaemia", zh_hk: "高膽固醇／高血脂" }
+    aliases:
+      en: ["hyperlipidaemia", "high cholesterol", "dyslipidaemia"]
+      zh_hk: ["高膽固醇", "高血脂", "膽固醇高"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:urti
+    kind: condition
+    wave: W0
+    cluster: C03_respiratory
+    bindings:
+      snomed_gps: { code: "54150009", display: "Upper respiratory infection (disorder)" }
+      icpc2: { code: "R74", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J06.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute upper respiratory tract infection (URTI)", zh_hk: "急性上呼吸道感染" }
+    aliases:
+      en: ["URTI", "common cold", "viral URI"]
+      zh_hk: ["上呼吸道感染", "傷風", "感冒"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:influenza
+    kind: condition
+    wave: W0
+    cluster: C03_respiratory
+    bindings:
+      snomed_gps: { code: "6142004", display: "Influenza (disorder)" }
+      icpc2: { code: "R80", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J10.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Seasonal influenza", zh_hk: "季節性流行性感冒" }
+    aliases:
+      en: ["influenza", "flu", "influenza A", "influenza B"]
+      zh_hk: ["流感", "流行性感冒", "甲型流感", "乙型流感"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:cap
+    kind: condition
+    wave: W0
+    cluster: C03_respiratory
+    bindings:
+      snomed_gps: { code: "385093006", display: "Community acquired pneumonia (disorder)" }
+      icpc2: { code: "R81", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J18.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Community-acquired pneumonia (CAP)", zh_hk: "社區感染性肺炎" }
+    aliases:
+      en: ["pneumonia", "CAP", "chest infection"]
+      zh_hk: ["肺炎", "肺花"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:asthma_exacerbation
+    kind: condition
+    wave: W0
+    cluster: C03_respiratory
+    parent_ids: ["cond:asthma_chronic"]
+    bindings:
+      snomed_gps: { code: "195967001", display: "Asthma (disorder)" }
+      icpc2: { code: "R96", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J45.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute exacerbation of asthma", zh_hk: "哮喘急性發作" }
+    aliases:
+      en: ["asthma attack", "asthma flare"]
+      zh_hk: ["哮喘發作", "哮喘"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:copd_exacerbation
+    kind: condition
+    wave: W0
+    cluster: C03_respiratory
+    parent_ids: ["cond:copd_chronic"]
+    bindings:
+      snomed_gps: { code: "13645005", display: "Chronic obstructive lung disease (disorder)" }
+      icpc2: { code: "R95", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J44.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute exacerbation of COPD", zh_hk: "慢性阻塞性肺病急性發作" }
+    aliases:
+      en: ["COPD flare", "AECOPD"]
+      zh_hk: ["慢阻肺病發作"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:acs
+    kind: condition
+    wave: W0
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "394659003", display: "Acute coronary syndrome (disorder)" }
+      icpc2: { code: "K75", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I21.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute coronary syndrome (ACS)", zh_hk: "急性冠狀動脈綜合症" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:pe
+    kind: condition
+    wave: W0
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "59282003", display: "Pulmonary embolism (disorder)" }
+      icpc2: { code: "K93", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I26.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Pulmonary embolism (PE)", zh_hk: "肺栓塞" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:sepsis
+    kind: condition
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      snomed_gps: { code: "91302008", display: "Sepsis (disorder)" }
+      icpc2: { code: "A78", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A41.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Sepsis / septic shock", zh_hk: "敗血症" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:meningitis
+    kind: condition
+    wave: W0
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "7180009", display: "Meningitis (disorder)" }
+      icpc2: { code: "N71", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G03.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Meningitis", zh_hk: "腦膜炎" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:pulmonary_tb
+    kind: condition
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      snomed_gps: { code: "154283005", display: "Pulmonary tuberculosis (disorder)" }
+      icpc2: { code: "A70", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A15.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Pulmonary tuberculosis", zh_hk: "肺結核／肺癆" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:aortic_dissection
+    kind: condition
+    wave: W0
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "308546005", display: "Dissection of aorta (disorder)" }
+      icd10: { code: "I71.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Aortic dissection", zh_hk: "主動脈剝離" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:msk_chest_wall_pain
+    kind: condition
+    wave: W0
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "64109004", display: "Costochondritis (disorder)" }
+      icpc2: { code: "L04", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M94.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Musculoskeletal chest wall pain / costochondritis", zh_hk: "肋軟骨炎／胸壁肌肉痛" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:gord
+    kind: condition
+    wave: W0
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "235595009", display: "Gastroesophageal reflux disease (disorder)" }
+      icpc2: { code: "D84", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K21.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Gastro-oesophageal reflux disease (GORD)", zh_hk: "胃酸倒流" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  # Slice 3 Conditions + Masquerades
+  - id: cond:anaemia
+    kind: condition
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      snomed_gps: { code: "271737000", display: "Anemia (disorder)" }
+      icpc2: { code: "B82", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "D64.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Anaemia", zh_hk: "貧血" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:iron_deficiency_anaemia
+    kind: condition
+    wave: W0
+    cluster: C11_haematology_general
+    parent_ids: ["cond:anaemia"]
+    bindings:
+      snomed_gps: { code: "87522002", display: "Iron deficiency anemia (disorder)" }
+      icpc2: { code: "B80", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "D50.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Iron deficiency anaemia (IDA)", zh_hk: "缺鐵性貧血" }
+    aliases:
+      en: ["iron deficiency anaemia", "IDA", "low iron"]
+      zh_hk: ["缺鐵性貧血", "缺鐵", "唔夠血"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:thalassaemia_trait
+    kind: condition
+    wave: W0
+    cluster: C11_haematology_general
+    parent_ids: ["cond:anaemia"]
+    bindings:
+      snomed_gps: { code: "40108008", display: "Thalassemia (disorder)" }
+      icpc2: { code: "B78", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "D56.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Thalassaemia trait (alpha / beta)", zh_hk: "地中海貧血基因攜帶者／輕型地貧" }
+    aliases:
+      en: ["thalassaemia minor", "thalassaemia trait"]
+      zh_hk: ["輕型地中海貧血", "輕型地貧", "地貧"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:depression
+    kind: condition
+    wave: W0
+    cluster: C06_mental_health
+    bindings:
+      snomed_gps: { code: "35489007", display: "Depressive disorder (disorder)" }
+      icpc2: { code: "P76", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F32.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Depressive disorder", zh_hk: "抑鬱症" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:hypothyroidism
+    kind: condition
+    wave: W0
+    cluster: C02_endocrine
+    bindings:
+      snomed_gps: { code: "40930008", display: "Hypothyroidism (disorder)" }
+      icpc2: { code: "T86", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E03.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Hypothyroidism", zh_hk: "甲狀腺功能減退／甲減" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:chronic_hbv
+    kind: condition
+    wave: W0
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "61977001", display: "Chronic type B viral hepatitis (disorder)" }
+      icpc2: { code: "D72", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B18.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Chronic hepatitis B infection", zh_hk: "慢性乙型肝炎" }
+    aliases:
+      en: ["hepatitis B", "chronic HBV", "Hep B carrier"]
+      zh_hk: ["乙型肝炎", "乙肝帶菌者", "乙肝"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:coeliac_disease
+    kind: condition
+    wave: W0
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "396331005", display: "Celiac disease (disorder)" }
+      icpc2: { code: "D99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K90.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Coeliac disease", zh_hk: "乳糜瀉" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:haemochromatosis
+    kind: condition
+    wave: W0
+    cluster: C02_endocrine
+    bindings:
+      snomed_gps: { code: "399187006", display: "Hemochromatosis (disorder)" }
+      icpc2: { code: "T99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E83.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Hereditary haemochromatosis", zh_hk: "遺傳性血色病" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:malignancy_occult
+    kind: condition
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      snomed_gps: { code: "363346000", display: "Malignant neoplastic disease (disorder)" }
+      icpc2: { code: "A79", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "C80.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Occult malignancy (GI / lung / haematologic / NPC)", zh_hk: "潛在惡性腫瘤" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:uti
+    kind: condition
+    wave: W0
+    cluster: C07_renal
+    bindings:
+      snomed_gps: { code: "68566005", display: "Urinary tract infectious disease (disorder)" }
+      icpc2: { code: "U71", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N39.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Urinary tract infection (UTI)", zh_hk: "尿道炎／泌尿道感染" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:hiv
+    kind: condition
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      snomed_gps: { code: "86406008", display: "Human immunodeficiency virus infection (disorder)" }
+      icpc2: { code: "B90", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B24", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "HIV infection", zh_hk: "愛滋病病毒感染" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:spinal_dysfunction
+    kind: condition
+    wave: W0
+    cluster: C05_msk
+    bindings:
+      icpc2: { code: "L84", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M54.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Spinal dysfunction / chronic back pain", zh_hk: "脊椎功能障礙／慢性背痛" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:connective_tissue_disease
+    kind: condition
+    wave: W0
+    cluster: C05_msk
+    bindings:
+      icpc2: { code: "L99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M35.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Connective tissue disease / vasculitis (SLE, PMR/GCA)", zh_hk: "結締組織病／血管炎" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:neurological_dilemma
+    kind: condition
+    wave: W0
+    cluster: C09_neurology
+    bindings:
+      icpc2: { code: "N99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G98", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Neurological disorder (Parkinson's / MS / myasthenia)", zh_hk: "神經系統疾病" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:drug_adverse_effect
+    kind: condition
+    wave: W0
+    cluster: X2_pharmacology
+    bindings:
+      icpc2: { code: "A85", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "T88.7", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Medication adverse effect / polypharmacy / substance effect", zh_hk: "藥物副作用／多重用藥影響" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: cond:sleep_apnoea_insomnia
+    kind: condition
+    wave: W0
+    cluster: C06_mental_health
+    bindings:
+      icpc2: { code: "P06", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G47.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Sleep disorder / obstructive sleep apnoea / insomnia", zh_hk: "睡眠窒息症／失眠" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  # =========================================================================
+  # ALLERGY GROUPS & PHARMACOGENOMIC MARKERS
+  # =========================================================================
+  - id: allergy:penicillin
+    kind: allergy_group
+    wave: W0
+    cluster: X2_pharmacology
+    display: { en: "Penicillin / beta-lactam hypersensitivity", zh_hk: "盤尼西林／青黴素過敏" }
+    aliases:
+      en: ["penicillin", "amoxicillin", "augmentin", "beta-lactam"]
+      zh_hk: ["盤尼西林", "青黴素", "阿莫西林"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: allergy:nsaid
+    kind: allergy_group
+    wave: W0
+    cluster: X2_pharmacology
+    display: { en: "NSAID / aspirin hypersensitivity", zh_hk: "非類固醇消炎止痛藥過敏" }
+    aliases:
+      en: ["NSAID", "ibuprofen", "naproxen", "aspirin"]
+      zh_hk: ["消炎止痛藥過敏", "布洛芬過敏"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: pgx:hla_b_5801
+    kind: pgx_marker
+    wave: W0
+    cluster: X2_pharmacology
+    bindings:
+      loinc: { code: "57979-7", display: "HLA-B*58:01 [Presence] by Molecular genetics method" }
+    display: { en: "HLA-B*58:01 allele (Allopurinol SCAR risk)", zh_hk: "HLA-B*58:01 基因檢測（別嘌醇嚴重皮膚反應風險）" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: pgx:g6pd_deficiency
+    kind: pgx_marker
+    wave: W0
+    cluster: X2_pharmacology
+    bindings:
+      snomed_gps: { code: "124134002", display: "Deficiency of glucose-6-phosphate dehydrogenase (disorder)" }
+    display: { en: "G6PD deficiency", zh_hk: "蠶豆症（G6PD缺乏症）" }
+    aliases:
+      en: ["G6PD", "G6PD deficiency", "favism"]
+      zh_hk: ["蠶豆症", "G6PD缺乏症"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  # =========================================================================
+  # DRUG CLASSES (Our Own Open IS_A DAG — Never Derived from Proprietary ATC)
+  # =========================================================================
+  - id: drug_class:raas_agent
+    kind: drug_class
+    wave: W0
+    cluster: C01_cardiovascular
+    display: { en: "RAAS inhibitor (ACEi / ARB)", zh_hk: "腎素-血管緊張素系統抑制劑" }
+    purpose_phrases:
+      en: ["blood pressure", "bp"]
+      zh_hk: ["血壓", "血壓藥"]
+    drug_facet:
+      pregnancy_caution: "contraindicated"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:ace_inhibitor
+    kind: drug_class
+    wave: W0
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:raas_agent"]
+    bindings:
+      atc: { code: "C09AA", system: "http://www.whocc.no/atc" }
+    display: { en: "ACE inhibitor", zh_hk: "血管緊張素轉換酶抑制劑 (ACEI)" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:arb
+    kind: drug_class
+    wave: W0
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:raas_agent"]
+    bindings:
+      atc: { code: "C09CA", system: "http://www.whocc.no/atc" }
+    display: { en: "Angiotensin II receptor blocker (ARB)", zh_hk: "血管緊張素受體阻斷劑 (ARB)" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:diuretic
+    kind: drug_class
+    wave: W0
+    cluster: C01_cardiovascular
+    display: { en: "Diuretic", zh_hk: "利尿藥／去水丸" }
+    purpose_phrases:
+      en: ["water pill", "blood pressure"]
+      zh_hk: ["去水丸", "血壓藥"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:biguanide
+    kind: drug_class
+    wave: W0
+    cluster: C02_endocrine
+    display: { en: "Biguanide (Metformin)", zh_hk: "雙胍類降糖藥" }
+    purpose_phrases:
+      en: ["diabetes", "sugar"]
+      zh_hk: ["糖尿", "血糖", "糖尿藥"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:sglt2_inhibitor
+    kind: drug_class
+    wave: W0
+    cluster: C02_endocrine
+    display: { en: "SGLT2 inhibitor", zh_hk: "SGLT2 排糖藥" }
+    purpose_phrases:
+      en: ["diabetes", "sugar"]
+      zh_hk: ["糖尿", "排糖藥"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:sulfonylurea
+    kind: drug_class
+    wave: W0
+    cluster: C02_endocrine
+    display: { en: "Sulfonylurea", zh_hk: "磺胺尿素類降糖藥" }
+    purpose_phrases:
+      en: ["diabetes", "sugar"]
+      zh_hk: ["糖尿", "血糖"]
+    drug_facet:
+      high_risk: true
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:statin
+    kind: drug_class
+    wave: W0
+    cluster: C01_cardiovascular
+    display: { en: "Statin (HMG-CoA reductase inhibitor)", zh_hk: "他汀類降膽固醇藥" }
+    purpose_phrases:
+      en: ["cholesterol"]
+      zh_hk: ["膽固醇", "降膽固醇藥"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:anticoagulant
+    kind: drug_class
+    wave: W0
+    cluster: C01_cardiovascular
+    display: { en: "Oral anticoagulant", zh_hk: "口服抗凝血藥／薄血丸" }
+    purpose_phrases:
+      en: ["blood thinner"]
+      zh_hk: ["薄血", "薄血丸"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      bleedy: true
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:doac
+    kind: drug_class
+    wave: W0
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:anticoagulant"]
+    display: { en: "Direct oral anticoagulant (DOAC)", zh_hk: "新一代口服抗凝血藥" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:nsaid
+    kind: drug_class
+    wave: W0
+    cluster: C05_msk
+    display: { en: "Non-steroidal anti-inflammatory drug (NSAID)", zh_hk: "非類固醇消炎止痛藥" }
+    purpose_phrases:
+      en: ["pain", "anti-inflammatory"]
+      zh_hk: ["止痛", "消炎止痛藥"]
+    drug_facet:
+      allergy_group_id: "allergy:nsaid"
+      pregnancy_caution: "avoid_t3"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:analgesic_non_opioid
+    kind: drug_class
+    wave: W0
+    cluster: C05_msk
+    display: { en: "Non-opioid analgesic / antipyretic", zh_hk: "非鴉片類止痛退燒藥" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:opioid
+    kind: drug_class
+    wave: W0
+    cluster: C05_msk
+    display: { en: "Opioid analgesic / antitussive", zh_hk: "鴉片類藥物" }
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:antibiotic
+    kind: drug_class
+    wave: W0
+    cluster: C03_respiratory
+    display: { en: "Systemic antibacterial", zh_hk: "抗生素" }
+    purpose_phrases:
+      en: ["antibiotic", "antibiotics"]
+      zh_hk: ["抗生素"]
+    drug_facet:
+      short_course: true
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:beta_lactam_antibiotic
+    kind: drug_class
+    wave: W0
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:antibiotic"]
+    display: { en: "Beta-lactam / penicillin antibiotic", zh_hk: "青黴素類抗生素" }
+    drug_facet:
+      short_course: true
+      allergy_group_id: "allergy:penicillin"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:macrolide_antibiotic
+    kind: drug_class
+    wave: W0
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:antibiotic"]
+    display: { en: "Macrolide antibiotic (CYP3A4 inhibitor)", zh_hk: "大環內酯類抗生素" }
+    drug_facet:
+      short_course: true
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:antiviral_flu
+    kind: drug_class
+    wave: W0
+    cluster: C03_respiratory
+    display: { en: "Neuraminidase inhibitor (influenza antiviral)", zh_hk: "抗流感病毒藥" }
+    drug_facet:
+      short_course: true
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:xanthine_oxidase_inhibitor
+    kind: drug_class
+    wave: W0
+    cluster: C05_msk
+    display: { en: "Xanthine oxidase inhibitor (urate-lowering)", zh_hk: "黃嘌呤氧化酶抑制劑（降尿酸藥）" }
+    purpose_phrases:
+      en: ["gout"]
+      zh_hk: ["痛風", "降尿酸藥"]
+    drug_facet:
+      high_risk: true
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:dmard
+    kind: drug_class
+    wave: W0
+    cluster: C05_msk
+    display: { en: "Disease-modifying antirheumatic drug (DMARD)", zh_hk: "改善病情抗風濕藥" }
+    drug_facet:
+      high_risk: true
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:saba_bronchodilator
+    kind: drug_class
+    wave: W0
+    cluster: C03_respiratory
+    display: { en: "Short-acting beta-2 agonist (SABA)", zh_hk: "短效氣管舒張劑" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:oral_corticosteroid
+    kind: drug_class
+    wave: W0
+    cluster: C03_respiratory
+    display: { en: "Systemic corticosteroid", zh_hk: "口服類固醇" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug_class:haematinic
+    kind: drug_class
+    wave: W0
+    cluster: C11_haematology_general
+    display: { en: "Haematinic (iron / B12 / folate)", zh_hk: "補血劑（鐵質／維他命B12／葉酸）" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  # =========================================================================
+  # ESSENTIAL DRUGS — Slices 1, 2 & 3 (Anchored on WHO INN + UNII + RxNorm)
+  # =========================================================================
+  - id: drug:lisinopril
+    kind: drug
+    wave: W0
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:ace_inhibitor"]
+    bindings:
+      inn: "lisinopril"
+      rxnorm: { code: "29046", display: "lisinopril" }
+      atc: { code: "C09AA03", system: "http://www.whocc.no/atc" }
+    display: { en: "Lisinopril", zh_hk: "賴諾普利" }
+    aliases: { en: ["Zestril"], zh_hk: ["賴諾普利"] }
+    drug_facet: { pregnancy_caution: "contraindicated" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:perindopril
+    kind: drug
+    wave: W0
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:ace_inhibitor"]
+    bindings:
+      inn: "perindopril"
+      rxnorm: { code: "54552", display: "perindopril" }
+      atc: { code: "C09AA04", system: "http://www.whocc.no/atc" }
+    display: { en: "Perindopril", zh_hk: "培哚普利" }
+    aliases: { en: ["Coversyl"], zh_hk: ["培哚普利"] }
+    drug_facet:
+      pregnancy_caution: "contraindicated"
+      dosing_pearl: { en: "Perindopril arginine 5 mg ≈ perindopril erbumine 4 mg (prevent salt-switch errors)." }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:losartan
+    kind: drug
+    wave: W0
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:arb"]
+    bindings:
+      inn: "losartan"
+      rxnorm: { code: "52175", display: "losartan" }
+      atc: { code: "C09CA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Losartan", zh_hk: "氯沙坦" }
+    aliases: { en: ["Cozaar"], zh_hk: ["氯沙坦"] }
+    drug_facet: { pregnancy_caution: "contraindicated" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:hydrochlorothiazide
+    kind: drug
+    wave: W0
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:diuretic"]
+    bindings:
+      inn: "hydrochlorothiazide"
+      rxnorm: { code: "5487", display: "hydrochlorothiazide" }
+      atc: { code: "C03AA03", system: "http://www.whocc.no/atc" }
+    display: { en: "Hydrochlorothiazide", zh_hk: "氫氯噻嗪" }
+    aliases: { en: ["HCTZ"], zh_hk: ["氫氯噻嗪"] }
+    drug_facet: {}
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:metformin
+    kind: drug
+    wave: W0
+    cluster: C02_endocrine
+    parent_ids: ["drug_class:biguanide"]
+    bindings:
+      inn: "metformin"
+      rxnorm: { code: "6809", display: "metformin" }
+      atc: { code: "A10BA02", system: "http://www.whocc.no/atc" }
+    display: { en: "Metformin", zh_hk: "二甲雙胍" }
+    aliases: { en: ["Glucophage", "Diabex"], zh_hk: ["二甲雙胍", "甲福明"] }
+    drug_facet:
+      renal_note: "Full dose eGFR >=45; cap 1000 mg/day eGFR 30-44; CONTRAINDICATED eGFR <30."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:empagliflozin
+    kind: drug
+    wave: W0
+    cluster: C02_endocrine
+    parent_ids: ["drug_class:sglt2_inhibitor"]
+    bindings:
+      inn: "empagliflozin"
+      rxnorm: { code: "1545653", display: "empagliflozin" }
+      atc: { code: "A10BK03", system: "http://www.whocc.no/atc" }
+    display: { en: "Empagliflozin", zh_hk: "恩格列淨" }
+    aliases: { en: ["Jardiance"], zh_hk: ["恩格列淨"] }
+    drug_facet:
+      renal_note: "CKD/HF initiation down to eGFR >=20; hold during acute dehydrating illness/surgery (eDKA risk)."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:gliclazide
+    kind: drug
+    wave: W0
+    cluster: C02_endocrine
+    parent_ids: ["drug_class:sulfonylurea"]
+    bindings:
+      inn: "gliclazide"
+      unii: "G4PX8C4HKV"
+      atc: { code: "A10BB09", system: "http://www.whocc.no/atc" }
+    display: { en: "Gliclazide", zh_hk: "格列齊特" }
+    aliases: { en: ["Diamicron", "Diamicron MR"], zh_hk: ["格列齊特"] }
+    drug_facet:
+      high_risk: true
+      g6pd_risk: true
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:atorvastatin
+    kind: drug
+    wave: W0
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:statin"]
+    bindings:
+      inn: "atorvastatin"
+      rxnorm: { code: "83367", display: "atorvastatin" }
+      atc: { code: "C10AA05", system: "http://www.whocc.no/atc" }
+    display: { en: "Atorvastatin", zh_hk: "阿托伐他汀" }
+    aliases: { en: ["Lipitor"], zh_hk: ["阿托伐他汀"] }
+    drug_facet: {}
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:rosuvastatin
+    kind: drug
+    wave: W0
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:statin"]
+    bindings:
+      inn: "rosuvastatin"
+      rxnorm: { code: "301542", display: "rosuvastatin" }
+      atc: { code: "C10AA07", system: "http://www.whocc.no/atc" }
+    display: { en: "Rosuvastatin", zh_hk: "瑞舒伐他汀" }
+    aliases: { en: ["Crestor"], zh_hk: ["瑞舒伐他汀"] }
+    drug_facet:
+      dosing_pearl: { en: "East Asian ancestry has ~2x systemic exposure; initiate at 5 mg daily." }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:warfarin
+    kind: drug
+    wave: W0
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:anticoagulant"]
+    bindings:
+      inn: "warfarin"
+      rxnorm: { code: "11289", display: "warfarin" }
+      atc: { code: "B01AA03", system: "http://www.whocc.no/atc" }
+    display: { en: "Warfarin", zh_hk: "華法林" }
+    aliases:
+      en: ["Coumadin", "Marevan"]
+      zh_hk: ["華法林", "薄血丸"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      bleedy: true
+      pregnancy_caution: "contraindicated"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:apixaban
+    kind: drug
+    wave: W0
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:doac"]
+    bindings:
+      inn: "apixaban"
+      rxnorm: { code: "1364430", display: "apixaban" }
+      atc: { code: "B01AF02", system: "http://www.whocc.no/atc" }
+    display: { en: "Apixaban", zh_hk: "阿哌沙班" }
+    aliases:
+      en: ["Eliquis"]
+      zh_hk: ["阿哌沙班", "新型薄血丸"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      bleedy: true
+      renal_note: "Reduce 5 mg BD -> 2.5 mg BD if >=2 of age>=80, wt<=60 kg, Cr>=133 umol/L; avoid CrCl <15."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:paracetamol
+    kind: drug
+    wave: W0
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:analgesic_non_opioid"]
+    bindings:
+      inn: "paracetamol"
+      rxnorm: { code: "161", display: "acetaminophen" }
+      atc: { code: "N02BE01", system: "http://www.whocc.no/atc" }
+    display: { en: "Paracetamol", zh_hk: "撲熱息痛" }
+    aliases:
+      en: ["acetaminophen", "Panadol", "Tylenol"]
+      zh_hk: ["撲熱息痛", "必理痛"]
+    drug_facet:
+      schedule: "OTC"
+      max_single_mg: 1000
+      max_daily_mg: 4000
+      pediatric_mg_per_kg_dose: 15
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:ibuprofen
+    kind: drug
+    wave: W0
+    cluster: C05_msk
+    parent_ids: ["drug_class:nsaid"]
+    bindings:
+      inn: "ibuprofen"
+      rxnorm: { code: "5640", display: "ibuprofen" }
+      atc: { code: "M01AE01", system: "http://www.whocc.no/atc" }
+    display: { en: "Ibuprofen", zh_hk: "布洛芬" }
+    aliases:
+      en: ["Brufen", "Nurofen", "Advil"]
+      zh_hk: ["布洛芬"]
+    drug_facet:
+      allergy_group_id: "allergy:nsaid"
+      max_single_mg: 400
+      max_daily_mg: 1200
+      pregnancy_caution: "avoid_t3"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:oseltamivir
+    kind: drug
+    wave: W0
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:antiviral_flu"]
+    bindings:
+      inn: "oseltamivir"
+      rxnorm: { code: "260101", display: "oseltamivir" }
+      atc: { code: "J05AH02", system: "http://www.whocc.no/atc" }
+    display: { en: "Oseltamivir", zh_hk: "奧司他韋" }
+    aliases:
+      en: ["Tamiflu"]
+      zh_hk: ["奧司他韋", "特敏福"]
+    drug_facet:
+      short_course: true
+      renal_note: "Start <=48h onset; eGFR 30-59: 30 mg BD (<=75 mg/day); eGFR <30: 30 mg OD."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:amoxicillin_clavulanate
+    kind: drug
+    wave: W0
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:beta_lactam_antibiotic"]
+    bindings:
+      inn: "amoxicillin-clavulanate"
+      rxnorm: { code: "562508", display: "amoxicillin 875 MG / clavulanate 125 MG Oral Tablet" }
+      atc: { code: "J01CR02", system: "http://www.whocc.no/atc" }
+    display: { en: "Amoxicillin-clavulanate", zh_hk: "阿莫西林克拉維酸" }
+    aliases:
+      en: ["Augmentin", "co-amoxiclav", "amoxicillin clavulanate"]
+      zh_hk: ["安滅菌", "阿莫西林克拉維酸"]
+    drug_facet:
+      short_course: true
+      allergy_group_id: "allergy:penicillin"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:clarithromycin
+    kind: drug
+    wave: W0
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:macrolide_antibiotic"]
+    bindings:
+      inn: "clarithromycin"
+      rxnorm: { code: "21212", display: "clarithromycin" }
+      atc: { code: "J01FA09", system: "http://www.whocc.no/atc" }
+    display: { en: "Clarithromycin", zh_hk: "克拉黴素" }
+    aliases: { en: ["Klacid"], zh_hk: ["克拉黴素"] }
+    drug_facet:
+      short_course: true
+      pregnancy_caution: "caution"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:codeine
+    kind: drug
+    wave: W0
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:opioid"]
+    bindings:
+      inn: "codeine"
+      rxnorm: { code: "2670", display: "codeine" }
+      atc: { code: "R05DA04", system: "http://www.whocc.no/atc" }
+    display: { en: "Codeine", zh_hk: "可待因" }
+    aliases:
+      en: ["codeine linctus", "Panadeine Forte"]
+      zh_hk: ["可待因", "咳水"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pediatric_min_age_years: 12
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:salbutamol
+    kind: drug
+    wave: W0
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:saba_bronchodilator"]
+    bindings:
+      inn: "salbutamol"
+      rxnorm: { code: "435", display: "albuterol" }
+      atc: { code: "R03AC02", system: "http://www.whocc.no/atc" }
+    display: { en: "Salbutamol", zh_hk: "沙丁胺醇" }
+    aliases:
+      en: ["Ventolin", "albuterol", "blue puffer"]
+      zh_hk: ["沙丁胺醇", "藍色噴霧"]
+    drug_facet: {}
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:prednisolone
+    kind: drug
+    wave: W0
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:oral_corticosteroid"]
+    bindings:
+      inn: "prednisolone"
+      rxnorm: { code: "8638", display: "prednisolone" }
+      atc: { code: "H02AB06", system: "http://www.whocc.no/atc" }
+    display: { en: "Prednisolone", zh_hk: "潑尼松龍" }
+    aliases:
+      en: ["Panafcortelone", "Solone"]
+      zh_hk: ["潑尼松龍", "口服類固醇"]
+    drug_facet: {}
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:allopurinol
+    kind: drug
+    wave: W0
+    cluster: C05_msk
+    parent_ids: ["drug_class:xanthine_oxidase_inhibitor"]
+    bindings:
+      inn: "allopurinol"
+      rxnorm: { code: "519", display: "allopurinol" }
+      atc: { code: "M04AA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Allopurinol", zh_hk: "別嘌醇" }
+    aliases:
+      en: ["Zyloric"]
+      zh_hk: ["別嘌醇", "痛風藥"]
+    drug_facet:
+      high_risk: true
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:methotrexate
+    kind: drug
+    wave: W0
+    cluster: C05_msk
+    parent_ids: ["drug_class:dmard"]
+    bindings:
+      inn: "methotrexate"
+      rxnorm: { code: "6851", display: "methotrexate" }
+      atc: { code: "L04AX03", system: "http://www.whocc.no/atc" }
+    display: { en: "Methotrexate", zh_hk: "甲氨蝶呤" }
+    drug_facet:
+      high_risk: true
+      pregnancy_caution: "contraindicated"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:oral_iron
+    kind: drug
+    wave: W0
+    cluster: C11_haematology_general
+    parent_ids: ["drug_class:haematinic"]
+    bindings:
+      inn: "ferrous sulfate"
+      rxnorm: { code: "4331", display: "ferrous sulfate" }
+      atc: { code: "B03AA07", system: "http://www.whocc.no/atc" }
+    display: { en: "Oral iron (ferrous sulfate / fumarate)", zh_hk: "口服鐵丸" }
+    aliases: { en: ["oral iron", "iron tablets", "ferrous fumarate", "Ferro-gradumet"], zh_hk: ["鐵丸", "補鐵丸"] }
+    drug_facet: {}
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: drug:folic_acid
+    kind: drug
+    wave: W0
+    cluster: C11_haematology_general
+    parent_ids: ["drug_class:haematinic"]
+    bindings:
+      inn: "folic acid"
+      rxnorm: { code: "4511", display: "folic acid" }
+      atc: { code: "B03BB01", system: "http://www.whocc.no/atc" }
+    display: { en: "Folic acid", zh_hk: "葉酸" }
+    aliases: { en: ["folate"], zh_hk: ["葉酸"] }
+    drug_facet: {}
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  # =========================================================================
+  # LABS, VITALS & PANELS (Verified LOINC + UCUM)
+  # =========================================================================
+  - id: obs:potassium
+    kind: observation
+    wave: W0
+    cluster: C07_renal
+    bindings:
+      loinc: { code: "2823-3", display: "Potassium [Moles/volume] in Serum or Plasma" }
+      ucum: "mmol/L"
+    display: { en: "Potassium", zh_hk: "鉀" }
+    aliases: { en: ["K+", "serum potassium"] }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:sodium
+    kind: observation
+    wave: W0
+    cluster: C07_renal
+    bindings:
+      loinc: { code: "2951-2", display: "Sodium [Moles/volume] in Serum or Plasma" }
+      ucum: "mmol/L"
+    display: { en: "Sodium", zh_hk: "鈉" }
+    aliases: { en: ["Na+", "serum sodium"] }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:creatinine
+    kind: observation
+    wave: W0
+    cluster: C07_renal
+    bindings:
+      loinc: { code: "14682-9", display: "Creatinine [Moles/volume] in Serum or Plasma" }
+      ucum: "umol/L"
+    display: { en: "Creatinine", zh_hk: "肌酸酐" }
+    aliases: { en: ["Cr", "serum creatinine"] }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:egfr
+    kind: observation
+    wave: W0
+    cluster: C07_renal
+    bindings:
+      loinc: { code: "98979-8", display: "Glomerular filtration rate/1.73 sq M.predicted [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI 2021)" }
+      ucum: "mL/min/{1.73_m2}"
+    display: { en: "eGFR", zh_hk: "腎小球過濾率" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:hba1c
+    kind: observation
+    wave: W0
+    cluster: C02_endocrine
+    bindings:
+      loinc: { code: "4548-4", display: "Hemoglobin A1c/Hemoglobin.total in Blood" }
+      ucum: "%"
+    display: { en: "HbA1c", zh_hk: "糖化血紅素" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:alt
+    kind: observation
+    wave: W0
+    cluster: C04_gastrointestinal
+    bindings:
+      loinc: { code: "1742-6", display: "Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma" }
+      ucum: "U/L"
+    display: { en: "ALT", zh_hk: "谷丙轉氨酶" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:inr
+    kind: observation
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      loinc: { code: "6301-6", display: "INR in Platelet poor plasma by Coagulation assay" }
+      ucum: "{INR}"
+    display: { en: "INR", zh_hk: "國際標準化比值 (INR)" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:haemoglobin
+    kind: observation
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      loinc: { code: "718-7", display: "Hemoglobin [Mass/volume] in Blood" }
+      ucum: "g/L"
+    display: { en: "Haemoglobin", zh_hk: "血紅素" }
+    aliases: { en: ["Hb", "hemoglobin"] }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:mcv
+    kind: observation
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      loinc: { code: "787-2", display: "MCV [Entitic volume] by Automated count" }
+      ucum: "fL"
+    display: { en: "MCV", zh_hk: "平均紅血球體積" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:ferritin
+    kind: observation
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      loinc: { code: "2276-4", display: "Ferritin [Mass/volume] in Serum or Plasma" }
+      ucum: "ug/L"
+    display: { en: "Ferritin", zh_hk: "鐵蛋白" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:b12
+    kind: observation
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      loinc: { code: "14685-2", display: "Cobalamin (Vitamin B12) [Moles/volume] in Serum or Plasma" }
+      ucum: "pmol/L"
+    display: { en: "Vitamin B12", zh_hk: "維他命B12" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:tsh
+    kind: observation
+    wave: W0
+    cluster: C02_endocrine
+    bindings:
+      loinc: { code: "3016-3", display: "Thyrotropin [Units/volume] in Serum or Plasma" }
+      ucum: "m[IU]/L"
+    display: { en: "TSH", zh_hk: "促甲狀腺激素" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:crp
+    kind: observation
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      loinc: { code: "1988-5", display: "C reactive protein [Mass/volume] in Serum or Plasma" }
+      ucum: "mg/L"
+    display: { en: "CRP", zh_hk: "C反應蛋白" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:hbsag
+    kind: observation
+    wave: W0
+    cluster: C04_gastrointestinal
+    bindings:
+      loinc: { code: "5196-1", display: "Hepatitis B virus surface Ag [Presence] in Serum" }
+      ucum: "{Ordinal}"
+    display: { en: "Hepatitis B surface antigen (HBsAg)", zh_hk: "乙型肝炎表面抗原" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:hba2_hplc
+    kind: observation
+    wave: W0
+    cluster: C11_haematology_general
+    bindings:
+      loinc: { code: "42245-1", display: "Hemoglobin A2/Hemoglobin.total in Blood by HPLC" }
+      ucum: "%"
+    display: { en: "Haemoglobin pattern / HbA2 (HPLC)", zh_hk: "血紅素電泳／HbA2檢測" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:anti_ttg_iga
+    kind: observation
+    wave: W0
+    cluster: C04_gastrointestinal
+    bindings:
+      loinc: { code: "31017-7", display: "Tissue transglutaminase Ab.IgA [Units/volume] in Serum" }
+      ucum: "U/mL"
+    display: { en: "Anti-tTG IgA (Coeliac serology)", zh_hk: "抗組織轉穀氨酰胺酶 IgA 抗體" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:spo2
+    kind: observation
+    wave: W0
+    cluster: C03_respiratory
+    bindings:
+      loinc: { code: "59408-5", display: "Oxygen saturation in Arterial blood by Pulse oximetry" }
+      ucum: "%"
+    display: { en: "Oxygen saturation (SpO2)", zh_hk: "血氧飽和度" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:respiratory_rate
+    kind: observation
+    wave: W0
+    cluster: C03_respiratory
+    bindings:
+      loinc: { code: "9279-1", display: "Respiratory rate" }
+      ucum: "/min"
+    display: { en: "Respiratory rate", zh_hk: "呼吸頻率" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:temperature
+    kind: observation
+    wave: W0
+    cluster: C03_respiratory
+    bindings:
+      loinc: { code: "8310-5", display: "Body temperature" }
+      ucum: "Cel"
+    display: { en: "Body temperature", zh_hk: "體溫" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs:systolic_bp
+    kind: observation
+    wave: W0
+    cluster: C01_cardiovascular
+    bindings:
+      loinc: { code: "8480-6", display: "Systolic blood pressure" }
+      ucum: "mm[Hg]"
+    display: { en: "Systolic blood pressure", zh_hk: "收縮壓" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  # Panels
+  - id: panel:rft
+    kind: panel
+    wave: W0
+    cluster: C07_renal
+    display: { en: "Renal Function Test (RFT / UEC)", zh_hk: "腎功能檢查" }
+    aliases: { en: ["RFT", "UEC", "EUC", "renal panel"] }
+    panel_facet:
+      member_observation_ids: ["obs:creatinine", "obs:egfr", "obs:potassium", "obs:sodium"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: panel:lft
+    kind: panel
+    wave: W0
+    cluster: C04_gastrointestinal
+    display: { en: "Liver Function Test (LFT)", zh_hk: "肝功能檢查" }
+    aliases: { en: ["LFT", "liver panel"] }
+    panel_facet:
+      member_observation_ids: ["obs:alt"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: panel:cbc
+    kind: panel
+    wave: W0
+    cluster: C11_haematology_general
+    display: { en: "Complete Blood Count (CBC / FBC)", zh_hk: "全血細胞計數" }
+    aliases: { en: ["CBC", "FBC", "FBE"] }
+    panel_facet:
+      member_observation_ids: ["obs:haemoglobin", "obs:mcv"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: proc:bidirectional_endoscopy
+    kind: procedure
+    wave: W0
+    cluster: C04_gastrointestinal
+    display: { en: "Urgent bidirectional GI endoscopy (OGD + colonoscopy)", zh_hk: "緊急上下消化道內窺鏡檢查（胃鏡及腸鏡）" }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }

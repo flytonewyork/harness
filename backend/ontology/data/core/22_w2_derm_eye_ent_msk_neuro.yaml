@@ -1,0 +1,1744 @@
+# Wave 2 Pod 2: Dermatology, Ophthalmology, ENT, MSK/Rheumatology & Neurology Depth Pack
+# Licensing: Tier-1 open operational spine (SNOMED CT GPS, LOINC, UCUM, WHO INN, FDA GSRS UNII,
+# RxNorm SAB=RXNORM); Tier-2 bare code-only export pointers (ICPC-2, ICD-10, ATC — zero rubric tables).
+# Strict Asymmetric Authority: clinician_only differentials/rationales; bilingual en + zh_hk on all
+# concepts, aliases, and patient-facing text; zero hardcoded 999/000 or banned reassurance claims.
+
+concepts:
+  # =========================================================================
+  # REASONS FOR ENCOUNTER (RFEs) — 5 Primary Care Presentations (Wave 2)
+  # =========================================================================
+  - id: rfe:hearing_loss_tinnitus
+    kind: rfe
+    wave: W2
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "15188001", display: "Hearing loss (disorder)" }
+      icpc2: { code: "H02", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H91.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Hearing loss / tinnitus", zh_hk: "聽力下降／耳鳴" }
+    aliases:
+      en: ["hearing loss", "deafness", "muffled hearing", "blocked ear", "tinnitus", "ringing in ears"]
+      zh_hk: ["聽力下降", "耳聾", "聽唔清楚", "耳鳴", "耳仔嗡嗡聲", "耳塞", "突然聽唔到"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: rfe:neck_lump
+    kind: rfe
+    wave: W2
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "274741002", display: "Mass of neck (finding)" }
+      icpc2: { code: "B02", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R22.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Neck lump / cervical lymphadenopathy", zh_hk: "頸部腫塊／頸淋巴結腫大" }
+    aliases:
+      en: ["neck lump", "swollen gland in neck", "neck mass", "thyroid lump", "cervical lymph node"]
+      zh_hk: ["頸部腫塊", "頸有粒嘢", "頸淋巴腫", "生核", "大頸泡", "甲狀腺腫塊"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: rfe:neck_shoulder_pain
+    kind: rfe
+    wave: W2
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "81680005", display: "Neck pain (finding)" }
+      icpc2: { code: "L01", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M54.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Neck / shoulder pain", zh_hk: "頸痛／肩膊痛" }
+    aliases:
+      en: ["neck pain", "stiff neck", "shoulder pain", "rotator cuff pain", "frozen shoulder", "sore shoulder"]
+      zh_hk: ["頸痛", "肩痛", "肩膊痛", "膊頭痛", "五十肩", "訓捩頸", "頸梗膊痛"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: rfe:skin_lesion_mole_change
+    kind: rfe
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "95324001", display: "Skin lesion (disorder)" }
+      icpc2: { code: "S82", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "L98.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Skin lesion / changing mole", zh_hk: "皮膚腫物／黑痣變化" }
+    aliases:
+      en: ["changing mole", "new mole", "skin spot", "skin check", "bleeding mole", "non-healing skin sore", "skin lump"]
+      zh_hk: ["黑痣變大", "癦變色", "皮膚生粒嘢", "皮膚潰瘍唔埋口", "皮膚檢查", "黑點流血"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: rfe:numbness_tingling_weakness
+    kind: rfe
+    wave: W2
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "44077006", display: "Numbness (finding)" }
+      icpc2: { code: "N05", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R20.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Numbness / tingling / limb weakness", zh_hk: "手腳麻痺／針刺感／肢體無力" }
+    aliases:
+      en: ["numbness", "tingling", "pins and needles", "paraesthesia", "limb weakness", "hand numbness", "foot numbness"]
+      zh_hk: ["手腳麻痺", "手痺", "腳痺", "針拮感", "蟻咬感", "四肢無力", "手無力"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  # =========================================================================
+  # RED-FLAG FINDINGS (7) — Positive Exclusions & Emergency Safety Floor
+  # =========================================================================
+  - id: rf:sudden_hearing_loss_72h
+    kind: red_flag
+    wave: W2
+    cluster: C03_ent
+    display: { en: "Sudden unilateral hearing loss developing over <=72 hours (suspected SSNHL)", zh_hk: "72小時內突發單側聽力明顯下降（懷疑突發性耳聾）" }
+    aliases:
+      en: ["sudden deafness", "sudden hearing loss", "woke up deaf in one ear", "hearing dropped overnight"]
+      zh_hk: ["突發性耳聾", "一隻耳突然聽唔到", "起身一隻耳聾咗", "聽力急降"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: rf:flashes_floaters_visual_curtain
+    kind: red_flag
+    wave: W2
+    cluster: C12_ophthalmology
+    display: { en: "Sudden flashes of light (photopsia), shower of new floaters, or dark visual field curtain/shadow", zh_hk: "突發閃光感、大量新飛蚊湧現，或視野出現黑幕／陰影遮擋" }
+    aliases:
+      en: ["flashes and floaters", "curtain over vision", "shadow in vision", "shower of floaters", "photopsia"]
+      zh_hk: ["見到閃光", "突然好多飛蚊", "視野有黑影", "黑幕遮眼", "視網膜脫落徵象"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: rf:contact_lens_painful_red_eye
+    kind: red_flag
+    wave: W2
+    cluster: C12_ophthalmology
+    display: { en: "Painful red eye with photophobia, discharge, or corneal opacity in a contact lens wearer", zh_hk: "佩戴隱形眼鏡人士出現眼紅劇痛、畏光、視力模糊或角膜白點" }
+    aliases:
+      en: ["contact lens eye pain", "painful red eye contact lens", "white spot on cornea", "contact lens ulcer"]
+      zh_hk: ["戴con眼痛眼紅", "隱形眼鏡角膜潰瘍", "戴隱形眼鏡畏光", "眼珠有白點"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: rf:sjs_ten_mucosal_blistering
+    kind: red_flag
+    wave: W2
+    cluster: C10_dermatology
+    display: { en: "Painful dusky/blistering skin rash with skin peeling or mucosal erosions (mouth, eyes, genitals) and fever", zh_hk: "痛性暗紅皮疹伴水泡脫皮、口腔／眼部／生殖器黏膜潰爛及發燒（嚴重藥物皮膚反應警號）" }
+    aliases:
+      en: ["mucosal blistering", "skin peeling after medication", "mouth ulcers and rash with fever", "SJS signs", "Nikolsky sign"]
+      zh_hk: ["食藥後口腔潰爛出疹", "皮膚起水泡甩皮", "眼紅嘴爛出疹發燒", "藥物嚴重過敏甩皮"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: rf:painless_hard_neck_node
+    kind: red_flag
+    wave: W2
+    cluster: C03_ent
+    display: { en: "Persistent (>2-3 weeks) painless, firm/hard, fixed cervical or supraclavicular lymph node", zh_hk: "持續超過2至3星期之無痛、質硬、固定頸部或鎖骨上淋巴結腫塊" }
+    aliases:
+      en: ["hard painless neck lump", "fixed neck node", "supraclavicular lymph node", "persistent neck mass"]
+      zh_hk: ["頸部無痛硬塊", "鎖骨上硬粒", "頸淋巴硬塊唔消", "無痛頸核"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: rf:ascending_weakness_gbs
+    kind: red_flag
+    wave: W2
+    cluster: C09_neurology
+    display: { en: "Rapidly progressive symmetrical ascending limb weakness (legs to arms), areflexia, or swallowing/breathing difficulty", zh_hk: "雙下肢開始迅速向上蔓延之對稱性無力、腱反射消失，或伴吞嚥／呼吸困難" }
+    aliases:
+      en: ["ascending weakness", "legs getting weaker rapidly", "progressive bilateral leg weakness", "cannot climb stairs suddenly"]
+      zh_hk: ["雙腳迅速無力向上蔓延", "行路愈來愈無力", "四肢漸進無力", "吞嚥呼吸困難伴無力"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: rf:abcde_changing_pigmented_lesion
+    kind: red_flag
+    wave: W2
+    cluster: C10_dermatology
+    display: { en: "Pigmented skin/acral/subungual lesion with ABCDE features (Asymmetry, irregular Border, varied Colour, Diameter >6mm, Evolving/bleeding)", zh_hk: "具 ABCDE 變化之色素斑／黑痣或甲下黑線（不對稱、邊界不清、顏色不均、直徑>6毫米、變大或流血）" }
+    aliases:
+      en: ["ABCDE mole", "ugly duckling mole", "bleeding dark mole", "dark streak under nail", "growing black spot"]
+      zh_hk: ["黑痣變大變色", "不規則黑癦", "指甲黑線變寬", "流血黑痣", "腳底黑斑變大"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  # =========================================================================
+  # CONDITIONS (28) — Derm, Eye, ENT, MSK/Rheumatology & Neurology Depth
+  # =========================================================================
+  - id: cond:acne_vulgaris
+    kind: condition
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "11381005", display: "Acne vulgaris (disorder)" }
+      icpc2: { code: "S96", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "L70.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acne vulgaris", zh_hk: "尋常痤瘡（暗瘡）" }
+    aliases:
+      en: ["acne", "pimples", "nodulocystic acne", "comedonal acne"]
+      zh_hk: ["暗瘡", "尋常痤瘡", "青春痘", "石頭瘡"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:psoriasis
+    kind: condition
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "9014002", display: "Psoriasis (disorder)" }
+      icpc2: { code: "S91", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "L40.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Psoriasis", zh_hk: "銀屑病（牛皮癬）" }
+    aliases:
+      en: ["psoriasis", "plaque psoriasis", "scalp psoriasis", "guttate psoriasis"]
+      zh_hk: ["銀屑病", "牛皮癬", "斑塊型銀屑病"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:rosacea
+    kind: condition
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "398909004", display: "Rosacea (disorder)" }
+      icpc2: { code: "S99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "L71.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Rosacea", zh_hk: "玫瑰痤瘡（酒糟鼻）" }
+    aliases:
+      en: ["rosacea", "acne rosacea", "ocular rosacea", "facial flushing papules"]
+      zh_hk: ["玫瑰痤瘡", "酒糟鼻"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:tinea_fungal
+    kind: condition
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "47382004", display: "Dermatophytosis (disorder)" }
+      icpc2: { code: "S74", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B35.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Dermatophytosis (tinea / fungal skin or nail infection)", zh_hk: "皮膚癬菌感染（股癬／香港腳／灰甲）" }
+    aliases:
+      en: ["tinea", "ringworm", "athlete's foot", "tinea pedis", "tinea cruris", "onychomycosis", "fungal nail"]
+      zh_hk: ["癬", "香港腳", "足癬", "股癬", "體癬", "灰甲", "真菌感染"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:scabies
+    kind: condition
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "128869009", display: "Scabies (disorder)" }
+      icpc2: { code: "S72", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B86", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Scabies", zh_hk: "疥瘡" }
+    aliases:
+      en: ["scabies", "scabies mites", "crusted scabies", "nocturnal pruritus burrows"]
+      zh_hk: ["疥瘡", "疥蟎感染", "挪威疥"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:impetigo
+    kind: condition
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "48277006", display: "Impetigo (disorder)" }
+      icpc2: { code: "S84", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "L01.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Impetigo", zh_hk: "膿皰瘡（黃水瘡）" }
+    aliases:
+      en: ["impetigo", "school sores", "bullous impetigo", "honey-crusted sores"]
+      zh_hk: ["膿皰瘡", "黃水瘡", "傳染性膿皰病"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:basal_cell_carcinoma
+    kind: condition
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "254701007", display: "Basal cell carcinoma of skin (disorder)" }
+      icpc2: { code: "S77", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "C44.91", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Basal cell carcinoma (BCC)", zh_hk: "基底細胞癌 (BCC)" }
+    aliases:
+      en: ["basal cell carcinoma", "BCC", "rodent ulcer", "non-melanoma skin cancer"]
+      zh_hk: ["基底細胞癌", "基底細胞皮膚癌"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:squamous_cell_carcinoma
+    kind: condition
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "254651007", display: "Squamous cell carcinoma of skin (disorder)" }
+      icpc2: { code: "S77", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "C44.92", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Cutaneous squamous cell carcinoma (SCC)", zh_hk: "皮膚鱗狀細胞癌 (SCC)" }
+    aliases:
+      en: ["squamous cell carcinoma", "cutaneous SCC", "Bowen disease", "keratoacanthoma"]
+      zh_hk: ["鱗狀細胞癌", "皮膚鱗狀細胞癌"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:seborrhoeic_keratosis
+    kind: condition
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "25499005", display: "Seborrheic keratosis (disorder)" }
+      icpc2: { code: "S79", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "L82.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Seborrhoeic keratosis", zh_hk: "脂溢性角化病（老人斑）" }
+    aliases:
+      en: ["seborrhoeic keratosis", "seborrheic keratosis", "basal cell papilloma", "stuck-on warty plaque"]
+      zh_hk: ["脂溢性角化病", "老人斑", "脂漏性角化症"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:sjs_ten_scar
+    kind: condition
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      snomed_gps: { code: "73442001", display: "Stevens-Johnson syndrome (disorder)" }
+      icpc2: { code: "A85", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "L51.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Stevens-Johnson syndrome / toxic epidermal necrolysis (SJS/TEN / SCAR)", zh_hk: "史蒂文斯-強森綜合症／中毒性表皮壞死鬆解症 (SJS/TEN)" }
+    aliases:
+      en: ["Stevens-Johnson syndrome", "SJS", "TEN", "toxic epidermal necrolysis", "SCAR", "DRESS"]
+      zh_hk: ["史蒂文斯強森綜合症", "中毒性表皮壞死鬆解症", "嚴重皮膚藥物不良反應"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:ssnhl
+    kind: condition
+    wave: W2
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "194424005", display: "Sudden sensorineural hearing loss (disorder)" }
+      icpc2: { code: "H86", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H91.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Sudden sensorineural hearing loss (SSNHL)", zh_hk: "突發性感音神經性耳聾 (SSNHL)" }
+    aliases:
+      en: ["SSNHL", "sudden sensorineural hearing loss", "idiopathic sudden deafness"]
+      zh_hk: ["突發性耳聾", "突發性感音神經性聽力損失"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:menieres_disease
+    kind: condition
+    wave: W2
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "13445001", display: "Meniere's disease (disorder)" }
+      icpc2: { code: "H82", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H81.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Meniere's disease", zh_hk: "美尼爾氏症（耳水不平衡）" }
+    aliases:
+      en: ["Meniere's disease", "Menieres", "endolymphatic hydrops"]
+      zh_hk: ["美尼爾氏症", "梅尼爾氏症", "內耳淋巴水腫"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:vestibular_neuritis
+    kind: condition
+    wave: W2
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "7210006", display: "Vestibular neuronitis (disorder)" }
+      icpc2: { code: "H82", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H81.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Vestibular neuritis / labyrinthitis", zh_hk: "前庭神經炎／迷路炎" }
+    aliases:
+      en: ["vestibular neuritis", "vestibular neuronitis", "labyrinthitis", "acute peripheral vestibulopathy"]
+      zh_hk: ["前庭神經炎", "內耳前庭炎", "迷路炎"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:cervical_radiculopathy
+    kind: condition
+    wave: W2
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "54404000", display: "Cervical radiculopathy (disorder)" }
+      icpc2: { code: "L83", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M54.12", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Cervical radiculopathy (nerve root compression)", zh_hk: "頸椎神經根病變（頸椎壓迫神經）" }
+    aliases:
+      en: ["cervical radiculopathy", "pinched nerve in neck", "cervical disc prolapse", "brachialgia"]
+      zh_hk: ["頸椎神經根受壓", "頸椎間盤突出", "頸椎退化壓神經"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:rotator_cuff_tendinopathy
+    kind: condition
+    wave: W2
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "239964003", display: "Rotator cuff syndrome (disorder)" }
+      icpc2: { code: "L92", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M75.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Rotator cuff tendinopathy / subacromial pain syndrome", zh_hk: "肩袖肌腱病變／肩峰下夾擊綜合症" }
+    aliases:
+      en: ["rotator cuff tendinopathy", "supraspinatus tendinitis", "shoulder impingement", "rotator cuff tear"]
+      zh_hk: ["肩袖肌腱炎", "旋轉肌袖勞損", "肩夾擊症候群"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:frozen_shoulder
+    kind: condition
+    wave: W2
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "399114005", display: "Adhesive capsulitis of shoulder (disorder)" }
+      icpc2: { code: "L92", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M75.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Adhesive capsulitis (frozen shoulder)", zh_hk: "粘連性肩關節囊炎（五十肩／肩周炎）" }
+    aliases:
+      en: ["frozen shoulder", "adhesive capsulitis", "periarthritis of shoulder"]
+      zh_hk: ["五十肩", "肩周炎", "凝肩", "粘連性肩關節囊炎"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:carpal_tunnel_syndrome
+    kind: condition
+    wave: W2
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "57406009", display: "Carpal tunnel syndrome (disorder)" }
+      icpc2: { code: "N93", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G56.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Carpal tunnel syndrome", zh_hk: "腕管綜合症（滑鼠手）" }
+    aliases:
+      en: ["carpal tunnel syndrome", "CTS", "median nerve entrapment"]
+      zh_hk: ["腕管綜合症", "滑鼠手", "正中神經受壓"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:plantar_fasciitis
+    kind: condition
+    wave: W2
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "202882003", display: "Plantar fasciitis (disorder)" }
+      icpc2: { code: "L87", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M72.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Plantar fasciitis", zh_hk: "足底筋膜炎" }
+    aliases:
+      en: ["plantar fasciitis", "plantar heel pain", "heel spur pain"]
+      zh_hk: ["足底筋膜炎", "腳踭痛", "腳底筋膜發炎"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:polymyalgia_rheumatica
+    kind: condition
+    wave: W2
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "65323003", display: "Polymyalgia rheumatica (disorder)" }
+      icpc2: { code: "L99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M35.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Polymyalgia rheumatica (PMR)", zh_hk: "風濕性多發性肌痛症 (PMR)" }
+    aliases:
+      en: ["polymyalgia rheumatica", "PMR", "bilateral shoulder hip girdle stiffness"]
+      zh_hk: ["風濕性多發性肌痛症", "多發性肌痛"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:fibromyalgia
+    kind: condition
+    wave: W2
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "203082005", display: "Fibromyalgia (disorder)" }
+      icpc2: { code: "L18", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M79.7", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Fibromyalgia", zh_hk: "纖維肌痛症" }
+    aliases:
+      en: ["fibromyalgia", "chronic widespread pain", "fibromyalgia syndrome"]
+      zh_hk: ["纖維肌痛症", "全身廣泛性肌痛"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:ankylosing_spondylitis
+    kind: condition
+    wave: W2
+    cluster: C05_msk
+    bindings:
+      snomed_gps: { code: "9631008", display: "Ankylosing spondylitis (disorder)" }
+      icpc2: { code: "L88", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M45", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Ankylosing spondylitis / axial spondyloarthritis", zh_hk: "強直性脊椎炎／中軸型脊椎關節炎" }
+    aliases:
+      en: ["ankylosing spondylitis", "axial spondyloarthritis", "axSpA", "HLA-B27 spondylitis"]
+      zh_hk: ["強直性脊椎炎", "僵直性脊椎炎", "中軸脊椎關節炎"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:peripheral_neuropathy
+    kind: condition
+    wave: W2
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "302226006", display: "Peripheral neuropathy (disorder)" }
+      icpc2: { code: "N94", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G62.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Peripheral neuropathy", zh_hk: "周邊神經病變" }
+    aliases:
+      en: ["peripheral neuropathy", "polyneuropathy", "diabetic neuropathy", "glove and stocking numbness"]
+      zh_hk: ["周邊神經病變", "末梢神經炎", "糖尿腳麻痺"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:essential_tremor
+    kind: condition
+    wave: W2
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "609558009", display: "Essential tremor (disorder)" }
+      icpc2: { code: "N08", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G25.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Essential tremor", zh_hk: "原發性震顫（良性手震）" }
+    aliases:
+      en: ["essential tremor", "benign essential tremor", "familial action tremor"]
+      zh_hk: ["原發性震顫", "家族性手震", "良性姿勢性手震"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:trigeminal_neuralgia
+    kind: condition
+    wave: W2
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "31681005", display: "Trigeminal neuralgia (disorder)" }
+      icpc2: { code: "N92", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G50.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Trigeminal neuralgia", zh_hk: "三叉神經痛" }
+    aliases:
+      en: ["trigeminal neuralgia", "tic douloureux", "electric shock facial pain"]
+      zh_hk: ["三叉神經痛", "面部電擊樣劇痛"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:retinal_detachment
+    kind: condition
+    wave: W2
+    cluster: C12_ophthalmology
+    bindings:
+      snomed_gps: { code: "42059000", display: "Retinal detachment (disorder)" }
+      icpc2: { code: "F82", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H33.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Retinal detachment / retinal tear", zh_hk: "視網膜脫落／視網膜裂孔" }
+    aliases:
+      en: ["retinal detachment", "detached retina", "retinal tear", "rhegmatogenous retinal detachment"]
+      zh_hk: ["視網膜脫落", "視網膜剝離", "視網膜穿孔"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:anterior_uveitis
+    kind: condition
+    wave: W2
+    cluster: C12_ophthalmology
+    bindings:
+      snomed_gps: { code: "410692006", display: "Anterior uveitis (disorder)" }
+      icpc2: { code: "F73", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H20.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute anterior uveitis (iritis)", zh_hk: "急性前葡萄膜炎（虹膜炎）" }
+    aliases:
+      en: ["anterior uveitis", "iritis", "iridocyclitis", "HLA-B27 uveitis"]
+      zh_hk: ["前葡萄膜炎", "虹膜炎", "急性虹膜睫狀體炎"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:corneal_ulcer_keratitis
+    kind: condition
+    wave: W2
+    cluster: C12_ophthalmology
+    bindings:
+      snomed_gps: { code: "91514001", display: "Corneal ulcer (disorder)" }
+      icpc2: { code: "F85", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H16.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Corneal ulcer / microbial keratitis", zh_hk: "角膜潰瘍／微生物角膜炎" }
+    aliases:
+      en: ["corneal ulcer", "microbial keratitis", "bacterial keratitis", "Pseudomonas keratitis"]
+      zh_hk: ["角膜潰瘍", "細菌性角膜炎", "角膜發炎潰爛"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: cond:guillain_barre_syndrome
+    kind: condition
+    wave: W2
+    cluster: C09_neurology
+    bindings:
+      snomed_gps: { code: "40956001", display: "Guillain-Barre syndrome (disorder)" }
+      icpc2: { code: "N94", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G61.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Guillain-Barre syndrome (GBS)", zh_hk: "吉巴氏綜合症（格林-巴利綜合症）" }
+    aliases:
+      en: ["Guillain-Barre syndrome", "GBS", "acute inflammatory demyelinating polyneuropathy", "AIDP"]
+      zh_hk: ["吉巴氏綜合症", "格林巴利綜合症", "急性炎性脫髓鞘性多發神經病變"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  # =========================================================================
+  # PROCEDURE (1) — Ophthalmology Retinal Toxicity Monitoring Target
+  # =========================================================================
+  - id: proc:ophthalmic_retinal_screening
+    kind: procedure
+    wave: W2
+    cluster: C12_ophthalmology
+    display: { en: "Ophthalmology retinal toxicity screening (SD-OCT + automated visual fields)", zh_hk: "眼科視網膜毒性篩查（光學相干斷層掃描 SD-OCT 及視野檢查）" }
+    aliases:
+      en: ["retinal screening", "hydroxychloroquine eye screen", "SD-OCT macula", "automated visual field 10-2"]
+      zh_hk: ["眼科視網膜檢查", "黃斑點光學掃描", "視野檢查", "羥氯喹眼科篩查"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  # =========================================================================
+  # DRUG CLASSES (8) — Lay Cantonese purpose_phrases live ONLY on drug_class!
+  # =========================================================================
+  - id: drug_class:systemic_retinoid
+    kind: drug_class
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      atc: { code: "D10BA", system: "http://www.whocc.no/atc" }
+    display: { en: "Systemic retinoid (oral acne therapy)", zh_hk: "口服維他命A酸類（嚴重暗瘡藥）" }
+    purpose_phrases:
+      en: ["oral acne medicine", "retinoid for severe acne", "vitamin A derivative"]
+      zh_hk: ["口服A酸", "嚴重暗瘡藥", "維他命A酸丸"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pregnancy_caution: contraindicated
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug_class:allylamine_antifungal
+    kind: drug_class
+    wave: W2
+    cluster: C10_dermatology
+    parent_ids: ["drug_class:antifungal"]
+    bindings:
+      atc: { code: "D01BA", system: "http://www.whocc.no/atc" }
+    display: { en: "Allylamine antifungal (dermatophyte / nail therapy)", zh_hk: "烯丙胺類抗真菌藥（灰甲／癬藥）" }
+    purpose_phrases:
+      en: ["fungal nail tablet", "ringworm antifungal", "dermatophyte medicine"]
+      zh_hk: ["灰甲口服藥", "抗真菌癬藥", "醫香港腳藥"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug_class:scabicide
+    kind: drug_class
+    wave: W2
+    cluster: C10_dermatology
+    bindings:
+      atc: { code: "P03AC", system: "http://www.whocc.no/atc" }
+    display: { en: "Topical scabicide / ectoparasiticide", zh_hk: "外用殺疥蟎藥膏" }
+    purpose_phrases:
+      en: ["scabies cream", "mite treatment lotion"]
+      zh_hk: ["疥瘡藥膏", "殺疥蟲藥水"]
+    drug_facet:
+      short_course: true
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug_class:topical_antibiotic
+    kind: drug_class
+    wave: W2
+    cluster: C10_dermatology
+    parent_ids: ["drug_class:antibiotic"]
+    bindings:
+      atc: { code: "D06AX", system: "http://www.whocc.no/atc" }
+    display: { en: "Topical antibacterial ointment", zh_hk: "外用抗生素藥膏" }
+    purpose_phrases:
+      en: ["antibiotic ointment", "impetigo cream", "skin infection ointment"]
+      zh_hk: ["外用消炎抗生素膏", "皮膚細菌藥膏", "膿瘡藥膏"]
+    drug_facet:
+      short_course: true
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug_class:tca_neuropathic
+    kind: drug_class
+    wave: W2
+    cluster: C09_neurology
+    bindings:
+      atc: { code: "N06AA", system: "http://www.whocc.no/atc" }
+    display: { en: "Tricyclic antidepressant (neuropathic pain / migraine prophylaxis)", zh_hk: "三環類抗抑鬱藥（低劑量神經痛／偏頭痛預防）" }
+    purpose_phrases:
+      en: ["nerve pain tablet", "migraine preventive", "tricyclic antidepressant"]
+      zh_hk: ["三環類神經痛藥", "偏頭痛預防藥", "舊式抗抑鬱神經藥"]
+    drug_facet:
+      high_risk: true
+      pregnancy_caution: caution
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug_class:vertigo_agent
+    kind: drug_class
+    wave: W2
+    cluster: C03_ent
+    bindings:
+      atc: { code: "N07CA", system: "http://www.whocc.no/atc" }
+    display: { en: "Antivertigo / vestibular agent", zh_hk: "止頭暈／內耳前庭藥物" }
+    purpose_phrases:
+      en: ["vertigo tablet", "Meniere's medicine", "dizziness pill"]
+      zh_hk: ["止頭暈藥", "耳水不平衡藥", "止眩暈丸"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug_class:ophthalmic_antibiotic
+    kind: drug_class
+    wave: W2
+    cluster: C12_ophthalmology
+    parent_ids: ["drug_class:antibiotic"]
+    bindings:
+      atc: { code: "S01AA", system: "http://www.whocc.no/atc" }
+    display: { en: "Ophthalmic antibiotic drops / ointment", zh_hk: "眼科抗生素眼藥水／眼藥膏" }
+    purpose_phrases:
+      en: ["antibiotic eye drops", "conjunctivitis drops", "pink eye ointment"]
+      zh_hk: ["消炎眼藥水", "抗生素眼藥水", "眼藥膏", "紅眼症眼藥水"]
+    drug_facet:
+      short_course: true
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug_class:prostaglandin_eye
+    kind: drug_class
+    wave: W2
+    cluster: C12_ophthalmology
+    bindings:
+      atc: { code: "S01EE", system: "http://www.whocc.no/atc" }
+    display: { en: "Ophthalmic prostaglandin analogue (glaucoma)", zh_hk: "前列腺素類降眼壓眼藥水（青光眼藥）" }
+    purpose_phrases:
+      en: ["glaucoma eye drops", "eye pressure drops"]
+      zh_hk: ["降眼壓眼藥水", "青光眼眼藥水"]
+    drug_facet:
+      no_gap: true
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  # =========================================================================
+  # DRUGS (14) — Strict drug-specific aliases only (TERM-006 compliant)
+  # =========================================================================
+  - id: drug:isotretinoin
+    kind: drug
+    wave: W2
+    cluster: C10_dermatology
+    parent_ids: ["drug_class:systemic_retinoid"]
+    bindings:
+      inn: "isotretinoin"
+      unii: "EH28UP18IF"
+      rxnorm: { code: "6064", display: "isotretinoin" }
+      atc: { code: "D10BA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Isotretinoin", zh_hk: "異維A酸" }
+    aliases:
+      en: ["isotretinoin", "Roaccutane", "Oratane", "Accutane"]
+      zh_hk: ["異維A酸", "羅可坦"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pregnancy_caution: contraindicated
+      dosing_pearl:
+        en: "Strict Category X teratogen: requires negative pregnancy test prior to initiation/monthly, effective dual contraception during therapy + 1 month after stopping, baseline/follow-up LFT & fasting lipids, and mood screening."
+        zh_hk: "高度致畸胎藥物 (Category X)：用藥前及期間須嚴格驗孕及雙重避孕（停藥後仍須避孕至少1個月），並定期監察肝功能、血脂及情緒變化。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:terbinafine
+    kind: drug
+    wave: W2
+    cluster: C10_dermatology
+    parent_ids: ["drug_class:allylamine_antifungal"]
+    bindings:
+      inn: "terbinafine"
+      unii: "G7RIW8S0XP"
+      rxnorm: { code: "37801", display: "terbinafine" }
+      atc: { code: "D01BA02", system: "http://www.whocc.no/atc" }
+    display: { en: "Terbinafine", zh_hk: "特比萘芬" }
+    aliases:
+      en: ["terbinafine", "Lamisil", "Tamsil"]
+      zh_hk: ["特比萘芬", "療黴舒"]
+    drug_facet:
+      pregnancy_caution: caution
+      max_daily_mg: 250.0
+      dosing_pearl:
+        en: "Confirm mycological diagnosis (nail clipping microscopy/culture) before starting prolonged oral therapy (6w fingernails / 12w toenails); check baseline LFT and avoid in active/chronic liver disease; CYP2D6 inhibitor."
+        zh_hk: "處方長期口服治療灰甲前宜先作真菌化驗確診；用藥前須驗肝功能，活動性或慢性肝病患者避免使用，並留意 CYP2D6 藥物相互作用。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:permethrin
+    kind: drug
+    wave: W2
+    cluster: C10_dermatology
+    parent_ids: ["drug_class:scabicide"]
+    bindings:
+      inn: "permethrin"
+      unii: "509F88P9SZ"
+      rxnorm: { code: "8089", display: "permethrin" }
+      atc: { code: "P03AC04", system: "http://www.whocc.no/atc" }
+    display: { en: "Permethrin 5% cream", zh_hk: "百滅寧 5% 藥膏" }
+    aliases:
+      en: ["permethrin", "Lyclear", "Quellada P"]
+      zh_hk: ["百滅寧", "撲滅司林"]
+    drug_facet:
+      short_course: true
+      dosing_pearl:
+        en: "Apply 5% cream from jawline down (including scalp/face in infants/elderly) for 8-14h, repeat Day 7; treat ALL household/close contacts simultaneously and hot-wash/bag linens; post-scabetic itch may persist 2-4 weeks."
+        zh_hk: "全身塗抹（頸以下，嬰兒及長者包括頭面）停留8至14小時，第7日重複一次；所有同住及密切接觸者必須同步治療，並以熱水清洗床單衣物。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:mupirocin
+    kind: drug
+    wave: W2
+    cluster: C10_dermatology
+    parent_ids: ["drug_class:topical_antibiotic"]
+    bindings:
+      inn: "mupirocin"
+      unii: "D0GX863OA5"
+      rxnorm: { code: "7097", display: "mupirocin" }
+      atc: { code: "D06AX09", system: "http://www.whocc.no/atc" }
+    display: { en: "Mupirocin 2% ointment", zh_hk: "莫匹羅星 2% 藥膏" }
+    aliases:
+      en: ["mupirocin", "Bactroban"]
+      zh_hk: ["莫匹羅星", "百多邦"]
+    drug_facet:
+      short_course: true
+      dosing_pearl:
+        en: "Reserve for localised non-bullous impetigo (TDS x5-7d) or MRSA nasal decolonisation; avoid prolonged/repeated courses >10 days to prevent S. aureus resistance; use oral antibiotics for widespread/bullous impetigo."
+        zh_hk: "適用於局部輕微膿皰瘡（每日3次，療程5至7日）或 MRSA 鼻腔去定植；切忌長期反覆使用以免產生抗藥性；廣泛性或大皰性膿皰瘡須用口服抗生素。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:amitriptyline
+    kind: drug
+    wave: W2
+    cluster: C09_neurology
+    parent_ids: ["drug_class:tca_neuropathic"]
+    bindings:
+      inn: "amitriptyline"
+      unii: "1806D8D52K"
+      rxnorm: { code: "704", display: "amitriptyline" }
+      atc: { code: "N06AA09", system: "http://www.whocc.no/atc" }
+    display: { en: "Amitriptyline", zh_hk: "阿米替林" }
+    aliases:
+      en: ["amitriptyline", "Endep", "Tryptanol", "Elavil"]
+      zh_hk: ["阿米替林"]
+    drug_facet:
+      high_risk: true
+      pregnancy_caution: caution
+      max_daily_mg: 150.0
+      dosing_pearl:
+        en: "Low-dose nocte (10-25 mg, titrate slowly) for neuropathic pain or migraine prophylaxis; high anticholinergic/QTc/orthostatic falls toxicity in >=65y (STOPP/Beers avoid); lethal in overdose — screen suicide risk."
+        zh_hk: "低劑量睡前服用（10–25 mg 漸加）用於神經痛或偏頭痛預防；長者 (>=65歲) 抗膽鹼、跌倒、譫妄及 QTc 延長風險高，過量具致命毒性，處方前須評估自殺風險。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:pregabalin
+    kind: drug
+    wave: W2
+    cluster: C09_neurology
+    parent_ids: ["drug_class:anticonvulsant"]
+    bindings:
+      inn: "pregabalin"
+      unii: "55JG375S6M"
+      rxnorm: { code: "187832", display: "pregabalin" }
+      atc: { code: "N02BF02", system: "http://www.whocc.no/atc" }
+    display: { en: "Pregabalin", zh_hk: "普瑞巴林" }
+    aliases:
+      en: ["pregabalin", "Lyrica"]
+      zh_hk: ["普瑞巴林", "樂瑞卡"]
+    drug_facet:
+      high_risk: true
+      pregnancy_caution: caution
+      max_daily_mg: 600.0
+      renal_note: "Renally excreted unchanged: reduce dose if CrCl/eGFR <60 mL/min (max 300 mg/d if 30-59; max 150 mg/d if 15-29; max 75 mg/d if <15)."
+      dosing_pearl:
+        en: "Start low (25-75 mg nocte/BD) to minimise dizziness/somnolence/oedema; adjust strictly for eGFR; avoid co-prescribing with opioids/benzodiazepines (respiratory depression & misuse risk); taper gradually to stop."
+        zh_hk: "宜低劑量起步並按腎功能減量；避免與鴉片類或鎮靜劑併用（防呼吸抑制及依賴風險）；停藥時須逐步減量。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:sodium_valproate
+    kind: drug
+    wave: W2
+    cluster: C09_neurology
+    parent_ids: ["drug_class:anticonvulsant"]
+    bindings:
+      inn: "valproic acid"
+      unii: "614OI1Z5WI"
+      rxnorm: { code: "11118", display: "valproate" }
+      atc: { code: "N03AG01", system: "http://www.whocc.no/atc" }
+    display: { en: "Sodium valproate", zh_hk: "丙戊酸鈉" }
+    aliases:
+      en: ["sodium valproate", "valproate", "Epilim", "Valpro"]
+      zh_hk: ["丙戊酸鈉", "帝拔癲"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      pregnancy_caution: contraindicated
+      dosing_pearl:
+        en: "Severe teratogen (~10% NTD/major malformations; ~30-40% neurodevelopmental impairment): avoid in females of childbearing potential unless Pregnancy Prevention Programme fulfilled; NEVER abruptly stop in epilepsy without urgent specialist transition."
+        zh_hk: "嚴重致畸胎及影響胎兒神經發育：育齡女性原則上禁用；如已懷孕切勿自行突然停藥（防癲癇持續狀態），必須即時緊急轉介神經科調整方案並補充高劑量葉酸。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:levetiracetam
+    kind: drug
+    wave: W2
+    cluster: C09_neurology
+    parent_ids: ["drug_class:anticonvulsant"]
+    bindings:
+      inn: "levetiracetam"
+      unii: "44YRR34555"
+      rxnorm: { code: "114477", display: "levetiracetam" }
+      atc: { code: "N03AX14", system: "http://www.whocc.no/atc" }
+    display: { en: "Levetiracetam", zh_hk: "左乙拉西坦" }
+    aliases:
+      en: ["levetiracetam", "Keppra"]
+      zh_hk: ["左乙拉西坦", "開浦蘭"]
+    drug_facet:
+      no_gap: true
+      max_daily_mg: 3000.0
+      renal_note: "Renally cleared: reduce dose if eGFR <80 mL/min."
+      dosing_pearl:
+        en: "Preferred pregnancy-safer / low-DDI antiepileptic alternative to valproate and carbamazepine (no HLA-B*15:02 requirement); monitor for neuropsychiatric irritability/mood changes and adjust in CKD."
+        zh_hk: "較低致畸胎風險及極少藥物相互作用之抗癲癇藥（毋須檢測 HLA-B*15:02）；留意易怒／情緒波動副作用及按腎功能調藥，切勿漏服。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:betahistine
+    kind: drug
+    wave: W2
+    cluster: C03_ent
+    parent_ids: ["drug_class:vertigo_agent"]
+    bindings:
+      inn: "betahistine"
+      unii: "390233090J"
+      rxnorm: { code: "1525", display: "betahistine" }
+      atc: { code: "N07CA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Betahistine", zh_hk: "倍他司汀" }
+    aliases:
+      en: ["betahistine", "Serc", "Betaserc"]
+      zh_hk: ["倍他司汀", "敏使朗"]
+    drug_facet:
+      pregnancy_caution: caution
+      max_daily_mg: 48.0
+      dosing_pearl:
+        en: "Used for Meniere's disease prophylaxis (NOT effective for BPPV — use Epley manoeuvre); caution in asthma and active peptic ulcer; contraindicated in phaeochromocytoma."
+        zh_hk: "用於預防美尼爾氏症發作（對耳石症 BPPV 無效，BPPV 應作耳石復位治療）；哮喘及消化性潰瘍慎用，嗜鉻細胞瘤禁用。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:chloramphenicol_eye
+    kind: drug
+    wave: W2
+    cluster: C12_ophthalmology
+    parent_ids: ["drug_class:ophthalmic_antibiotic"]
+    bindings:
+      inn: "chloramphenicol"
+      unii: "66974FR9Q1"
+      rxnorm: { code: "2348", display: "chloramphenicol" }
+      atc: { code: "S01AA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Chloramphenicol 0.5% eye drops / 1% ointment", zh_hk: "氯黴素眼藥水／眼藥膏" }
+    aliases:
+      en: ["chloramphenicol eye drops", "Chlorsig", "Chloromycetin ophthalmic"]
+      zh_hk: ["氯黴素眼藥水", "氯黴素眼膏"]
+    drug_facet:
+      short_course: true
+      dosing_pearl:
+        en: "First-line for acute bacterial conjunctivitis ONLY after excluding contact lens keratitis, corneal ulcer, acute glaucoma, and uveitis; avoid in personal/family history of aplastic anaemia; discard 28d after opening."
+        zh_hk: "僅於排除隱形眼鏡角膜潰瘍、青光眼及虹膜炎後方可用於急性細菌性結膜炎；再生障礙性貧血病史者避免使用。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:latanoprost
+    kind: drug
+    wave: W2
+    cluster: C12_ophthalmology
+    parent_ids: ["drug_class:prostaglandin_eye"]
+    bindings:
+      inn: "latanoprost"
+      unii: "6Z5B6HVF6O"
+      rxnorm: { code: "73137", display: "latanoprost" }
+      atc: { code: "S01EE01", system: "http://www.whocc.no/atc" }
+    display: { en: "Latanoprost 0.005% eye drops", zh_hk: "拉坦前列素 0.005% 眼藥水" }
+    aliases:
+      en: ["latanoprost", "Xalatan"]
+      zh_hk: ["拉坦前列素", "適利達"]
+    drug_facet:
+      no_gap: true
+      pregnancy_caution: caution
+      dosing_pearl:
+        en: "One drop nocte in affected eye(s) for open-angle glaucoma / ocular hypertension (more frequent dosing paradoxically reduces efficacy); remove contact lenses for 15 min; counsel on lash growth & iris darkening."
+        zh_hk: "每晚一次每次一滴（過頻反而減效）；滴藥前須除下隱形眼鏡並待15分鐘後再戴；切勿自行停藥以免眼壓回升傷及視神經。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:febuxostat
+    kind: drug
+    wave: W2
+    cluster: C05_msk
+    parent_ids: ["drug_class:xanthine_oxidase_inhibitor"]
+    bindings:
+      inn: "febuxostat"
+      unii: "101V0R1N2E"
+      rxnorm: { code: "670070", display: "febuxostat" }
+      atc: { code: "M04AA03", system: "http://www.whocc.no/atc" }
+    display: { en: "Febuxostat", zh_hk: "非布司他" }
+    aliases:
+      en: ["febuxostat", "Adenuric", "Feburic", "Uloric"]
+      zh_hk: ["非布司他", "非布索坦"]
+    drug_facet:
+      high_risk: true
+      pregnancy_caution: caution
+      max_daily_mg: 80.0
+      dosing_pearl:
+        en: "Second-line ULT for gout when allopurinol is not tolerated or HLA-B*58:01 positive (no HLA-B*58:01 SJS/TEN association); caution in established CVD/IHD (CARES mortality signal); contraindicated with azathioprine/mercaptopurine."
+        zh_hk: "二線降尿酸藥（適用於 HLA-B*58:01 陽性或不耐受別嘌醇之痛風患者）；冠心病或心血管疾病患者慎用，且嚴禁與硫唑嘌呤 (azathioprine) 併用。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:hydroxychloroquine
+    kind: drug
+    wave: W2
+    cluster: C05_msk
+    parent_ids: ["drug_class:dmard"]
+    bindings:
+      inn: "hydroxychloroquine"
+      unii: "4QWG6N8QKH"
+      rxnorm: { code: "5521", display: "hydroxychloroquine" }
+      atc: { code: "P01BA02", system: "http://www.whocc.no/atc" }
+    display: { en: "Hydroxychloroquine", zh_hk: "羥氯喹" }
+    aliases:
+      en: ["hydroxychloroquine", "Plaquenil", "HCQ"]
+      zh_hk: ["羥氯喹", "必賴克廔"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      max_daily_mg: 400.0
+      dosing_pearl:
+        en: "Keep dose <=5 mg/kg real body weight/day to minimise irreversible bull's-eye maculopathy; requires baseline ophthalmology exam within 1y and annual SD-OCT + visual fields after 5y (or earlier if CKD/high dose/tamoxifen); safe in pregnancy for SLE."
+        zh_hk: "維持每日劑量 <=5 mg/kg 實際體重以降低視網膜黃斑毒性；須於首年內作基線眼科檢查，並於長期用藥後每年進行 SD-OCT 及視野檢查；紅斑狼瘡孕婦一般可安全續用。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: drug:topical_clotrimazole
+    kind: drug
+    wave: W2
+    cluster: C10_dermatology
+    parent_ids: ["drug_class:antifungal"]
+    bindings:
+      inn: "clotrimazole"
+      unii: "G07GZ97H65"
+      rxnorm: { code: "2623", display: "clotrimazole" }
+      atc: { code: "D01AC01", system: "http://www.whocc.no/atc" }
+    display: { en: "Topical clotrimazole 1% cream", zh_hk: "外用克霉唑 1% 藥膏" }
+    aliases:
+      en: ["clotrimazole cream", "Canesten cream", "Clotrimaderm"]
+      zh_hk: ["克霉唑藥膏", "確膚寧藥膏"]
+    drug_facet:
+      short_course: true
+      dosing_pearl:
+        en: "First-line broad-spectrum topical imidazole for cutaneous candidiasis, intertrigo, and mild tinea (BD x2-4w; continue 1-2w after clinical clearing); avoid combination steroid-antifungal creams on groin/face (tinea incognito)."
+        zh_hk: "用於皮膚念珠菌感染及輕度體癬／足癬（每日塗2次，皮疹消退後續塗1至2星期防復發）；避免於腹股溝或面部濫用含強效類固醇之複方癬膏。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  # =========================================================================
+  # OBSERVATIONS (3 NEW — obs:hba2_hplc & obs:anti_ttg_iga already exist in 01)
+  # =========================================================================
+  - id: obs:rheumatoid_factor
+    kind: observation
+    wave: W2
+    cluster: C05_msk
+    bindings:
+      loinc: { code: "11572-5", display: "Rheumatoid factor [Units/volume] in Serum" }
+      ucum: "U/mL"
+    display: { en: "Rheumatoid factor (RF)", zh_hk: "類風濕因子 (RF)" }
+    aliases:
+      en: ["rheumatoid factor", "RF", "RhF"]
+      zh_hk: ["類風濕因子", "風濕因子"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: obs:ana_screen
+    kind: observation
+    wave: W2
+    cluster: C05_msk
+    bindings:
+      loinc: { code: "8061-4", display: "Nuclear Ab [Presence] in Serum" }
+      ucum: "{Ordinal}"
+    display: { en: "Antinuclear antibody (ANA) screen", zh_hk: "抗核抗體篩查 (ANA)" }
+    aliases:
+      en: ["ANA", "antinuclear antibody", "ANF", "ANA screen"]
+      zh_hk: ["抗核抗體", "ANA抗體", "紅斑狼瘡抗體篩查"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: obs:tpo_antibody
+    kind: observation
+    wave: W2
+    cluster: C02_endocrine
+    bindings:
+      loinc: { code: "8099-4", display: "Thyroperoxidase Ab [Units/volume] in Serum" }
+      ucum: "U/mL"
+    display: { en: "Anti-thyroid peroxidase antibody (Anti-TPO)", zh_hk: "抗甲狀腺過氧化物酶抗體 (Anti-TPO)" }
+    aliases:
+      en: ["anti-TPO", "TPO antibody", "thyroid peroxidase antibody", "anti-microsomal antibody"]
+      zh_hk: ["抗甲狀腺過氧化物酶抗體", "甲狀腺抗體TPO"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+# ===========================================================================
+# DETERMINISTIC CLINICAL EDGES (14) — Teratogens, Monitoring, DDIs & Red Flags
+# ===========================================================================
+edges:
+  - id: edge:isotretinoin_pregnancy_teratogen_ci
+    source_id: drug:isotretinoin
+    relation: CONTRAINDICATED_IN
+    target_id: cond:pregnancy_normal
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: pregnant, op: eq, value: true }
+        - { fact: planning_pregnancy, op: eq, value: true }
+        - { fact: has_concept, op: is_a, value: "cond:pregnancy_normal" }
+    clinician_rationale:
+      en: "Isotretinoin is a Category X severe human teratogen (~20-35% risk of major craniofacial, cardiac, thymic, and CNS malformations plus spontaneous abortion) — strictly contraindicated in pregnancy or women planning pregnancy."
+      zh_hk: "異維A酸屬極高度致畸胎藥物 (Category X)，懷孕期間接觸可致嚴重顱面、心臟及中樞神經畸形或流產，懷孕及備孕人士絕對禁用。"
+    clinician_action_prompt:
+      en: "Hard-block isotretinoin; confirm negative urine/serum beta-hCG and reliable dual contraception (continuing >=1 month post-cessation) before any prescription; if pregnant on exposure, stop immediately and arrange urgent obstetric/teratology counselling."
+      zh_hk: "絕對禁止處方異維A酸；任何處方前須確認陰性驗孕結果及有效雙重避孕（停藥後仍須避孕至少1個月）；如懷孕期已誤服須立即停藥並緊急轉介產科評估。"
+    patient_safety_net:
+      en: "Isotretinoin can cause severe harm to an unborn baby. Do not take this medicine if you are pregnant or trying to conceive — if you miss a period or have a positive pregnancy test, stop taking it and contact your doctor urgently."
+      zh_hk: "異維A酸會嚴重損害胎兒發育。懷孕或計劃懷孕期間切勿服用；如停經或驗孕呈陽性，請立即停藥並緊急聯絡醫生。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:sodium_valproate_pregnancy_teratogen_ci
+    source_id: drug:sodium_valproate
+    relation: CONTRAINDICATED_IN
+    target_id: cond:pregnancy_normal
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: pregnant, op: eq, value: true }
+        - { fact: planning_pregnancy, op: eq, value: true }
+        - { fact: has_concept, op: is_a, value: "cond:pregnancy_normal" }
+    clinician_rationale:
+      en: "Sodium valproate carries the highest teratogenic risk of all antiepileptics (~10% major congenital malformations including neural tube defects; ~30-40% neurodevelopmental delay/autism spectrum disorder) — contraindicated for migraine/bipolar in pregnancy and avoid in epilepsy whenever alternatives exist."
+      zh_hk: "丙戊酸鈉致畸胎風險極高（約10%神經管缺陷及重大先天畸形；約30至40%兒童神經發育障礙），孕婦及備孕女性原則上禁用。"
+    clinician_action_prompt:
+      en: "Hard-block new valproate initiation in pregnancy/pregnancy planning; if already taking valproate for epilepsy and pregnant, NEVER stop abruptly (status epilepticus risk) — initiate immediate urgent neurology/obstetric transition (e.g. levetiracetam) and high-dose folic acid 5 mg/day."
+      zh_hk: "禁止於懷孕或備孕期新處方丙戊酸鈉；如因癲癇正服藥而發現懷孕，切勿突然自行停藥，須即時緊急轉介神經科及產科轉換安全方案並處方高劑量葉酸 5 mg/日。"
+    patient_safety_net:
+      en: "Sodium valproate carries high risks in pregnancy. If you take it for epilepsy and think you might be pregnant, DO NOT stop it abruptly on your own — contact your doctor or specialist urgently to arrange a safe plan."
+      zh_hk: "丙戊酸鈉於懷孕期具高致畸風險。如因癲癇正服用此藥而懷疑懷孕，切勿自行突然停藥，請立即緊急聯絡醫生安排安全換藥計劃。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:terbinafine_monitored_by_lft
+    source_id: drug:terbinafine
+    relation: MONITORED_BY
+    target_id: panel:lft
+    severity: moderate
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 42
+      repeat_interval_days: 42
+      grace_days: 14
+      applies_on: both
+    clinician_rationale:
+      en: "Oral terbinafine rarely causes severe idiosyncratic cholestatic/hepatocellular liver injury (usually within 4-6 weeks of starting) — check baseline LFT before initiating and repeat at 4-6 weeks during prolonged courses (e.g. onychomycosis)."
+      zh_hk: "口服特比萘芬罕見但可引致嚴重特異性肝損傷（多於服藥後4至6星期出現），開始治療前及療程達4至6星期時須監察肝功能 (LFT)。"
+    clinician_action_prompt:
+      en: "Confirm baseline LFT is normal prior to oral terbinafine (avoid in active/chronic liver disease) and schedule 4-6 week LFT check for courses >6 weeks; counsel on early hepatitis warning symptoms."
+      zh_hk: "處方口服特比萘芬前核實基線肝功能正常，療程超過6星期須於第4至6星期覆檢肝功能，並提醒病人留意肝炎警號。"
+    patient_safety_net:
+      en: "If you develop yellowing of the skin or eyes, dark tea-coloured urine, pale stools, persistent nausea, loss of appetite, or right upper tummy pain while taking oral terbinafine, stop the tablets and see a doctor promptly."
+      zh_hk: "服用口服特比萘芬期間如出現皮膚或眼白發黃、深茶色尿、持續噁心、食慾不振或右上腹痛，請暫停服藥並盡快求醫。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:hydroxychloroquine_retinal_monitoring
+    source_id: drug:hydroxychloroquine
+    relation: MONITORED_BY
+    target_id: proc:ophthalmic_retinal_screening
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 365
+      repeat_interval_days: 365
+      grace_days: 30
+      applies_on: both
+    clinician_rationale:
+      en: "Cumulative hydroxychloroquine exposure risks irreversible retinal pigment epithelial toxicity (bull's-eye maculopathy), especially at doses >5 mg/kg/day, duration >5 years, eGFR <60, or concurrent tamoxifen — requires baseline ophthalmology review within 1 year and annual SD-OCT + automated visual fields."
+      zh_hk: "長期累積服用羥氯喹可引致不可逆轉之視網膜黃斑毒性（特別是劑量 >5 mg/kg/日、用藥逾5年或腎功能下降者），須作首年基線眼科評估及定期每年 SD-OCT 與視野篩查。"
+    clinician_action_prompt:
+      en: "Verify daily dose <=5 mg/kg real body weight, check eGFR, and confirm ophthalmology retinal screening (SD-OCT + automated visual fields; include 24-2/30-2 in East Asian patients due to pericentral retinopathy pattern)."
+      zh_hk: "核實每日劑量不超過 5 mg/kg 實際體重及腎功能，並安排眼科視網膜毒性篩查（東亞裔患者宜同時涵蓋周邊黃斑區 SD-OCT 及 24-2/30-2 視野檢查）。"
+    patient_safety_net:
+      en: "Regular eye check-ups are essential while taking hydroxychloroquine. Arrange prompt review if you notice blurred central vision, difficulty reading, faded colours, or missing patches in your vision."
+      zh_hk: "服用羥氯喹期間須定期接受眼科視網膜檢查；如察覺視力模糊、閱讀困難、色覺變淡或視野出現盲點，請盡快覆診。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:amitriptyline_elderly_stopp_anticholinergic
+    source_id: drug:amitriptyline
+    relation: CONTRAINDICATED_IN
+    target_id: cond:frailty_falls
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    when:
+      fact: age_years
+      op: ge
+      value: 65
+    clinician_rationale:
+      en: "STOPP/Beers Criteria: Amitriptyline carries high anticholinergic burden in adults >=65y, markedly increasing risk of falls, orthostatic hypotension, delirium/cognitive decline, urinary retention, constipation, and QTc prolongation/arrhythmia."
+      zh_hk: "STOPP／Beers 長者用藥安全準則：65歲或以上人士服用阿米替林具強烈抗膽鹼副作用，顯著增加跌倒、姿勢性低血壓、譫妄、認知退化、尿瀦留及心律不整風險。"
+    clinician_action_prompt:
+      en: "Avoid initiating amitriptyline in adults >=65y (propose lower-risk neuropathic/preventive alternatives and review total anticholinergic burden); if already chronic, consider gradual supervised deprescribing."
+      zh_hk: "避免為65歲或以上長者新處方阿米替林，檢視整體抗膽鹼藥物負荷；如長期服用宜由醫生評估逐步安全減藥。"
+    patient_safety_net:
+      en: "This medicine can cause drowsiness, dizziness on standing, confusion, or falls in older adults. Seek medical advice if you feel lightheaded, unusually drowsy, confused, or have difficulty passing urine."
+      zh_hk: "此藥在長者身上較易引起頭暈、企起身眼前發黑、嗜睡、意識混亂或排尿困難，增加跌倒風險；如有上述情況請聯絡醫生檢視用藥。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:pregabalin_opioid_respiratory_depression
+    source_id: drug:pregabalin
+    relation: INTERACTS_WITH
+    target_id: drug_class:opioid
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Concurrent pregabalin + opioid causes additive CNS depression, potentially fatal respiratory depression, falls, and overdose mortality (especially in elderly, CKD, COPD/OSA, or concurrent benzodiazepine use)."
+      zh_hk: "同時服用普瑞巴林與鴉片類藥物會產生協同中樞神經及致命性呼吸抑制，顯著增加跌倒及過量風險（長者、腎病及慢阻肺患者風險尤高）。"
+    clinician_action_prompt:
+      en: "Avoid co-prescribing pregabalin with opioids wherever possible; verify eGFR-adjusted dose, screen sedative polypharmacy, and establish a clinician-supervised tapering/de-escalation plan."
+      zh_hk: "盡量避免同時處方普瑞巴林與鴉片類止痛藥；核實腎功能劑量及評估減藥方案，切勿疊加其他鎮靜劑。"
+    patient_safety_net:
+      en: "Taking pregabalin together with opioid pain medicines can cause severe drowsiness and dangerously slow breathing. Seek emergency medical care immediately if you or a carer notice extreme sleepiness, confusion, or slow/shallow breathing."
+      zh_hk: "同時服用普瑞巴林及鴉片類止痛藥可引致嚴重嗜睡及危險的呼吸抑制；如出現極度昏睡、意識模糊或呼吸緩慢微弱，請立即尋求緊急救援。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:sjs_ten_mucosal_blistering_emergency
+    source_id: rf:sjs_ten_mucosal_blistering
+    relation: RED_FLAG_FOR
+    target_id: cond:sjs_ten_scar
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Painful dusky skin eruption with epidermal detachment/blistering or mucosal erosions (oral, ocular, genital) + fever after a recent medication (especially allopurinol, carbamazepine, sulfonamides, lamotrigine, NSAIDs, antibiotics) is suspected SJS/TEN — life-threatening dermatologic emergency."
+      zh_hk: "用藥後出現痛性暗紅皮疹、表皮起水泡脫落、多處黏膜潰爛（口、眼、生殖器）及發燒，高度懷疑 SJS/TEN 嚴重藥物皮膚反應，屬致命皮膚急症。"
+    clinician_action_prompt:
+      en: "IMMEDIATELY cease all suspected culprit medications (reconcile Rx, OTC & TCM started within 8 weeks) and arrange immediate emergency department / ICU / burns-unit transfer with urgent ophthalmology input; document lifelong drug-class allergy."
+      zh_hk: "立即停用所有懷疑誘發藥物（核查過去8星期所有處方藥、成藥及中藥），即時轉送急症室／深切治療部並同步通知眼科保護角膜。"
+    patient_safety_net:
+      en: "A painful blistering or peeling skin rash with fever or sores in your mouth, eyes, or genital area is a medical emergency — stop any newly started non-essential medicine only as advised and go to an emergency department immediately."
+      zh_hk: "如出現疼痛的水泡或脫皮皮疹，並伴隨發燒或口腔、眼睛、生殖器潰爛，屬危急醫療情況，請立即前往急症室並帶備近期服用的所有藥物。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:flashes_floaters_retinal_detachment
+    source_id: rf:flashes_floaters_visual_curtain
+    relation: RED_FLAG_FOR
+    target_id: cond:retinal_detachment
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Acute onset photopsia (flashes), sudden shower of new floaters, or a progressive dark curtain/shadow over the visual field indicates retinal tear or retinal detachment — urgent same-day dilated ophthalmology assessment is essential to preserve macula-on vision."
+      zh_hk: "突發閃光感、大量新飛蚊湧現或視野出現黑影／黑幕遮擋，高度懷疑視網膜裂孔或視網膜脫落，必須即日緊急眼科散瞳檢查以把握黃斑點未受累前之搶救視力黃金期。"
+    clinician_action_prompt:
+      en: "Arrange immediate same-day emergency ophthalmology / eye A&E referral for dilated fundoscopy (especially high myopia, recent cataract surgery, or ocular trauma)."
+      zh_hk: "立即安排即日緊急眼科／急症室散瞳眼底檢查（高度近視、近期白內障手術或眼部外傷者風險更高）。"
+    patient_safety_net:
+      en: "Sudden flashes of light, a sudden shower of new floaters, or a dark curtain or shadow moving across your vision needs urgent same-day emergency eye assessment to protect your sight."
+      zh_hk: "如突然出現閃光、大量新飛蚊，或視野出現黑影／黑幕遮擋，請立即於今日前往急症室作緊急眼科檢查以挽救視力。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:contact_lens_red_eye_corneal_ulcer
+    source_id: rf:contact_lens_painful_red_eye
+    relation: RED_FLAG_FOR
+    target_id: cond:corneal_ulcer_keratitis
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Painful red eye with photophobia, tearing, or reduced acuity in a contact lens wearer is microbial keratitis / corneal ulcer (high risk of rapidly destructive Pseudomonas aeruginosa or Acanthamoeba) until excluded on slit-lamp examination."
+      zh_hk: "佩戴隱形眼鏡人士出現眼紅劇痛、畏光或視力下降，未經裂隙燈檢查排除前必須視為微生物角膜潰瘍（綠膿桿菌可於數小時內導致角膜穿孔失明）。"
+    clinician_action_prompt:
+      en: "Instruct immediate contact lens removal (patient to bring lenses and case for microbiology), NEVER prescribe topical steroids or pad the eye, and arrange same-day emergency ophthalmology slit-lamp review."
+      zh_hk: "即時除下隱形眼鏡（保留鏡片及盒供化驗），嚴禁處方類固醇眼藥水或敷蓋眼睛，並即日緊急轉介眼科作裂隙燈檢查。"
+    patient_safety_net:
+      en: "Take your contact lenses out immediately (bring the lenses and case with you) and go for urgent same-day emergency eye assessment. Do not use leftover eye drops or wear lenses again until an eye specialist advises."
+      zh_hk: "請立即除下隱形眼鏡（連同鏡片及鏡盒帶往醫院），並即日前往急症室作緊急眼科評估；切勿自行使用舊眼藥水或重新佩戴鏡片。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:sudden_hearing_loss_72h_ssnhl
+    source_id: rf:sudden_hearing_loss_72h
+    relation: RED_FLAG_FOR
+    target_id: cond:ssnhl
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Sudden unilateral sensorineural hearing loss (>=30 dB across 3 contiguous frequencies within <=72 hours; excludes wax/effusion on otoscopy; Weber lateralises to good ear) is a time-critical otologic emergency with a narrow early corticosteroid salvage window (ideally within 7-14 days)."
+      zh_hk: "72小時內突發單側感音神經性聽力下降（耳鏡排除耳垢／積水後）屬耳科急症，口服類固醇搶救聽力的黃金治療窗極短（宜於7至14日內盡早啟動）。"
+    clinician_action_prompt:
+      en: "Perform immediate otoscopy + tuning fork (Weber/Rinne) and cranial nerve/cerebellar screen (if focal neuro deficit -> emergency stroke pathway); arrange urgent ENT + audiometry and consider immediate high-dose oral prednisolone (verify HBsAg/diabetes) + MRI IAC follow-up."
+      zh_hk: "即時作耳鏡、音叉測試及腦神經／小腦篩查（如伴神經缺損須走急診中風流程）；安排緊急耳鼻喉科及純音聽力測試，並評估盡早啟動高劑量口服類固醇（須核查乙肝及血糖）及內聽道 MRI。"
+    patient_safety_net:
+      en: "Sudden hearing loss in one ear over hours to a few days needs urgent doctor and ENT assessment within 24-48 hours so time-sensitive treatment is not missed. Go to emergency care immediately if you also have facial weakness, double vision, slurred speech, or cannot walk steadily."
+      zh_hk: "單側聽力於數小時至數日內突然驟降必須於24至48小時內緊急求醫及轉介耳鼻喉科，以免錯過治療黃金期；如同時出現面癱、重影、口齒不清或行路不穩，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:painless_hard_neck_node_malignancy
+    source_id: rf:painless_hard_neck_node
+    relation: RED_FLAG_FOR
+    target_id: cond:malignancy_occult
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "A persistent (>2-3 weeks) painless, firm/hard, fixed cervical or supraclavicular lymph node requires urgent malignancy exclusion — nasopharyngeal carcinoma (NPC), head and neck SCC, lymphoma, thyroid carcinoma, or distant GI/thoracic metastasis (Virchow's node)."
+      zh_hk: "持續超過2至3星期的無痛、質硬或固定頸部／鎖骨上淋巴結腫大，必須緊急排除鼻咽癌、頭頸部鱗狀細胞癌、淋巴瘤、甲狀腺癌或遠端轉移癌。"
+    clinician_action_prompt:
+      en: "Arrange urgent ENT / haematology assessment (flexible nasoendoscopy, neck ultrasound + FNA/excisional biopsy, CBC/LDH/LFT/CXR; consider plasma EBV DNA in high-risk Southern Chinese populations) — do NOT treat empirically with repeated antibiotics."
+      zh_hk: "安排緊急耳鼻喉科／血液科評估（鼻咽鏡、頸部超聲波及針吸／切片活檢、全血計數及 LDH；高危華南族群考慮血漿 EBV DNA），切勿反覆盲目處方抗生素延誤診斷。"
+    patient_safety_net:
+      en: "A firm, painless neck lump lasting more than 2-3 weeks needs prompt specialist investigation. Seek immediate emergency care if the swelling grows rapidly or causes noisy breathing, trouble swallowing, or shortness of breath."
+      zh_hk: "持續超過2至3星期的無痛頸部硬塊須盡快由醫生及專科作進一步檢查；如腫塊迅速增大或引致呼吸喘鳴、吞嚥困難或氣促，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:ascending_weakness_gbs_emergency
+    source_id: rf:ascending_weakness_gbs
+    relation: RED_FLAG_FOR
+    target_id: cond:guillain_barre_syndrome
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Rapidly progressive symmetrical ascending limb weakness with hypo-/areflexia (commonly 1-4 weeks post-GI/respiratory infection) indicates suspected Guillain-Barre syndrome — high risk of acute diaphragmatic respiratory failure, bulbar palsy, and autonomic instability."
+      zh_hk: "迅速向上蔓延之對稱性肢體無力伴腱反射減弱或消失，高度懷疑吉巴氏綜合症，具急性呼吸肌衰竭、球麻痺及自主神經失調致命風險。"
+    clinician_action_prompt:
+      en: "Immediate emergency ambulance / A&E transfer for neurology & ICU/HDU monitoring (serial FVC/respiratory mechanics, cardiac telemetry) and early IVIG or plasmapheresis — do NOT wait for outpatient nerve conduction studies."
+      zh_hk: "立即安排緊急送往急症室及神經科／深切治療部監察（連續肺活量監測、心電監護）並盡早啟動靜脈免疫球蛋白 (IVIG) 或血漿置換治療，切勿等候門診神經傳導檢查。"
+    patient_safety_net:
+      en: "Rapidly worsening weakness spreading up your legs or arms, or any new trouble breathing, swallowing, or speaking, is a medical emergency — seek emergency hospital care immediately."
+      zh_hk: "如雙腳或手臂無力迅速惡化並向上蔓延，或出現任何呼吸、吞嚥或說話困難，屬危急醫療情況，請立即前往急症室或致電緊急救援服務。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:abcde_changing_lesion_melanoma
+    source_id: rf:abcde_changing_pigmented_lesion
+    relation: RED_FLAG_FOR
+    target_id: cond:melanoma
+    severity: high
+    urgency_floor: 3
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "A pigmented, acral (palm/sole), subungual, or nodular skin lesion showing ABCDE changes (Asymmetry, irregular Border, varied Colour, Diameter >6mm, Evolving/bleeding/firm/growing) requires urgent dermoscopic evaluation and complete excisional biopsy (2 mm clinical margin) to exclude melanoma."
+      zh_hk: "具 ABCDE 變化、不斷增大流血或位於掌跖／甲床之色素病變須緊急作皮膚鏡評估及完整切除活檢以排除黑色素瘤（切忌局部削切或冷凍治療）。"
+    clinician_action_prompt:
+      en: "Perform dermoscopy and arrange urgent complete full-thickness excisional biopsy (2 mm margin) or urgent dermatology/surgical referral — NEVER use cryotherapy, cautery, or partial shave biopsy on a suspicious pigmented lesion."
+      zh_hk: "進行皮膚鏡檢查並安排緊急完整全層切除活檢或轉介皮膚科／外科；切勿對懷疑黑色素瘤病變進行冷凍、電灼或局部削切活檢。"
+    patient_safety_net:
+      en: "Any mole, dark spot, palm/sole mark, or nail streak that is changing in size, shape, or colour, or is crusting or bleeding, needs prompt face-to-face examination by a doctor with a dermatoscope."
+      zh_hk: "任何大小、形狀或顏色出現變化、結痂或流血的黑痣、手掌腳底黑斑或指甲黑線，必須盡快安排面診由醫生以皮膚鏡檢查評估。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: edge:febuxostat_ihd_cvd_caution
+    source_id: drug:febuxostat
+    relation: CONTRAINDICATED_IN
+    target_id: cond:stable_ihd
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "CARES trial cardiovascular safety signal: febuxostat was associated with higher cardiovascular and all-cause mortality versus allopurinol in patients with established atherosclerotic CVD / ischaemic heart disease — avoid in established CVD where an alternative (e.g. HLA-B*58:01-negative allopurinol) is feasible."
+      zh_hk: "CARES 臨床研究警示：對已患有冠心病或動脈粥樣硬化性心血管疾病患者，非布司他之心血管死亡風險高於別嘌醇；如有替代方案（如 HLA-B*58:01 陰性時選用別嘌醇）應避免使用。"
+    clinician_action_prompt:
+      en: "Review cardiovascular history before prescribing febuxostat; prefer HLA-B*58:01-screened allopurinol in established IHD/CVD where tolerated, or document shared decision-making and cardiology/rheumatology oversight if febuxostat is required."
+      zh_hk: "處方非布司他前覆核冠心病／心血管病史；如病人可耐受且基因篩查陰性宜優先選用別嘌醇，若確須使用非布司他應由醫生作共同決策並密切監察心血管症狀。"
+    patient_safety_net:
+      en: "Seek emergency medical care immediately if you develop chest pain, chest tightness, shortness of breath, sudden weakness, or slurred speech."
+      zh_hk: "服藥期間如出現胸痛、心口壓迫、氣促、突發肢體無力或口齒不清，請立即尋求緊急醫療協助。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+# ===========================================================================
+# PRESENTATION FRAMES (5) — Murtagh PROMPT + openEHR Positive Exclusions + Safety Netting
+# ===========================================================================
+frames:
+  - id: frame:hearing_loss_tinnitus
+    rfe_concept_id: rfe:hearing_loss_tinnitus
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_otitis_media, concept_id: cond:otitis_media, key_discriminators: ["conductive hearing loss / middle ear effusion post-URTI"] }
+        - { id: p_otitis_externa, concept_id: cond:otitis_externa, key_discriminators: ["canal oedema/debris/cerumen impaction, tragal tenderness"] }
+        - { id: p_menieres, concept_id: cond:menieres_disease, key_discriminators: ["episodic vertigo 20min-12h + fluctuating low-frequency SNHL + aural fullness + tinnitus"] }
+      serious_not_to_be_missed:
+        - { id: s_ssnhl, concept_id: cond:ssnhl, key_discriminators: ["rapid unilateral SNHL <=72h — urgent oral corticosteroid salvage window"] }
+        - { id: s_npc, concept_id: cond:npc, key_discriminators: ["adult unilateral OME / conductive loss + blood-stained post-nasal drip or neck node (Southern Chinese high risk)"] }
+        - { id: s_stroke, concept_id: cond:stroke_tia, key_discriminators: ["posterior circulation / AICA stroke — sudden deafness + acute vertigo + focal neuro/ataxia"] }
+        - { id: s_schwannoma, concept_id: cond:malignancy_occult, key_discriminators: ["progressive asymmetric SNHL or unilateral tinnitus -> MRI IAC for vestibular schwannoma"] }
+      pitfalls_often_missed:
+        - { id: o_ototoxic_drugs, concept_id: cond:drug_adverse_effect, key_discriminators: ["aminoglycosides, loop diuretics, high-dose aspirin/NSAIDs, macrolides, platinum chemo"] }
+        - { id: o_vestib_neuritis, concept_id: cond:vestibular_neuritis, key_discriminators: ["acute prolonged vertigo without hearing loss (if hearing loss present -> labyrinthitis/AICA stroke)"] }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Audit ototoxic medications (furosemide, high-dose aspirin/NSAIDs, macrolides, aminoglycosides)." } }
+        - { id: mq_malignancy, tier: secondary, masquerade: malignancy, concept_id: cond:malignancy_occult, clue_prompt: { en: "Always examine the post-nasal space (refer ENT nasoendoscopy) for unexplained adult unilateral OME, and arrange MRI IAC for asymmetric SNHL." } }
+        - { id: mq_neuro, tier: secondary, masquerade: neurological_dilemma, concept_id: cond:neurological_dilemma, clue_prompt: { en: "Screen cranial nerves V/VII/VIII and cerebellar gait to exclude cerebellopontine angle pathology or brainstem stroke." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore communication isolation, fear of permanent deafness or brain tumour, occupational noise exposure, and insomnia/distress from tinnitus." }
+    positive_exclusions:
+      - id: ex_sudden_hl_72h
+        finding_concept_id: rf:sudden_hearing_loss_72h
+        question: { en: "Did your hearing drop suddenly in one ear over the last few hours or within 3 days?", zh_hk: "請問你是否於數小時至3日內突然出現單側聽力明顯下降？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_unilateral_ome_npc
+        finding_concept_id: rf:unilateral_ome_neck_lump
+        question: { en: "Do you have a blocked feeling in one ear alongside blood-stained nasal discharge, nasal blockage, or a painless neck lump?", zh_hk: "請問你單側耳塞或聽力下降時，有否伴隨鼻涕帶血絲、單側鼻塞或無痛頸部腫塊？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_focal_neuro
+        finding_concept_id: rf:focal_neuro_deficit_fast
+        question: { en: "Do you have facial weakness or numbness, double vision, slurred speech, severe spinning dizziness, or difficulty walking steadily?", zh_hk: "請問你有否同時出現面部無力或麻痺、重影、口齒不清、劇烈眩暈或行路不穩？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_hearing_loss_emergency
+        trigger_condition: { en: "Sudden hearing drop within 72 hours, or any facial weakness, slurred speech, double vision, or inability to walk steadily", zh_hk: "72小時內突發聽力下降，或伴隨面癱、口齒不清、重影或行路不穩" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency care if hearing loss or dizziness is accompanied by facial droop, double vision, slurred speech, or trouble walking. For sudden one-sided hearing loss without other symptoms, see a doctor urgently within 24-48 hours."
+          zh_hk: "如聽力下降或耳鳴伴隨面部歪斜、重影、口齒不清或行路不穩，請立即前往急症室。若單側聽力於數日內突然驟降，請於24至48小時內盡快求醫評估。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: frame:neck_lump
+    rfe_concept_id: rfe:neck_lump
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_reactive_urti, concept_id: cond:urti, prevalence_note: "Reactive tender mobile cervical lymphadenopathy (<2cm, resolving within 2-3 weeks)" }
+        - { id: p_pharyngitis, concept_id: cond:acute_pharyngitis, key_discriminators: ["acute tender jugulodigastric node with sore throat/tonsillitis"] }
+        - { id: p_thyroid, concept_id: cond:hypothyroidism, key_discriminators: ["anterior midline/paramedian mass moving on swallowing (thyroid nodule/goitre)"] }
+      serious_not_to_be_missed:
+        - { id: s_npc, concept_id: cond:npc, key_discriminators: ["painless firm upper posterior cervical node +/- unilateral OME or blood-stained nasal discharge (high HK prevalence)"] }
+        - { id: s_malignancy, concept_id: cond:malignancy_occult, key_discriminators: ["lymphoma (rubbery nodes + B-symptoms), H&N SCC (age >=40, smoker/alcohol, hoarseness/dysphagia), thyroid cancer, supraclavicular Virchow's node"] }
+        - { id: s_tb_scrofula, concept_id: cond:pulmonary_tb, key_discriminators: ["subacute matted/fluctuant painless cervical node (TB lymphadenitis — common in HK/migrants)"] }
+        - { id: s_deep_neck_sepsis, concept_id: cond:sepsis, key_discriminators: ["rapidly enlarging hot tender neck swelling + fever/trismus/stridor/drooling (deep neck abscess)"] }
+      pitfalls_often_missed:
+        - { id: o_hiv, concept_id: cond:hiv, key_discriminators: ["persistent generalised lymphadenopathy / HIV seroconversion"] }
+        - { id: o_hyperthyroid, concept_id: cond:hyperthyroidism, key_discriminators: ["toxic thyroid nodule — check TSH before thyroid ultrasound/nuclear scan"] }
+      masquerades:
+        - { id: mq_malignancy, tier: secondary, masquerade: malignancy, concept_id: cond:malignancy_occult, clue_prompt: { en: "Any persistent painless firm/fixed cervical or supraclavicular lump >2-3w in an adult >=40y requires ENT nasoendoscopy + US/FNA." } }
+        - { id: mq_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hypothyroidism, clue_prompt: { en: "Check movement on swallowing/tongue protrusion and order TSH + neck ultrasound for anterior neck masses." } }
+        - { id: mq_tb, tier: secondary, masquerade: baffling_bacterial, concept_id: cond:pulmonary_tb, clue_prompt: { en: "Consider tuberculous lymphadenitis (scrofula) in subacute matted cervical nodes; perform CXR + AFB/GeneXpert on FNA." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Directly explore fear of cancer (especially NPC/lymphoma/thyroid cancer) and family history of NPC or thyroid disease." }
+    positive_exclusions:
+      - id: ex_stridor_airway
+        finding_concept_id: rf:stridor_airway
+        question: { en: "Do you have noisy breathing, shortness of breath, difficulty swallowing saliva, or a rapidly growing hot neck swelling?", zh_hk: "請問你有沒有呼吸喘鳴、氣促、難以吞嚥口水，或頸部腫脹迅速變大發熱？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_hard_neck_node
+        finding_concept_id: rf:painless_hard_neck_node
+        question: { en: "Has the neck lump been present for more than 2-3 weeks, or does it feel firm/hard, painless, or located just above your collarbone?", zh_hk: "請問頸部腫塊是否已持續超過2至3星期，或摸起來質地偏硬、無痛，或位於鎖骨上方？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_dysphagia
+        finding_concept_id: rf:dysphagia_progressive
+        question: { en: "Do you have persistent hoarseness (>3 weeks), trouble swallowing food, or blood-stained saliva/nasal discharge?", zh_hk: "請問你有沒有持續聲沙（超過3星期）、吞嚥困難，或口水／鼻涕帶血絲？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_b_symptoms
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Have you experienced unexplained weight loss, drenching night sweats, or persistent unexplained fevers?", zh_hk: "請問你有沒有無故體重下降、夜間嚴重盜汗或持續不明原因發燒？" }
+        urgency_if_present: 3
+        mandatory: true
+    safety_netting:
+      - id: sn_neck_lump_airway_emergency
+        trigger_condition: { en: "Noisy breathing, shortness of breath, drooling/inability to swallow, or rapidly enlarging painful neck swelling", zh_hk: "呼吸喘鳴、氣促、流口水／無法吞嚥，或頸部腫脹迅速增大劇痛" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Go to an emergency department immediately if a neck swelling causes noisy breathing, shortness of breath, trouble swallowing, or enlarges rapidly with fever. Arrange prompt doctor review if any lump lasts more than 2-3 weeks."
+          zh_hk: "如頸部腫塊引致呼吸喘鳴、氣促、吞嚥困難或伴發燒迅速增大，請立即前往急症室。如任何頸部腫塊持續超過2至3星期未消退，請盡快求醫作詳細檢查。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: frame:neck_shoulder_pain
+    rfe_concept_id: rfe:neck_shoulder_pain
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_rotator_cuff, concept_id: cond:rotator_cuff_tendinopathy, key_discriminators: ["painful arc 60-120 deg, pain lying on shoulder, preserved passive ROM"] }
+        - { id: p_mechanical_neck, concept_id: cond:spinal_dysfunction, prevalence_note: "Mechanical cervical facet / postural myofascial strain" }
+        - { id: p_frozen_shoulder, concept_id: cond:frozen_shoulder, key_discriminators: ["progressive global restriction of BOTH active AND passive external rotation (diabetes/thyroid association)"] }
+        - { id: p_oa, concept_id: cond:osteoarthritis, key_discriminators: ["cervical spondylosis / glenohumeral or ACJ osteoarthritis"] }
+      serious_not_to_be_missed:
+        - { id: s_acs, concept_id: cond:acs, key_discriminators: ["exertional or sudden left shoulder/neck/jaw pain with sweating/dyspnoea — always exclude cardiac ischaemia"] }
+        - { id: s_radic_myelopathy, concept_id: cond:cervical_radiculopathy, key_discriminators: ["progressive arm weakness, hand clumsiness, gait ataxia, Lhermitte/Babinski (cervical myelopathy)"] }
+        - { id: s_pmr, concept_id: cond:polymyalgia_rheumatica, key_discriminators: ["age >=50, bilateral shoulder/hip girdle morning stiffness >45 min, elevated ESR/CRP — screen GCA!"] }
+        - { id: s_septic_joint, concept_id: cond:septic_arthritis, key_discriminators: ["acute hot painful glenohumeral/SC joint with fever or marked loss of all ROM"] }
+        - { id: s_malignancy, concept_id: cond:malignancy_occult, key_discriminators: ["Pancoast apical lung cancer (smoker, Horner's, C8-T1 pain) or bony metastasis (relentless night pain)"] }
+      pitfalls_often_missed:
+        - { id: o_gca, concept_id: cond:gca, key_discriminators: ["co-existing temporal headache, jaw claudication, or visual change in PMR"] }
+        - { id: o_axspa, concept_id: cond:ankylosing_spondylitis, key_discriminators: ["inflammatory neck/back stiffness improving with exercise in adult <45y"] }
+        - { id: o_zoster, concept_id: cond:herpes_zoster, key_discriminators: ["pre-eruptive burning dermatomal shoulder/arm pain before vesicles"] }
+      masquerades:
+        - { id: mq_spine, tier: primary, masquerade: spinal_dysfunction, concept_id: cond:spinal_dysfunction, clue_prompt: { en: "Differentiate intrinsic shoulder pathology (rotator cuff/frozen shoulder) from referred C5-C8 cervical radiculopathy." } }
+        - { id: mq_malignancy, tier: secondary, masquerade: malignancy, concept_id: cond:malignancy_occult, clue_prompt: { en: "Consider Pancoast tumour or bony metastasis in smokers/prior cancer with progressive night pain or weight loss." } }
+        - { id: mq_ctd, tier: secondary, masquerade: connective_tissue, concept_id: cond:connective_tissue_disease, clue_prompt: { en: "Screen bilateral shoulder/pelvic girdle morning stiffness (PMR) in adults >=50y and check CRP/ESR." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore occupational ergonomic strain, sleep disruption, fear of permanent nerve damage, and expectations for imaging vs physiotherapy." }
+    positive_exclusions:
+      - id: ex_cardiac_cp
+        finding_concept_id: rf:chest_pain_cardiac
+        question: { en: "Is the neck or shoulder pain associated with chest tightness, shortness of breath, sweating, nausea, or triggered by walking uphill?", zh_hk: "請問頸痛或肩膊痛有否伴隨胸悶、氣促、冒冷汗、噁心，或於步行／活動時加劇？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_focal_myelopathy
+        finding_concept_id: rf:focal_neuro_deficit_fast
+        question: { en: "Have you noticed new weakness in your arm or hand, clumsiness doing up buttons, unsteady walking, or loss of bladder/bowel control?", zh_hk: "請問你有否出現手臂或手掌無力、手指不靈活（如扣鈕困難）、行路不穩或大小便控制異常？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_gca_pmr
+        finding_concept_id: rf:jaw_claudication_temporal_pain
+        question: { en: "Do you have new temple headaches, jaw pain when chewing, scalp tenderness, or any blurred/double vision?", zh_hk: "請問你有否同時出現新發太陽穴頭痛、咀嚼時下顎痠痛、頭皮觸痛或視力模糊／重影？" }
+        urgency_if_present: 3
+        mandatory: true
+        when: { fact: age_years, op: ge, value: 50 }
+      - id: ex_hot_joint
+        finding_concept_id: rf:hot_swollen_single_joint
+        question: { en: "Is your shoulder joint hot, red, and severely painful to move at all, or accompanied by fever?", zh_hk: "請問肩關節有沒有明顯發熱紅腫、完全痛到無法活動，或伴隨發燒？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_neck_shoulder_emergency
+        trigger_condition: { en: "Chest pain/tightness or shortness of breath, progressive arm/leg weakness, unsteady walking, fever with stiff neck, or new visual changes", zh_hk: "胸痛胸悶、氣促、手腳無力加劇、行路不穩、發燒頸梗或視力異常" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency medical care if neck or shoulder pain comes with chest tightness, shortness of breath, sweating, progressive arm/leg weakness, unsteady walking, high fever with neck stiffness, or vision changes."
+          zh_hk: "如頸肩痛伴隨胸口壓迫、氣促、冒冷汗、手腳無力加劇、行路不穩、高燒頸梗或視力異常，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: frame:skin_lesion_mole_change
+    rfe_concept_id: rfe:skin_lesion_mole_change
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_seb_keratosis, concept_id: cond:seborrhoeic_keratosis, key_discriminators: ["well-demarcated stuck-on waxy plaque, milia-like cysts/comedo openings on dermoscopy"] }
+        - { id: p_bcc, concept_id: cond:basal_cell_carcinoma, key_discriminators: ["pearly rolled edge, arborising telangiectasia, central ulceration on sun-exposed skin"] }
+        - { id: p_tinea, concept_id: cond:tinea_fungal, key_discriminators: ["annular scaly active border with central clearing"] }
+      serious_not_to_be_missed:
+        - { id: s_melanoma, concept_id: cond:melanoma, key_discriminators: ["ABCDE changing pigmented lesion, ugly-duckling sign, firm growing nodule (EFG), or acral/subungual band (high East Asian proportion)"] }
+        - { id: s_scc, concept_id: cond:squamous_cell_carcinoma, key_discriminators: ["rapidly enlarging tender hyperkeratotic/ulcerated nodule (high metastasis risk on ear/lip/immunosuppressed)"] }
+        - { id: s_sjs_ten, concept_id: cond:sjs_ten_scar, key_discriminators: ["acute painful dusky blistering/peeling lesions with mucosal erosions after new medication"] }
+      pitfalls_often_missed:
+        - { id: o_psoriasis_bowen, concept_id: cond:psoriasis, key_discriminators: ["solitary persistent scaly plaque failing topical steroid -> exclude Bowen's disease (SCC in situ) or superficial BCC"] }
+        - { id: o_impetigo, concept_id: cond:impetigo, key_discriminators: ["crusted non-healing 'sore' mistaken for impetigo/eczema -> exclude ulcerated SCC/BCC"] }
+      masquerades:
+        - { id: mq_malignancy, tier: secondary, masquerade: malignancy, concept_id: cond:malignancy_occult, clue_prompt: { en: "Examine palms, soles, nail units (acral lentiginous melanoma in HK/Asian patients), and sun-exposed head/neck/trunk (high UV AU) with dermoscopy." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Review immunosuppressive therapy (elevated SCC risk), photosensitising drugs, and new medications within 8 weeks if blistering." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore fear of skin cancer, sun exposure/occupational history, family melanoma history, and cosmetic expectations prior to excision." }
+    positive_exclusions:
+      - id: ex_abcde_lesion
+        finding_concept_id: rf:abcde_changing_pigmented_lesion
+        question: { en: "Has a mole, dark spot, palm/sole mark, or nail streak changed in size, shape, or colour, or started bleeding, crusting, or itching?", zh_hk: "請問黑痣、皮膚斑點、手掌腳底黑斑或指甲黑線有沒有變大、形狀不規則、變色，或出現流血、結痂或痕癢？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_sjs_mucosal
+        finding_concept_id: rf:sjs_ten_mucosal_blistering
+        question: { en: "Do you have painful skin blisters or peeling along with fever or sores in your mouth, eyes, or genital area after starting a medicine?", zh_hk: "請問你服藥後有沒有出現疼痛的皮膚水泡、脫皮，並伴隨發燒或口腔、眼睛、生殖器潰爛？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_systemic_weight_loss
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Have you noticed any new firm lumps in your armpits, groin, or neck, or unexplained weight loss?", zh_hk: "請問你有沒有察覺腋下、腹股溝或頸部出現硬塊，或無故體重下降？" }
+        urgency_if_present: 3
+        mandatory: false
+    safety_netting:
+      - id: sn_skin_lesion_scar_emergency
+        trigger_condition: { en: "Rapidly spreading painful blistering/peeling skin or mouth/eye sores with fever", zh_hk: "迅速蔓延之痛性水泡／脫皮，或伴發燒及口腔／眼部潰爛" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Go to an emergency department immediately if a skin lesion progresses to painful blistering, peeling, or mouth/eye sores with fever. For any changing, growing, or non-healing spot or mole (>4 weeks), arrange a prompt in-person skin check."
+          zh_hk: "如皮膚病變迅速演變為痛性水泡、脫皮或伴隨發燒及口腔／眼部潰爛，請立即前往急症室。任何持續變化、增大或超過4星期未癒合的斑點或黑痣，請盡快安排面診皮膚檢查。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: frame:numbness_tingling_weakness
+    rfe_concept_id: rfe:numbness_tingling_weakness
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_cts, concept_id: cond:carpal_tunnel_syndrome, key_discriminators: ["nocturnal palmar thumb-index-middle finger paraesthesiae relieved by shaking hand"] }
+        - { id: p_peripheral_neuropathy, concept_id: cond:peripheral_neuropathy, key_discriminators: ["chronic length-dependent distal symmetric stocking-glove numbness/burning (diabetes/B12/alcohol)"] }
+        - { id: p_cerv_radic, concept_id: cond:cervical_radiculopathy, key_discriminators: ["unilateral dermatomal neck-to-arm shooting pain/paraesthesiae"] }
+      serious_not_to_be_missed:
+        - { id: s_stroke, concept_id: cond:stroke_tia, key_discriminators: ["acute onset unilateral limb weakness/numbness, facial droop, dysarthria, visual field loss (FAST)"] }
+        - { id: s_gbs, concept_id: cond:guillain_barre_syndrome, key_discriminators: ["rapidly progressive ascending symmetrical limb weakness + areflexia +/- bulbar/respiratory involvement"] }
+        - { id: s_cauda_equina, concept_id: cond:cauda_equina, key_discriminators: ["saddle anaesthesia, urinary retention/incontinence, faecal incontinence, bilateral leg weakness"] }
+        - { id: s_cord_compression, concept_id: cond:malignancy_occult, key_discriminators: ["sensory level, hyperreflexia/upgoing plantars, gait spasticity, cancer history (acute spinal cord compression)"] }
+      pitfalls_often_missed:
+        - { id: o_b12_deficiency, concept_id: cond:b12_deficiency, key_discriminators: ["subacute combined degeneration — dorsal column vibration/proprioception loss (check B12 in metformin/PPI/vegan patients)"] }
+        - { id: o_diabetes, concept_id: cond:t2dm, key_discriminators: ["undiagnosed T2DM presenting with painful feet neuropathy — check HbA1c"] }
+        - { id: o_hypothyroid, concept_id: cond:hypothyroidism, key_discriminators: ["hypothyroidism causing bilateral carpal tunnel syndrome"] }
+        - { id: o_trigeminal, concept_id: cond:trigeminal_neuralgia, key_discriminators: ["brief electric-shock unilateral facial pain triggered by chewing/light touch"] }
+      masquerades:
+        - { id: mq_diabetes, tier: primary, masquerade: diabetes, concept_id: cond:t2dm, clue_prompt: { en: "Order HbA1c/fasting glucose, Vitamin B12, TSH, FBC, eGFR, and serum protein electrophoresis in symmetric polyneuropathy." } }
+        - { id: mq_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hypothyroidism, clue_prompt: { en: "Screen TSH in bilateral carpal tunnel syndrome or proximal myopathy." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Review neurotoxic/B12-depleting agents: metformin, metronidazole, nitrofurantoin, isoniazid, amiodarone, chemotherapy, excess alcohol/B6." } }
+        - { id: mq_neuro, tier: secondary, masquerade: neurological_dilemma, concept_id: cond:neurological_dilemma, clue_prompt: { en: "Distinguish UMN (stroke/cord/MS) vs LMN/peripheral vs neuromuscular junction (myasthenia) by reflex, tone, and distribution exam." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore fear of stroke, multiple sclerosis, or paralysis, falls risk at home, and impact on work/driving." }
+    positive_exclusions:
+      - id: ex_focal_stroke
+        finding_concept_id: rf:focal_neuro_deficit_fast
+        question: { en: "Did the weakness or numbness start suddenly on one side, or come with facial drooping, slurred speech, or vision loss?", zh_hk: "請問無力或麻痺是否突然單側發作，或伴隨面部歪斜、口齒不清或視力喪失？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_ascending_gbs
+        finding_concept_id: rf:ascending_weakness_gbs
+        question: { en: "Is weakness rapidly worsening and spreading up both legs or arms, or are you having any trouble breathing or swallowing?", zh_hk: "請問無力是否從雙腳迅速向上蔓延至雙手，或出現任何呼吸／吞嚥困難？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_cauda_equina
+        finding_concept_id: rf:cauda_equina_signs
+        question: { en: "Do you have numbness around your groin/buttocks, difficulty passing urine, or loss of bladder or bowel control?", zh_hk: "請問你有否感到會陰或臀部麻痺、排尿困難或大小便失禁？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_neuro_weakness_emergency
+        trigger_condition: { en: "Sudden one-sided weakness/facial droop/slurred speech, rapidly spreading leg/arm weakness, breathing/swallowing difficulty, or groin numbness/bladder-bowel loss", zh_hk: "突發單側無力／面歪／口齒不清、雙腳雙手無力迅速蔓延、呼吸吞嚥困難，或會陰麻痺／大小便失禁" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Call emergency services or go to an emergency department immediately if weakness or numbness starts suddenly on one side, spreads rapidly up your legs or arms, affects breathing or swallowing, or causes groin numbness or loss of bladder/bowel control."
+          zh_hk: "如麻痺或無力突然單側出現、迅速向上蔓延、影響呼吸或吞嚥，或出現會陰麻痺／大小便失禁，請立即致電緊急救援服務或前往急症室。"
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+# ===========================================================================
+# OBSERVATION RULES (5) — 3 New Autoimmune/Endocrine + 2 Existing Core Obs Rules
+# ===========================================================================
+observation_rules:
+  - id: obs_rule:rheumatoid_factor
+    observation_concept_id: obs:rheumatoid_factor
+    canonical_ucum: "U/mL"
+    display_ucum: "U/mL"
+    reference_intervals:
+      - { id: ri_adult_default, low: null, high: 14.0, priority: 0, source_note: "Assay-dependent ULN (~14-20 U/mL or IU/mL); >3x ULN (>45 U/mL) carries higher RA specificity" }
+    severity_bands:
+      significant: { ge: 14.0 }
+      urgent: { ge: 45.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "positive rheumatoid factor (RF)", zh_hk: "類風濕因子 (RF) 呈陽性" }
+        plan_template:
+          en: "Correlate strictly with clinical inflammatory synovitis (small joint swelling, morning stiffness >60 min). Order anti-CCP, CRP, ESR, CBC, LFT, RFT; note false positives in chronic HCV/HBV, Sjogren's, SLE, and 5-10% of healthy older adults; arrange early rheumatology referral if inflammatory arthritis present."
+          zh_hk: "須結合臨床關節滑膜炎徵象（小關節腫痛、晨僵 >60分鐘）判讀；建議加驗 Anti-CCP、CRP、ESR、全血計數及肝腎功能；留意慢性丙肝／乙肝、乾燥症及部分健康長者可呈假陽性，確診發炎性關節炎宜盡早轉介風濕病科。"
+        relevant_med_class_ids: ["drug_class:dmard", "drug_class:nsaid"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: obs_rule:ana_screen
+    observation_concept_id: obs:ana_screen
+    canonical_ucum: "{Ordinal}"
+    display_ucum: "{Ordinal}"
+    reference_intervals: []
+    severity_bands:
+      significant: { ge: 1.0 }
+    direction_templates:
+      positive:
+        working_problem: { en: "positive antinuclear antibody (ANA) screen", zh_hk: "抗核抗體 (ANA) 篩查呈陽性" }
+        plan_template:
+          en: "Interpret strictly by titre (>=1:160 more clinically significant), staining pattern, and connective tissue features (photosensitive/malar rash, oral ulcers, synovitis, serositis, cytopenias, proteinuria/haematuria). Low-titre ANA occurs in 10-15% of healthy individuals — order ENA panel, anti-dsDNA, C3/C4, CBC, RFT, and urine ACR/microscopy ONLY when clinical CTD suspicion exists."
+          zh_hk: "須按滴度（>=1:160 臨床意義較高）、螢光形態及臨床結締組織病徵象（蝴蝶斑、口腔潰瘍、關節炎、血細胞減少、蛋白尿）判讀；約10至15%健康人士可呈低滴度假陽性，僅於臨床懷疑時加驗 ENA、anti-dsDNA、補體 C3/C4、腎功能及尿蛋白。"
+        relevant_med_class_ids: ["drug_class:dmard"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: obs_rule:tpo_antibody
+    observation_concept_id: obs:tpo_antibody
+    canonical_ucum: "U/mL"
+    display_ucum: "U/mL"
+    reference_intervals:
+      - { id: ri_adult_default, low: null, high: 34.0, priority: 0, source_note: "Assay-dependent ULN (~34-35 U/mL or IU/mL)" }
+    severity_bands:
+      significant: { ge: 35.0 }
+      urgent: { ge: 100.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "positive anti-TPO antibody (autoimmune thyroiditis)", zh_hk: "抗甲狀腺過氧化物酶抗體陽性（自身免疫性甲狀腺炎）" }
+        plan_template:
+          en: "Indicates autoimmune thyroiditis (Hashimoto's predisposition; ~4%/yr progression from subclinical to overt hypothyroidism and elevated postpartum thyroiditis risk). Pair with TSH and Free T4 (lower levothyroxine initiation threshold in pregnancy/pre-conception); do NOT repeat anti-TPO serially once positive."
+          zh_hk: "提示自身免疫性甲狀腺炎（橋本氏病傾向，亞臨床甲減演變為明顯甲減及產後甲狀腺炎風險較高）；須結合 TSH 及游離 T4 評估（懷孕或備孕期治療門檻較低），陽性確診後毋須重複覆檢抗體。"
+        relevant_med_class_ids: ["drug_class:thyroid_hormone", "drug_class:antithyroid"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: obs_rule:hba2_hplc
+    observation_concept_id: obs:hba2_hplc
+    canonical_ucum: "%"
+    display_ucum: "%"
+    reference_intervals:
+      - { id: ri_adult_default, low: 2.0, high: 3.3, priority: 0, source_note: "Adult reference ~2.0-3.3%; beta-thalassaemia trait typically >=3.5%" }
+    severity_bands:
+      significant: { lt: 1.8, ge: 3.5 }
+      urgent: { gt: 4.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "elevated HbA2 (suspected beta-thalassaemia trait)", zh_hk: "HbA2 偏高（懷疑乙型地中海貧血基因攜帶者）" }
+        plan_template:
+          en: "HbA2 >=3.5% with microcytosis strongly indicates beta-thalassaemia trait. Verify ferritin/CRP (avoid unnecessary empiric oral iron when iron-replete), record carrier status permanently in problem list, and offer partner MCV/Hb pattern screening plus pre-conception/antenatal genetic counselling."
+          zh_hk: "HbA2 >=3.5% 伴小紅細胞症高度提示乙型地中海貧血基因攜帶者；核對鐵蛋白（非缺鐵者切忌胡亂補鐵），永久記錄基因攜帶狀態，並為伴侶安排 MCV／血紅素電泳篩查及產前遺傳輔導。"
+        relevant_med_class_ids: ["drug_class:haematinic"]
+      L:
+        working_problem: { en: "reduced HbA2 (concomitant iron deficiency / alpha-thalassaemia / delta variant)", zh_hk: "HbA2 偏低（須排查缺鐵掩蓋、甲型地貧或 delta 鏈變異）" }
+        plan_template:
+          en: "Severe iron deficiency can falsely lower HbA2 and mask co-existing beta-thalassaemia trait — check ferritin/CRP, replete iron if deficient, and repeat Hb pattern/HPLC once ferritin normalises. If iron-replete with persistent microcytosis and normal/low HbA2, consider alpha-thalassaemia DNA genotyping (especially prior to pregnancy)."
+          zh_hk: "嚴重缺鐵可令 HbA2 假性偏低而掩蓋同時存在的乙型地貧基因，宜先檢視鐵蛋白並於補鐵糾正後覆檢血紅素電泳；如鐵蛋白正常但持續 MCV 偏低，應考慮甲型地中海貧血 DNA 基因檢測（尤其於備孕／懷孕前）。"
+        relevant_med_class_ids: ["drug_class:haematinic"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: obs_rule:anti_ttg_iga
+    observation_concept_id: obs:anti_ttg_iga
+    canonical_ucum: "U/mL"
+    display_ucum: "U/mL"
+    reference_intervals:
+      - { id: ri_adult_default, low: null, high: 10.0, priority: 0, source_note: "Assay-dependent ULN (~7-10 U/mL); interpret with total serum IgA and adequate gluten intake (>=6 weeks)" }
+    severity_bands:
+      significant: { ge: 10.0 }
+      urgent: { ge: 100.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "positive anti-tTG IgA (suspected coeliac disease)", zh_hk: "抗組織轉穀氨酰胺酶 IgA 抗體陽性（懷疑乳糜瀉）" }
+        plan_template:
+          en: "Advise patient to CONTINUE a normal gluten-containing diet until gastroenterology referral and upper GI endoscopy with duodenal biopsies confirm coeliac disease (stopping gluten prematurely causes false-negative histology). Check total IgA, CBC, ferritin, B12, folate, Vitamin D, calcium, LFT, TSH, and bone health."
+          zh_hk: "指示病人於完成胃腸科胃鏡十二指腸活檢確診前必須繼續正常含麩質飲食（過早戒麩質會導致病理假陰性）；同步評估全血計數、鐵蛋白、維他命B12、葉酸、維他命D、血鈣、肝功能及甲狀腺功能。"
+        relevant_med_class_ids: ["drug_class:haematinic"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+# ===========================================================================
+# PATHWAY POINTERS (3) — Strict Asymmetric Authority (<= L1_propose_only)
+# ===========================================================================
+pointers:
+  - id: ptr:ophthalmic_ent_emergency_escalation
+    trigger_concepts:
+      - "rf:flashes_floaters_visual_curtain"
+      - "rf:contact_lens_painful_red_eye"
+      - "rf:sudden_hearing_loss_72h"
+      - "rf:painless_hard_neck_node"
+      - "cond:retinal_detachment"
+      - "cond:corneal_ulcer_keratitis"
+      - "cond:ssnhl"
+    trigger_edges:
+      - "edge:flashes_floaters_retinal_detachment"
+      - "edge:contact_lens_red_eye_corneal_ulcer"
+      - "edge:sudden_hearing_loss_72h_ssnhl"
+      - "edge:painless_hard_neck_node_malignancy"
+    target_kind: protocol_yaml
+    target_ref: "protocols/ophthalmic_ent_urgent_escalation_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["onset_time", "red_flags", "contact_lens_use", "jurisdiction"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: ptr:derm_scar_and_skin_cancer_pathway
+    trigger_concepts:
+      - "rf:sjs_ten_mucosal_blistering"
+      - "rf:abcde_changing_pigmented_lesion"
+      - "cond:sjs_ten_scar"
+      - "cond:basal_cell_carcinoma"
+      - "cond:squamous_cell_carcinoma"
+      - "drug:isotretinoin"
+      - "drug:terbinafine"
+    trigger_edges:
+      - "edge:sjs_ten_mucosal_blistering_emergency"
+      - "edge:abcde_changing_lesion_melanoma"
+      - "edge:isotretinoin_pregnancy_teratogen_ci"
+      - "edge:terbinafine_monitored_by_lft"
+    target_kind: journey_module
+    target_ref: "backend.journeys.dermatology_safety"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["pregnant", "planning_pregnancy", "on_meds", "red_flags", "jurisdiction"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }
+
+  - id: ptr:neuro_rheum_teratogen_and_monitoring
+    trigger_concepts:
+      - "rf:ascending_weakness_gbs"
+      - "cond:guillain_barre_syndrome"
+      - "cond:polymyalgia_rheumatica"
+      - "drug:sodium_valproate"
+      - "drug:hydroxychloroquine"
+      - "drug:pregabalin"
+      - "drug:amitriptyline"
+      - "drug:febuxostat"
+    trigger_edges:
+      - "edge:ascending_weakness_gbs_emergency"
+      - "edge:sodium_valproate_pregnancy_teratogen_ci"
+      - "edge:hydroxychloroquine_retinal_monitoring"
+      - "edge:amitriptyline_elderly_stopp_anticholinergic"
+      - "edge:pregabalin_opioid_respiratory_depression"
+      - "edge:febuxostat_ihd_cvd_caution"
+    trigger_observations:
+      - "obs_rule:rheumatoid_factor"
+      - "obs_rule:ana_screen"
+      - "obs_rule:tpo_antibody"
+      - "obs_rule:hba2_hplc"
+      - "obs_rule:anti_ttg_iga"
+    target_kind: engine_family
+    target_ref: "drug_monitoring"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "pregnant", "planning_pregnancy", "egfr_ml_min", "on_meds", "obs_values", "jurisdiction"]
+    provenance: { author: "ontology_pod_w2_2", review_status: "draft" }

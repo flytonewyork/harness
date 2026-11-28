@@ -1,0 +1,363 @@
+# Wave 2 Cross-Wave Clinical Safety Edges (HK + AU Shared Universal Core)
+# Links Wave 2 drugs/conditions with Wave 0/1 high-risk medications, renal/hepatic gates,
+# pregnancy/paediatric contraindications, QTc prolongation, and serotonin/respiratory toxicity.
+
+edges:
+  - id: edge:ciprofloxacin_warfarin_inr_spike
+    source_id: drug_class:fluoroquinolone
+    target_id: drug:warfarin
+    relation: INTERACTS_WITH
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    when:
+      all:
+        - { fact: has_concept, op: is_a, value: drug_class:fluoroquinolone }
+        - { fact: has_concept, op: is_a, value: drug:warfarin }
+    clinician_rationale:
+      en: "Fluoroquinolones (ciprofloxacin) markedly elevate warfarin INR via CYP1A2 inhibition and gut flora vitamin K reduction, causing major haemorrhage."
+      zh_hk: "氟喹諾酮類（如環丙沙星）與華法林併用可令 INR 急劇飆升並引致嚴重出血。"
+    clinician_action_prompt:
+      en: "Avoid ciprofloxacin in warfarinised patients where safe alternatives exist; if unavoidable, arrange repeat INR within 3-5 days and adjust warfarin proactively."
+      zh_hk: "如可行應改用其他合適抗生素；若必須併用須於3至5天內覆檢 INR 並主動調整華法林劑量。"
+    patient_safety_net:
+      en: "Report unusual bruising, nosebleeds, dark/tarry stools, pink/red urine, or bleeding gums urgently."
+      zh_hk: "如出現異常瘀傷、流鼻血、黑便、血尿或牙齦出血，請盡快求醫。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "AMH / HKCFP"
+          citation: "Anticoagulant-antimicrobial interaction safety guidance"
+          year: 2025
+
+  - id: edge:ciprofloxacin_pregnancy_paed_ci
+    source_id: drug_class:fluoroquinolone
+    target_id: cond:pregnancy_normal
+    relation: CONTRAINDICATED_IN
+    severity: hard_block
+    urgency_floor: 3
+    when:
+      all:
+        - { fact: has_concept, op: is_a, value: drug_class:fluoroquinolone }
+        - any:
+            - { fact: pregnant, op: eq, value: true }
+            - { fact: has_concept, op: is_a, value: cond:pregnancy_normal }
+            - { fact: age_years, op: lt, value: 18 }
+    clinician_rationale:
+      en: "Fluoroquinolones carry arthropathy/cartilage toxicity risk in children/adolescents (<18y) and are avoided in pregnancy unless no safe specialist-directed alternative exists."
+      zh_hk: "氟喹諾酮類對未滿18歲兒童／青少年及孕婦有軟骨及肌腱毒性風險，除非無替代方案並經專科指示否則應禁用。"
+    clinician_action_prompt:
+      en: "Do not prescribe fluoroquinolones in pregnancy or age <18y in routine primary care; select a pregnancy/paediatric-safe alternative (e.g. beta-lactam)."
+      zh_hk: "基層醫療切勿為孕婦或18歲以下兒童處方氟喹諾酮，請改用合適安全抗生素。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "eTG / CHP IMPACT"
+          citation: "Antimicrobial prescribing in pregnancy and paediatrics"
+          year: 2025
+
+  - id: edge:cotrimoxazole_pregnancy_ci
+    source_id: drug:co_trimoxazole
+    target_id: cond:pregnancy_normal
+    relation: CONTRAINDICATED_IN
+    severity: hard_block
+    urgency_floor: 3
+    when:
+      all:
+        - { fact: has_concept, op: is_a, value: drug:co_trimoxazole }
+        - any:
+            - { fact: pregnant, op: eq, value: true }
+            - { fact: has_concept, op: is_a, value: cond:pregnancy_normal }
+    clinician_rationale:
+      en: "Co-trimoxazole (trimethoprim-sulfamethoxazole) causes folate-antagonist neural tube/teratogenic risk in 1st trimester and bilirubin displacement/neonatal kernicterus & G6PD haemolysis near term."
+      zh_hk: "複方新諾明於懷孕早期具葉酸拮抗致畸風險，晚期則可誘發新生兒核黃疸及溶血，懷孕期應避免使用。"
+    clinician_action_prompt:
+      en: "Avoid co-trimoxazole throughout pregnancy (especially T1 and near term); choose cefalexin or amoxicillin-clavulanate per local susceptibility."
+      zh_hk: "懷孕期間避免使用複方新諾明，按藥敏改用頭孢氨苄或阿莫西林克拉維酸。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "AMH / RANZCOG / HKCOG"
+          citation: "Antimicrobial safety in pregnancy"
+          year: 2025
+
+  - id: edge:amitriptyline_tramadol_serotonin_seizure
+    source_id: drug:amitriptyline
+    target_id: drug:tramadol
+    relation: INTERACTS_WITH
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    when:
+      all:
+        - { fact: has_concept, op: is_a, value: drug:amitriptyline }
+        - { fact: has_concept, op: is_a, value: drug:tramadol }
+    clinician_rationale:
+      en: "Concurrent TCA (amitriptyline) + tramadol causes dual risk of serotonin toxicity AND additive seizure threshold lowering plus CNS/anticholinergic sedation."
+      zh_hk: "阿米替林與曲馬多併用會雙重增加血清素中毒及誘發癲癇發作的風險，同時加劇中樞鎮靜。"
+    clinician_action_prompt:
+      en: "Avoid tramadol in patients taking amitriptyline; review neuropathic/nociceptive analgesia regimen and screen for clonus, agitation, diaphoresis, or tremor."
+      zh_hk: "避免將曲馬多與阿米替林併用；覆核止痛方案並留意抽搐、激動、大汗或震顫等症狀。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "AMH / eTG"
+          citation: "Serotonin toxicity and seizure threshold drug interactions"
+          year: 2025
+
+  - id: edge:sildenafil_alpha_blocker_hypotension
+    source_id: drug_class:pde5_inhibitor
+    target_id: drug_class:alpha_blocker
+    relation: INTERACTS_WITH
+    bidirectional: true
+    severity: high
+    urgency_floor: 2
+    when:
+      all:
+        - { fact: has_concept, op: is_a, value: drug_class:pde5_inhibitor }
+        - { fact: has_concept, op: is_a, value: drug_class:alpha_blocker }
+    clinician_rationale:
+      en: "PDE5 inhibitors (sildenafil) combined with alpha-blockers (tamsulosin) cause additive vasodilation and symptomatic orthostatic hypotension / syncope."
+      zh_hk: "PDE5 抑制劑（西地那非）與甲型受體阻滯劑（坦索羅辛）併用可致體位性低血壓及暈厥。"
+    clinician_action_prompt:
+      en: "Ensure patient is haemodynamically stable on alpha-blocker first, initiate lowest PDE5 inhibitor dose (e.g. sildenafil 25 mg), separate dosing by >=4 hours, and counsel on postural dizziness."
+      zh_hk: "確保病人對坦索羅辛血壓穩定後方從最低劑量西地那非開始，兩藥相隔至少4小時並提醒注意起身頭暈。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "AMH / BNF"
+          citation: "PDE5 inhibitor + alpha-blocker hypotension precautions"
+          year: 2025
+
+  - id: edge:haloperidol_amiodarone_qtc_torsades
+    source_id: drug:haloperidol
+    target_id: drug:amiodarone
+    relation: INTERACTS_WITH
+    bidirectional: true
+    severity: hard_block
+    urgency_floor: 4
+    when:
+      all:
+        - { fact: has_concept, op: is_a, value: drug:haloperidol }
+        - { fact: has_concept, op: is_a, value: drug:amiodarone }
+    clinician_rationale:
+      en: "Co-administration of haloperidol and amiodarone causes high-risk additive QTc prolongation and life-threatening Torsades de Pointes."
+      zh_hk: "氟哌啶醇與胺碘酮併用極易引致嚴重 QTc 延長及致命尖端扭轉型室性心動過速。"
+    clinician_action_prompt:
+      en: "Hard-block combination: avoid haloperidol in patients on amiodarone; check 12-lead ECG (QTc), K+, and Mg2+ urgently if already co-administered."
+      zh_hk: "嚴禁併用：服胺碘酮者避免使用氟哌啶醇；如已併用須立即檢查心電圖 (QTc) 及血鉀、血鎂。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "CredibleMeds / AMH"
+          citation: "Known-risk QT-prolonging drug combinations"
+          year: 2025
+
+  - id: edge:atypical_antipsychotic_amiodarone_qtc
+    source_id: drug_class:atypical_antipsychotic
+    target_id: drug:amiodarone
+    relation: INTERACTS_WITH
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    when:
+      all:
+        - { fact: has_concept, op: is_a, value: drug_class:atypical_antipsychotic }
+        - { fact: has_concept, op: is_a, value: drug:amiodarone }
+    clinician_rationale:
+      en: "Atypical antipsychotics (quetiapine, olanzapine) combined with amiodarone cause additive QTc prolongation and ventricular arrhythmia risk."
+      zh_hk: "非典型抗精神病藥（喹硫平、奧氮平）與胺碘酮併用會增加 QTc 延長及心律失常風險。"
+    clinician_action_prompt:
+      en: "Obtain baseline and follow-up 12-lead ECG (QTc), maintain K+ >4.0 mmol/L & normal Mg2+, and liaise with psychiatry/cardiology for lower-QTc alternatives."
+      zh_hk: "安排基線及覆檢心電圖 (QTc)，維持正常血鉀與血鎂，並與精神科／心臟科商討替代方案。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "AMH / RANZCP"
+          citation: "Antipsychotic QTc interaction monitoring"
+          year: 2025
+
+  - id: edge:gabapentin_opioid_respiratory_depression
+    source_id: drug:gabapentin
+    target_id: drug_class:opioid
+    relation: INTERACTS_WITH
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    when:
+      all:
+        - { fact: has_concept, op: is_a, value: drug:gabapentin }
+        - { fact: has_concept, op: is_a, value: drug_class:opioid }
+    clinician_rationale:
+      en: "Gabapentin co-prescribed with opioids significantly increases fatal CNS and respiratory depression, especially in renal impairment or older adults."
+      zh_hk: "加巴噴丁與鴉片類止痛藥併用會顯著增加致命呼吸抑制風險，長者及腎功能不全者風險更高。"
+    clinician_action_prompt:
+      en: "Avoid concurrent gabapentin + opioid where possible; check renal dose adjustment (eGFR), review controlled-drug dispensing history, and counsel overdose/sedation warning signs."
+      zh_hk: "盡量避免加巴噴丁與鴉片類併用；核對腎功能劑量調整並提醒過度嗜睡及呼吸緩慢警訊。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "TGA / FDA / HK DH"
+          citation: "Gabapentinoid and opioid respiratory depression safety alert"
+          year: 2024
+
+  - id: edge:snri_bipolar_mania_switch
+    source_id: drug_class:snri
+    target_id: cond:bipolar_disorder
+    relation: CONTRAINDICATED_IN
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "SNRIs (especially venlafaxine) carry an even higher risk than SSRIs of precipitating affective switch to mania/hypomania, rapid cycling, and mixed agitation in bipolar disorder."
+      zh_hk: "SNRI 類抗抑鬱藥（尤以文拉法辛為甚）於躁鬱症患者誘發躁狂轉相及快速循環的風險高於 SSRI，應避免單獨處方。"
+    clinician_action_prompt:
+      en: "Avoid unopposed SNRI therapy in confirmed or suspected bipolar disorder; review mood stabiliser/antipsychotic cover and liaise urgently with psychiatry."
+      zh_hk: "避免於躁鬱症處方單獨 SNRI；核對情緒穩定劑覆蓋並諮詢精神科。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "RANZCP / CANMAT"
+          citation: "Bipolar mood disorders antidepressant switch precautions"
+          year: 2025
+
+  - id: edge:sodium_valproate_monitored_by_lft
+    source_id: drug:sodium_valproate
+    target_id: panel:lft
+    relation: MONITORED_BY
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 30
+      repeat_interval_days: 180
+      grace_days: 14
+      applies_on: both
+    when:
+      fact: has_concept
+      op: is_a
+      value: drug:sodium_valproate
+    clinician_rationale:
+      en: "Sodium valproate carries idiosyncratic hepatotoxicity and hyperammonaemic encephalopathy risk (highest in first 6 months and young children); baseline and early LFT + FBC monitoring is required."
+      zh_hk: "丙戊酸鈉具肝毒性及高血氨腦病風險（首6個月風險最高），須檢驗基線及定期肝功能與血常規。"
+    clinician_action_prompt:
+      en: "Verify baseline LFT and FBC (platelets) and repeat within first 6 months or urgently if lethargy, vomiting, jaundice, or unexplained confusion develops (check serum ammonia)."
+      zh_hk: "核實基線肝功能及血小板，並於首6個月或出現嗜睡、嘔吐、黃疸或神志混亂時立即覆檢肝功能及血氨。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "AMH / NICE"
+          citation: "Valproate laboratory safety monitoring"
+          year: 2025
+
+  - id: edge:tenofovir_monitored_by_rft
+    source_id: drug:tenofovir_emtricitabine
+    target_id: panel:rft
+    relation: MONITORED_BY
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 90
+      repeat_interval_days: 90
+      grace_days: 14
+      applies_on: both
+    when:
+      fact: has_concept
+      op: is_a
+      value: drug:tenofovir_emtricitabine
+    clinician_rationale:
+      en: "Tenofovir disoproxil fumarate (TDF/FTC) can cause proximal renal tubulopathy and progressive eGFR decline; avoid initiating if eGFR <60 mL/min and monitor RFT/eGFR regularly."
+      zh_hk: "替諾福韋／恩曲他濱 (TDF/FTC) 可致腎小管病變及 eGFR 下降；eGFR <60 避免使用並須定期監察腎功能。"
+    clinician_action_prompt:
+      en: "Verify baseline eGFR >=60 mL/min before starting TDF/FTC PrEP and recheck RFT/eGFR every 3-6 months alongside 4th-gen HIV Ag/Ab and STI panel."
+      zh_hk: "啟動 PrEP 前確認 eGFR >=60，並每3至6個月覆檢腎功能、HIV 抗原抗體及性病篩查。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "ASHM / HK CHP SPP"
+          citation: "HIV PrEP renal and STI monitoring guidelines"
+          year: 2025
+
+  - id: edge:entecavir_renal_dose_adjust
+    source_id: drug:entecavir
+    target_id: obs:egfr
+    relation: MONITORED_BY
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 14
+      repeat_interval_days: 180
+      grace_days: 14
+      applies_on: both
+    when:
+      all:
+        - { fact: has_concept, op: is_a, value: drug:entecavir }
+        - { fact: egfr_ml_min, op: lt, value: 50 }
+    clinician_rationale:
+      en: "Entecavir is predominantly renally excreted; CrCl/eGFR <50 mL/min requires dosing-interval extension (q48h-q72h) to avoid accumulation and lactic acidosis — NEVER stop abruptly."
+      zh_hk: "恩替卡韋主要經腎臟排泄，eGFR <50 須延長服藥間隔（如隔日服用），惟切勿自行停藥以防乙肝反彈。"
+    clinician_action_prompt:
+      en: "Adjust entecavir dosing interval for eGFR <50 mL/min in consultation with hepatology while ensuring uninterrupted antiviral supply."
+      zh_hk: "與肝臟科協調按 eGFR 調整恩替卡韋服藥間隔，同時確保藥物供應不間斷。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "GESA / HKASL"
+          citation: "Chronic HBV antiviral renal dosing guidance"
+          year: 2025
+
+  - id: edge:oral_steroid_t2dm_hyperglycaemia
+    source_id: drug_class:oral_corticosteroid
+    target_id: cond:t2dm
+    relation: EXPLAINS_OR_CAUSES
+    severity: high
+    urgency_floor: 2
+    when:
+      all:
+        - { fact: has_concept, op: is_a, value: drug_class:oral_corticosteroid }
+        - any:
+            - { fact: has_concept, op: is_a, value: cond:t2dm }
+            - { fact: has_concept, op: is_a, value: cond:t1dm }
+    clinician_rationale:
+      en: "Systemic corticosteroids (prednisolone, dexamethasone) induce marked insulin resistance and afternoon/post-prandial hyperglycaemia, risking HHS in T2DM or DKA in T1DM."
+      zh_hk: "口服類固醇（強的松龍、地塞米松）會顯著增加胰島素阻抗及午後高血糖，一型及二型糖尿病患者均須嚴密監察以防酮酸中毒或高滲性危象。"
+    clinician_action_prompt:
+      en: "Advise increased afternoon/evening capillary BGL monitoring (plus ketone check in T1DM) during systemic steroid therapy, set clear escalation thresholds (BGL >=15 mmol/L or ketosis/vomiting), and plan temporary regimen adjustment."
+      zh_hk: "囑咐患者於服類固醇期間加強午後及晚間篤手指驗血糖（一型糖尿加驗血酮），訂明高血糖求助門檻並評估調藥需要。"
+    patient_safety_net:
+      en: "Check blood sugars more frequently while taking steroid tablets; seek urgent medical care if readings stay persistently high (>=15 mmol/L) or if you feel very thirsty, nauseous, vomiting, or drowsy."
+      zh_hk: "服用類固醇期間請增加量度血糖次數；如血糖持續偏高 (>=15 mmol/L) 或出現極度口渴、噁心嘔吐或昏沉，請立即求醫。"
+    provenance:
+      author: "ontology_pod_w2_integrator"
+      review_status: "draft"
+      jurisdiction_scope: "core"
+      guideline_refs:
+        - authority: "RACGP / HK PHCC"
+          citation: "Steroid-induced hyperglycaemia management in primary care"
+          year: 2025

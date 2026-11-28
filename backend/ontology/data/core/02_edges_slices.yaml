@@ -1,0 +1,465 @@
+# Wave 0 + Gold-Standard Vertical Slices 1–3: Deterministic Clinical Edges
+# Edges inherit automatically down the IS_A DAG (e.g. drug_class:raas_agent -> drug:perindopril).
+
+edges:
+  # =========================================================================
+  # SLICE 1: CARDIOMETABOLIC & MEDICATION SAFETY
+  # =========================================================================
+  - id: edge:raas_monitored_by_rft
+    source_id: drug_class:raas_agent
+    relation: MONITORED_BY
+    target_id: panel:rft
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 14
+      repeat_interval_days: 365
+      grace_days: 14
+      applies_on: both
+    clinician_rationale:
+      en: "ACEi/ARB initiation requires serum creatinine, eGFR, and potassium check within 1-2 weeks, and annually on maintenance."
+    clinician_action_prompt:
+      en: "Order or verify RFT/UEC (Cr, eGFR, K+); review if Cr rises >30% or K+ >=5.5 mmol/L."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:diuretic_monitored_by_rft
+    source_id: drug_class:diuretic
+    relation: MONITORED_BY
+    target_id: panel:rft
+    severity: moderate
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 28
+      repeat_interval_days: 365
+      grace_days: 14
+      applies_on: both
+    clinician_rationale:
+      en: "Diuretics require sodium, potassium, and creatinine monitoring within 4 weeks of starting and annually."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:warfarin_monitored_by_inr
+    source_id: drug:warfarin
+    relation: MONITORED_BY
+    target_id: obs:inr
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 7
+      repeat_interval_days: 42
+      grace_days: 7
+      applies_on: both
+    clinician_rationale:
+      en: "Warfarin requires INR within 7 days of initiation/change and at least every 6 weeks when stable."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:doac_monitored_by_rft
+    source_id: drug_class:doac
+    relation: MONITORED_BY
+    target_id: panel:rft
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      repeat_interval_days: 365
+      grace_days: 14
+      applies_on: repeat
+    clinician_rationale:
+      en: "DOACs require at least annual renal function (Cr/eGFR) check (more frequent if eGFR <60 or age >=75)."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:metformin_monitored_by_rft
+    source_id: drug:metformin
+    relation: MONITORED_BY
+    target_id: panel:rft
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      repeat_interval_days: 365
+      grace_days: 14
+      applies_on: repeat
+    clinician_rationale:
+      en: "Metformin requires annual eGFR review (every 3-6 months if eGFR 30-44) plus periodic Vitamin B12 if >3-4 years."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:statin_monitored_by_lft
+    source_id: drug_class:statin
+    relation: MONITORED_BY
+    target_id: panel:lft
+    severity: moderate
+    urgency_floor: 1
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 90
+      repeat_interval_days: 450
+      grace_days: 14
+      applies_on: both
+    clinician_rationale:
+      en: "Statins require baseline and ~3-month liver enzyme (ALT) check after initiation."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:methotrexate_monitored_by_cbc
+    source_id: drug:methotrexate
+    relation: MONITORED_BY
+    target_id: panel:cbc
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 14
+      repeat_interval_days: 90
+      grace_days: 7
+      applies_on: both
+    clinician_rationale:
+      en: "Methotrexate requires CBC every 2 weeks initially (myelosuppression risk) alongside LFT."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:methotrexate_monitored_by_lft
+    source_id: drug:methotrexate
+    relation: MONITORED_BY
+    target_id: panel:lft
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 14
+      repeat_interval_days: 90
+      grace_days: 7
+      applies_on: both
+    clinician_rationale:
+      en: "Methotrexate requires LFT (ALT) every 2 weeks initially (hepatotoxicity risk) alongside CBC."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:triple_whammy_aki
+    source_id: drug_class:raas_agent
+    relation: INTERACTS_WITH
+    target_id: drug_class:nsaid
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    when:
+      fact: on_med
+      op: is_a
+      value: drug_class:diuretic
+    clinician_rationale:
+      en: "Triple Whammy (ACEi/ARB + Diuretic + NSAID): high risk of acute prerenal kidney injury."
+    clinician_action_prompt:
+      en: "Avoid systemic NSAID; propose paracetamol or topical alternative; check eGFR/K+ within 7 days if unavoidable."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:dual_raas_blockade
+    source_id: drug_class:ace_inhibitor
+    relation: INTERACTS_WITH
+    target_id: drug_class:arb
+    bidirectional: true
+    severity: hard_block
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Dual RAAS blockade (ACEi + ARB) increases hyperkalaemia, hypotension, and AKI without mortality benefit."
+    clinician_action_prompt:
+      en: "Block concurrent ACEi + ARB; clarify intended single agent with prescriber."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:raas_pregnancy_ci
+    source_id: drug_class:raas_agent
+    relation: CONTRAINDICATED_IN
+    target_id: cond:hypertension
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: pregnant, op: eq, value: true }
+        - { fact: planning_pregnancy, op: eq, value: true }
+    clinician_rationale:
+      en: "ACEi and ARBs are teratogenic (fetal renal dysplasia, oligohydramnios) in pregnancy / planning pregnancy."
+    clinician_action_prompt:
+      en: "Flag urgently for doctor to switch to pregnancy-safe antihypertensive (labetalol, nifedipine MR, or methyldopa)."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:metformin_renal_gate
+    source_id: drug:metformin
+    relation: CONTRAINDICATED_IN
+    target_id: cond:ckd
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      fact: egfr_ml_min
+      op: lt
+      value: 30
+    clinician_rationale:
+      en: "Metformin is contraindicated when eGFR < 30 mL/min/1.73m2 due to metformin-associated lactic acidosis (MALA) risk."
+    clinician_action_prompt:
+      en: "Escalate immediately for doctor to stop metformin and review alternative glycaemic therapy."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:sglt2_sick_day_edka
+    source_id: drug_class:sglt2_inhibitor
+    relation: RED_FLAG_FOR
+    target_id: cond:t2dm
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: acute_dehydrating_illness, op: eq, value: true }
+        - { fact: planned_surgery_within_72h, op: eq, value: true }
+    clinician_rationale:
+      en: "SGLT2 inhibitor during acute dehydrating illness or peri-operatively carries risk of euglycaemic DKA (even with normal glucose)."
+    clinician_action_prompt:
+      en: "Flag for sick-day hold (SADMANS) and blood ketone check if unwell."
+    patient_safety_net:
+      en: "If you develop vomiting, tummy pain, fast breathing, or feel severely unwell, seek urgent medical review today."
+      zh_hk: "如出現嘔吐、腹痛、呼吸急促或身體極度不適，請今天盡快求醫評估。"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:anticoagulant_nsaid_bleed
+    source_id: drug_class:anticoagulant
+    relation: INTERACTS_WITH
+    target_id: drug_class:nsaid
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Oral anticoagulant (warfarin or DOAC) + systemic NSAID increases major GI and intracranial bleeding risk 2-4x."
+    clinician_action_prompt:
+      en: "Avoid systemic NSAID; suggest paracetamol for doctor review; if bleeding signs present escalate same-day."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:warfarin_tcm_herbal_ddi
+    source_id: drug:warfarin
+    relation: RED_FLAG_FOR
+    target_id: obs:inr
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    when:
+      fact: tcm_herb_use
+      op: eq
+      value: true
+    clinician_rationale:
+      en: "Concurrent herbal/TCM use (e.g. danshen/丹參, dong quai/當歸, ginkgo/銀杏, ginseng/人參, St John's wort) destabilises warfarin INR."
+    clinician_action_prompt:
+      en: "Document exact herbal ingredients and schedule early INR review."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:statin_macrolide_myopathy
+    source_id: drug_class:statin
+    relation: INTERACTS_WITH
+    target_id: drug_class:macrolide_antibiotic
+    bidirectional: true
+    severity: high
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Strong CYP3A4 inhibitor (clarithromycin) with CYP3A4 statin increases myopathy and rhabdomyolysis risk."
+    clinician_action_prompt:
+      en: "Flag for doctor to hold statin during antibiotic course or choose non-interacting antibiotic."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:allopurinol_pgx_hla_b_5801
+    source_id: drug:allopurinol
+    relation: REQUIRES_PGX_CHECK
+    target_id: pgx:hla_b_5801
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    when:
+      all:
+        - { fact: ethnicity, op: in, value: ["han_chinese", "thai", "korean", "southeast_asian"] }
+        - { fact: hla_b_5801, op: ne, value: "negative" }
+    clinician_rationale:
+      en: "HLA-B*58:01 strongly predisposes East/Southeast Asian patients to life-threatening allopurinol SCAR (SJS/TEN/DRESS)."
+    clinician_action_prompt:
+      en: "Verify HLA-B*58:01 status before initiating allopurinol; consider febuxostat if positive."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  # =========================================================================
+  # SLICE 2: ACUTE RESPIRATORY / FEVER & EMERGENCY RED FLAGS
+  # =========================================================================
+  - id: edge:codeine_paed_cyp2d6_ci
+    source_id: drug:codeine
+    relation: CONTRAINDICATED_IN
+    target_id: rfe:cough
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: age_years, op: lt, value: 12 }
+        - { fact: breastfeeding, op: eq, value: true }
+    clinician_rationale:
+      en: "Codeine is contraindicated in children <12y and breastfeeding due to CYP2D6 ultra-rapid metaboliser respiratory depression."
+    clinician_action_prompt:
+      en: "Hard-block codeine proposal; propose age/weight-safe non-opioid alternative for clinician review."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:penicillin_allergy_beta_lactam_ci
+    source_id: drug_class:beta_lactam_antibiotic
+    relation: CONTRAINDICATED_IN
+    target_id: allergy:penicillin
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      fact: allergy_group
+      op: in
+      value: ["allergy:penicillin"]
+    clinician_rationale:
+      en: "Beta-lactam antibiotic contraindicated in documented penicillin hypersensitivity / anaphylaxis."
+    clinician_action_prompt:
+      en: "Exclude beta-lactam draft and highlight allergy banner for clinician review."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:oseltamivir_renal_adjust
+    source_id: drug:oseltamivir
+    relation: MONITORED_BY
+    target_id: obs:egfr
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    when:
+      fact: egfr_ml_min
+      op: lt
+      value: 60
+    monitoring_spec:
+      initiation_due_days: 1
+      applies_on: initiation
+    clinician_rationale:
+      en: "Oseltamivir requires renal dose reduction: eGFR 30-59 -> max 30 mg BD; eGFR <30 -> 30 mg OD."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:febrile_infant_lt_3m
+    source_id: rfe:fever
+    relation: RED_FLAG_FOR
+    target_id: cond:sepsis
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    when:
+      all:
+        - { fact: age_months, op: lt, value: 3 }
+        - { fact: obs_value, concept_id: "obs:temperature", op: ge, value: 38.0 }
+    clinician_rationale:
+      en: "Fever >=38.0 C in an infant under 3 months carries high risk of occult bacteraemia / meningitis."
+    clinician_action_prompt:
+      en: "Immediate emergency paediatric hospital transfer."
+    patient_safety_net:
+      en: "A baby under 3 months with a fever of 38.0 C or higher needs urgent emergency hospital assessment immediately."
+      zh_hk: "三個月以下嬰兒如發燒達攝氏38度或以上，須立即前往急症室作緊急評估。"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  # =========================================================================
+  # SLICE 3: UNDIFFERENTIATED FATIGUE & MICROCYTIC ANAEMIA
+  # =========================================================================
+  - id: edge:no_empiric_iron_without_ferritin
+    source_id: drug:oral_iron
+    relation: CONTRAINDICATED_IN
+    target_id: obs:mcv
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: abnormal_result
+    when:
+      all:
+        - { fact: obs_value, concept_id: "obs:mcv", op: lt, value: 80.0 }
+        - { fact: obs_value, concept_id: "obs:ferritin", op: missing }
+    clinician_rationale:
+      en: "Do not initiate empiric oral iron for microcytosis (MCV <80 fL) before checking ferritin: thalassaemia trait mimics IDA and risks iron overload."
+    clinician_action_prompt:
+      en: "Order Ferritin + CRP first; if ferritin is normal/high, order Hb pattern / HbA2 HPLC."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:ida_gi_malignancy_endoscopy
+    source_id: cond:iron_deficiency_anaemia
+    relation: TRIGGERS_WORKUP
+    target_id: proc:bidirectional_endoscopy
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    when:
+      any:
+        - { fact: sex, op: eq, value: "M" }
+        - { fact: postmenopausal, op: eq, value: true }
+        - { fact: age_years, op: ge, value: 50 }
+        - { fact: has_concept, op: is_a, value: "rf:gi_bleeding" }
+        - { fact: has_concept, op: is_a, value: "rf:unintentional_weight_loss" }
+    clinician_rationale:
+      en: "Confirmed IDA in men, postmenopausal women, age >=50y, or with GI/weight-loss red flags requires urgent GI malignancy exclusion."
+    clinician_action_prompt:
+      en: "Propose urgent bidirectional GI endoscopy referral alongside iron replacement; do not treat iron alone and close."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:never_folate_alone_before_b12
+    source_id: drug:folic_acid
+    relation: CONTRAINDICATED_IN
+    target_id: obs:b12
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: obs_value, concept_id: "obs:b12", op: lt, value: 150.0 }
+        - { fact: obs_value, concept_id: "obs:b12", op: missing }
+    clinician_rationale:
+      en: "Folic acid monotherapy without excluding Vitamin B12 deficiency can mask anaemia while precipitating subacute combined degeneration of the spinal cord."
+    clinician_action_prompt:
+      en: "Verify serum Vitamin B12 and replace B12 prior to or alongside folic acid."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:ferritin_acute_phase_trap
+    source_id: obs:ferritin
+    relation: EXPLAINS_OR_CAUSES
+    target_id: obs:crp
+    severity: moderate
+    urgency_floor: 2
+    clinic_port_family: abnormal_result
+    when:
+      all:
+        - { fact: obs_value, concept_id: "obs:ferritin", op: ge, value: 30.0 }
+        - { fact: obs_value, concept_id: "obs:ferritin", op: le, value: 100.0 }
+        - { fact: obs_value, concept_id: "obs:crp", op: gt, value: 10.0 }
+    clinician_rationale:
+      en: "Ferritin 30-100 ug/L with elevated CRP (>10 mg/L) does NOT exclude iron deficiency because ferritin is an acute-phase reactant."
+    clinician_action_prompt:
+      en: "Order transferrin saturation (TSAT <20% supports true/functional iron deficiency)."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:coeliac_gluten_diet_prerequisite
+    source_id: obs:anti_ttg_iga
+    relation: RED_FLAG_FOR
+    target_id: cond:coeliac_disease
+    severity: moderate
+    urgency_floor: 1
+    clinic_port_family: planned_review
+    when:
+      fact: gluten_free_diet
+      op: eq
+      value: true
+    clinician_rationale:
+      en: "Anti-tTG IgA yields false negatives if the patient is already on a gluten-free diet."
+    clinician_action_prompt:
+      en: "Advise regular gluten intake >=6 weeks prior to serology (or discuss HLA-DQ2/DQ8 exclusion)."
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: edge:suicide_screen_fatigue_depression
+    source_id: rf:suicidal_ideation
+    relation: RED_FLAG_FOR
+    target_id: cond:depression
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Active suicidal ideation or positive PHQ-9 item 9 requires immediate same-day crisis escalation and clinician review."
+    clinician_action_prompt:
+      en: "Activate crisis protocol immediately; provide jurisdiction crisis hotline and arrange urgent physician contact."
+    patient_safety_net:
+      en: "You do not have to face this alone. Please contact emergency services or a 24-hour crisis support line right now while our clinical team is alerted."
+      zh_hk: "你不需要獨自面對。請立即致電緊急求助熱線或24小時情緒支援熱線，同時我們已即時通知當值醫生跟進。"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }

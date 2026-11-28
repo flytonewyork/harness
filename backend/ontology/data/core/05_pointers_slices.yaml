@@ -1,0 +1,56 @@
+# Wave 0 + Gold-Standard Vertical Slices 1–3:
+# PathwayPointers decoupling static clinical ontology from temporal protocols & journeys.
+# Strict Asymmetric Authority: autonomy_ceiling <= L1_propose_only; actions subset of ClinicPort.
+
+pointers:
+  - id: ptr:acute_flu_intake
+    trigger_concepts: ["rfe:cough", "rfe:fever", "cond:influenza", "cond:urti"]
+    target_kind: protocol_yaml
+    target_ref: "protocols/flu_intake_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "pregnant", "allergies", "g6pd_deficient", "egfr_ml_min"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: ptr:acute_consult_draft
+    trigger_concepts: ["cond:influenza", "cond:urti"]
+    target_kind: protocol_yaml
+    target_ref: "protocols/acute_consult_draft_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency"]
+    required_context_slots: ["intake", "patient", "allergies", "g6pd_deficient"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: ptr:medication_monitoring_journey
+    trigger_edges:
+      - "edge:raas_monitored_by_rft"
+      - "edge:warfarin_monitored_by_inr"
+      - "edge:doac_monitored_by_rft"
+      - "edge:metformin_monitored_by_rft"
+      - "edge:triple_whammy_aki"
+      - "edge:anticoagulant_nsaid_bleed"
+      - "edge:sglt2_sick_day_edka"
+    target_kind: journey_module
+    target_ref: "backend.journeys.medication"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["on_meds", "egfr_ml_min", "allergies"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: ptr:abnormal_lab_engine
+    trigger_observations:
+      - "obs_rule:haemoglobin"
+      - "obs_rule:mcv"
+      - "obs_rule:potassium"
+      - "obs_rule:egfr"
+      - "obs_rule:creatinine"
+      - "obs_rule:alt"
+      - "obs_rule:inr"
+    target_kind: engine_family
+    target_ref: "abnormal_result"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm", "attest_all_clear"]
+    required_context_slots: ["obs_values", "on_meds", "sex", "age_years"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }

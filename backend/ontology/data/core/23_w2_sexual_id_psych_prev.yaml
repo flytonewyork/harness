@@ -1,0 +1,1964 @@
+# Wave 2 Pod 3: Sexual/Reproductive, Men's/Women's, Travel/ID, Psychiatry/Addiction & Preventive Depth
+# Licensing: Tier-1 commercial-safe open spine (SNOMED CT GPS, LOINC, UCUM, WHO INN, FDA UNII,
+# RxNorm SAB=RXNORM); Tier-2 bare code-only interoperability pointers (ICPC-2, ICD-10, ATC).
+# Zero hardcoded jurisdiction emergency numbers (999/000) and zero banned reassurance claims.
+
+concepts:
+  # =========================================================================
+  # REASONS FOR ENCOUNTER (RFEs) — 5 Presentations
+  # =========================================================================
+  - id: rfe:breast_lump_pain
+    kind: rfe
+    wave: W2
+    cluster: C08_womens_health
+    bindings:
+      icpc2: { code: "X19", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N63", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Breast lump, pain, or nipple/skin change", zh_hk: "乳房硬塊、乳房痛或乳頭／皮膚異常" }
+    aliases:
+      en: ["breast lump", "breast pain", "mastalgia", "nipple discharge", "sore breast", "lump in breast"]
+      zh_hk: ["乳房硬塊", "胸部有粒嘢", "乳房脹痛", "胸痛乳房", "乳頭分泌物", "乳頭凹陷"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: rfe:scrotal_pain_swelling
+    kind: rfe
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      icpc2: { code: "Y02", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N50.8", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Scrotal / testicular pain or swelling", zh_hk: "陰囊／睪丸疼痛或腫脹" }
+    aliases:
+      en: ["testicular pain", "scrotal pain", "swollen testicle", "scrotal swelling", "testicle lump", "sore balls"]
+      zh_hk: ["睪丸痛", "蛋蛋痛", "陰囊腫脹", "陰囊痛", "下陰腫痛", "睪丸硬塊"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: rfe:urethral_vaginal_discharge
+    kind: rfe
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      icpc2: { code: "X14", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N89.8", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Urethral or vaginal discharge / STI check request", zh_hk: "尿道或陰道異常分泌物／性病檢查" }
+    aliases:
+      en: ["vaginal discharge", "urethral discharge", "penile discharge", "STI check", "STD test", "genital sores", "genital blisters"]
+      zh_hk: ["白帶異常", "陰道分泌物多", "尿道流膿", "下體分泌物", "性病檢查", "下體生粒粒", "陰部水泡"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: rfe:travel_fever_illness
+    kind: rfe
+    wave: W2
+    cluster: C10_infectious_travel
+    bindings:
+      icpc2: { code: "A03", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R50.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Fever or unwellness in a returned traveller", zh_hk: "外遊返港／回國後發燒或不適" }
+    aliases:
+      en: ["fever after travel", "returned traveller fever", "sick after holiday", "tropical fever", "travel diarrhoea fever", "mosquito bite fever"]
+      zh_hk: ["旅行後發燒", "外遊後唔舒服", "返來後發燒", "去完東南亞發燒", "蚊咬後發燒", "旅行後肚瀉發燒"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: rfe:substance_alcohol_concern
+    kind: rfe
+    wave: W2
+    cluster: C07_mental_health
+    bindings:
+      icpc2: { code: "P15", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F10.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Alcohol, smoking, or substance use / withdrawal concern", zh_hk: "飲酒、吸煙或藥物濫用／戒斷困擾" }
+    aliases:
+      en: ["alcohol concern", "drinking too much", "want to stop drinking", "alcohol withdrawal", "quit smoking", "drug addiction", "opioid dependence"]
+      zh_hk: ["戒酒", "飲酒太多", "酒精戒斷", "戒煙", "想戒煙", "藥物依賴", "濫藥求助"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  # =========================================================================
+  # RED-FLAG FINDINGS (6) — openEHR Positive Exclusions & Safety Floor
+  # =========================================================================
+  - id: rf:acute_scrotal_pain_torsion
+    kind: red_flag
+    wave: W2
+    cluster: C09_mens_sexual_health
+    display: { en: "Sudden-onset severe unilateral scrotal/testicular pain with nausea/vomiting or high-riding testis (suspected torsion)", zh_hk: "突發劇烈單側睪丸／陰囊痛，伴作悶嘔吐或睪丸位置升高（疑似睪丸扭轉）" }
+    aliases:
+      en: ["sudden severe testicular pain", "testicular torsion signs", "acute scrotum", "high riding testis"]
+      zh_hk: ["突發睪丸劇痛", "睪丸扭轉警號", "單邊蛋蛋劇痛嘔吐"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: rf:breast_lump_skin_dimpling_nipple
+    kind: red_flag
+    wave: W2
+    cluster: C08_womens_health
+    display: { en: "Hard fixed breast lump, skin dimpling/peau d'orange, new nipple inversion, unilateral bloody nipple discharge, or axillary node", zh_hk: "堅硬固定乳房硬塊、皮膚凹陷／橙皮紋、新發乳頭內陷、單側血性乳頭分泌物或腋下淋巴腫塊" }
+    aliases:
+      en: ["breast skin dimpling", "peau d orange", "new nipple inversion", "bloody nipple discharge", "fixed breast lump", "axillary lump"]
+      zh_hk: ["乳房皮膚凹陷", "橙皮紋", "乳頭內陷", "乳頭流血水", "固定硬塊", "腋下硬塊"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: rf:post_travel_malaria_fever
+    kind: red_flag
+    wave: W2
+    cluster: C10_infectious_travel
+    display: { en: "Fever (with chills/rigors, headache, jaundice, confusion, or bleeding) after travel to a malaria- or tropical-endemic region", zh_hk: "曾到訪瘧疾或熱帶傳染病流行地區後出現發燒（伴發冷打震、頭痛、黃疸、神志不清或出血）" }
+    aliases:
+      en: ["fever after Africa travel", "malaria warning signs", "post travel rigors", "fever after tropical travel"]
+      zh_hk: ["去完非洲發燒", "熱帶地區返來發燒打震", "疑似瘧疾發燒"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: rf:acute_psychosis_harm_risk
+    kind: red_flag
+    wave: W2
+    cluster: C07_mental_health
+    display: { en: "Acute psychosis (command hallucinations, fixed persecutory delusions, severe disorganisation) or imminent risk of harm to self or others", zh_hk: "急性思覺失調徵狀（指令性幻聽、嚴重被害妄想、思維極度混亂）或即時自傷／傷人風險" }
+    aliases:
+      en: ["command hallucinations", "hearing voices telling me to hurt", "acute psychosis", "severe agitation harm risk", "delusional crisis"]
+      zh_hk: ["指令性幻聽", "聽到聲音叫傷害自己", "急性精神病發作", "嚴重妄想激動"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: rf:severe_alcohol_withdrawal_dt
+    kind: red_flag
+    wave: W2
+    cluster: C07_mental_health
+    display: { en: "Severe alcohol withdrawal signs: marked tremor, profuse sweating, tachycardia, hallucinations, withdrawal seizures, or delirium tremens", zh_hk: "嚴重酒精戒斷徵狀：劇烈手震、大汗、心跳過速、幻覺、戒斷抽筋或震顫性譫妄" }
+    aliases:
+      en: ["delirium tremens", "DTs", "alcohol withdrawal seizure", "alcohol withdrawal hallucinations", "severe alcohol shakes"]
+      zh_hk: ["震顫性譫妄", "戒酒抽筋", "戒酒幻覺", "嚴重酒精戒斷手震"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: rf:severe_anorexia_bradycardia_hypok
+    kind: red_flag
+    wave: W2
+    cluster: C07_mental_health
+    display: { en: "Medically unstable eating disorder: bradycardia (<50 bpm), hypotension/syncope, hypothermia, hypokalaemia (<3.0 mmol/L), or BMI <14", zh_hk: "厭食症／進食失調內科不穩警號：心搏過緩（<50次/分）、低血壓昏厥、低體溫、低血鉀（<3.0）或極低BMI" }
+    aliases:
+      en: ["anorexia fainting", "severe malnutrition bradycardia", "purging hypokalaemia", "eating disorder medical instability"]
+      zh_hk: ["厭食症暈低", "極度消瘦心跳慢", "扣喉低血鉀", "進食失調危急警號"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  # =========================================================================
+  # CONDITIONS (26) — Men's/Women's, STI, Travel/ID, Psych/Addiction, Endo
+  # =========================================================================
+  - id: cond:testicular_torsion
+    kind: condition
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      snomed_gps: { code: "81996005", display: "Torsion of testis (disorder)" }
+      icpc2: { code: "Y99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N44.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Testicular torsion", zh_hk: "睪丸扭轉" }
+    aliases:
+      en: ["testicular torsion", "twisted testicle", "torsion of testis"]
+      zh_hk: ["睪丸扭轉", "精索扭轉"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:epididymo_orchitis
+    kind: condition
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      snomed_gps: { code: "31070006", display: "Epididymo-orchitis (disorder)" }
+      icpc2: { code: "Y74", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N45.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Epididymo-orchitis", zh_hk: "附睪睪丸炎" }
+    aliases:
+      en: ["epididymo-orchitis", "epididymitis", "orchitis"]
+      zh_hk: ["附睪炎", "睪丸炎", "附睪睪丸炎"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:prostatitis
+    kind: condition
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      snomed_gps: { code: "9713002", display: "Prostatitis (disorder)" }
+      icpc2: { code: "Y73", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N41.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Prostatitis (acute bacterial or chronic)", zh_hk: "前列腺炎（急性細菌性或慢性）" }
+    aliases:
+      en: ["prostatitis", "acute bacterial prostatitis", "chronic pelvic pain syndrome male"]
+      zh_hk: ["前列腺炎", "急性前列腺炎", "慢性前列腺炎"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:prostate_cancer
+    kind: condition
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      snomed_gps: { code: "399068003", display: "Malignant tumor of prostate (disorder)" }
+      icpc2: { code: "Y77", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "C61", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Prostate cancer", zh_hk: "前列腺癌" }
+    aliases:
+      en: ["prostate cancer", "prostate carcinoma", "Ca prostate"]
+      zh_hk: ["前列腺癌", "攝護腺癌"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:breast_fibroadenoma_benign
+    kind: condition
+    wave: W2
+    cluster: C08_womens_health
+    bindings:
+      icpc2: { code: "X79", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "D24", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Benign breast lump (fibroadenoma / breast cyst / fibrocystic change)", zh_hk: "良性乳房腫塊（纖維腺瘤／乳房水囊／纖維囊腫）" }
+    aliases:
+      en: ["fibroadenoma", "breast cyst", "fibrocystic breast", "benign breast lump"]
+      zh_hk: ["乳房纖維瘤", "乳房纖維腺瘤", "乳房水囊", "乳腺增生"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:mastitis
+    kind: condition
+    wave: W2
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "45198002", display: "Mastitis (disorder)" }
+      icpc2: { code: "W94", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N61", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Mastitis / breast abscess (lactational or non-lactational)", zh_hk: "乳腺炎／乳房膿腫" }
+    aliases:
+      en: ["mastitis", "lactational mastitis", "breast infection", "breast abscess", "blocked milk duct"]
+      zh_hk: ["乳腺炎", "塞奶發炎", "乳房發炎", "乳房膿腫"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:endometriosis
+    kind: condition
+    wave: W2
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "129103003", display: "Endometriosis (disorder)" }
+      icpc2: { code: "X99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N80.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Endometriosis (and adenomyosis)", zh_hk: "子宮內膜異位症（朱古力瘤／子宮肌腺症）" }
+    aliases:
+      en: ["endometriosis", "endo", "endometrioma", "chocolate cyst", "adenomyosis"]
+      zh_hk: ["子宮內膜異位", "朱古力瘤", "子宮肌腺症"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:uterine_fibroids
+    kind: condition
+    wave: W2
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "95315005", display: "Uterine leiomyoma (disorder)" }
+      icpc2: { code: "X78", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "D25.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Uterine fibroids (leiomyoma)", zh_hk: "子宮肌瘤（子宮纖維瘤）" }
+    aliases:
+      en: ["uterine fibroids", "fibroids", "leiomyoma", "myoma"]
+      zh_hk: ["子宮肌瘤", "子宮纖維瘤", "子宮肉瘤良性"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:pelvic_inflammatory_disease
+    kind: condition
+    wave: W2
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "198130006", display: "Female pelvic inflammatory disease (disorder)" }
+      icpc2: { code: "X74", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N73.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Pelvic inflammatory disease (PID)", zh_hk: "盆腔炎 (PID)" }
+    aliases:
+      en: ["PID", "pelvic inflammatory disease", "salpingitis", "tubo-ovarian abscess"]
+      zh_hk: ["盆腔炎", "骨盆腔發炎", "輸卵管發炎"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:gonorrhoea
+    kind: condition
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      snomed_gps: { code: "15628003", display: "Gonorrhea (disorder)" }
+      icpc2: { code: "X71", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A54.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Gonorrhoea (Neisseria gonorrhoeae infection)", zh_hk: "淋病" }
+    aliases:
+      en: ["gonorrhoea", "gonorrhea", "Neisseria gonorrhoeae", "the clap"]
+      zh_hk: ["淋病", "白濁"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:syphilis
+    kind: condition
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      snomed_gps: { code: "76272004", display: "Syphilis (disorder)" }
+      icpc2: { code: "X70", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A53.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Syphilis (Treponema pallidum infection)", zh_hk: "梅毒" }
+    aliases:
+      en: ["syphilis", "chancre", "Treponema pallidum", "lues"]
+      zh_hk: ["梅毒", "硬下疳"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:genital_herpes
+    kind: condition
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      snomed_gps: { code: "33839006", display: "Genital herpes simplex (disorder)" }
+      icpc2: { code: "X90", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A60.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Genital herpes (HSV-1 / HSV-2)", zh_hk: "生殖器疱疹" }
+    aliases:
+      en: ["genital herpes", "HSV-2", "herpes simplex genital", "genital ulcers HSV"]
+      zh_hk: ["生殖器疱疹", "陰部疱疹", "疱疹二型"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:malaria
+    kind: condition
+    wave: W2
+    cluster: C10_infectious_travel
+    bindings:
+      snomed_gps: { code: "61462000", display: "Malaria (disorder)" }
+      icpc2: { code: "A73", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B54", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Malaria (Plasmodium infection)", zh_hk: "瘧疾" }
+    aliases:
+      en: ["malaria", "Plasmodium falciparum", "Plasmodium vivax", "falciparum malaria"]
+      zh_hk: ["瘧疾", "惡性瘧疾"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:enteric_fever_typhoid
+    kind: condition
+    wave: W2
+    cluster: C10_infectious_travel
+    bindings:
+      snomed_gps: { code: "4834000", display: "Typhoid fever (disorder)" }
+      icpc2: { code: "D70", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A01.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Enteric fever (typhoid / paratyphoid)", zh_hk: "傷寒／副傷寒（腸熱病）" }
+    aliases:
+      en: ["typhoid", "typhoid fever", "paratyphoid", "enteric fever", "Salmonella typhi"]
+      zh_hk: ["傷寒", "副傷寒", "腸熱病"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:melioidosis
+    kind: condition
+    wave: W2
+    cluster: C10_infectious_travel
+    bindings:
+      icpc2: { code: "A78", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A24.4", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Melioidosis (Burkholderia pseudomallei)", zh_hk: "類鼻疽" }
+    aliases:
+      en: ["melioidosis", "Burkholderia pseudomallei", "Whitmore disease"]
+      zh_hk: ["類鼻疽", "類鼻疽伯克氏菌感染"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:ross_river_virus
+    kind: condition
+    wave: W2
+    cluster: C10_infectious_travel
+    bindings:
+      icpc2: { code: "A77", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B33.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Ross River virus infection (epidemic polyarthritis)", zh_hk: "羅斯河病毒感染" }
+    aliases:
+      en: ["Ross River virus", "RRV", "Ross River fever", "Barmah Forest virus"]
+      zh_hk: ["羅斯河病毒", "羅斯河熱"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:q_fever
+    kind: condition
+    wave: W2
+    cluster: C10_infectious_travel
+    bindings:
+      snomed_gps: { code: "186788009", display: "Q fever (disorder)" }
+      icpc2: { code: "A78", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A78", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Q fever (Coxiella burnetii)", zh_hk: "Q熱（貝納柯克斯體感染）" }
+    aliases:
+      en: ["Q fever", "Coxiella burnetii", "abattoir fever"]
+      zh_hk: ["Q熱", "寇熱"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:measles
+    kind: condition
+    wave: W2
+    cluster: C10_infectious_travel
+    bindings:
+      snomed_gps: { code: "14189004", display: "Measles (disorder)" }
+      icpc2: { code: "A71", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B05.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Measles (rubeola)", zh_hk: "麻疹" }
+    aliases:
+      en: ["measles", "rubeola", "Koplik spots"]
+      zh_hk: ["麻疹", "出麻"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:varicella_chickenpox
+    kind: condition
+    wave: W2
+    cluster: C10_infectious_travel
+    bindings:
+      snomed_gps: { code: "38907003", display: "Varicella (disorder)" }
+      icpc2: { code: "A72", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B01.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Varicella (chickenpox)", zh_hk: "水痘" }
+    aliases:
+      en: ["chickenpox", "varicella", "VZV primary infection"]
+      zh_hk: ["水痘", "生水痘"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:bipolar_disorder
+    kind: condition
+    wave: W2
+    cluster: C07_mental_health
+    bindings:
+      snomed_gps: { code: "13746004", display: "Bipolar disorder (disorder)" }
+      icpc2: { code: "P73", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F31.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Bipolar affective disorder (Type I / II)", zh_hk: "躁鬱症（雙相情緒障礙）" }
+    aliases:
+      en: ["bipolar disorder", "bipolar affective disorder", "BPAD", "mania", "hypomania", "manic depression"]
+      zh_hk: ["躁鬱症", "雙相情緒障礙", "躁狂抑鬱症", "輕躁症"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:acute_psychosis_schizophrenia
+    kind: condition
+    wave: W2
+    cluster: C07_mental_health
+    bindings:
+      snomed_gps: { code: "58214004", display: "Schizophrenia (disorder)" }
+      icpc2: { code: "P72", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F20.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute psychosis / schizophrenia spectrum disorder", zh_hk: "思覺失調／精神分裂症" }
+    aliases:
+      en: ["schizophrenia", "psychosis", "first episode psychosis", "schizoaffective disorder"]
+      zh_hk: ["思覺失調", "精神分裂症", "妄想症", "急性精神病"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:ptsd
+    kind: condition
+    wave: W2
+    cluster: C07_mental_health
+    bindings:
+      snomed_gps: { code: "47505003", display: "Posttraumatic stress disorder (disorder)" }
+      icpc2: { code: "P82", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F43.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Post-traumatic stress disorder (PTSD)", zh_hk: "創傷後壓力症 (PTSD)" }
+    aliases:
+      en: ["PTSD", "post-traumatic stress disorder", "posttraumatic stress disorder", "trauma flashbacks"]
+      zh_hk: ["創傷後壓力症", "創傷後遺症", "心理創傷"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:anorexia_nervosa
+    kind: condition
+    wave: W2
+    cluster: C07_mental_health
+    bindings:
+      snomed_gps: { code: "56882008", display: "Anorexia nervosa (disorder)" }
+      icpc2: { code: "P86", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F50.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Anorexia nervosa / restrictive eating disorder", zh_hk: "神經性厭食症／進食失調" }
+    aliases:
+      en: ["anorexia nervosa", "anorexia", "eating disorder", "bulimia nervosa"]
+      zh_hk: ["厭食症", "神經性厭食症", "進食失調", "暴食症"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:opioid_use_disorder
+    kind: condition
+    wave: W2
+    cluster: C07_mental_health
+    bindings:
+      snomed_gps: { code: "75544000", display: "Opioid dependence (disorder)" }
+      icpc2: { code: "P19", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F11.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Opioid use disorder / opioid dependence", zh_hk: "鴉片類藥物使用障礙／依賴" }
+    aliases:
+      en: ["opioid use disorder", "OUD", "opioid dependence", "heroin dependence", "prescription opioid addiction"]
+      zh_hk: ["鴉片類藥物依賴", "海洛英依賴", "止痛藥上癮", "咳藥水上癮"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:nicotine_dependence
+    kind: condition
+    wave: W2
+    cluster: C07_mental_health
+    bindings:
+      snomed_gps: { code: "56294008", display: "Nicotine dependence (disorder)" }
+      icpc2: { code: "P17", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F17.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Tobacco / nicotine dependence", zh_hk: "煙草／尼古丁依賴" }
+    aliases:
+      en: ["nicotine dependence", "tobacco dependence", "smoking", "vaping addiction"]
+      zh_hk: ["尼古丁依賴", "煙癮", "吸煙習慣", "電子煙依賴"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: cond:primary_hyperparathyroidism
+    kind: condition
+    wave: W2
+    cluster: C03_endocrine
+    bindings:
+      snomed_gps: { code: "36348003", display: "Primary hyperparathyroidism (disorder)" }
+      icpc2: { code: "T99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E21.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Primary hyperparathyroidism", zh_hk: "原發性副甲狀腺功能亢進" }
+    aliases:
+      en: ["primary hyperparathyroidism", "hyperparathyroidism", "parathyroid adenoma", "PTH-dependent hypercalcaemia"]
+      zh_hk: ["原發性副甲狀腺亢進", "副甲狀腺亢進", "副甲狀腺瘤"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  # =========================================================================
+  # DRUG CLASSES (12) & DRUGS (16) — Lay class words ONLY on drug_class.purpose_phrases
+  # =========================================================================
+  - id: drug_class:cephalosporin
+    kind: drug_class
+    wave: W2
+    cluster: C10_infectious_travel
+    parent_ids: ["drug_class:beta_lactam_antibiotic"]
+    bindings:
+      atc: { code: "J01D", system: "http://www.whocc.no/atc" }
+    display: { en: "Cephalosporin antibiotic", zh_hk: "頭孢菌素類抗生素" }
+    purpose_phrases:
+      en: ["cephalosporin", "skin infection antibiotic", "STI injection antibiotic"]
+      zh_hk: ["頭孢抗生素", "消炎針", "頭孢菌素"]
+    drug_facet: { short_course: true }
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:cefalexin
+    kind: drug
+    wave: W2
+    cluster: C10_infectious_travel
+    parent_ids: ["drug_class:cephalosporin"]
+    bindings:
+      inn: "cefalexin"
+      rxnorm: { code: "2231", display: "cephalexin" }
+      atc: { code: "J01DB01", system: "http://www.whocc.no/atc" }
+    display: { en: "Cefalexin (cephalexin)", zh_hk: "頭孢氨苄" }
+    aliases:
+      en: ["cephalexin", "Keflex", "Ibilex", "Cefalexin"]
+      zh_hk: ["頭孢氨苄", "賜福力欣"]
+    drug_facet:
+      short_course: true
+      max_daily_mg: 4000
+      renal_note: "Reduce dosing frequency if eGFR <30 mL/min/1.73m2; generally safe in pregnancy and G6PD deficiency."
+      dosing_pearl:
+        en: "First-generation oral cephalosporin for uncomplicated cellulitis, mastitis, and pregnancy/G6PD-safe UTI; check beta-lactam severe IgE/SCAR allergy history (low side-chain cross-reactivity with amoxicillin)."
+        zh_hk: "第一代口服頭孢菌素，常用於蜂窩織炎、乳腺炎及孕婦／蠶豆症尿道感染；處方前須核實嚴重盤尼西林過敏史。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:ceftriaxone
+    kind: drug
+    wave: W2
+    cluster: C10_infectious_travel
+    parent_ids: ["drug_class:cephalosporin"]
+    bindings:
+      inn: "ceftriaxone"
+      rxnorm: { code: "2193", display: "ceftriaxone" }
+      atc: { code: "J01DD04", system: "http://www.whocc.no/atc" }
+    display: { en: "Ceftriaxone (IM / IV)", zh_hk: "頭孢曲松（注射劑）" }
+    aliases:
+      en: ["Rocephin", "Ceftriaxone sodium"]
+      zh_hk: ["頭孢曲松", "羅氏芬"]
+    drug_facet:
+      short_course: true
+      high_risk: true
+      dosing_pearl:
+        en: "Third-generation parenteral cephalosporin: first-line single IM dose for gonorrhoea, PID, and STI epididymo-orchitis (with lignocaine 1% diluent IM; pair with chlamydia coverage per guideline); also emergency pre-hospital meningitis cover."
+        zh_hk: "第三代注射頭孢菌素：淋病、盆腔炎及性病相關附睪炎一線肌肉注射治療，須按指引配合衣原體治療。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug_class:fluoroquinolone
+    kind: drug_class
+    wave: W2
+    cluster: C10_infectious_travel
+    parent_ids: ["drug_class:antibiotic"]
+    bindings:
+      atc: { code: "J01MA", system: "http://www.whocc.no/atc" }
+    display: { en: "Fluoroquinolone antibiotic", zh_hk: "氟喹諾酮類抗生素" }
+    purpose_phrases:
+      en: ["quinolone", "fluoroquinolone", "prostate antibiotic", "traveller diarrhoea antibiotic"]
+      zh_hk: ["喹諾酮抗生素", "前列腺抗生素"]
+    drug_facet: { short_course: true, high_risk: true }
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:ciprofloxacin
+    kind: drug
+    wave: W2
+    cluster: C10_infectious_travel
+    parent_ids: ["drug_class:fluoroquinolone"]
+    bindings:
+      inn: "ciprofloxacin"
+      rxnorm: { code: "2551", display: "ciprofloxacin" }
+      atc: { code: "J01MA02", system: "http://www.whocc.no/atc" }
+    display: { en: "Ciprofloxacin", zh_hk: "環丙沙星" }
+    aliases:
+      en: ["Cipro", "Ciproxin", "Ciloxan"]
+      zh_hk: ["環丙沙星", "西普樂"]
+    drug_facet:
+      short_course: true
+      high_risk: true
+      g6pd_risk: true
+      pregnancy_caution: "contraindicated"
+      max_daily_mg: 1500
+      renal_note: "Reduce dose by 50% if eGFR <30 mL/min; avoid in pregnancy, children (cartilage risk), myasthenia gravis, and aneurysm history."
+      dosing_pearl:
+        en: "Reserve fluoroquinolones for targeted indications (e.g. bacterial prostatitis, Pseudomonas, severe pyelonephritis). AVOID in undiagnosed subacute cough/CAP (masks pulmonary TB and drives MDR-TB). Counsel on Achilles tendinopathy, QTc prolongation, CNS effects, and divalent cation chelation (separate Fe/Ca/Mg/antacids by >=2h)."
+        zh_hk: "須嚴格保留作針對性感染使用；切勿用於未確診持續咳嗽（會掩蓋肺結核及引致抗藥性）。須留意跟腱炎／斷裂、QT延長及避免與鐵／鈣／胃藥同服。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug_class:sulfonamide_combo
+    kind: drug_class
+    wave: W2
+    cluster: C10_infectious_travel
+    parent_ids: ["drug_class:antibiotic"]
+    bindings:
+      atc: { code: "J01EE", system: "http://www.whocc.no/atc" }
+    display: { en: "Sulfonamide-trimethoprim combination antibiotic", zh_hk: "磺胺類複方抗生素" }
+    purpose_phrases:
+      en: ["sulfa antibiotic", "sulfonamide", "PCP prophylaxis", "MRSA skin antibiotic"]
+      zh_hk: ["磺胺藥", "磺胺類抗生素"]
+    drug_facet: { short_course: true, high_risk: true, g6pd_risk: true }
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:co_trimoxazole
+    kind: drug
+    wave: W2
+    cluster: C10_infectious_travel
+    parent_ids: ["drug_class:sulfonamide_combo"]
+    bindings:
+      inn: "sulfamethoxazole / trimethoprim"
+      rxnorm: { code: "10831", display: "sulfamethoxazole / trimethoprim" }
+      atc: { code: "J01EE01", system: "http://www.whocc.no/atc" }
+    display: { en: "Co-trimoxazole (trimethoprim-sulfamethoxazole)", zh_hk: "複方新諾明（磺胺甲噁唑／甲氧苄啶）" }
+    aliases:
+      en: ["Bactrim", "Septrin", "Bactrim DS", "TMP-SMX", "SMX-TMP", "trimethoprim sulfamethoxazole", "co-trimoxazole", "cotrimoxazole"]
+      zh_hk: ["複方新諾明", "百炎淨", "磺胺甲噁唑"]
+    drug_facet:
+      short_course: true
+      high_risk: true
+      g6pd_risk: true
+      pregnancy_caution: "contraindicated"
+      renal_note: "Halve dose if eGFR 15-30; avoid if eGFR <15; causes hyperkalaemia (especially with RAAS/spironolactone) and pseudo-rise in serum creatinine."
+      dosing_pearl:
+        en: "High-alert antimicrobial: HARD-BLOCK in G6PD deficiency (acute haemolysis) and with methotrexate (fatal pancytopenia); major INR spike with warfarin; hyperkalaemia with ACEi/ARB/spironolactone; SJS/TEN risk; avoid in pregnancy (T1 neural tube defects, T3 kernicterus)."
+        zh_hk: "高危抗生素：蠶豆症 (G6PD) 及正服甲氨蝶呤者嚴禁使用；與華法林合用可致INR飆升，與降壓藥ACEi/ARB合用可致高血鉀；孕婦禁用。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:aciclovir
+    kind: drug
+    wave: W2
+    cluster: C10_infectious_travel
+    parent_ids: ["drug_class:antiviral_herpes"]
+    bindings:
+      inn: "aciclovir"
+      rxnorm: { code: "281", display: "acyclovir" }
+      atc: { code: "J05AB01", system: "http://www.whocc.no/atc" }
+    display: { en: "Aciclovir (acyclovir)", zh_hk: "阿昔洛韋" }
+    aliases:
+      en: ["acyclovir", "Zovirax", "Aciclovir"]
+      zh_hk: ["阿昔洛韋", "舒維療"]
+    drug_facet:
+      short_course: true
+      max_daily_mg: 4000
+      renal_note: "Reduce dose/frequency if eGFR <25 mL/min and maintain good hydration (crystalluria/AKI and neurotoxicity risk)."
+      dosing_pearl:
+        en: "Used for primary/recurrent genital herpes, varicella in adults/pregnant women (prefer within 24h of rash onset), and herpes zoster (valaciclovir preferred for zoster adherence when available)."
+        zh_hk: "用於生殖器疱疹、成人／孕婦水痘（出疹24小時內開始效果最佳）及帶狀疱疹；服藥期間須多飲水並按腎功能調整劑量。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug_class:hbv_hiv_antiviral
+    kind: drug_class
+    wave: W2
+    cluster: C10_infectious_travel
+    bindings:
+      atc: { code: "J05AF", system: "http://www.whocc.no/atc" }
+    display: { en: "Hepatitis B / HIV nucleos(t)ide antiviral", zh_hk: "乙型肝炎／愛滋病核苷類抗病毒藥" }
+    purpose_phrases:
+      en: ["hepatitis B pill", "HBV antiviral", "HIV PrEP", "PrEP", "HIV medication"]
+      zh_hk: ["乙肝藥", "乙型肝炎藥", "抗乙肝病毒藥", "愛滋病預防藥", "PrEP藥"]
+    drug_facet: { no_gap: true, high_risk: true }
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:entecavir
+    kind: drug
+    wave: W2
+    cluster: C10_infectious_travel
+    parent_ids: ["drug_class:hbv_hiv_antiviral"]
+    bindings:
+      inn: "entecavir"
+      rxnorm: { code: "402097", display: "entecavir" }
+      atc: { code: "J05AF10", system: "http://www.whocc.no/atc" }
+    display: { en: "Entecavir", zh_hk: "恩替卡韋" }
+    aliases:
+      en: ["Baraclude", "ETV"]
+      zh_hk: ["恩替卡韋", "博路定"]
+    drug_facet:
+      no_gap: true
+      high_risk: true
+      max_daily_mg: 1
+      pregnancy_caution: "caution"
+      renal_note: "Extend dosing interval if eGFR <50 mL/min; take on an empty stomach (>=2h before or after meals)."
+      dosing_pearl:
+        en: "CRITICAL NO-GAP MEDICATION: Abrupt cessation of entecavir can precipitate severe/fatal acute-on-chronic HBV hepatitis flare and hepatic decompensation. Confirm HIV-negative status before monotherapy (HIV resistance risk). Switch to tenofovir (TDF) if pregnant."
+        zh_hk: "嚴禁自行停藥：突然停服恩替卡韋可誘發致命急性乙型肝炎爆發及肝衰竭。必須空腹服用，並於處方前排除HIV感染；懷孕期須與專科商討改用替諾福韋。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:tenofovir_emtricitabine
+    kind: drug
+    wave: W2
+    cluster: C10_infectious_travel
+    parent_ids: ["drug_class:hbv_hiv_antiviral"]
+    bindings:
+      inn: "tenofovir disoproxil / emtricitabine"
+      rxnorm: { code: "476556", display: "emtricitabine / tenofovir disoproxil fumarate" }
+      atc: { code: "J05AR03", system: "http://www.whocc.no/atc" }
+    display: { en: "Tenofovir disoproxil / emtricitabine (TDF/FTC)", zh_hk: "替諾福韋／恩曲他濱 (TDF/FTC)" }
+    aliases:
+      en: ["Truvada", "TDF/FTC", "tenofovir emtricitabine", "TDF FTC"]
+      zh_hk: ["替諾福韋恩曲他濱", "舒發泰"]
+    drug_facet:
+      no_gap: true
+      high_risk: true
+      renal_note: "Avoid TDF/FTC for HIV PrEP if eGFR <60 mL/min; monitor eGFR, urine protein/phosphate, and bone mineral density (proximal tubulopathy risk)."
+      dosing_pearl:
+        en: "Used for HIV PrEP (daily or event-driven in eligible cis-men) and HIV ART backbone. MUST confirm negative 4th-gen HIV Ag/Ab AND check HBsAg before starting or stopping (stopping in HBsAg+ patients causes severe HBV flare); monitor eGFR and STI screen every 3 months on PrEP."
+        zh_hk: "用於HIV暴露前預防 (PrEP) 及治療。開始前必須確認HIV陰性及檢測乙肝表面抗原 (HBsAg)（乙肝帶菌者切勿隨意停藥以免引發肝臟爆發）；服藥期間每3個月監察腎功能、HIV及性病篩查。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug_class:smoking_cessation
+    kind: drug_class
+    wave: W2
+    cluster: C07_mental_health
+    bindings:
+      atc: { code: "N07BA", system: "http://www.whocc.no/atc" }
+    display: { en: "Smoking cessation pharmacotherapy", zh_hk: "戒煙輔助藥物" }
+    purpose_phrases:
+      en: ["quit smoking pill", "smoking cessation medicine", "stop smoking tablet"]
+      zh_hk: ["戒煙藥", "戒煙丸"]
+    drug_facet: { short_course: true }
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:varenicline
+    kind: drug
+    wave: W2
+    cluster: C07_mental_health
+    parent_ids: ["drug_class:smoking_cessation"]
+    bindings:
+      inn: "varenicline"
+      rxnorm: { code: "636671", display: "varenicline" }
+      atc: { code: "N07BA03", system: "http://www.whocc.no/atc" }
+    display: { en: "Varenicline", zh_hk: "伐尼克蘭" }
+    aliases:
+      en: ["Champix", "Chantix", "Varenicline tartrate"]
+      zh_hk: ["伐尼克蘭", "暢沛"]
+    drug_facet:
+      short_course: true
+      max_daily_mg: 2
+      pregnancy_caution: "caution"
+      renal_note: "Reduce max dose to 1 mg/day if eGFR <30 mL/min."
+      dosing_pearl:
+        en: "Most effective single pharmacotherapy for smoking cessation (12-week course with week-1 titration; start 1-2 weeks before quit date). Take with food/water to reduce nausea; monitor mood, sleep/vivid dreams, and neuropsychiatric changes (safe in stable psychiatric illness per EAGLES trial)."
+        zh_hk: "高效一線戒煙處方藥（標準12週療程，首週遞增劑量）。建議餐後伴水服用以減低作悶，並留意睡眠多夢及情緒變化。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug_class:alcohol_dependence_agent
+    kind: drug_class
+    wave: W2
+    cluster: C07_mental_health
+    bindings:
+      atc: { code: "N07BB", system: "http://www.whocc.no/atc" }
+    display: { en: "Alcohol relapse-prevention / dependence agent", zh_hk: "戒酒防復發藥物" }
+    purpose_phrases:
+      en: ["anti-craving medication", "alcohol relapse prevention", "stop drinking medication"]
+      zh_hk: ["戒酒藥", "減酒癮藥"]
+    drug_facet: { high_risk: true }
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:naltrexone
+    kind: drug
+    wave: W2
+    cluster: C07_mental_health
+    parent_ids: ["drug_class:alcohol_dependence_agent"]
+    bindings:
+      inn: "naltrexone"
+      rxnorm: { code: "7243", display: "naltrexone" }
+      atc: { code: "N07BB04", system: "http://www.whocc.no/atc" }
+    display: { en: "Naltrexone", zh_hk: "納曲酮" }
+    aliases:
+      en: ["Revia", "ReVia", "Naltrexone HCl"]
+      zh_hk: ["納曲酮"]
+    drug_facet:
+      high_risk: true
+      max_daily_mg: 50
+      renal_note: "Check baseline LFTs — contraindicated in acute hepatitis or liver failure (Child-Pugh C); prefer acamprosate if severe hepatic impairment."
+      dosing_pearl:
+        en: "Opioid antagonist for alcohol use disorder relapse/craving reduction (50 mg OD). HARD-BLOCK if currently taking opioids or in acute opioid withdrawal (precipitates severe withdrawal; blocks emergency opioid analgesia — advise patient medical alert card)."
+        zh_hk: "用於減低酒精渴求及預防復飲。正服用任何鴉片類止痛藥／美沙酮或急性鴉片戒斷者嚴禁使用（會引發劇烈戒斷反應並阻斷止痛效果）；服藥前須檢驗肝功能。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug_class:atypical_antipsychotic
+    kind: drug_class
+    wave: W2
+    cluster: C07_mental_health
+    parent_ids: ["drug_class:antipsychotic"]
+    bindings:
+      atc: { code: "N05AH", system: "http://www.whocc.no/atc" }
+    display: { en: "Second-generation (atypical) antipsychotic", zh_hk: "非典型抗精神病藥" }
+    purpose_phrases:
+      en: ["antipsychotic", "psychosis medication", "bipolar medication"]
+      zh_hk: ["抗精神病藥", "思覺失調藥", "躁鬱症藥"]
+    drug_facet: { no_gap: true, high_risk: true }
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:quetiapine
+    kind: drug
+    wave: W2
+    cluster: C07_mental_health
+    parent_ids: ["drug_class:atypical_antipsychotic"]
+    bindings:
+      inn: "quetiapine"
+      rxnorm: { code: "51272", display: "quetiapine" }
+      atc: { code: "N05AH04", system: "http://www.whocc.no/atc" }
+    display: { en: "Quetiapine", zh_hk: "喹硫平" }
+    aliases:
+      en: ["Seroquel", "Seroquel XR", "Syquet"]
+      zh_hk: ["喹硫平", "思樂康"]
+    drug_facet:
+      no_gap: true
+      high_risk: true
+      max_daily_mg: 800
+      dosing_pearl:
+        en: "Second-generation antipsychotic for schizophrenia, bipolar mania/depression. Avoid off-label use for primary insomnia (metabolic syndrome, orthostatic hypotension, QTc, falls). Requires baseline & periodic metabolic monitoring (weight/BMI, BP, HbA1c/glucose, lipids)."
+        zh_hk: "非典型抗精神病藥，用於思覺失調及躁鬱症；不建議單純用於原發性失眠。須定期監察體重、血壓、糖化血紅素及血脂。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:olanzapine
+    kind: drug
+    wave: W2
+    cluster: C07_mental_health
+    parent_ids: ["drug_class:atypical_antipsychotic"]
+    bindings:
+      inn: "olanzapine"
+      rxnorm: { code: "61381", display: "olanzapine" }
+      atc: { code: "N05AH03", system: "http://www.whocc.no/atc" }
+    display: { en: "Olanzapine", zh_hk: "奧氮平" }
+    aliases:
+      en: ["Zyprexa", "Zyprexa Zydis", "Olanzapine ODT"]
+      zh_hk: ["奧氮平", "再普樂"]
+    drug_facet:
+      no_gap: true
+      high_risk: true
+      max_daily_mg: 20
+      dosing_pearl:
+        en: "High metabolic liability antipsychotic (rapid weight gain, dyslipidaemia, new-onset T2DM/DKA). Mandatory cardiometabolic monitoring: baseline, 3 months, then 6-12 monthly BMI/waist, BP, HbA1c/fasting glucose, and lipids; note CYP1A2 induction by smoking (dose toxicity risk if patient abruptly quits smoking!)."
+        zh_hk: "高代謝風險抗精神病藥（易致體重驟增、糖尿病及高血脂），必須於用藥前、3個月及定期每6至12個月監察糖化血紅素、血脂、血壓及體重；留意突然戒煙會令血藥濃度急升。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug_class:nassa_antidepressant
+    kind: drug_class
+    wave: W2
+    cluster: C07_mental_health
+    bindings:
+      atc: { code: "N06AX", system: "http://www.whocc.no/atc" }
+    display: { en: "Noradrenergic and specific serotonergic antidepressant (NaSSA)", zh_hk: "去甲腎上腺素及特異性血清素抗抑鬱藥 (NaSSA)" }
+    purpose_phrases:
+      en: ["sedating antidepressant", "appetite antidepressant"]
+      zh_hk: ["助眠抗抑鬱藥"]
+    drug_facet: { no_gap: true }
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:mirtazapine
+    kind: drug
+    wave: W2
+    cluster: C07_mental_health
+    parent_ids: ["drug_class:nassa_antidepressant"]
+    bindings:
+      inn: "mirtazapine"
+      rxnorm: { code: "15996", display: "mirtazapine" }
+      atc: { code: "N06AX11", system: "http://www.whocc.no/atc" }
+    display: { en: "Mirtazapine", zh_hk: "米氮平" }
+    aliases:
+      en: ["Avanza", "Remeron", "Axit"]
+      zh_hk: ["米氮平", "瑞美隆"]
+    drug_facet:
+      no_gap: true
+      max_daily_mg: 45
+      dosing_pearl:
+        en: "Start 15 mg nocte (more sedating at 15 mg than 30-45 mg); useful when depression co-exists with insomnia or weight loss. Watch weight gain, somnolence, hyponatraemia in older adults, and rare agranulocytosis (check CBC if fever/sore throat)."
+        zh_hk: "睡前服用15毫克起（低劑量較具鎮靜助眠作用），適合伴隨失眠或消瘦的抑鬱患者；須留意體重增加、嗜睡及長者低血鈉風險。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug_class:mht_oestrogen
+    kind: drug_class
+    wave: W2
+    cluster: C08_womens_health
+    bindings:
+      atc: { code: "G03CA", system: "http://www.whocc.no/atc" }
+    display: { en: "Menopausal hormone therapy (MHT) oestrogen", zh_hk: "更年期荷爾蒙治療雌激素" }
+    purpose_phrases:
+      en: ["HRT", "MHT", "oestrogen patch", "estrogen gel", "menopause hormone"]
+      zh_hk: ["更年期荷爾蒙藥", "荷爾蒙補充劑", "雌激素貼", "荷爾蒙啫喱"]
+    drug_facet: { high_risk: true }
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:estradiol_mht
+    kind: drug
+    wave: W2
+    cluster: C08_womens_health
+    parent_ids: ["drug_class:mht_oestrogen"]
+    bindings:
+      inn: "estradiol"
+      rxnorm: { code: "4083", display: "estradiol" }
+      atc: { code: "G03CA03", system: "http://www.whocc.no/atc" }
+    display: { en: "Estradiol (transdermal / oral MHT)", zh_hk: "雌二醇（經皮貼片／啫喱／口服）" }
+    aliases:
+      en: ["Estrogel", "Estradot", "Estraderm", "Progynova", "Sandrena", "oestradiol"]
+      zh_hk: ["雌二醇", "補佳樂"]
+    drug_facet:
+      high_risk: true
+      pregnancy_caution: "contraindicated"
+      dosing_pearl:
+        en: "MANDATORY ENDOMETRIAL PROTECTION: Women with an intact uterus MUST receive concurrent progestogen (e.g. micronised progesterone or LNG-IUS) with systemic estradiol to prevent endometrial carcinoma. Prefer transdermal estradiol if VTE risk factors, obesity, migraine, or age >=55y. Contraindicated in breast/endometrial cancer, unexplained vaginal bleeding, active VTE/CVD."
+        zh_hk: "關鍵安全提示：凡保留子宮之女性使用系統性雌二醇，必須合併使用黃體酮（如微粉化黃體酮或曼月樂）以防子宮內膜癌。經皮劑型血栓風險較低；乳癌、子宮內膜癌、未明陰道出血或活躍血栓者禁用。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug_class:progestogen
+    kind: drug_class
+    wave: W2
+    cluster: C08_womens_health
+    bindings:
+      atc: { code: "G03DA", system: "http://www.whocc.no/atc" }
+    display: { en: "Progestogen (MHT / gynaecological)", zh_hk: "黃體酮／孕激素類藥物" }
+    purpose_phrases:
+      en: ["progesterone", "progestogen", "endometrial protection"]
+      zh_hk: ["黃體酮藥", "孕激素"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:progesterone_micronised
+    kind: drug
+    wave: W2
+    cluster: C08_womens_health
+    parent_ids: ["drug_class:progestogen"]
+    bindings:
+      inn: "progesterone"
+      rxnorm: { code: "8727", display: "progesterone" }
+      atc: { code: "G03DA04", system: "http://www.whocc.no/atc" }
+    display: { en: "Micronised progesterone (oral)", zh_hk: "微粉化天然黃體酮" }
+    aliases:
+      en: ["Prometrium", "Utrogestan", "micronized progesterone"]
+      zh_hk: ["微粉化黃體酮", "天然黃體酮", "優潔通"]
+    drug_facet:
+      max_daily_mg: 300
+      dosing_pearl:
+        en: "Take at bedtime (mildly sedating; avoid with food if dizziness). Standard MHT endometrial protection: 100 mg nocte continuous (postmenopausal) or 200 mg nocte days 1-12/month sequential (perimenopausal). Note peanut/soya excipient allergy check on some capsules."
+        zh_hk: "建議睡前服用（具輕微助眠作用）。用於配合雌激素保護子宮內膜（持續每日100毫克或週期性每月12日每日200毫克）；部分膠囊含花生／大豆油成分，須核對食物過敏史。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug_class:pde5_inhibitor
+    kind: drug_class
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      atc: { code: "G04BE", system: "http://www.whocc.no/atc" }
+    display: { en: "Phosphodiesterase-5 (PDE5) inhibitor", zh_hk: "第五型磷酸二酯酶抑制劑 (PDE5)" }
+    purpose_phrases:
+      en: ["ED pill", "erectile dysfunction medication", "blue pill"]
+      zh_hk: ["壯陽藥", "勃起功能藥", "助勃藥"]
+    drug_facet: { high_risk: true }
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:sildenafil
+    kind: drug
+    wave: W2
+    cluster: C09_mens_sexual_health
+    parent_ids: ["drug_class:pde5_inhibitor"]
+    bindings:
+      inn: "sildenafil"
+      rxnorm: { code: "136411", display: "sildenafil" }
+      atc: { code: "G04BE03", system: "http://www.whocc.no/atc" }
+    display: { en: "Sildenafil", zh_hk: "西地那非" }
+    aliases:
+      en: ["Viagra", "Vedafil", "Silvasta"]
+      zh_hk: ["西地那非", "威而鋼", "偉哥"]
+    drug_facet:
+      high_risk: true
+      max_single_mg: 100
+      max_daily_mg: 100
+      dosing_pearl:
+        en: "ABSOLUTE HARD-BLOCK with any organic nitrate (GTN, isosorbide) or amyl nitrite ('poppers') -> fatal refractory hypotension (24h washout for sildenafil; 48h for tadalafil). Caution with alpha-blockers (tamsulosin/prazosin -> orthostatic hypotension) and unstable CVD."
+        zh_hk: "絕對禁止與任何硝酸酯類心臟藥（脷底丸／硝酸甘油）或吸入亞硝酸酯併用，否則可致致命性嚴重低血壓；與前列腺α阻斷劑合用亦須留意體位性低血壓。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug_class:nitrate
+    kind: drug_class
+    wave: W2
+    cluster: C01_cardiovascular
+    bindings:
+      atc: { code: "C01DA", system: "http://www.whocc.no/atc" }
+    display: { en: "Organic nitrate vasodilator", zh_hk: "硝酸酯類血管擴張藥" }
+    purpose_phrases:
+      en: ["angina spray", "chest pain spray", "under tongue heart tablet", "nitrate"]
+      zh_hk: ["心絞痛噴霧", "心臟擴血管藥", "心絞痛藥"]
+    drug_facet: { high_risk: true }
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: drug:gtn_nitrate
+    kind: drug
+    wave: W2
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:nitrate"]
+    bindings:
+      inn: "glyceryl trinitrate"
+      rxnorm: { code: "4917", display: "nitroglycerin" }
+      atc: { code: "C01DA02", system: "http://www.whocc.no/atc" }
+    display: { en: "Glyceryl trinitrate (GTN sublingual / spray)", zh_hk: "硝酸甘油（脷底丸／舌下噴霧）" }
+    aliases:
+      en: ["GTN", "GTN spray", "nitroglycerin", "Nitrolingual", "Anginine", "Lycinate"]
+      zh_hk: ["硝酸甘油", "脷底丸", "舌下噴霧"]
+    drug_facet:
+      high_risk: true
+      dosing_pearl:
+        en: "Sit down before taking to prevent syncope. If chest pain persists after 1-2 doses (5 min apart) or is severe/atypical, call emergency services immediately. ABSOLUTE HARD-BLOCK with PDE5 inhibitors (sildenafil/tadalafil)."
+        zh_hk: "使用前請先坐下以防低血壓暈倒；如使用後5分鐘胸痛未緩解，須立即致電緊急救援服務。絕對禁止與西地那非等PDE5助勃藥併用。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  # =========================================================================
+  # OBSERVATIONS (7) — Verified LOINC Mod-10 & VALID_UCUM
+  # =========================================================================
+  - id: obs:hiv_ag_ab
+    kind: observation
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      loinc: { code: "56888-1", display: "HIV 1+2 Ag+Ab [Presence] in Serum or Plasma by Immunoassay" }
+      ucum: "{Ordinal}"
+    display: { en: "HIV 1/2 4th-generation Ag/Ab combo screen", zh_hk: "第四代愛滋病病毒抗原及抗體合併測試 (HIV Ag/Ab)" }
+    aliases:
+      en: ["HIV test", "HIV Ag/Ab", "HIV serology", "4th gen HIV", "HIV combo"]
+      zh_hk: ["愛滋病病毒測試", "HIV測試", "愛滋病抗體測試"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs:syphilis_serology
+    kind: observation
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      loinc: { code: "22587-0", display: "Treponema pallidum Ab [Presence] in Serum" }
+      ucum: "{Ordinal}"
+    display: { en: "Syphilis treponemal serology (EIA/TPPA/RPR)", zh_hk: "梅毒血清測試 (EIA/TPPA/RPR)" }
+    aliases:
+      en: ["syphilis serology", "syphilis test", "TPPA", "RPR", "VDRL", "Treponema pallidum Ab"]
+      zh_hk: ["梅毒測試", "梅毒血清", "梅毒抗體"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs:ct_ng_naat
+    kind: observation
+    wave: W2
+    cluster: C09_mens_sexual_health
+    bindings:
+      loinc: { code: "36902-5", display: "Chlamydia trachomatis+Neisseria gonorrhoeae DNA [Presence] in Specimen by NAA with probe detection" }
+      ucum: "{Ordinal}"
+    display: { en: "Chlamydia & Gonorrhoea NAAT (PCR)", zh_hk: "衣原體及淋病核酸擴增測試 (CT/NG PCR)" }
+    aliases:
+      en: ["chlamydia gonorrhoea PCR", "CT/NG NAAT", "STI urine PCR", "chlamydia swab", "gonorrhoea PCR"]
+      zh_hk: ["衣原體淋病核酸測試", "性病尿液PCR", "衣原體淋病測試"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs:ggt
+    kind: observation
+    wave: W2
+    cluster: C05_gastroenterology
+    bindings:
+      loinc: { code: "2324-2", display: "Gamma glutamyl transferase [Enzymatic activity/volume] in Serum or Plasma" }
+      ucum: "U/L"
+    display: { en: "Gamma-glutamyl transferase (GGT)", zh_hk: "丙種谷氨酰轉肽酶 (GGT)" }
+    aliases:
+      en: ["GGT", "gamma GT", "gamma-glutamyl transferase"]
+      zh_hk: ["GGT肝酵素", "谷氨酰轉肽酶"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs:lipase
+    kind: observation
+    wave: W2
+    cluster: C05_gastroenterology
+    bindings:
+      loinc: { code: "3040-3", display: "Lipase [Enzymatic activity/volume] in Serum or Plasma" }
+      ucum: "U/L"
+    display: { en: "Serum lipase", zh_hk: "血清脂肪酶 (Lipase)" }
+    aliases:
+      en: ["lipase", "serum lipase", "pancreatic lipase"]
+      zh_hk: ["脂肪酶", "血清脂肪酶", "胰臟酵素"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs:cortisol_am
+    kind: observation
+    wave: W2
+    cluster: C03_endocrine
+    bindings:
+      loinc: { code: "14675-3", display: "Cortisol [Moles/volume] in Serum or Plasma" }
+      ucum: "nmol/L"
+    display: { en: "Morning serum cortisol (08:00-09:00 AM)", zh_hk: "早上血清皮質醇 (08:00-09:00 AM)" }
+    aliases:
+      en: ["morning cortisol", "AM cortisol", "9am cortisol", "serum cortisol"]
+      zh_hk: ["早上皮質醇", "皮質醇水平", "血清皮質醇"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs:afp
+    kind: observation
+    wave: W2
+    cluster: C05_gastroenterology
+    bindings:
+      loinc: { code: "1834-1", display: "Alpha-1-Fetoprotein [Mass/volume] in Serum or Plasma" }
+      ucum: "ug/L"
+    display: { en: "Serum alpha-fetoprotein (AFP)", zh_hk: "血清甲胎蛋白 (AFP)" }
+    aliases:
+      en: ["AFP", "alpha-fetoprotein", "alphafetoprotein"]
+      zh_hk: ["甲胎蛋白", "肝癌指數AFP"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+# ===========================================================================
+# DETERMINISTIC CLINICAL EDGES (18) — High-Risk DDIs, Red Flags & Monitoring
+# ===========================================================================
+edges:
+  - id: edge:sildenafil_nitrate_fatal_hypotension
+    source_id: drug_class:pde5_inhibitor
+    relation: INTERACTS_WITH
+    target_id: drug_class:nitrate
+    bidirectional: true
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Co-administration of PDE5 inhibitors (e.g. sildenafil) with organic nitrates (e.g. GTN sublingual/spray) causes synergistic cGMP-mediated vasodilation and potentially fatal refractory hypotension, MI, or cardiovascular collapse."
+      zh_hk: "PDE5抑制劑（如西地那非）與硝酸酯類藥物（如硝酸甘油／脷底丸）併用會引致嚴重協同血管擴張，可造成致命性難治低血壓及心血管休克，屬絕對禁忌。"
+    clinician_action_prompt:
+      en: "HARD-BLOCK co-prescribing; verify patient has not used sildenafil within 24h (tadalafil 48h) before any nitrate administration, and screen for recreational amyl nitrite ('poppers')."
+      zh_hk: "嚴禁同時處方；使用任何硝酸甘油前必須確認24小時內未服用西地那非（他達拉非為48小時）。"
+    patient_safety_net:
+      en: "Never use erectile dysfunction medicines such as sildenafil together with GTN heart spray/tablets or nitrates. If both were taken and you feel dizzy, faint, or have chest pain, seek emergency hospital care immediately."
+      zh_hk: "切勿將西地那非等助勃藥物與硝酸甘油（脷底丸／心絞痛噴霧）併用。如不慎同服並出現頭暈、昏厥或胸痛，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:cotrimoxazole_g6pd_haemolysis
+    source_id: drug:co_trimoxazole
+    relation: CONTRAINDICATED_IN
+    target_id: pgx:g6pd_deficiency
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: g6pd_deficient, op: eq, value: true }
+        - { fact: has_concept, op: is_a, value: "pgx:g6pd_deficiency" }
+    clinician_rationale:
+      en: "Sulfamethoxazole in co-trimoxazole is a potent oxidative agent contraindicated in G6PD deficiency due to risk of severe acute intravascular haemolysis."
+      zh_hk: "複方新諾明含磺胺甲噁唑，屬強氧化性藥物，蠶豆症 (G6PD) 患者禁用，以免誘發嚴重急性溶血性貧血。"
+    clinician_action_prompt:
+      en: "HARD-BLOCK co-trimoxazole in G6PD-deficient patients; select G6PD-safe alternative antimicrobial per indication and local antibiogram."
+      zh_hk: "蠶豆症患者嚴禁處方複方新諾明，須改用安全替代抗生素。"
+    patient_safety_net:
+      en: "If you have G6PD deficiency and took co-trimoxazole, seek urgent medical care immediately if you notice dark tea-coloured urine, yellowing of the eyes/skin, extreme paleness, or shortness of breath."
+      zh_hk: "如患有蠶豆症並曾服用複方新諾明，一旦出現茶色小便、眼白或皮膚發黃、面色蒼白或氣促，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:cotrimoxazole_warfarin_inr_spike
+    source_id: drug:co_trimoxazole
+    relation: INTERACTS_WITH
+    target_id: drug:warfarin
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Sulfamethoxazole strongly inhibits CYP2C9 clearance of S-warfarin and displaces protein binding, causing rapid dangerous INR elevation and major haemorrhage."
+      zh_hk: "複方新諾明強烈抑制 S-華法林的 CYP2C9 代謝，可於數日內引致 INR 急劇飆升及嚴重內出血風險。"
+    clinician_action_prompt:
+      en: "Avoid co-trimoxazole in warfarinised patients wherever an alternative exists; if unavoidable, proactively reduce warfarin dose and recheck INR within 3-4 days."
+      zh_hk: "服用華法林患者應盡量避免使用複方新諾明；如無法替代，須預先調整華法林劑量並於3至4日內覆驗 INR。"
+    patient_safety_net:
+      en: "If prescribed antibiotics while taking warfarin, alert your doctor/pharmacist immediately and seek urgent care for unusual bruising, nose/gum bleeding, black stools, or red/pink urine."
+      zh_hk: "服用華法林期間如獲處方抗生素，請立即通知醫生／藥劑師；如出現異常瘀青、流牙血／鼻血、黑便或血尿，請立即求醫。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:cotrimoxazole_methotrexate_pancytopenia
+    source_id: drug:co_trimoxazole
+    relation: INTERACTS_WITH
+    target_id: drug:methotrexate
+    bidirectional: true
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Co-trimoxazole + methotrexate causes synergistic folate antagonism and reduced renal methotrexate clearance, leading to fatal pancytopenia, agranulocytosis, and mucositis."
+      zh_hk: "複方新諾明與甲氨蝶呤合用會造成雙重葉酸拮抗及減慢甲氨蝶呤腎臟排泄，可引致致命全血細胞減少症及口腔潰瘍，屬絕對禁忌。"
+    clinician_action_prompt:
+      en: "HARD-BLOCK co-trimoxazole in patients taking methotrexate (even low-dose weekly RA/psoriasis regimens); if co-dispensed, check urgent CBC/RFT and consider folinic acid rescue with specialist."
+      zh_hk: "服用甲氨蝶呤者嚴禁處方複方新諾明；如已不慎併用，須立即檢驗全血細胞計數及聯絡專科考慮亞葉酸解救。"
+    patient_safety_net:
+      en: "Do not take co-trimoxazole (Bactrim/Septrin) while taking methotrexate. If both were taken, contact a doctor urgently and seek emergency care for fever, sore throat, mouth ulcers, or unexplained bruising."
+      zh_hk: "服用甲氨蝶呤期間切勿服用複方新諾明。如已誤服，請立即聯絡醫生；若出現發燒、喉嚨痛、嚴重口瘡或異常瘀傷，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:cotrimoxazole_raas_hyperkalaemia
+    source_id: drug:co_trimoxazole
+    relation: INTERACTS_WITH
+    target_id: drug_class:raas_agent
+    bidirectional: true
+    severity: high
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Trimethoprim acts like amiloride on collecting duct ENaC channels; combined with ACEi/ARBs (especially in older adults or CKD) it significantly increases severe hyperkalaemia and sudden cardiac death risk."
+      zh_hk: "複方新諾明內的甲氧苄啶會抑制腎臟排鉀，與 ACEi/ARB 降血壓藥合用（尤見於長者或慢性腎病患者）會顯著增加嚴重高血鉀及心律失常風險。"
+    clinician_action_prompt:
+      en: "Select a non-hyperkalaemic alternative antibiotic where possible; if co-trimoxazole required, monitor serum K+ and creatinine within 3-7 days."
+      zh_hk: "宜改選其他抗生素；如必須使用，須於3至7日內覆檢血鉀及腎功能。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:ciprofloxacin_tb_masking_and_tendon
+    source_id: drug_class:fluoroquinolone
+    relation: CONTRAINDICATED_IN
+    target_id: cond:pulmonary_tb
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: has_concept, op: is_a, value: "cond:pulmonary_tb" }
+        - { fact: has_concept, op: is_a, value: "cond:cap" }
+        - { fact: has_concept, op: is_a, value: "rfe:cough" }
+    clinician_rationale:
+      en: "Empiric fluoroquinolone (ciprofloxacin/levofloxacin) in suspected pulmonary TB or uninvestigated subacute cough transiently suppresses M. tuberculosis, delaying TB diagnosis, causing false-negative sputum smears/cultures, and promoting fluoroquinolone-resistant MDR/XDR-TB; also carries Achilles tendon rupture, QTc prolongation, and aortic aneurysm cautions."
+      zh_hk: "在未排除肺結核或持續咳嗽情況下經驗性處方氟喹諾酮（如環丙沙星），會暫時抑制結核菌而掩蓋病情、延誤診斷及誘發耐藥結核；亦須留意跟腱斷裂及QT間期延長風險。"
+    clinician_action_prompt:
+      en: "Do NOT prescribe empiric fluoroquinolone for cough/respiratory infection until pulmonary TB is excluded (CXR + sputum AFB/NAAT); verify age/steroid tendon risk and QTc before any fluoroquinolone."
+      zh_hk: "在完成胸肺X光及痰液結核菌排查前，切勿處方氟喹諾酮治療咳嗽或肺炎；同時評估跟腱炎及QT延長風險。"
+    patient_safety_net:
+      en: "If prescribed a fluoroquinolone antibiotic (such as ciprofloxacin), stop and contact your doctor promptly if you develop ankle/heel tendon pain or swelling, sudden severe chest/back pain, or nerve tingling."
+      zh_hk: "服用環丙沙星等喹諾酮抗生素期間，如出現腳跟／跟腱疼痛腫脹、突發劇烈胸背痛或手腳麻痺，請暫停並盡快聯絡醫生。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:entecavir_no_gap_hbv_flare
+    source_id: drug:entecavir
+    relation: MONITORED_BY
+    target_id: panel:lft
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 90
+      repeat_interval_days: 180
+      grace_days: 14
+      applies_on: both
+    clinician_rationale:
+      en: "Entecavir is a NO-GAP nucleoside analogue: abrupt interruption or supply gap triggers severe HBV viral rebound, acute hepatic flare, and potentially fatal hepatic decompensation (especially in cirrhosis)."
+      zh_hk: "恩替卡韋屬不可中斷用藥：突然停服或斷藥會引致乙肝病毒反彈、嚴重急性肝炎爆發甚至致命肝衰竭（肝硬化患者風險極高）。"
+    clinician_action_prompt:
+      en: "Ensure uninterrupted prescription continuity and adherence check; NEVER stop entecavir without hepatology direction; monitor ALT, HBV DNA, and 6-monthly HCC surveillance (USG + AFP)."
+      zh_hk: "確保藥物供應無縫銜接，未經肝臟專科指示切勿停藥；定期監察肝酵素、乙肝病毒量及每半年肝癌超聲波／AFP篩查。"
+    patient_safety_net:
+      en: "Never stop taking entecavir on your own or let your supply run out, as sudden stopping can cause a dangerous hepatitis B liver flare. Seek urgent care if you develop yellowing of the eyes/skin, dark urine, severe fatigue, or tummy swelling."
+      zh_hk: "切勿自行停服恩替卡韋或讓藥物斷供，以免誘發危險的乙肝爆發。如出現眼白或皮膚發黃、茶色小便、極度疲倦或腹脹，請立即求醫。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:ssri_bipolar_mania_switch
+    source_id: drug_class:ssri
+    relation: CONTRAINDICATED_IN
+    target_id: cond:bipolar_disorder
+    severity: high
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Unopposed SSRI monotherapy in bipolar disorder carries high risk of antidepressant-induced affective switch to mania/hypomania, mixed states, agitation, and rapid cycling."
+      zh_hk: "躁鬱症患者單獨使用血清素抗抑鬱藥 (SSRI) 易誘發躁狂／輕躁症轉相、混合狀態激動及快速循環發作。"
+    clinician_action_prompt:
+      en: "Avoid unopposed SSRI monotherapy in confirmed/suspected bipolar disorder; confirm mood stabiliser/antipsychotic cover and consult psychiatry for bipolar depression management."
+      zh_hk: "避免於躁鬱症單獨處方SSRI；應核實情緒穩定劑或非典型抗精神病藥覆蓋，並諮詢精神科意見。"
+    patient_safety_net:
+      en: "Seek prompt medical review if you notice racing thoughts, needing much less sleep than usual, unusual energy/irritability, impulsive spending, or worsening distress after starting or changing mood medication."
+      zh_hk: "服藥或調藥後如出現思維奔逸、睡眠需求驟減、異常亢奮暴躁、衝動行為或情緒急劇困擾，請盡快聯絡醫生評估。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:scrotal_torsion_surgical_emergency
+    source_id: rf:acute_scrotal_pain_torsion
+    relation: RED_FLAG_FOR
+    target_id: cond:testicular_torsion
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Acute severe unilateral scrotal pain is testicular torsion until proven otherwise: salvage rate drops sharply after 6 hours of ischaemia — immediate surgical exploration takes priority over outpatient imaging."
+      zh_hk: "突發單側陰囊／睪丸劇痛在未排除前一律視作睪丸扭轉處理：缺血超過6小時睪丸壞死風險急升，必須即時轉送急症室作緊急外科手術探查，切勿因等候門診超聲波而延誤。"
+    clinician_action_prompt:
+      en: "Immediate ED transfer for emergency urology/surgical assessment (nil by mouth; DO NOT delay transfer for outpatient Doppler ultrasound)."
+      zh_hk: "立即安排轉送急症室作緊急泌尿外科評估及禁食準備，切勿安排門診超聲波延誤救治。"
+    patient_safety_net:
+      en: "Sudden severe testicle or scrotal pain — especially with tummy pain, nausea, or vomiting — is a time-critical emergency. Go to emergency hospital care immediately and do not eat or drink on the way."
+      zh_hk: "突發劇烈睪丸或陰囊疼痛（尤其伴作悶嘔吐或下腹痛）屬爭分奪秒的外科急症，請立即前往急症室，途中切勿進食或飲水。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:breast_lump_red_flag_triple_assessment
+    source_id: rf:breast_lump_skin_dimpling_nipple
+    relation: RED_FLAG_FOR
+    target_id: cond:breast_cancer
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Hard/fixed breast lump, skin dimpling/peau d'orange, new nipple inversion, unilateral bloody discharge, or axillary lymphadenopathy requires urgent diagnostic triple assessment (clinical exam + diagnostic imaging + tissue biopsy) — never defer to routine screening mammography."
+      zh_hk: "堅硬固定乳房腫塊、皮膚凹陷／橙皮紋、新發乳頭內陷、單側血性分泌物或腋下淋巴腫大，必須盡快安排診斷性三聯評估（臨床檢查、診斷影像及組織活檢），不可單靠一般篩查處理。"
+    clinician_action_prompt:
+      en: "Arrange urgent diagnostic breast imaging (mammogram + ultrasound if >=35y; targeted ultrasound +/- mammogram if <35y) and fast-track breast clinic/surgical referral for core biopsy."
+      zh_hk: "盡快安排診斷性乳房造影／超聲波檢查，並優先轉介乳腺外科作三聯評估及穿刺活檢。"
+    patient_safety_net:
+      en: "A new breast lump, skin dimpling, nipple retraction, bloody nipple discharge, or armpit lump needs prompt face-to-face doctor assessment and diagnostic scans — arrange an urgent clinic review."
+      zh_hk: "新發乳房硬塊、皮膚凹陷、乳頭內陷、血性分泌物或腋下硬塊均須盡快由醫生面診及安排診斷檢查，請盡快預約優先診症。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:post_travel_malaria_emergency
+    source_id: rf:post_travel_malaria_fever
+    relation: RED_FLAG_FOR
+    target_id: cond:malaria
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Fever in a traveller returning from a malaria-endemic area (within 3-12 months) is Plasmodium falciparum malaria until excluded by same-day thick/thin blood films + RDT — deterioration to cerebral malaria or shock can occur within hours."
+      zh_hk: "曾到訪瘧疾流行地區返抵後出現發燒，必須視作惡性瘧疾急症，即日安排急症室厚薄血片及快速抗原檢測；惡性瘧疾可於數小時內惡化至腦型瘧疾或休克。"
+    clinician_action_prompt:
+      en: "Immediate same-day ED referral for urgent malaria thick/thin blood films + RDT (repeat x3 over 48h if initially negative), CBC/platelets, LFT, RFT, lactate, blood cultures (enteric fever/melioidosis), and dengue NS1/PCR."
+      zh_hk: "立即即日轉送急症室作緊急瘧疾血片及快速測試（初陰性須48小時內重驗）、血常規、肝腎功能、血培養及登革熱排查。"
+    patient_safety_net:
+      en: "Fever after returning from tropical or malaria-risk travel requires urgent same-day hospital assessment — go to emergency hospital care immediately, especially if you have shaking chills, severe headache, yellowing eyes, confusion, or bleeding."
+      zh_hk: "外遊熱帶或瘧疾風險地區後發燒必須即日緊急評估，請立即前往急症室（尤其出現發冷打震、劇烈頭痛、黃疸、神志不清或出血）。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:severe_alcohol_withdrawal_dt_emergency
+    source_id: rf:severe_alcohol_withdrawal_dt
+    relation: RED_FLAG_FOR
+    target_id: cond:alcohol_use_disorder
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Severe alcohol withdrawal (marked autonomic hyperactivity, hallucinations, withdrawal seizures, or delirium tremens) carries significant mortality and risk of Wernicke encephalopathy — requires immediate hospital management with parenteral thiamine BEFORE glucose and symptom-triggered benzodiazepines."
+      zh_hk: "嚴重酒精戒斷（劇烈震顫、幻覺、戒斷抽筋或震顫性譫妄）具致命風險，並易併發韋尼克腦病變，必須立即送院於輸注葡萄糖前先給予靜脈維他命B1（硫胺素）及苯二氮平類戒斷治療。"
+    clinician_action_prompt:
+      en: "Immediate ED transfer for inpatient alcohol withdrawal protocol: IV/IM thiamine BEFORE any IV dextrose, CIWA-Ar guided diazepam/lorazepam, electrolytes (K+/Mg2+/PO4), and seizure monitoring."
+      zh_hk: "立即轉送急症室啟動住院戒斷方案：先給予高劑量靜脈／肌肉注射硫胺素 (Thiamine)，配合鎮靜戒斷藥物及電解質監察。"
+    patient_safety_net:
+      en: "Stopping heavy alcohol use suddenly can be life-threatening. If you or someone with you has severe shaking, heavy sweating, confusion, seeing or hearing things, or a seizure, seek emergency hospital care immediately."
+      zh_hk: "長期大量飲酒者突然戒酒可危及生命。如出現劇烈手震、大汗、意識混亂、幻覺或抽筋，請立即前往急症室或致電緊急救援服務。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:acute_psychosis_harm_risk_crisis
+    source_id: rf:acute_psychosis_harm_risk
+    relation: RED_FLAG_FOR
+    target_id: cond:acute_psychosis_schizophrenia
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Acute psychosis with command hallucinations, severe persecutory delusions, marked disorganisation, or imminent risk of harm to self/others requires urgent psychiatric crisis assessment and medical exclusion of organic/substance-induced delirium."
+      zh_hk: "急性思覺失調伴指令性幻聽、嚴重妄想、思維混亂或即時自傷／傷人風險，必須立即啟動緊急精神科危機評估及排查器質性或藥物誘發譫妄。"
+    clinician_action_prompt:
+      en: "Immediate safety escalation: keep patient/staff safe, involve urgent psychiatric crisis team / ED transfer per local mental health statutory pathway, and exclude organic/toxic precipitants."
+      zh_hk: "立即啟動安全及緊急精神科危機轉介／急症室評估，確保患者及在場人士安全並排查器質性誘因。"
+    patient_safety_net:
+      en: "If you or someone with you is experiencing distressing voices, intense fear, severe confusion, or thoughts of harming yourself or anyone else, seek emergency hospital care or contact a 24-hour mental health crisis service immediately."
+      zh_hk: "如你或身邊人士出現困擾的幻聽、極度恐懼混亂，或有自傷或傷害他人的念頭，請立即前往急症室或致電24小時精神健康危機支援熱線。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:varicella_pregnancy_vzig_urgent
+    source_id: cond:varicella_chickenpox
+    relation: RED_FLAG_FOR
+    target_id: cond:pregnancy_normal
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    when:
+      any:
+        - { fact: pregnant, op: eq, value: true }
+        - { fact: has_concept, op: is_a, value: "cond:pregnancy_normal" }
+    clinician_rationale:
+      en: "Primary varicella (chickenpox) in pregnancy carries high maternal risk of life-threatening varicella pneumonitis (especially >=20 weeks) and fetal/neonatal risks (congenital varicella syndrome <20w; severe neonatal varicella if maternal rash within 5 days before to 2 days after delivery)."
+      zh_hk: "孕婦感染水痘具極高母體水痘肺炎風險（尤見於懷孕20週後）及胎兒／新生兒併發症風險（先天性水痘綜合症或嚴重圍產期新生兒水痘）。"
+    clinician_action_prompt:
+      en: "Urgent same-day obstetric/infectious diseases consultation: confirm immunity/exposure timing (VZIG within 10 days for non-immune exposed pregnant women); start oral aciclovir within 24h of rash onset if active disease, or immediate ED transfer for IV aciclovir if respiratory/neuro/haemorrhagic symptoms."
+      zh_hk: "即日緊急轉介產科／感染科評估：未具免疫力而曾接觸水痘之孕婦須評估10日內注射水痘免疫球蛋白 (VZIG)；已出疹者須24小時內評估抗病毒治療，如有氣促咳嗽立即送急症室。"
+    patient_safety_net:
+      en: "Chickenpox or close contact with chickenpox during pregnancy needs urgent same-day medical advice. Do not sit in a general waiting room without calling ahead; go to emergency hospital care immediately if you develop a cough, shortness of breath, chest pain, or severe rash."
+      zh_hk: "懷孕期間感染或密切接觸水痘均須即日緊急聯絡醫生（求診前請先致電通知診所安排隔離，切勿直接進入普通候診室）；如出現咳嗽、氣促或胸痛，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:olanzapine_monitored_by_hba1c
+    source_id: drug:olanzapine
+    relation: MONITORED_BY
+    target_id: obs:hba1c
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 90
+      repeat_interval_days: 180
+      grace_days: 14
+      applies_on: both
+    clinician_rationale:
+      en: "Olanzapine carries the highest cardiometabolic risk among common primary care antipsychotics (rapid weight gain, dyslipidaemia, insulin resistance, and new-onset T2DM/DKA) — requires structured baseline, 3-month, and 6-12 monthly HbA1c, fasting lipids, weight/waist, and BP monitoring."
+      zh_hk: "奧氮平具顯著心血管代謝風險（體重急增、高血脂及新發糖尿病），必須於用藥前、首3個月及之後每6至12個月監察糖化血紅素 (HbA1c)、血脂、體重及血壓。"
+    clinician_action_prompt:
+      en: "Order HbA1c/fasting glucose + fasting lipids + weight/BMI/BP; initiate early lifestyle intervention or metformin/specialist review if rapid weight gain (>5-7%) or dysglycaemia develops."
+      zh_hk: "安排檢測糖化血紅素、空腹血脂、體重及血壓；如體重急增或血糖升高，及早介入生活干預及與專科檢視用藥。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:severe_anorexia_medical_emergency
+    source_id: rf:severe_anorexia_bradycardia_hypok
+    relation: RED_FLAG_FOR
+    target_id: cond:anorexia_nervosa
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Bradycardia (<50 bpm), postural hypotension/syncope, hypothermia, hypokalaemia (<3.0 mmol/L), hypoglycaemia, or severe malnutrition (BMI <14) in an eating disorder signals imminent cardiac arrhythmia and refeeding syndrome risk."
+      zh_hk: "厭食症或進食失調患者出現心搏過緩（<50次/分）、低血壓昏厥、低體溫、低血鉀（<3.0）或極度營養不良，屬致命心律失常及再餵養綜合症高危急症。"
+    clinician_action_prompt:
+      en: "Immediate ED transfer for inpatient medical stabilisation: ECG (QTc/bradycardia), electrolytes (K+/Mg2+/PO4), BGL, LFT/FBC, thiamine, and supervised refeeding protocol."
+      zh_hk: "立即轉送急症室作內科穩定及監護：安排心電圖、血鉀／血鎂／血磷、血糖及專科再餵養方案。"
+    patient_safety_net:
+      en: "Fainting, severe dizziness on standing, chest pain, very slow or racing heartbeat, or severe weakness with restricted eating or purging is a medical emergency — seek emergency hospital care immediately."
+      zh_hk: "進食極少或扣喉期間如出現昏厥、站立嚴重頭暈、胸痛、心跳過慢／心悸或極度乏力，屬內科急症，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:naltrexone_opioid_precipitated_withdrawal
+    source_id: drug:naltrexone
+    relation: INTERACTS_WITH
+    target_id: drug_class:opioid
+    bidirectional: true
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Naltrexone is a competitive mu-opioid receptor antagonist: co-use with opioids precipitates severe acute opioid withdrawal in dependent patients and blocks analgesia in acute pain/surgery."
+      zh_hk: "納曲酮為鴉片受體拮抗劑，與鴉片類藥物合用會在依賴者身上誘發劇烈急性戒斷反應，並阻斷止痛藥效。"
+    clinician_action_prompt:
+      en: "HARD-BLOCK concurrent naltrexone and opioids; confirm >=7-10 days opioid-free before starting naltrexone, and warn patient against attempting to override blockade with high-dose opioids (fatal overdose risk)."
+      zh_hk: "嚴禁併用納曲酮與鴉片類藥物；開始納曲酮前必須確認停用鴉片類至少7至10日，並提醒患者切勿自行加量止痛藥以防過量致命。"
+    patient_safety_net:
+      en: "Do not take any opioid painkillers (including codeine or tramadol) while taking naltrexone, and never try to take extra opioid doses to overcome the block. Tell emergency or surgical staff that you take naltrexone."
+      zh_hk: "服用納曲酮期間切勿服用任何含可待因、曲馬多等鴉片類止痛藥，亦切勿自行增加止痛藥劑量以免致命過量；就醫或手術前請主動告知醫護人員。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: edge:estradiol_mht_unopposed_endometrial_risk
+    source_id: drug:estradiol_mht
+    relation: CONTRAINDICATED_IN
+    target_id: cond:endometrial_cancer
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: has_concept, op: is_a, value: "cond:endometrial_cancer" }
+        - { fact: has_concept, op: is_a, value: "cond:breast_cancer" }
+        - { fact: has_concept, op: is_a, value: "rf:postmenopausal_bleeding" }
+        - not: { fact: has_concept, op: is_a, value: "drug_class:progestogen" }
+    clinician_rationale:
+      en: "Systemic oestrogen MHT is contraindicated in oestrogen-sensitive malignancy (endometrial or breast cancer) and uninvestigated vaginal bleeding; in women with an intact uterus, unopposed systemic estradiol significantly raises endometrial carcinoma risk."
+      zh_hk: "系統性雌激素更年期治療禁用於子宮內膜癌、乳癌及未明陰道出血患者；凡保留子宮女性必須合併黃體酮以防子宮內膜癌。"
+    clinician_action_prompt:
+      en: "Hard-stop systemic estradiol in endometrial/breast cancer; verify concurrent progestogen (e.g. micronised progesterone or LNG-IUS) for every MHT patient with an intact uterus."
+      zh_hk: "子宮內膜癌或乳癌患者停用系統性雌激素；所有保留子宮之更年期治療患者必須核實已配搭黃體酮保護內膜。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+# ===========================================================================
+# PRESENTATION FRAMES (5) — Murtagh PROMPT + openEHR Positive Exclusions + Safety Netting
+# ===========================================================================
+frames:
+  - id: frame:breast_lump_pain
+    rfe_concept_id: rfe:breast_lump_pain
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_fibroadenoma, concept_id: cond:breast_fibroadenoma_benign, prevalence_note: "Most common cause of discrete mobile lump in women <35y; cysts/fibrocystic change 35-50y" }
+        - { id: p_mastitis, concept_id: cond:mastitis, key_discriminators: ["lactating mother", "erythema", "warmth", "tenderness", "fever"] }
+        - { id: p_msk_chest, concept_id: cond:msk_chest_wall_pain, key_discriminators: ["non-cyclic focal chest wall / costochondral tenderness", "normal breast exam"] }
+      serious_not_to_be_missed:
+        - { id: s_breast_ca, concept_id: cond:breast_cancer, key_discriminators: ["hard/irregular/fixed lump", "skin dimpling/peau d'orange", "new nipple inversion", "unilateral bloody discharge", "axillary node", "ANY new lump >=35y or male breast lump"] }
+        - { id: s_abscess_sepsis, concept_id: cond:sepsis, key_discriminators: ["fluctuant painful mass with high fever/rigors (breast abscess / severe mastitis)"] }
+      pitfalls_often_missed:
+        - { id: o_preg_lact, concept_id: cond:pregnancy_normal, key_discriminators: ["early pregnancy breast tenderness/nodularity — never assume pregnancy lump is benign without ultrasound"] }
+        - { id: o_drugs_gynae, concept_id: cond:drug_adverse_effect, key_discriminators: ["COC/MHT mastalgia; spironolactone/antipsychotics/cimetidine gynaecomastia or galactorrhoea"] }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Review exogenous hormones (COC/MHT), antipsychotics (hyperprolactinaemia), and spironolactone." } }
+        - { id: mq_malignancy, tier: primary, masquerade: malignancy, concept_id: cond:breast_cancer, clue_prompt: { en: "Inflammatory breast cancer can masquerade as non-resolving mastitis — if erythema/oedema fails to clear after antibiotics, mandate urgent biopsy." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore fear of breast cancer, family history (BRCA/first-degree relatives), and impact on breastfeeding if postpartum." }
+    positive_exclusions:
+      - id: ex_breast_red_flags
+        finding_concept_id: rf:breast_lump_skin_dimpling_nipple
+        question: { en: "Have you noticed a hard or fixed lump, skin dimpling or orange-peel texture, newly inverted nipple, bloody discharge from one nipple, or a lump in your armpit?", zh_hk: "請問你有否察覺堅硬或固定的乳房硬塊、皮膚凹陷或橙皮紋、新發乳頭內陷、單側乳頭流出帶血分泌物，或腋下有硬塊？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_breast_weight_loss
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Have you had unexplained weight loss, persistent bone pain, or night sweats?", zh_hk: "請問你近期有沒有無故體重下降、持續骨痛或夜間盜汗？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_breast_sepsis
+        finding_concept_id: rf:confusion
+        question: { en: "If the breast is red, hot, and painful, do you have a high fever, shaking chills, rapid heartbeat, or feel faint/unwell?", zh_hk: "如乳房紅腫熱痛，請問你有否發高燒、發冷打震、心跳急促或感到頭暈極度不適？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_breast_sepsis
+        trigger_condition: { en: "Spreading breast redness/swelling with high fever, rigors, dizziness, or rapidly worsening severe pain", zh_hk: "乳房紅腫擴散並伴高燒、發冷打震、頭暈或劇痛迅速惡化" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "If a red, painful breast is accompanied by a high fever, shaking chills, dizziness, or feeling severely unwell, seek immediate emergency hospital care."
+          zh_hk: "如乳房紅腫熱痛伴隨高燒、發冷打震、頭暈或全身極度不適，請立即前往急症室。"
+      - id: sn_breast_triple_review
+        trigger_condition: { en: "Any new breast lump, skin/nipple change, or breast redness not improving within 48 hours of antibiotics", zh_hk: "任何新發現乳房硬塊、皮膚／乳頭變化，或乳腺炎服藥48小時後未見改善" }
+        timeframe_hours: 48
+        escalation_channel: urgent_clinic_callback
+        patient_instruction:
+          en: "Every new breast lump or nipple/skin change requires in-person clinical examination and diagnostic imaging. Contact the clinic promptly for a face-to-face review, or sooner if mastitis symptoms do not improve within 48 hours."
+          zh_hk: "任何新發乳房硬塊或乳頭／皮膚變化均須由醫生面診及安排診斷影像檢查；請盡快預約診症，若乳腺炎服藥48小時未見改善亦請立即覆診。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: frame:scrotal_pain_swelling
+    rfe_concept_id: rfe:scrotal_pain_swelling
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_epididymo, concept_id: cond:epididymo_orchitis, prevalence_note: "Gradual-onset unilateral pain/swelling with dysuria/discharge (STI <35y; enteric UTI >=35y)" }
+        - { id: p_prostatitis, concept_id: cond:prostatitis, key_discriminators: ["perineal/suprapubic pain", "fever", "dysuria", "tender boggy prostate"] }
+        - { id: p_renal_colic, concept_id: cond:renal_colic, key_discriminators: ["loin-to-groin colicky pain radiating to testis", "normal scrotal exam", "microscopic haematuria"] }
+      serious_not_to_be_missed:
+        - { id: s_torsion, concept_id: cond:testicular_torsion, key_discriminators: ["sudden severe pain (often waking from sleep)", "nausea/vomiting", "high-riding transverse testis", "absent cremasteric reflex — 6-HOUR SURGICAL EMERGENCY"] }
+        - { id: s_uro_ca, concept_id: cond:urologic_malignancy, key_discriminators: ["painless firm intratesticular lump/heaviness in young men 15-45y -> urgent scrotal ultrasound"] }
+        - { id: s_sepsis_fournier, concept_id: cond:sepsis, key_discriminators: ["rapidly spreading scrotal erythema/crepitus/severe pain out of proportion + fever/diabetes -> Fournier gangrene emergency"] }
+      pitfalls_often_missed:
+        - { id: o_chlamydia_ng, concept_id: cond:gonorrhoea, key_discriminators: ["STI epididymo-orchitis in sexually active men — send first-void urine CT/NG NAAT"] }
+        - { id: o_aortic, concept_id: cond:aortic_dissection, key_discriminators: ["older male with acute flank/groin/scrotal pain + hypotension (ruptured AAA / aortic emergency)"] }
+      masquerades:
+        - { id: mq_uti, tier: primary, masquerade: uti, concept_id: cond:uti, clue_prompt: { en: "Always collect first-void urine for CT/NG NAAT plus MSU culture before antibiotics in suspected epididymo-orchitis." } }
+        - { id: mq_malignancy, tier: primary, masquerade: malignancy, concept_id: cond:urologic_malignancy, clue_prompt: { en: "Up to 10-15% of testicular tumours present with acute pain or mimic epididymitis — re-examine and ultrasound if swelling does not fully resolve." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Address embarrassment, fear of testicular cancer or infertility, and sensitively screen sexual/STI exposure." }
+    positive_exclusions:
+      - id: ex_torsion
+        finding_concept_id: rf:acute_scrotal_pain_torsion
+        question: { en: "Did the testicle pain start suddenly and severely (within minutes to hours), or do you have nausea, vomiting, or severe lower tummy pain?", zh_hk: "請問睪丸痛是否突然劇烈發作，或伴隨作悶、嘔吐或嚴重下腹痛？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_scrotal_syncope
+        finding_concept_id: rf:syncope
+        question: { en: "Do you have a high fever, shaking chills, spreading skin redness/darkening, or feel faint or light-headed?", zh_hk: "請問你有否發高燒、發冷打震、陰囊皮膚迅速紅腫發黑，或感到頭暈欲暈？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_scrotal_emergency
+        trigger_condition: { en: "Sudden severe testicle pain, nausea/vomiting, high fever/chills, spreading redness, or faintness", zh_hk: "突發劇烈睪丸痛、作悶嘔吐、高燒打震、皮膚紅腫擴散或頭暈" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Sudden or severe testicular pain can be a surgical emergency where every hour matters. Go to emergency hospital care immediately and avoid eating or drinking until assessed."
+          zh_hk: "突發或劇烈睪丸痛可能是爭分奪秒的外科急症，請立即前往急症室，評估前請勿進食或飲水。"
+      - id: sn_scrotal_review
+        trigger_condition: { en: "Any painless testicular lump/swelling, or scrotal infection not improving within 48 hours of treatment", zh_hk: "任何無痛睪丸硬塊／腫脹，或感染治療48小時內未見改善" }
+        timeframe_hours: 48
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange prompt face-to-face doctor review for any new testicular lump or swelling, and return urgently within 48 hours if pain or swelling worsens or fails to settle."
+          zh_hk: "任何新發睪丸硬塊或腫脹均須盡快面診及檢查；如疼痛或腫脹惡化或於48小時內未見好轉，請立即覆診。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: frame:urethral_vaginal_discharge
+    rfe_concept_id: rfe:urethral_vaginal_discharge
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_bv, concept_id: cond:bacterial_vaginosis, prevalence_note: "Thin grey-white malodorous vaginal discharge without marked itch/inflammation" }
+        - { id: p_vvc, concept_id: cond:vulvovaginal_candidiasis, key_discriminators: ["vulval itch/soreness", "thick curdy white discharge", "recent antibiotics/diabetes/pregnancy"] }
+        - { id: p_chlamydia, concept_id: cond:chlamydia_sti, key_discriminators: ["often asymptomatic", "mucopurulent discharge", "dysuria", "postcoital/intermenstrual bleeding", "new partner"] }
+        - { id: p_gonorrhoea, concept_id: cond:gonorrhoea, key_discriminators: ["purulent urethral/cervical discharge", "dysuria", "extragenital pharyngeal/rectal exposure"] }
+      serious_not_to_be_missed:
+        - { id: s_pid, concept_id: cond:pelvic_inflammatory_disease, key_discriminators: ["lower abdominal/pelvic pain", "deep dyspareunia", "fever", "cervical motion tenderness — treat empirically early to protect fertility"] }
+        - { id: s_ectopic, concept_id: cond:ectopic_pregnancy, key_discriminators: ["reproductive-age female with pelvic pain or spotting -> ALWAYS exclude pregnancy"] }
+        - { id: s_syphilis, concept_id: cond:syphilis, key_discriminators: ["painless genital/oral ulcer (chancre)", "palmoplantar rash", "lymphadenopathy — rising rates in HK & AU; ALWAYS test blood serology + HIV"] }
+        - { id: s_hiv, concept_id: cond:hiv, key_discriminators: ["seroconversion flu-like rash/fever", "offer full opt-out HIV Ag/Ab + syphilis serology at every STI check"] }
+      pitfalls_often_missed:
+        - { id: o_hsv, concept_id: cond:genital_herpes, key_discriminators: ["painful grouped vesicles/ulcers", "dysuria/urinary retention", "first-episode systemic malaise -> swab PCR + start aciclovir/valaciclovir"] }
+        - { id: o_cervical_ca, concept_id: cond:cervical_cancer, key_discriminators: ["persistent blood-stained/offensive discharge or postcoital bleeding -> speculum exam"] }
+      masquerades:
+        - { id: mq_hiv, tier: secondary, masquerade: hiv, concept_id: cond:hiv, clue_prompt: { en: "Every STI presentation is a high-yield opportunity for full STI panel (CT/NG NAAT at exposed sites, HIV Ag/Ab, syphilis serology, HBV/HCV if indicated) and partner notification." } }
+        - { id: mq_diabetes, tier: primary, masquerade: diabetes, concept_id: cond:t2dm, clue_prompt: { en: "Recurrent vulvovaginal candidiasis or balanitis — check HbA1c/glucose (and SGLT2 inhibitor use)." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Ensure strict confidentiality and non-judgemental care; ask about partner notification support, contraception/PrEP, and sexual safety/coercion." }
+    positive_exclusions:
+      - id: ex_sti_ectopic_pid
+        finding_concept_id: rf:ectopic_rupture_signs
+        question: { en: "Are you having severe lower tummy or pelvic pain, high fever, pain during deep intercourse, or could you possibly be pregnant with pain or bleeding?", zh_hk: "請問你有沒有劇烈下腹／盆腔痛、發高燒、深層性交痛，或有可能懷孕並伴隨腹痛／見紅？" }
+        urgency_if_present: 4
+        mandatory: true
+        when:
+          fact: sex
+          op: ne
+          value: "M"
+      - id: ex_sti_scrotal
+        finding_concept_id: rf:acute_scrotal_pain_torsion
+        question: { en: "If male, are you having sudden or severe testicle pain or swelling?", zh_hk: "如為男性，請問你有沒有突發或劇烈睪丸疼痛或腫脹？" }
+        urgency_if_present: 4
+        mandatory: true
+        when:
+          fact: sex
+          op: eq
+          value: "M"
+      - id: ex_sti_bleed
+        finding_concept_id: rf:heavy_bleeding_bruising
+        question: { en: "Are you having unexplained heavy bleeding, bleeding after sex, or painful sores making it hard to pass urine?", zh_hk: "請問你有沒有異常大量出血、性交後出血，或陰部潰瘍疼痛致無法小便？" }
+        urgency_if_present: 3
+        mandatory: true
+    safety_netting:
+      - id: sn_sti_emergency
+        trigger_condition: { en: "Severe pelvic/abdominal pain, high fever, vomiting, faintness, unable to pass urine, or sudden severe testicle pain", zh_hk: "劇烈下腹／盆腔痛、高燒、嘔吐、頭暈、無法排尿或突發劇烈睪丸痛" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if you develop severe lower tummy or testicle pain, high fever, vomiting, faintness, or cannot pass urine."
+          zh_hk: "如出現劇烈下腹痛或睪丸痛、發高燒、嘔吐、頭暈或無法排尿，請立即前往急症室。"
+      - id: sn_sti_followup
+        trigger_condition: { en: "Awaiting STI test results, starting treatment, or symptoms not settling within 48-72 hours", zh_hk: "等候性病化驗結果、治療期間或徵狀於48至72小時內未見改善" }
+        timeframe_hours: 72
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Avoid sexual contact until testing and any required treatment (including for partners) are completed, and arrange prompt doctor review if symptoms worsen or fail to improve within 48-72 hours."
+          zh_hk: "在完成化驗、治療及伴侶同步評估前請暫停性接觸；如徵狀惡化或於48至72小時內未見改善，請盡快覆診。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: frame:travel_fever_illness
+    rfe_concept_id: rfe:travel_fever_illness
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_dengue, concept_id: cond:dengue, prevalence_note: "Southeast Asia / tropical urban travel (incubation 3-14d): high fever, retro-orbital headache, myalgia, rash, thrombocytopenia — NO NSAIDs" }
+        - { id: p_gastro, concept_id: cond:gastroenteritis, key_discriminators: ["watery/bacterial traveller diarrhoea", "food/water exposure"] }
+        - { id: p_flu_urti, concept_id: cond:influenza, key_discriminators: ["cosmopolitan respiratory infection acquired on flights/transit"] }
+        - { id: p_rrv, concept_id: cond:ross_river_virus, key_discriminators: ["AU regional/coastal mosquito exposure", "polyarthralgia + rash + fatigue"] }
+      serious_not_to_be_missed:
+        - { id: s_malaria, concept_id: cond:malaria, key_discriminators: ["ANY fever after malaria-endemic travel (Africa, South/SE Asia, PNG, Oceania) -> URGENT same-day blood film + RDT"] }
+        - { id: s_typhoid, concept_id: cond:enteric_fever_typhoid, key_discriminators: ["South/SE Asia travel", "stepwise fever", "relative bradycardia", "abdominal pain/constipation or diarrhoea -> blood cultures"] }
+        - { id: s_melioidosis, concept_id: cond:melioidosis, key_discriminators: ["HK (post-typhoon/soil/water) or Northern AU wet season + diabetes/CKD/alcohol -> fulminant pneumonia/sepsis/abscesses"] }
+        - { id: s_sepsis_mening, concept_id: cond:sepsis, key_discriminators: ["rigors", "hypotension", "jaundice", "confusion", "petechiae — immediate ED transfer"] }
+        - { id: s_measles, concept_id: cond:measles, key_discriminators: ["unvaccinated/unknown MMR + fever + 3Cs (cough/coryza/conjunctivitis) + cephalocaudal rash -> AIRBORNE ISOLATION + public health notification"] }
+      pitfalls_often_missed:
+        - { id: o_qfever, concept_id: cond:q_fever, key_discriminators: ["rural AU/livestock/abattoir/kangaroo aerosol exposure", "fever + severe headache + transaminitis/pneumonia"] }
+        - { id: o_tb_hiv, concept_id: cond:pulmonary_tb, key_discriminators: ["prolonged fever/cough/weight loss; acute HIV seroconversion after travel sexual exposure"] }
+      masquerades:
+        - { id: mq_baffling_bact, tier: secondary, masquerade: baffling_bacterial, concept_id: cond:melioidosis, clue_prompt: { en: "Take exact geographic itinerary, freshwater/soil/animal/mosquito/sexual exposures, and incubation timeline; notify CHP (HK) or PHU (AU) for notifiable diseases." } }
+        - { id: mq_baffling_viral, tier: secondary, masquerade: baffling_viral, concept_id: cond:dengue, clue_prompt: { en: "Avoid NSAIDs/aspirin in all undifferentiated post-travel fever until dengue is excluded." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Ask about household/travel companions with similar symptoms, unmentioned rural/animal/sexual exposures, and pre-travel vaccination/antimalarial adherence." }
+    positive_exclusions:
+      - id: ex_travel_malaria
+        finding_concept_id: rf:post_travel_malaria_fever
+        question: { en: "Have you travelled to a malaria-risk or tropical region in the past 12 months and developed fever, chills/rigors, severe headache, jaundice, or bleeding?", zh_hk: "請問你在過去12個月內有否曾到訪瘧疾或熱帶傳染病流行地區，並出現發燒、發冷打震、劇烈頭痛、黃疸或出血？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_travel_meningism
+        finding_concept_id: rf:stiff_neck_meningism
+        question: { en: "Do you have a stiff neck, severe headache with sensitivity to bright light, confusion, or a non-blanching skin rash?", zh_hk: "請問你有沒有頸部僵硬、劇烈頭痛畏光、意識混亂或按壓不退色的皮疹？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_travel_bleed_jaundice
+        finding_concept_id: rf:jaundice
+        question: { en: "Have you noticed yellowing of your eyes/skin, bleeding from gums/nose, persistent vomiting, severe tummy pain, or bloody diarrhoea?", zh_hk: "請問你有沒有眼白／皮膚發黃、流牙血／鼻血、持續嘔吐、劇烈腹痛或血便？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_travel_dyspnoea
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Are you short of breath at rest, having chest pain, or coughing up blood?", zh_hk: "請問你靜止時有沒有氣促、胸痛或咳血？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_travel_emergency
+        trigger_condition: { en: "Fever after malaria-endemic travel, confusion, stiff neck, bleeding gums/bruising, persistent vomiting, jaundice, severe abdominal pain, or breathlessness", zh_hk: "曾到瘧疾地區後發燒、意識混亂、頸僵、牙齦／皮膚出血、持續嘔吐、黃疸、劇烈腹痛或氣促" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Go to emergency hospital care immediately and tell triage your exact travel countries and dates. Do not take ibuprofen or aspirin while tropical fever such as dengue is possible. If you have a fever and widespread rash (possible measles), call ahead and wear a mask."
+          zh_hk: "請立即前往急症室並清楚告知最近外遊國家及日期。在排除登革熱等熱帶發燒前切勿服用布洛芬或阿士匹靈。如發燒伴全身紅疹（疑似麻疹），求診前請先致電通知並佩戴口罩。"
+      - id: sn_travel_review
+        trigger_condition: { en: "Persistent fever >48 hours, worsening fatigue/rash/diarrhoea, or fever returning after briefly settling", zh_hk: "發燒持續超過48小時、疲倦／紅疹／腹瀉惡化，或退燒後再次發燒" }
+        timeframe_hours: 24
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange urgent same-day doctor review if fever persists, returns after briefly settling, or new symptoms develop — repeat blood tests are often needed in post-travel illness."
+          zh_hk: "如持續發燒、退燒後反覆或出現新徵狀，請安排即日醫生覆診及跟進血液化驗。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: frame:substance_alcohol_concern
+    rfe_concept_id: rfe:substance_alcohol_concern
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_aud, concept_id: cond:alcohol_use_disorder, prevalence_note: "Screen with AUDIT-C / AUDIT; assess daily units, morning drinking, prior withdrawal seizures/DTs" }
+        - { id: p_nicotine, concept_id: cond:nicotine_dependence, key_discriminators: ["Ask-Advise-Help", "Fagerstrom dependence", "offer varenicline / combination NRT + behavioural support"] }
+        - { id: p_oud, concept_id: cond:opioid_use_disorder, key_discriminators: ["prescription opioids / codeine / heroin", "offer OAT (buprenorphine/methadone) + take-home naloxone"] }
+      serious_not_to_be_missed:
+        - { id: s_dt_withdrawal, concept_id: cond:alcohol_use_disorder, key_discriminators: ["tremor, sweats, tachycardia, hallucinations, seizures, delirium tremens — EMERGENCY parenteral thiamine + medical detox"] }
+        - { id: s_psychosis_harm, concept_id: cond:acute_psychosis_schizophrenia, key_discriminators: ["substance-induced or primary psychosis, severe agitation, suicidal/homicidal ideation"] }
+        - { id: s_cirrhosis_gib, concept_id: cond:cirrhosis, key_discriminators: ["jaundice, ascites, variceal GI bleed, hepatic encephalopathy, acute pancreatitis (lipase)"] }
+        - { id: s_anorexia_instab, concept_id: cond:anorexia_nervosa, key_discriminators: ["co-occurring eating disorder / severe electrolyte derangement / Wernicke encephalopathy"] }
+      pitfalls_often_missed:
+        - { id: o_bipolar_ptsd, concept_id: cond:bipolar_disorder, key_discriminators: ["self-medication of underlying bipolar disorder, PTSD, depression, or chronic pain"] }
+        - { id: o_bbv, concept_id: cond:chronic_hcv, key_discriminators: ["screen HIV, HBV, HCV in injecting/high-risk drug use; check GGT/LFT/MCV/lipase in alcohol excess"] }
+      masquerades:
+        - { id: mq_depression, tier: primary, masquerade: depression, concept_id: cond:depression, clue_prompt: { en: "Screen for co-morbid depression, PTSD, bipolar disorder, and suicide risk — dual diagnosis is the rule rather than the exception." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Check concurrent sedatives (benzodiazepines + opioids -> respiratory depression) and hepatotoxic drugs." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Use motivational interviewing and non-stigmatising language; explore readiness to change, family/work stressors, financial strain, and domestic safety." }
+    positive_exclusions:
+      - id: ex_alc_dt
+        finding_concept_id: rf:severe_alcohol_withdrawal_dt
+        question: { en: "Have you recently cut down or stopped heavy drinking and developed severe shaking, heavy sweating, seeing/hearing things, confusion, or fits/seizures?", zh_hk: "請問你最近有否突然減酒或停酒，並出現劇烈手震、大汗、幻覺、意識混亂或抽筋？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_sub_suicide
+        finding_concept_id: rf:suicidal_ideation
+        question: { en: "Have you had any thoughts of hurting yourself, ending your life, or feeling unable to stay safe?", zh_hk: "請問你近期有沒有傷害自己、輕生或覺得自己無法保持安全的念頭？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_sub_psychosis
+        finding_concept_id: rf:acute_psychosis_harm_risk
+        question: { en: "Are you hearing voices, feeling intensely paranoid, or worried you might lose control and hurt yourself or someone else?", zh_hk: "請問你有沒有出現幻聽、嚴重被害恐懼，或擔心失控傷害自己或他人？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_sub_jaundice_bleed
+        finding_concept_id: rf:gi_bleeding
+        question: { en: "Have you vomited blood, passed black tarry stools, developed yellowing of your eyes/skin, or had severe upper tummy pain?", zh_hk: "請問你有沒有嘔血、排出黑色柏油狀大便、眼白／皮膚發黃，或劇烈上腹痛？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_substance_emergency
+        trigger_condition: { en: "Severe shaking/sweating/hallucinations/seizures after stopping alcohol, thoughts of self-harm or harm to others, overdose/extreme drowsiness, vomiting blood, or severe upper abdominal pain", zh_hk: "停酒後劇烈手震／大汗／幻覺／抽筋、自傷或傷人念頭、藥物過量極度昏睡、嘔血或劇烈上腹痛" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "If you have severe alcohol withdrawal symptoms (shaking, confusion, hallucinations, or seizures), thoughts of harming yourself or others, vomiting blood, or suspected drug overdose, seek emergency hospital care immediately. Do not abruptly stop heavy daily alcohol without medical supervision."
+          zh_hk: "如出現嚴重酒精戒斷徵狀（劇烈手震、混亂、幻覺或抽筋）、自傷或傷人念頭、嘔血或懷疑藥物過量，請立即前往急症室。長期大量飲酒者切勿在無醫生監護下突然完全停酒。"
+      - id: sn_substance_crisis
+        trigger_condition: { en: "Overwhelming distress, intense cravings with hopelessness, or needing immediate emotional/crisis support", zh_hk: "情緒極度困擾、強烈渴求伴絕望感或需要即時危機支援" }
+        escalation_channel: crisis_hotline
+        patient_instruction:
+          en: "If you feel overwhelmed or unsafe, contact a 24-hour mental health crisis helpline immediately and arrange a supportive same-day review with your doctor to plan safe withdrawal and ongoing treatment."
+          zh_hk: "如感到情緒崩潰或安全受威脅，請立即致電24小時精神健康危機支援熱線，並安排即日醫生評估以制定安全戒斷及治療計劃。"
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+# ===========================================================================
+# OBSERVATION RULES (7) — LOINC + UCUM + Intervals + Bands + Templates
+# ===========================================================================
+observation_rules:
+  - id: obs_rule:hiv_ag_ab
+    observation_concept_id: obs:hiv_ag_ab
+    canonical_ucum: "{Ordinal}"
+    display_ucum: "{Ordinal}"
+    reference_intervals: []
+    severity_bands:
+      significant: { ge: 1.0 }
+      urgent: { ge: 1.0 }
+    direction_templates:
+      positive:
+        working_problem: { en: "reactive HIV 1/2 Ag/Ab screening test (requires confirmatory testing)", zh_hk: "HIV抗原／抗體初步篩查呈陽性（須作確認測試）" }
+        plan_template:
+          en: "Deliver result sensitively face-to-face; order confirmatory HIV-1/2 differentiation immunoassay + HIV RNA viral load (and CD4 count, resistance genotype, HBV/HCV/syphilis); arrange urgent HIV specialist/clinic linkage for rapid ART initiation (U=U counselling) and partner notification."
+          zh_hk: "必須安排面診並以保密同理態度交代結果；即時安排確認性HIV分型檢測、病毒載量及CD4淋巴細胞檢測，並緊急轉介HIV專科診所及早展開抗逆轉錄病毒治療及伴侶通知。"
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs_rule:syphilis_serology
+    observation_concept_id: obs:syphilis_serology
+    canonical_ucum: "{Ordinal}"
+    display_ucum: "{Ordinal}"
+    reference_intervals: []
+    severity_bands:
+      significant: { ge: 1.0 }
+      urgent: { ge: 1.0 }
+    direction_templates:
+      positive:
+        working_problem: { en: "reactive syphilis serology", zh_hk: "梅毒血清測試呈陽性" }
+        plan_template:
+          en: "Interpret treponemal (EIA/TPPA) alongside quantitative non-treponemal titre (RPR/VDRL) and prior treatment history to stage early vs late/latent vs past treated infection; screen for neuro/ocular/otic symptoms and pregnancy (URGENT benzathine penicillin G to prevent congenital syphilis); test HIV + full STI panel and notify public health/partners."
+          zh_hk: "須結合梅毒螺旋體抗體及定量非螺旋體滴度 (RPR/VDRL) 判斷屬早期、晚期潛伏或過往已治療感染；排查神經／眼部徵狀及懷孕（孕婦屬急症須立即盤尼西林治療以防先天性梅毒）；同步檢測HIV及其他性病並跟進伴侶及呈報。"
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs_rule:ct_ng_naat
+    observation_concept_id: obs:ct_ng_naat
+    canonical_ucum: "{Ordinal}"
+    display_ucum: "{Ordinal}"
+    reference_intervals: []
+    severity_bands:
+      significant: { ge: 1.0 }
+    direction_templates:
+      positive:
+        working_problem: { en: "detected Chlamydia trachomatis and/or Neisseria gonorrhoeae (NAAT)", zh_hk: "衣原體及／或淋病核酸測試呈陽性" }
+        plan_template:
+          en: "Treat promptly per local STI guideline (chlamydia: doxycycline 100 mg BD x7d or azithromycin in pregnancy; gonorrhoea: IM ceftriaxone + oral azithromycin/doxycycline + pre-treatment culture for antimicrobial susceptibility); screen HIV & syphilis; counsel 7-day abstinence, partner testing/treatment, and 3-month retest (plus test-of-cure for pharyngeal/rectal NG or pregnancy)."
+          zh_hk: "按地區性病指引盡快治療（衣原體多西環素7日；淋病肌肉注射頭孢曲松配口服藥及留取培養檢驗抗藥性）；同步篩查HIV及梅毒，指導伴侶同步治療、7日內避免性接觸及安排3個月覆檢。"
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs_rule:ggt
+    observation_concept_id: obs:ggt
+    canonical_ucum: "U/L"
+    display_ucum: "U/L"
+    reference_intervals:
+      - { id: ri_default, low: 0.0, high: 50.0, priority: 0 }
+      - { id: ri_male, low: 0.0, high: 60.0, priority: 10, when: { fact: sex, op: eq, value: "M" } }
+      - { id: ri_female, low: 0.0, high: 40.0, priority: 10, when: { fact: sex, op: eq, value: "F" } }
+    severity_bands:
+      significant: { gt: 60.0 }
+      urgent: { gt: 200.0 }
+      critical: { gt: 500.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "elevated GGT (hepatobiliary / alcohol / metabolic / enzyme induction)", zh_hk: "GGT 肝酵素偏高" }
+        plan_template:
+          en: "Review full LFT (ALP, ALT, AST, bilirubin) to distinguish cholestatic biliary obstruction (raised ALP + GGT -> liver/biliary ultrasound) from isolated GGT elevation (alcohol excess -> AUDIT-C, MASLD/metabolic syndrome, or enzyme-inducing drugs such as carbamazepine/phenytoin/statins)."
+          zh_hk: "配合完整肝功能（ALP/ALT/AST/膽紅素）區分膽道阻塞（ALP與GGT同升須照超聲波）或孤立GGT偏高（評估飲酒量、脂肪肝及藥物酵素誘導）。"
+        relevant_med_class_ids: ["drug_class:anticonvulsant", "drug_class:statin"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs_rule:lipase
+    observation_concept_id: obs:lipase
+    canonical_ucum: "U/L"
+    display_ucum: "U/L"
+    reference_intervals:
+      - { id: ri_default, low: null, high: 60.0, priority: 0 }
+    severity_bands:
+      significant: { gt: 60.0 }
+      urgent: { ge: 180.0 }
+      critical: { ge: 300.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "elevated serum lipase (acute pancreatitis screen)", zh_hk: "血清脂肪酶偏高（急性胰臟炎排查）" }
+        plan_template:
+          en: "Lipase >=3x ULN (>=180 U/L) with epigastric pain radiating to back meets diagnostic criteria for acute pancreatitis -> IMMEDIATE ED transfer for IV fluids, analgesia, severity scoring, and aetiology workup (gallstones/ultrasound, alcohol, triglycerides >11 mmol/L, hypercalcaemia, culprit drugs e.g. GLP-1 RA/azathioprine/valproate)."
+          zh_hk: "脂肪酶達正常上限3倍或以上（>=180 U/L）並伴上腹痛放射至背部，符合急性胰臟炎診斷，必須立即轉送急症室住院輸液及排查病因（膽石、飲酒、嚴重高三酸甘油酯、高血鈣或藥物誘發）。"
+        relevant_med_class_ids: ["drug_class:glp1_ra", "drug_class:dpp4_inhibitor"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs_rule:cortisol_am
+    observation_concept_id: obs:cortisol_am
+    canonical_ucum: "nmol/L"
+    display_ucum: "nmol/L"
+    reference_intervals:
+      - { id: ri_default, low: 140.0, high: 550.0, priority: 0, source_note: "08:00-09:00 AM fasting serum cortisol" }
+    severity_bands:
+      significant: { lt: 140.0, gt: 550.0 }
+      urgent: { lt: 100.0, gt: 700.0 }
+      critical: { lt: 50.0 }
+    direction_templates:
+      L:
+        working_problem: { en: "low morning serum cortisol (suspected adrenal insufficiency)", zh_hk: "早上血清皮質醇偏低（疑似腎上腺功能不足）" }
+        plan_template:
+          en: "Morning cortisol <100 nmol/L strongly suggests adrenal insufficiency (exogenous steroid HPA suppression including oral/inhaled/topical/TCM steroids, or primary Addison disease). Check paired ACTH, Na+/K+, glucose, and postural BP; if unwell/hypotensive/hyponatraemic/cortisol <50 nmol/L -> IMMEDIATE ED transfer for IV hydrocortisone (adrenal crisis); otherwise urgent endocrine/short Synacthen test."
+          zh_hk: "早上皮質醇低於100 nmol/L 高度提示腎上腺功能不足（排查外源性類固醇抑制或原發性愛迪生氏病）；立即覆核電解質（低血鈉／高血鉀）、血糖及血壓，如臨床不穩或<50 nmol/L須立即送急症室靜脈補充類固醇防腎上腺危象。"
+        relevant_med_class_ids: ["drug_class:oral_corticosteroid"]
+      H:
+        working_problem: { en: "elevated morning serum cortisol", zh_hk: "早上血清皮質醇偏高" }
+        plan_template:
+          en: "Random/AM cortisol alone cannot diagnose Cushing syndrome (confounded by acute stress, illness, depression, alcohol, or oestrogen/COC raising CBG). If Cushingoid features present, perform screening with 1 mg overnight dexamethasone suppression test, late-night salivary cortisol, or 24h urinary free cortisol."
+          zh_hk: "單次早上皮質醇升高常見於壓力、疾病或雌激素干擾；如具庫欣氏症候群臨床特徵，須以過夜1毫克地塞米松抑制測試或24小時尿液游離皮質醇篩查。"
+        relevant_med_class_ids: ["drug_class:hormonal_contraception", "drug_class:mht_oestrogen"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: obs_rule:afp
+    observation_concept_id: obs:afp
+    canonical_ucum: "ug/L"
+    display_ucum: "ug/L"
+    reference_intervals:
+      - { id: ri_non_pregnant_adult, low: null, high: 10.0, priority: 0, source_note: "Non-pregnant adult upper reference limit ~10 ug/L (physiologically elevated in pregnancy)" }
+      - { id: ri_pregnant, low: 0.0, high: 250.0, priority: 20, when: { fact: pregnant, op: eq, value: true }, source_note: "Physiologically elevated maternal serum AFP during normal pregnancy" }
+    severity_bands:
+      significant: { gt: 10.0 }
+      urgent: { gt: 20.0 }
+      critical: { gt: 200.0 }
+    trend_rules:
+      - id: tr_afp_rising_hcc
+        direction: rise
+        delta_abs: 10.0
+        window_days: 180
+        urgency_floor: 3
+        clinician_rationale:
+          en: "Rising AFP (>=10 ug/L increase within 6 months) in chronic HBV, HCV, or cirrhosis strongly warrants urgent multiphasic liver CT/MRI to exclude hepatocellular carcinoma (HCC) even if ultrasound is equivocal."
+          zh_hk: "慢性乙肝、丙肝或肝硬化患者半年內甲胎蛋白上升 >=10 ug/L，即使超聲波未見明顯異常亦須緊急安排多期肝臟電腦掃描或磁力共振排除肝癌。"
+    direction_templates:
+      H:
+        working_problem: { en: "elevated serum alpha-fetoprotein (AFP)", zh_hk: "血清甲胎蛋白 (AFP) 偏高" }
+        plan_template:
+          en: "Exclude pregnancy first. In chronic HBV/HCV or cirrhosis, AFP >20 ug/L or rising trend mandates urgent liver ultrasound + multiphasic CT/MRI and hepatology referral to rule out hepatocellular carcinoma (HCC); also evaluate active hepatitis flare or germ-cell tumour (testicular/ovarian) in younger adults."
+          zh_hk: "先排除懷孕。於慢性乙肝／丙肝或肝硬化患者，AFP >20 ug/L 或持續上升必須緊急安排肝臟超聲波及多期CT/MRI並轉介肝臟專科排除肝細胞癌；年輕成人亦須考慮生殖細胞腫瘤或急性肝炎發作。"
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+# ===========================================================================
+# PATHWAY POINTERS (3) — Static Ontology -> Temporal Pathways Boundary
+# Strict Asymmetric Authority: autonomy_ceiling <= L1_propose_only
+# ===========================================================================
+pointers:
+  - id: ptr:sexual_reproductive_surgical_escalation
+    trigger_concepts:
+      - "rfe:scrotal_pain_swelling"
+      - "rfe:breast_lump_pain"
+      - "rfe:urethral_vaginal_discharge"
+      - "rf:acute_scrotal_pain_torsion"
+      - "rf:breast_lump_skin_dimpling_nipple"
+    trigger_edges:
+      - "edge:scrotal_torsion_surgical_emergency"
+      - "edge:breast_lump_red_flag_triple_assessment"
+      - "edge:varicella_pregnancy_vzig_urgent"
+      - "edge:sildenafil_nitrate_fatal_hypotension"
+    trigger_observations:
+      - "obs_rule:hiv_ag_ab"
+      - "obs_rule:syphilis_serology"
+      - "obs_rule:ct_ng_naat"
+    target_kind: protocol_yaml
+    target_ref: "protocols/sexual_reproductive_surgical_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "sex", "pregnant", "on_meds", "obs_values"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: ptr:travel_notifiable_id_escalation
+    trigger_concepts:
+      - "rfe:travel_fever_illness"
+      - "rf:post_travel_malaria_fever"
+      - "cond:malaria"
+      - "cond:enteric_fever_typhoid"
+      - "cond:melioidosis"
+      - "cond:measles"
+    trigger_edges:
+      - "edge:post_travel_malaria_emergency"
+      - "edge:ciprofloxacin_tb_masking_and_tendon"
+      - "edge:entecavir_no_gap_hbv_flare"
+      - "edge:cotrimoxazole_g6pd_haemolysis"
+    trigger_observations:
+      - "obs_rule:afp"
+    target_kind: protocol_yaml
+    target_ref: "protocols/travel_notifiable_id_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "jurisdiction", "g6pd_deficient", "on_meds", "obs_values"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }
+
+  - id: ptr:psychiatry_addiction_crisis_safety
+    trigger_concepts:
+      - "rfe:substance_alcohol_concern"
+      - "rf:acute_psychosis_harm_risk"
+      - "rf:severe_alcohol_withdrawal_dt"
+      - "rf:severe_anorexia_bradycardia_hypok"
+    trigger_edges:
+      - "edge:acute_psychosis_harm_risk_crisis"
+      - "edge:severe_alcohol_withdrawal_dt_emergency"
+      - "edge:severe_anorexia_medical_emergency"
+      - "edge:ssri_bipolar_mania_switch"
+      - "edge:olanzapine_monitored_by_hba1c"
+      - "edge:naltrexone_opioid_precipitated_withdrawal"
+    trigger_observations:
+      - "obs_rule:ggt"
+    target_kind: protocol_yaml
+    target_ref: "protocols/psychiatry_addiction_crisis_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "on_meds", "concepts", "obs_values", "jurisdiction"]
+    provenance: { author: "ontology_pod_w2_3", review_status: "draft" }

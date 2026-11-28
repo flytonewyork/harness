@@ -1,0 +1,273 @@
+# Wave 1 Cross-Pod Clinical Safety Edges (Stage 3 Critic P1 Additions)
+# Links high-consequence interactions spanning Pods A, B, C, D, and Wave 0.
+
+edges:
+  # --- Clopidogrel (Pod A) <-> Omeprazole / Esomeprazole (Pod B) CYP2C19 ---
+  - id: edge:clopidogrel_omeprazole_cyp2c19
+    source_id: drug:clopidogrel
+    relation: INTERACTS_WITH
+    target_id: drug:omeprazole
+    bidirectional: true
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Omeprazole inhibits CYP2C19 activation of clopidogrel, reducing antiplatelet efficacy and increasing stent thrombosis / MACE risk (especially in East Asians with high CYP2C19 LoF prevalence)."
+      zh_hk: "奧美拉唑抑制 CYP2C19 令氯吡格雷未能有效活化，增加支架栓塞及心血管事件風險。"
+    clinician_action_prompt:
+      en: "Propose switching PPI to pantoprazole (minimal CYP2C19 inhibition) for clinician review."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  - id: edge:clopidogrel_esomeprazole_cyp2c19
+    source_id: drug:clopidogrel
+    relation: INTERACTS_WITH
+    target_id: drug:esomeprazole
+    bidirectional: true
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Esomeprazole inhibits CYP2C19 activation of clopidogrel, blunting antiplatelet protection."
+      zh_hk: "埃索美拉唑抑制 CYP2C19 減弱氯吡格雷抗血小板藥效，建議由醫生考慮改用泮托拉唑。"
+    clinician_action_prompt:
+      en: "Propose switching PPI to pantoprazole for clinician review."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  # --- Trimethoprim (Pod A) Cross-Pod High-Consequence Interactions ---
+  - id: edge:trimethoprim_warfarin_inr_spike
+    source_id: drug:trimethoprim
+    relation: INTERACTS_WITH
+    target_id: drug:warfarin
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Trimethoprim potently inhibits CYP2C9 warfarin metabolism, causing acute INR spikes and major bleeding."
+      zh_hk: "甲氧苄啶抑制華法林代謝，可致 INR 急升及嚴重出血風險。"
+    clinician_action_prompt:
+      en: "Flag for alternative UTI antibiotic or early INR check within 3-5 days and bleeding precautions."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  - id: edge:trimethoprim_spironolactone_hyperkalaemia
+    source_id: drug:trimethoprim
+    relation: INTERACTS_WITH
+    target_id: drug:spironolactone
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Trimethoprim exerts amiloride-like ENaC blockade; combining with spironolactone causes life-threatening hyperkalaemia (especially in elderly / CKD)."
+      zh_hk: "甲氧苄啶與螺內酯合用可引發致命高血鉀，長者及慢性腎病患者風險極高。"
+    clinician_action_prompt:
+      en: "Avoid concurrent trimethoprim + spironolactone; choose alternative antibiotic or check K+/RFT urgently."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  - id: edge:trimethoprim_raas_hyperkalaemia
+    source_id: drug:trimethoprim
+    relation: INTERACTS_WITH
+    target_id: drug_class:raas_agent
+    bidirectional: true
+    severity: high
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Trimethoprim + ACEi/ARB increases severe hyperkalaemia and sudden death risk in older adults and CKD."
+      zh_hk: "甲氧苄啶與 ACEi/ARB 血壓藥合用顯著增加嚴重高血鉀風險。"
+    clinician_action_prompt:
+      en: "Flag for clinician to select non-hyperkalaemic UTI antibiotic or monitor serum K+/RFT."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  - id: edge:trimethoprim_pregnancy_t1_ci
+    source_id: drug:trimethoprim
+    relation: CONTRAINDICATED_IN
+    target_id: cond:pregnancy_normal
+    severity: hard_block
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: pregnant, op: eq, value: true }
+        - { fact: planning_pregnancy, op: eq, value: true }
+    clinician_rationale:
+      en: "Trimethoprim is a folate antagonist contraindicated in first-trimester pregnancy due to neural tube defect risk."
+      zh_hk: "甲氧苄啶為葉酸拮抗劑，懷孕初期禁用以免增加胎兒神經管缺陷風險。"
+    clinician_action_prompt:
+      en: "Exclude trimethoprim in pregnancy; propose pregnancy-safe UTI alternative (e.g. cephalexin/amoxicillin per culture)."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  - id: edge:trimethoprim_methotrexate_pancytopenia
+    source_id: drug:trimethoprim
+    relation: INTERACTS_WITH
+    target_id: drug:methotrexate
+    bidirectional: true
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Dual folate antagonism (trimethoprim + methotrexate) causes severe/fatal pancytopenia and mucositis."
+      zh_hk: "甲氧苄啶與甲氨蝶呤合用會造成雙重葉酸拮抗，可引致致命全血細胞減少症，嚴禁併用。"
+    clinician_action_prompt:
+      en: "Hard-block trimethoprim in patients on methotrexate; escalate immediately if already co-dispensed."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  # --- SNRI & Z-Drug Cross-Class Parity (Pod C) ---
+  - id: edge:snri_tramadol_serotonin
+    source_id: drug_class:snri
+    relation: INTERACTS_WITH
+    target_id: drug:tramadol
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "SNRI (e.g. venlafaxine) + tramadol carries high risk of serotonin toxicity and lowered seizure threshold."
+      zh_hk: "SNRI 抗抑鬱藥與曲馬多併用具高風險引致血清素綜合症及癲癇發作。"
+    clinician_action_prompt:
+      en: "Avoid tramadol with SNRIs; propose non-serotonergic analgesic for clinician review."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  - id: edge:snri_nsaid_gi_bleed
+    source_id: drug_class:snri
+    relation: INTERACTS_WITH
+    target_id: drug_class:nsaid
+    bidirectional: true
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "SNRI + systemic NSAID increases upper GI haemorrhage risk 3-6x."
+      zh_hk: "SNRI 與非類固醇消炎藥合用顯著增加上消化道出血風險。"
+    clinician_action_prompt:
+      en: "Avoid systemic NSAID or co-prescribe PPI gastroprotection and counsel on melaena red flags."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  - id: edge:z_drug_opioid_respiratory_depression
+    source_id: drug_class:z_drug
+    relation: INTERACTS_WITH
+    target_id: drug_class:opioid
+    bidirectional: true
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Z-drug hypnotic (zolpidem/zopiclone) + opioid carries additive CNS and fatal respiratory depression risk."
+      zh_hk: "Z類安眠藥與鴉片類藥物合用可引致嚴重中樞神經及致命呼吸抑制。"
+    clinician_action_prompt:
+      en: "Hard-block concurrent Z-drug + opioid draft; escalate immediately for clinician review."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  # --- Amiodarone / Digoxin / Clarithromycin Narrow-TI Interactions (Pod A x Pod B x W0) ---
+  - id: edge:amiodarone_warfarin_inr_spike
+    source_id: drug:amiodarone
+    relation: INTERACTS_WITH
+    target_id: drug:warfarin
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Amiodarone potently inhibits CYP2C9 (long half-life), typically requiring 30-50% warfarin dose reduction and frequent INR monitoring."
+      zh_hk: "胺碘酮強烈抑制華法林代謝且半衰期極長，易致嚴重出血，須減量並密切監測 INR。"
+    clinician_action_prompt:
+      en: "Flag for clinician warfarin dose adjustment and early weekly INR monitoring."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  - id: edge:amiodarone_digoxin_toxicity
+    source_id: drug:amiodarone
+    relation: INTERACTS_WITH
+    target_id: drug:digoxin
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Amiodarone inhibits P-gp renal/non-renal clearance of digoxin, doubling serum levels and precipitating fatal arrhythmia."
+      zh_hk: "胺碘酮可令地高辛血濃度倍增並誘發致命心律失常，須由醫生減半地高辛劑量及監測血濃度。"
+    clinician_action_prompt:
+      en: "Flag for clinician to halve digoxin dose and monitor digoxin level, K+, and RFT."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  - id: edge:clarithromycin_digoxin_toxicity
+    source_id: drug:clarithromycin
+    relation: INTERACTS_WITH
+    target_id: drug:digoxin
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Clarithromycin inhibits P-gp and gut flora metabolism of digoxin, risking acute digoxin toxicity."
+      zh_hk: "克拉黴素可令地高辛血濃度急升並引致急性中毒。"
+    clinician_action_prompt:
+      en: "Avoid clarithromycin with digoxin; propose non-interacting antibiotic for clinician review."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  # --- Lithium <-> RAAS / Diuretic Toxicity (Pod C x W0) ---
+  - id: edge:lithium_raas_toxicity
+    source_id: drug:lithium
+    relation: INTERACTS_WITH
+    target_id: drug_class:raas_agent
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "ACEi/ARB reduces renal lithium clearance, precipitating acute lithium toxicity (tremor, ataxia, confusion, arrhythmia)."
+      zh_hk: "ACEi/ARB 血壓藥會減慢腎臟排泄鋰劑，可誘發急性鋰中毒。"
+    clinician_action_prompt:
+      en: "Flag for clinician review and urgent serum lithium + RFT check within 5-7 days of any change."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  - id: edge:lithium_diuretic_toxicity
+    source_id: drug:lithium
+    relation: INTERACTS_WITH
+    target_id: drug_class:diuretic
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Diuretics (especially thiazides/indapamide) cause sodium depletion and proximal lithium reabsorption, risking severe lithium toxicity."
+      zh_hk: "利尿藥（尤其噻嗪類）可令血鋰濃度大幅上升並誘發嚴重鋰中毒。"
+    clinician_action_prompt:
+      en: "Avoid thiazide/diuretic co-prescribing with lithium; check serum lithium + electrolytes urgently if combined."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  # --- Teratogen Pregnancy Hard-Blocks (W0 x Pod D) ---
+  - id: edge:methotrexate_pregnancy_ci
+    source_id: drug:methotrexate
+    relation: CONTRAINDICATED_IN
+    target_id: cond:pregnancy_normal
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: pregnant, op: eq, value: true }
+        - { fact: planning_pregnancy, op: eq, value: true }
+    clinician_rationale:
+      en: "Methotrexate is a major human teratogen and abortifacient; absolutely contraindicated in pregnancy and >=3 months before conception."
+      zh_hk: "甲氨蝶呤具嚴重致畸及流產風險，懷孕及備孕期間絕對禁用。"
+    clinician_action_prompt:
+      en: "Hard-block methotrexate and escalate immediately for urgent physician & obstetric counselling."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
+
+  - id: edge:warfarin_pregnancy_ci
+    source_id: drug:warfarin
+    relation: CONTRAINDICATED_IN
+    target_id: cond:pregnancy_normal
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: pregnant, op: eq, value: true }
+        - { fact: planning_pregnancy, op: eq, value: true }
+    clinician_rationale:
+      en: "Warfarin crosses the placenta causing warfarin embryopathy (weeks 6-12) and fetal intracranial haemorrhage; urgent switch to LMWH required."
+      zh_hk: "華法林可透過胎盤引致胎兒畸形及顱內出血，懷孕或備孕期須緊急由醫生評估轉用低分子肝素。"
+    clinician_action_prompt:
+      en: "Escalate same-day for physician & haematology/obstetric anticoagulation transition (never abruptly stop without bridging plan)."
+    provenance: { author: "ontology_pod_stage3", review_status: "draft" }
