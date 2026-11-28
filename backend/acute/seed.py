@@ -998,6 +998,109 @@ def seed_demo_data(db: Database, vault: DocumentVault, runtime: AcuteHarnessRunt
             created_at=now - timedelta(minutes=6),
         ))
 
+        # ------------------------------------------------------------------
+        # Story E (Working-Age Real-Phone URTI & Sick-Leave Live Demo):
+        # LAM Wing-Yan (32F, Harbour FinTech, G6PD-deficient, Penicillin allergy)
+        # Starts clean (no pending acute proposal yet) so scanning her QR code
+        # triggers the live Loop-Watcher -> Care Agent -> Nurse -> Doctor flow.
+        # ------------------------------------------------------------------
+        lam_pat = Patient(
+            id="pat_lam_urti_demo",
+            tenant_id=DEMO_TENANT_1,
+            corporate_id=DEMO_CORP_1,
+            campaign_id="camp_harbour_flu",
+            phone_hash=sha256_hex("+85291008812"),
+            phone_masked="****8812",
+            name_en="LAM Wing-Yan",
+            name_zh="林詠欣",
+            dob="1994-04-18",
+            sex="F",
+            hkid_masked="M528***(6)",
+            ehealth_consent=True,
+            preferred_lang="en",
+            g6pd_deficient=True,
+            weight_kg=54.0,
+            egfr=104.0,
+            allergies_json=["Penicillin"],
+            current_meds_json=[],
+            referral_code="REF-LAMURTI",
+            status="active",
+        )
+        s.add(lam_pat)
+        s.flush()
+        for scope in ("clinical_care", "ai_assisted_intake", "ehealth_sharing"):
+            s.add(Consent(
+                id=new_id("con"),
+                tenant_id=DEMO_TENANT_1,
+                patient_id=lam_pat.id,
+                scope=scope,
+                pics_version="HK-PICS-v1.0",
+                granted=True,
+                channel="pwa",
+                wording_hash=sha256_hex(f"HK-PICS-v1.0:{scope}"),
+            ))
+        lam_enc = Encounter(
+            id="enc_lam_checkup_20261110",
+            tenant_id=DEMO_TENANT_1,
+            patient_id=lam_pat.id,
+            practitioner_id="doc_dr_lam",
+            campaign_id=None,
+            encounter_type="annual_checkup_review",
+            status="completed",
+            chief_complaint_text=(
+                "KingMed Diagnostics (8 Nov 2026): Serum Ferritin 14 ng/mL (Low; Ref 15–150), Hb 12.1 g/dL, "
+                "LDL 2.4 mmol/L, eGFR 104. Dr. Kenneth Lam advised repeat ferritin in Feb 2027 and 2026/27 flu vaccination via Harbour FinTech."
+            ),
+            icd10_code="E61.1",
+            icpc2_code="B80",
+            clinical_note=(
+                "Annual check-up review: mild iron depletion (Ferritin 14 ng/mL, Hb normal 12.1). "
+                "Plan: dietary iron + repeat ferritin in 3 months (Feb 2027); eligible for $0 Harbour FinTech 2026/27 flu shot."
+            ),
+            created_at=now - timedelta(days=12),
+        )
+        s.add(lam_enc)
+        s.flush()
+        s.add(Observation(
+            id=new_id("obs"),
+            tenant_id=DEMO_TENANT_1,
+            patient_id=lam_pat.id,
+            encounter_id=lam_enc.id,
+            loinc_code="2276-4",
+            display="Serum Ferritin (KingMed)",
+            value_num=14.0,
+            value_text="14 ng/mL (Low; Ref 15–150)",
+            ucum_unit="ng/mL",
+            source_quote="Serum Ferritin: 14 ng/mL (Low; Ref 15–150) — suggest repeat iron studies in 3 months.",
+            recorded_at=now - timedelta(days=14),
+        ))
+        s.add(Observation(
+            id=new_id("obs"),
+            tenant_id=DEMO_TENANT_1,
+            patient_id=lam_pat.id,
+            encounter_id=lam_enc.id,
+            loinc_code="718-7",
+            display="Haemoglobin (KingMed)",
+            value_num=12.1,
+            value_text="12.1 g/dL (Normal)",
+            ucum_unit="g/dL",
+            source_quote="Haemoglobin (Hb): 12.1 g/dL (Ref 11.5–15.5) Normal",
+            recorded_at=now - timedelta(days=14),
+        ))
+        s.add(Observation(
+            id=new_id("obs"),
+            tenant_id=DEMO_TENANT_1,
+            patient_id=lam_pat.id,
+            encounter_id=lam_enc.id,
+            loinc_code="33914-3",
+            display="eGFR CKD-EPI (KingMed)",
+            value_num=104.0,
+            value_text="104 mL/min/1.73m2",
+            ucum_unit="mL/min",
+            source_quote="eGFR (CKD-EPI): 104 mL/min/1.73m2 Normal",
+            recorded_at=now - timedelta(days=14),
+        ))
+
         # Seed one clean non-clinical WhatsApp doorbell message for demo inspection
         s.add(WhatsAppOutbox(
             id=new_id("wao"),
@@ -1018,7 +1121,7 @@ def seed_demo_data(db: Database, vault: DocumentVault, runtime: AcuteHarnessRunt
             action="demo.seeded",
             resource_type="Tenant",
             resource_id=DEMO_TENANT_1,
-            metadata={"synthetic_only": True, "patients": len(synthetic_patients) + 4},
+            metadata={"synthetic_only": True, "patients": len(synthetic_patients) + 5},
         )
 
     # Seed Tenant 2 with one clinician & one patient (for cross-tenant RLS verification & multi-clinic demo)

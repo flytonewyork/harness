@@ -10,9 +10,10 @@ interface DemoDockProps {
 }
 
 const DEMO_SHORTCUTS = [
-  { key: "clinician:doc_dr_lam", label: "Dr. Kenneth Lam (M14829)", sub: "Staff · QEH / HTN / Flu", path: "/c" },
+  { key: "clinician:doc_dr_lam", label: "Dr. Kenneth Lam (M14829)", sub: "Staff · QEH / HTN / URTI", path: "/c" },
   { key: "nurse:nurse_chan", label: "Nurse Rachel Chan (RN)", sub: "Staff · Triage & Prep", path: "/c" },
   { key: "clinic_admin:adm_central_ops", label: "Grace Ho (Clinic Ops)", sub: "Settings · Kill Switch", path: "/c/settings" },
+  { key: "patient:pat_lam_urti_demo", label: "LAM Wing-Yan (32F URTI)", sub: "Patient · QR Phone Demo", path: "/p/qr/pat_lam_urti_demo" },
   { key: "patient:pat_ho_htn_drift", label: "HO Ka-Yan (HTN Drift)", sub: "Patient · 365d Companion", path: "/p" },
   { key: "patient:pat_chan_qeh_discharge", label: "CHAN Tai Man (QEH)", sub: "Patient · Discharge", path: "/p" },
   { key: "patient:pat_cheung_elderly_flu", label: "CHEUNG Wing-Kit (70M Flu)", sub: "Patient · Renal Flu", path: "/p" },
@@ -40,7 +41,10 @@ export function DemoDock({ enabled, session, onSwitched, onResetComplete }: Demo
   const switchTo = async (personaKey: string, path: string) => {
     setBusy(true);
     try {
-      const res = await v2Api.demoLoginAs(personaKey);
+      const res =
+        personaKey === "patient:pat_lam_urti_demo"
+          ? await v2Api.qrCheckin("pat_lam_urti_demo")
+          : await v2Api.demoLoginAs(personaKey);
       const next: StoredSession = {
         token: res.token,
         role: res.role,
@@ -87,6 +91,14 @@ export function DemoDock({ enabled, session, onSwitched, onResetComplete }: Demo
           ))}
           <div className="v2-summary-item" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <div className="v2-sec-label">Unified Demo Surfaces</div>
+            <a className="v2-demo-item" href="/workspace" target="_blank" rel="noopener noreferrer" data-testid="link-workspace">
+              <span>Clinic Execution Layer + Practice Graph</span>
+              <span className="voice-quote">/workspace</span>
+            </a>
+            <a className="v2-demo-item" href="/emr" target="_blank" rel="noopener noreferrer" data-testid="link-sim-emr">
+              <span>Simulated Clinic EMR + Agent X-Ray</span>
+              <span className="voice-quote">/emr</span>
+            </a>
             <a className="v2-demo-item" href="/demo" data-testid="link-resident-demo">
               <span>★ Sam · 3-Act Resident Agent Demo</span>
               <span className="voice-quote">/demo</span>

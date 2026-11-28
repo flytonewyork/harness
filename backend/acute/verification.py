@@ -14,6 +14,7 @@ Every count (`passed_count`, `applicable_count`) is derived strictly from `check
 from __future__ import annotations
 
 import os
+import re
 from datetime import date
 from typing import Any
 
@@ -21,6 +22,66 @@ from ..case.model import drug_key
 from ..case.quote import QuoteError, verify_quote_span
 from ..engine.verify import doc_identifiers
 from .rx_rules import check_duplicate_therapeutic_classes, check_prescription_safety
+
+_MASKED_HKID_RE = re.compile(
+    r"\b([A-Z]{1,2}\d{3})(?:\*{2,3}|XXX)\([0-9A*X]\)|\b([A-Z]{1,2}\d{6})\([0-9A]\)",
+    re.I,
+)
+_MRN_TOKEN_RE = re.compile(r"\b(PAT-\d{4,6})\b", re.I)
+
+
+def check_document_identifiers(source_text: str) -> dict[str, Any]:
+    """Wrap `doc_identifiers()` and also detect masked HKID (`A412***(8)`) & MRN multi-page collisions."""
+    text = source_text or ""
+    out = dict(doc_identifiers(text))
+
+    hkid_prefixes: list[str] = []
+    if out.get("hkid_collision"):
+        for h in out["hkid_collision"]:
+            norm_h = str(h).upper()[:4]
+            if norm_h and norm_h not in hkid_prefixes:
+                hkid_prefixes.append(norm_h)
+    elif out.get("hkid"):
+        hkid_prefixes.append(str(out["hkid"]).upper()[:4])
+
+    masked_tokens: list[str] = []
+    for m in _MASKED_HKID_RE.finditer(text):
+        raw_tok = m.group(0).upper()
+        if raw_tok not in masked_tokens:
+            masked_tokens.append(raw_tok)
+        prefix = (m.group(1) or (m.group(2) or "")[:4]).upper()
+        if prefix and prefix not in hkid_prefixes:
+            hkid_prefixes.append(prefix)
+
+    if hkid_prefixes:
+        out.setdefault("hkid", hkid_prefixes[0])
+        out["hkid_prefixes"] = hkid_prefixes
+        if len(hkid_prefixes) > 1:
+            out["hkid_collision"] = hkid_prefixes
+    if masked_tokens:
+        out["masked_hkids"] = masked_tokens
+
+    mrns: list[str] = []
+    for m in _MRN_TOKEN_RE.finditer(text):
+        tok = m.group(1).upper()
+        if tok not in mrns:
+            mrns.append(tok)
+    if mrns:
+        out["mrn"] = mrns[0]
+        if len(mrns) > 1:
+            out["mrn_collision"] = mrns
+
+    collision_reasons: list[str] = []
+    if out.get("hkid_collision"):
+        collision_reasons.append(f"Multiple HKIDs detected across document pages: {', '.join(out['hkid_collision'])}")
+    if out.get("dob_collision"):
+        collision_reasons.append(f"Multiple DOBs detected across document pages: {', '.join(out['dob_collision'])}")
+    if out.get("mrn_collision"):
+        collision_reasons.append(f"Multiple patient MRNs detected across document pages: {', '.join(out['mrn_collision'])}")
+
+    out["has_collision"] = bool(collision_reasons)
+    out["collision_reasons"] = collision_reasons
+    return out
 
 
 def runtime_toggles() -> dict[str, Any]:
@@ -31,10 +92,17 @@ def runtime_toggles() -> dict[str, Any]:
         "INFRA_MODE",
         "gcp_hk" if os.environ.get("VAULT_GCS_BUCKET") else "lite",
     ).strip().lower()
-    ai_mode = os.environ.get(
-        "AI_INFERENCE_MODE",
-        "vertex_hk" if (env == "prod" and os.environ.get("VERTEX_PROJECT_ID")) else "deterministic_rich",
-    ).strip().lower()
+    ai_mode = (os.environ.get("AI_INFERENCE_MODE") or "").strip().lower()
+    if not ai_mode:
+        try:
+            from .agent_harness import detect_live_llm_engine
+            eng = detect_live_llm_engine()
+            if eng.get("live"):
+                ai_mode = "vertex_hk" if eng.get("provider") == "vertex" else f"{eng.get('provider')}_live"
+            else:
+                ai_mode = "deterministic_rich"
+        except Exception:
+            ai_mode = "deterministic_rich"
     try:
         undo_sec = max(0, min(60, int(os.environ.get("DISPATCH_UNDO_SECONDS", "10"))))
     except ValueError:
@@ -150,15 +218,15 @@ def build_unified_checks(
             "detail": f"All {len(anchored_quotes)} quote(s) verified verbatim with exact character spans.",
         })
 
-    # 3. Multi-page patient identity check
-    doc_ids = doc_identifiers(source_text or "")
-    if "hkid_collision" in doc_ids or "dob_collision" in doc_ids:
+    # 3. Multi-page patient identity check (supports XXX(X), A412***(8), DOB, and MRN collisions)
+    doc_ids = check_document_identifiers(source_text or "")
+    if doc_ids.get("has_collision"):
         checks.append({
             "id": "identity",
             "label": "Right patient across all pages",
             "status": "fail",
             "affects": "summary",
-            "detail": "Multiple distinct patient HKIDs or DOBs detected in this document (possible misfax).",
+            "detail": "Multiple distinct patient HKIDs, MRNs, or DOBs detected in this document (possible misfax).",
         })
     else:
         checks.append({
@@ -358,3 +426,82 @@ def build_unified_checks(
             "sign_cta": sign_cta,
         },
     }
+
+
+def _extract_dose_conflicts(parsed_diff: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Derive cross-site DoseConflict dicts from `parsed_diff` (`emr_active` vs `qeh_discharge`/`external_active`)."""
+    if not isinstance(parsed_diff, dict):
+        return []
+    emr_meds = parsed_diff.get("emr_active") or parsed_diff.get("clinic") or []
+    ext_meds = parsed_diff.get("qeh_discharge") or parsed_diff.get("external_active") or parsed_diff.get("external") or []
+    if not isinstance(emr_meds, list) or not isinstance(ext_meds, list):
+        return []
+
+    emr_by_key: dict[str, str] = {}
+    for m in emr_meds:
+        s = str(m).strip()
+        if s:
+            emr_by_key[drug_key(s)] = s
+
+    conflicts: list[dict[str, Any]] = []
+    for m in ext_meds:
+        s = str(m).strip()
+        if not s:
+            continue
+        k = drug_key(s)
+        if k in emr_by_key and emr_by_key[k].lower() != s.lower():
+            conflicts.append({
+                "drug": s.split()[0],
+                "drug_key": k,
+                "emr_regimen": emr_by_key[k],
+                "external_regimen": s,
+                "resolved": False,
+            })
+    return conflicts
+
+
+def verify_external_document_payload(
+    source_text: str,
+    *,
+    verbatim_quote: str = "",
+    parsed_diff: dict[str, Any] | None = None,
+    proposed_meds: list[dict[str, Any]] | None = None,
+    patient_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Verify an external document payload (multi-page ID collision, verbatim quote spans, cross-site DoseConflict, unified checks)."""
+    full_text = (source_text or "").strip() or (verbatim_quote or "").strip()
+    doc_ids = check_document_identifiers(full_text)
+    quotes_in = [{"record_id": "external_doc", "quote": verbatim_quote.strip()}] if (verbatim_quote or "").strip() else []
+    conflicts = _extract_dose_conflicts(parsed_diff)
+    patient = dict(patient_context or {})
+    if not patient.get("current_meds") and isinstance(parsed_diff, dict):
+        emr_list = parsed_diff.get("emr_active") or parsed_diff.get("clinic")
+        if isinstance(emr_list, list):
+            patient["current_meds"] = [str(x) for x in emr_list]
+
+    unified = build_unified_checks(
+        patient=patient,
+        source_text=full_text,
+        quotes=quotes_in,
+        proposed_meds=list(proposed_meds or []),
+        conflicts=conflicts,
+    )
+    anchored = unified["anchored_quotes"]
+    quote_verified = (
+        True if not quotes_in else all(bool(q.get("verified")) for q in anchored)
+    )
+    has_collision = bool(doc_ids.get("has_collision"))
+
+    return {
+        "identifiers": doc_ids,
+        "has_identity_collision": has_collision,
+        "collision_reasons": list(doc_ids.get("collision_reasons") or []),
+        "quote_verified": quote_verified,
+        "anchored_quotes": anchored,
+        "dose_conflicts": conflicts,
+        "checks": unified["checks"],
+        "summary": unified["summary"],
+        "rx_safety": unified["rx_safety"],
+        "should_quarantine": has_collision,
+    }
+

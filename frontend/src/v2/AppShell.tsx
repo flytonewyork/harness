@@ -4,9 +4,12 @@ import AcuteApp from "../acute/AcuteApp";
 import { loadSession, saveSession, v2Api } from "./api";
 import type { StoredSession } from "./api";
 import { DemoDock } from "./DemoDock";
+import { EmrHarnessApp } from "./emr/EmrHarnessApp";
 import { ResidentAgentDemo } from "./demo/ResidentAgentDemo";
 import { PatientApp } from "./patient/PatientApp";
+import { PatientChatApp } from "./patient/PatientChatApp";
 import { StaffApp } from "./staff/StaffApp";
+import { ClinicWorkspaceApp } from "./workspace/ClinicWorkspaceApp";
 import "./tokens.css";
 
 function isAcutePortalPath(path: string): boolean {
@@ -21,14 +24,42 @@ function isAcutePortalPath(path: string): boolean {
   );
 }
 
-function getRoute(): { path: string; legacy: boolean; acutePortal: boolean; residentDemo: boolean } {
+function extractQrPatientId(path: string): string | null {
+  const m = /^\/p\/qr\/([A-Za-z0-9_-]+)/.exec(path);
+  return m ? m[1] : null;
+}
+
+function extractChatJourney(path: string): string | null {
+  if (path === "/p/chat" || path === "/p/chat/") return "wingyan";
+  const m = /^\/p\/chat\/([A-Za-z0-9_-]+)/.exec(path);
+  if (m) return m[1];
+  const qrPid = extractQrPatientId(path);
+  if (qrPid) return qrPid;
+  return null;
+}
+
+function getRoute(): {
+  path: string;
+  legacy: boolean;
+  acutePortal: boolean;
+  residentDemo: boolean;
+  emrApp: boolean;
+  workspaceApp: boolean;
+  qrPatientId: string | null;
+  chatJourney: string | null;
+} {
   const params = new URLSearchParams(window.location.search);
   const path = window.location.pathname || "/";
+  const classicPatient = params.get("mode") === "classic";
   return {
     path,
     legacy: params.get("mode") === "legacy",
     acutePortal: params.get("mode") === "acute" || isAcutePortalPath(path),
     residentDemo: path === "/demo" || path.startsWith("/demo/"),
+    emrApp: path === "/emr" || path.startsWith("/emr/"),
+    workspaceApp: path === "/workspace" || path.startsWith("/workspace/"),
+    qrPatientId: extractQrPatientId(path),
+    chatJourney: classicPatient ? null : extractChatJourney(path),
   };
 }
 
@@ -45,6 +76,21 @@ export default function AppShell() {
   };
 
   const autoLoginForPath = async (path: string) => {
+    const qrPid = extractQrPatientId(path);
+    if (qrPid) {
+      const res = await v2Api.qrCheckin(qrPid);
+      const next: StoredSession = {
+        token: res.token,
+        role: "patient",
+        userId: res.subject_id,
+        nameEn: res.name_en,
+        nameZh: res.name_zh,
+      };
+      saveSession(next);
+      setSession(next);
+      return;
+    }
+
     const persona =
       path.startsWith("/p")
         ? "patient:pat_ho_htn_drift"
@@ -74,13 +120,32 @@ export default function AppShell() {
     let active = true;
     (async () => {
       try {
+        const path = window.location.pathname || "/";
+        const params = new URLSearchParams(window.location.search);
+        const isChatRoute = params.get("mode") !== "classic" && Boolean(extractChatJourney(path));
+        if (
+          isChatRoute ||
+          path === "/emr" ||
+          path.startsWith("/emr/") ||
+          path === "/workspace" ||
+          path.startsWith("/workspace/")
+        ) {
+          // Pure phone chat, EMR simulator, and Executive Workspace boot directly
+          return;
+        }
+
         const h = await v2Api.health();
         const allowDemo = Boolean(h.runtime_toggles?.demo_controls_enabled ?? h.demo_mode);
         if (!active) return;
         setDemoEnabled(allowDemo);
 
+        const qrPid = extractQrPatientId(path);
+        if (qrPid && allowDemo) {
+          await autoLoginForPath(path);
+          return;
+        }
+
         const cur = loadSession();
-        const path = window.location.pathname || "/";
         const needsPatient = path.startsWith("/p");
         const needsSettings = path.startsWith("/c/settings");
         const roleMismatch =
@@ -113,6 +178,18 @@ export default function AppShell() {
     return <AcuteApp />;
   }
 
+  if (route.emrApp) {
+    return <EmrHarnessApp />;
+  }
+
+  if (route.workspaceApp) {
+    return <ClinicWorkspaceApp />;
+  }
+
+  if (route.chatJourney) {
+    return <PatientChatApp initialJourney={route.chatJourney} />;
+  }
+
   if (booting) {
     return <div className="v2-staff-shell"><div className="v2-queue-wrap voice-assistant">Connecting to clinic harness…</div></div>;
   }
@@ -141,19 +218,22 @@ export default function AppShell() {
         </div>
       )}
 
-      <DemoDock
-        enabled={demoEnabled}
-        session={session}
-        onSwitched={(next, targetPath) => {
-          saveSession(next);
-          setSession(next);
-          navigate(targetPath);
-        }}
-        onResetComplete={async () => {
-          await autoLoginForPath(window.location.pathname || "/c");
-          window.location.reload();
-        }}
-      />
+      {/* Hide Staging Dock on QR-scanned mobile views so real phone screens stay pure & native */}
+      {!route.qrPatientId && (
+        <DemoDock
+          enabled={demoEnabled}
+          session={session}
+          onSwitched={(next, targetPath) => {
+            saveSession(next);
+            setSession(next);
+            navigate(targetPath);
+          }}
+          onResetComplete={async () => {
+            await autoLoginForPath(window.location.pathname || "/c");
+            window.location.reload();
+          }}
+        />
+      )}
     </>
   );
 }

@@ -20,15 +20,20 @@ from typing import Any, Callable
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from .adapters import WhatsAppDoorbellAdapter
 from .contracts import AdapterError
-from .db import Database, OutboxEvent, Proposal, new_id, record_audit, utcnow
+from .db import CaseLoop, Database, ExecutionTrace, OutboxEvent, Proposal, new_id, record_audit, utcnow
 from .security import HKT
 
 EVENT_BOOKING_REMINDER = "booking.reminder"
 EVENT_FOLLOWUP_48H = "consult.followup_48h"
 EVENT_PROPOSAL_SLA_ESCALATE = "proposal.sla_escalate"
+EVENT_LOOP_CHECKPOINT_WAKE = "loop.checkpoint_wake"
+EVENT_LOOP_NUDGE_RETRY = "loop.nudge_retry"
+EVENT_ACTION_COMMIT_DISPATCH = "action.commit_dispatch"
+EVENT_GRACE_WINDOW_EXPIRE = "loop.grace_window_expire"
 
 HandlerFn = Callable[..., Any]
 
@@ -137,6 +142,47 @@ class DurableWorkflowEngine:
             select(OutboxEvent).where(OutboxEvent.idempotency_key == key)
         ).scalar_one()
         return existing
+
+    def cancel_pending(
+        self,
+        session_or_db: Session | Database,
+        tenant_id: str,
+        *,
+        event_type: str | None = None,
+        idempotency_prefix: str | None = None,
+        case_loop_id: str | None = None,
+        trace_id: str | None = None,
+    ) -> int:
+        """Cancel matching `pending` outbox events (e.g. inside the 10-second Undo window). Returns count cancelled."""
+
+        def _do_cancel(sess: Session) -> int:
+            q = select(OutboxEvent).where(
+                OutboxEvent.tenant_id == tenant_id,
+                OutboxEvent.status == "pending",
+            )
+            if event_type is not None:
+                q = q.where(OutboxEvent.event_type == event_type)
+            rows = sess.execute(q).scalars().all()
+            cancelled = 0
+            now_dt = utcnow()
+            for ev in rows:
+                if idempotency_prefix and not str(ev.idempotency_key or "").startswith(idempotency_prefix):
+                    continue
+                payload = ev.payload_json or {}
+                if case_loop_id and payload.get("case_loop_id") != case_loop_id and ev.aggregate_id != case_loop_id:
+                    continue
+                if trace_id and payload.get("trace_id") != trace_id and ev.aggregate_id != trace_id:
+                    continue
+                ev.status = "cancelled"
+                ev.processed_at = now_dt
+                ev.last_error = "cancelled_by_workflow"
+                cancelled += 1
+            return cancelled
+
+        if isinstance(session_or_db, Database):
+            with session_or_db.tenant_session(tenant_id) as sess:
+                return _do_cancel(sess)
+        return _do_cancel(session_or_db)
 
     def process_due(
         self,
@@ -310,13 +356,100 @@ class DurableWorkflowEngine:
             max_attempts=max_attempts,
         )
 
+    def schedule_grace_window_expiry(
+        self,
+        session: Session,
+        tenant_id: str,
+        *,
+        case_loop_id: str,
+        grace_hours: int = 72,
+        started_at: datetime | None = None,
+        max_attempts: int = 3,
+    ) -> OutboxEvent:
+        """Schedule post-visit/discharge 72h grace-window expiry on durable `outbox_events`."""
+        start_utc = _ensure_utc(started_at)
+        due_utc = start_utc + timedelta(hours=max(1, int(grace_hours)))
+        payload = {
+            "case_loop_id": case_loop_id,
+            "grace_hours": int(grace_hours),
+            "started_at": start_utc.isoformat(),
+            "expires_at": due_utc.isoformat(),
+        }
+        return self.enqueue(
+            session,
+            tenant_id,
+            EVENT_GRACE_WINDOW_EXPIRE,
+            case_loop_id,
+            payload,
+            run_after=due_utc,
+            idempotency_key=f"{EVENT_GRACE_WINDOW_EXPIRE}:{tenant_id}:{case_loop_id}",
+            max_attempts=max_attempts,
+        )
+
+    def schedule_action_commit_dispatch(
+        self,
+        session: Session,
+        tenant_id: str,
+        *,
+        trace_id: str,
+        case_loop_id: str,
+        run_after: datetime,
+        max_attempts: int = 3,
+    ) -> OutboxEvent:
+        """Schedule durable 10-second Undo window final dispatch event for an irreversible commit."""
+        due_utc = _ensure_utc(run_after)
+        payload = {
+            "trace_id": trace_id,
+            "case_loop_id": case_loop_id,
+            "dispatch_at": due_utc.isoformat(),
+        }
+        return self.enqueue(
+            session,
+            tenant_id,
+            EVENT_ACTION_COMMIT_DISPATCH,
+            trace_id,
+            payload,
+            run_after=due_utc,
+            idempotency_key=f"{EVENT_ACTION_COMMIT_DISPATCH}:{tenant_id}:{trace_id}",
+            max_attempts=max_attempts,
+        )
+
+    def schedule_loop_nudge_retry(
+        self,
+        session: Session,
+        tenant_id: str,
+        *,
+        case_loop_id: str,
+        run_after: datetime,
+        retry_cap: int = 2,
+        nudge_seq: int = 1,
+        max_attempts: int = 3,
+    ) -> OutboxEvent:
+        """Schedule a bounded patient follow-up nudge (2 nudges / 72h cap -> Nurse Rachel first)."""
+        due_utc = _ensure_utc(run_after)
+        payload = {
+            "case_loop_id": case_loop_id,
+            "retry_cap": max(1, int(retry_cap)),
+            "nudge_seq": max(1, int(nudge_seq)),
+        }
+        return self.enqueue(
+            session,
+            tenant_id,
+            EVENT_LOOP_NUDGE_RETRY,
+            case_loop_id,
+            payload,
+            run_after=due_utc,
+            idempotency_key=f"{EVENT_LOOP_NUDGE_RETRY}:{tenant_id}:{case_loop_id}:{nudge_seq}",
+            max_attempts=max_attempts,
+        )
+
     # ------------------------------------------------------------------ Default Clinical Handlers
     def register_default_handlers(
         self,
         *,
         whatsapp_adapter: WhatsAppDoorbellAdapter | None = None,
     ) -> None:
-        """Register default handlers for `booking.reminder`, `consult.followup_48h`, and `proposal.sla_escalate`."""
+        """Register default handlers for all clinical and CaseLoop durable outbox events."""
 
         def _handle_booking_reminder(session: Session, event: OutboxEvent) -> None:
             p = event.payload_json
@@ -399,6 +532,139 @@ class DurableWorkflowEngine:
                 },
             )
 
+        def _handle_loop_checkpoint_wake(session: Session, event: OutboxEvent) -> None:
+            case_id = event.payload_json.get("case_loop_id") or event.aggregate_id
+            case = session.execute(select(CaseLoop).where(CaseLoop.id == case_id)).scalar_one_or_none()
+            if case is None or case.state != "scheduled":
+                return
+            case.state = "running"
+            case.baton = "with_patient"
+            tl = list(case.timeline_json or [])
+            tl.append({
+                "date": "Wake",
+                "label": f"Checkpoint woke automatically ({case.next_checkpoint_label or 'scheduled check-in'}).",
+            })
+            case.timeline_json = tl
+            flag_modified(case, "timeline_json")
+            case.updated_at = utcnow()
+            record_audit(
+                session,
+                tenant_id=event.tenant_id,
+                actor_role="system_workflow",
+                actor_id="durable_outbox",
+                action="loop.checkpoint_woke",
+                resource_type="case_loop",
+                resource_id=case.id,
+                metadata={"event_id": event.id, "checkpoint": case.next_checkpoint_label},
+            )
+
+        def _handle_loop_nudge_retry(session: Session, event: OutboxEvent) -> None:
+            case_id = event.payload_json.get("case_loop_id") or event.aggregate_id
+            retry_cap = max(1, int(event.payload_json.get("retry_cap", 2)))
+            case = session.execute(select(CaseLoop).where(CaseLoop.id == case_id)).scalar_one_or_none()
+            if case is None or case.state not in ("running", "scheduled"):
+                return
+            case.retry_count += 1
+            tl = list(case.timeline_json or [])
+            if case.retry_count >= retry_cap:
+                if case.risk_tier == "high":
+                    case.state = "needs_decision"
+                    case.baton = "with_doctor"
+                    tl.append({
+                        "date": "Escalated",
+                        "label": f"High-risk loop reached {case.retry_count}/{retry_cap} nudges (72h cap) — escalated to doctor #my-work.",
+                    })
+                else:
+                    # Low/standard risk stalls ALWAYS route to Nurse Rachel first (0 doctor interruption)
+                    case.state = "running"
+                    case.baton = "with_nurse"
+                    tl.append({
+                        "date": "Nurse Handoff",
+                        "label": f"Patient unanswered after {case.retry_count}/{retry_cap} nudges (72h cap) — routed to Nurse Rachel first.",
+                    })
+            else:
+                case.state = "running"
+                case.baton = "with_patient"
+                tl.append({
+                    "date": "Nudge",
+                    "label": f"Automated Careline follow-up nudge {case.retry_count}/{retry_cap} sent.",
+                })
+            case.timeline_json = tl
+            flag_modified(case, "timeline_json")
+            case.updated_at = utcnow()
+            record_audit(
+                session,
+                tenant_id=event.tenant_id,
+                actor_role="system_workflow",
+                actor_id="durable_outbox",
+                action="loop.nudge_retry_processed",
+                resource_type="case_loop",
+                resource_id=case.id,
+                metadata={
+                    "retry_count": case.retry_count,
+                    "retry_cap": retry_cap,
+                    "new_state": case.state,
+                    "new_baton": case.baton,
+                },
+            )
+
+        def _handle_action_commit_dispatch(session: Session, event: OutboxEvent) -> None:
+            trace_id = event.payload_json.get("trace_id") or event.aggregate_id
+            trace = session.execute(select(ExecutionTrace).where(ExecutionTrace.id == trace_id)).scalar_one_or_none()
+            if trace is None or trace.status != "undo_window":
+                return
+            now_dt = utcnow()
+            trace.status = "dispatched"
+            if isinstance(trace.emr_addendum_json, dict) and trace.emr_addendum_json:
+                updated_addendum = dict(trace.emr_addendum_json)
+                updated_addendum["dispatch_status"] = "finalized"
+                updated_addendum["dispatched_at"] = now_dt.isoformat()
+                trace.emr_addendum_json = updated_addendum
+                flag_modified(trace, "emr_addendum_json")
+            record_audit(
+                session,
+                tenant_id=event.tenant_id,
+                actor_role="system_workflow",
+                actor_id="durable_outbox",
+                action="action.commit_dispatched",
+                resource_type="execution_trace",
+                resource_id=trace.id,
+                metadata={"case_loop_id": trace.case_loop_id, "dispatched_at": now_dt.isoformat()},
+            )
+
+        def _handle_grace_window_expire(session: Session, event: OutboxEvent) -> None:
+            case_id = event.payload_json.get("case_loop_id") or event.aggregate_id
+            grace_hours = int(event.payload_json.get("grace_hours", 72))
+            case = session.execute(select(CaseLoop).where(CaseLoop.id == case_id)).scalar_one_or_none()
+            if case is None or case.state == "closed":
+                return
+            summary = dict(case.summary_json or {})
+            summary["grace_window_expired"] = True
+            case.summary_json = summary
+            flag_modified(case, "summary_json")
+            tl = list(case.timeline_json or [])
+            tl.append({
+                "date": "Grace Expired",
+                "label": f"Post-visit {grace_hours}h grace window elapsed — new clinical queries route to booking options.",
+            })
+            case.timeline_json = tl
+            flag_modified(case, "timeline_json")
+            case.updated_at = utcnow()
+            record_audit(
+                session,
+                tenant_id=event.tenant_id,
+                actor_role="system_workflow",
+                actor_id="durable_outbox",
+                action="loop.grace_window_expired",
+                resource_type="case_loop",
+                resource_id=case.id,
+                metadata={"event_id": event.id, "grace_hours": grace_hours},
+            )
+
         self.register_handler(EVENT_BOOKING_REMINDER, _handle_booking_reminder)
         self.register_handler(EVENT_FOLLOWUP_48H, _handle_followup_48h)
         self.register_handler(EVENT_PROPOSAL_SLA_ESCALATE, _handle_proposal_sla_escalate)
+        self.register_handler(EVENT_LOOP_CHECKPOINT_WAKE, _handle_loop_checkpoint_wake)
+        self.register_handler(EVENT_LOOP_NUDGE_RETRY, _handle_loop_nudge_retry)
+        self.register_handler(EVENT_ACTION_COMMIT_DISPATCH, _handle_action_commit_dispatch)
+        self.register_handler(EVENT_GRACE_WINDOW_EXPIRE, _handle_grace_window_expire)

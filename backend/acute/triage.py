@@ -1477,3 +1477,223 @@ class AcuteHarnessRuntime:
             "patient_reply": draft.patient_summary_draft,
             "escalated": False,
         }
+
+
+# -------------------------------------------------------------------------------------- Bilingual 3-Tier Async Triage (Loop 1)
+_ROUTINE_LOGISTICS_MARKERS = (
+    "flu", "vaccine", "vaccination", "flu shot", "book", "booking", "slot", "reschedule",
+    "fasting", "prep", "128/78", "bp ", "blood pressure", "reading", "appointment",
+    "打針", "流感針", "疫苗", "預約", "改期", "覆診時間", "空腹", "血壓", "量血壓", "幾點",
+)
+_NEW_CLINICAL_OR_CERT_MARKERS = (
+    "fever", "38.", "39.", "40.", "sore throat", "cough", "sick note", "sick leave",
+    "certificate", "prescribe", "prescription", "antibiotic", "iron tablet", "start iron",
+    "rash", "vomit", "diarrhoea", "diarrhea", "dysuria", "burning urine",
+    "發燒", "喉嚨痛", "咳", "咳嗽", "病假", "病假紙", "醫生紙", "開藥", "處方", "抗生素", "補鐵", "鐵丸", "出疹", "嘔", "肚瀉",
+)
+_CLARIFYING_GRACE_MARKERS = (
+    "clarify", "discharge", "after visit", "dose", "dosage", "ferritin", "when should i take",
+    "side effect", "how to take", "missed dose", "follow up", "follow-up",
+    "出院", "覆診後", "劑量", "點食", "幾時食", "副作用", "問清楚", "覆檢", "鐵蛋白",
+)
+_SICK_NOTE_MARKERS = ("sick note", "sick leave", "certificate", "病假紙", "醫生紙", "病假")
+_G6PD_TRIGGER_DRUGS = (
+    ("aspirin", "Aspirin"),
+    ("阿士匹靈", "Aspirin"),
+    ("bactrim", "Cotrimoxazole"),
+    ("cotrimoxazole", "Cotrimoxazole"),
+    ("sulfamethoxazole", "Cotrimoxazole"),
+    ("nitrofurantoin", "Nitrofurantoin"),
+    ("ibuprofen", "Ibuprofen"),
+    ("naproxen", "Naproxen"),
+    ("nsaid", "Ibuprofen"),
+    ("消炎止痛", "Ibuprofen"),
+)
+_PENICILLIN_TRIGGER_DRUGS = (
+    ("penicillin", "Amoxicillin"),
+    ("amoxicillin", "Amoxicillin"),
+    ("augmentin", "Augmentin"),
+    ("阿莫西林", "Amoxicillin"),
+    ("盤尼西林", "Amoxicillin"),
+)
+
+
+def classify_bilingual_async_triage(
+    message_text: str,
+    *,
+    hours_since_last_visit: float | None = 24.0,
+    grace_window_hours: int = 72,
+    patient_g6pd: bool = False,
+    patient_allergies: list[str] | None = None,
+    vitals: dict[str, Any] | None = None,
+    lang: str | None = None,
+) -> dict[str, Any]:
+    """Bilingual (EN + HK Traditional Chinese) 3-tier async triage wired to rules floor + rx_rules.
+
+    Tiers:
+    - Tier 0 (`urgent_exit_999`): Deterministic red flag or mental-health crisis -> immediate 999/A&E exit.
+    - Tier 1 (`self_serve_careline`): Logistics, bookings, vaccine slots, fasting prep, home BP logs -> Careline AI.
+    - Tier 2 (`post_visit_grace_my_work`): Post-visit/discharge clarification within `grace_window_hours` -> `# my-work` (zero fake SLA).
+    - Tier 3 (`offer_booking_options`): New episode / Rx / sick note / outside grace window -> safety reminder + booking options.
+    """
+    from backend.agentic.prompts import detect_prompt_injection_signals
+    from .rx_rules import check_prescription_safety
+
+    raw = (message_text or "").strip()
+    detected_lang = lang if lang in ("en", "zh-HK", "bilingual") else detect_language(raw)
+    triage_res = screen_acute_message(
+        raw,
+        lang=detected_lang,
+        vitals=vitals,
+        enable_model_screen=False,
+    )
+    intake_res = extract_intake(raw, vitals=vitals, lang=detected_lang)
+
+    # Union prompt-injection detection across triage.py + backend.agentic
+    inj_signals = sorted(set(intake_res.prompt_injection_matches) | set(detect_prompt_injection_signals(raw)))
+    prompt_injection_detected = bool(triage_res.prompt_injection_detected or intake_res.prompt_injection_detected or inj_signals)
+
+    traversed: list[str] = ["ebm.safety.crisis_999", "ebm.safety.g6pd_allergy_floor"]
+    guards_fired: list[str] = []
+    if prompt_injection_detected:
+        guards_fired.append("prompt_injection_fenced")
+
+    low = raw.lower()
+    allergies = [str(a) for a in (patient_allergies or [])]
+    mentioned_drugs: list[str] = []
+    for marker, canonical_drug in _G6PD_TRIGGER_DRUGS:
+        if marker in low or marker in raw:
+            if canonical_drug not in mentioned_drugs:
+                mentioned_drugs.append(canonical_drug)
+    for marker, canonical_drug in _PENICILLIN_TRIGGER_DRUGS:
+        if marker in low or marker in raw:
+            if canonical_drug not in mentioned_drugs:
+                mentioned_drugs.append(canonical_drug)
+
+    rx_safety_reminders: list[dict[str, Any]] = []
+    if mentioned_drugs and (patient_g6pd or allergies):
+        cds_rep = check_prescription_safety(
+            {
+                "g6pd_deficient": patient_g6pd,
+                "allergies": allergies,
+                "current_meds": [],
+            },
+            [{"drug": d, "dose_mg": 500, "frequency": "BD", "days": 3} for d in mentioned_drugs],
+        )
+        for finding in cds_rep.findings:
+            if finding.severity in ("hard_block", "override_required"):
+                rx_safety_reminders.append({
+                    "drug": finding.drug,
+                    "code": finding.code,
+                    "severity": finding.severity,
+                    "message": finding.message,
+                    "message_zh": finding.message_zh,
+                })
+                if patient_g6pd and ("g6pd" in finding.code.lower() or "aspirin" in finding.drug.lower()):
+                    if "g6pd_aspirin_warning" not in guards_fired:
+                        guards_fired.append("g6pd_aspirin_warning")
+                elif "allergy" in finding.code.lower():
+                    if "allergy_drug_warning" not in guards_fired:
+                        guards_fired.append("allergy_drug_warning")
+
+    if patient_g6pd and any(tok in low or tok in raw for tok in ("aspirin", "bactrim", "阿士匹靈")):
+        if "g6pd_aspirin_warning" not in guards_fired:
+            guards_fired.append("g6pd_aspirin_warning")
+
+    if triage_res.is_emergency:
+        guards_fired.append("crisis_999_triggered" if triage_res.kind == "red_flag" else "mental_health_crisis_triggered")
+        return {
+            "tier": 0,
+            "route": "urgent_exit_999",
+            "lang": detected_lang,
+            "traversed_nodes": traversed,
+            "guards_fired": guards_fired,
+            "promise_reply_sla": False,
+            "ai_unilateral_billing": False,
+            "response_guidance": "Exit chat immediately — instruct patient to call 999 / attend nearest A&E (or Samaritans 24h for crisis).",
+            "response_guidance_zh": "即時結束對話 — 指示病人致電 999 或前往最近急症室（情緒危機請致電撒瑪利亞會 24 小時熱線）。",
+            "emergency_banner": triage_res.banner,
+            "emergency_banner_en": triage_res.banner_en,
+            "emergency_banner_zh": triage_res.banner_zh,
+            "triage_screen": triage_res.to_dict(),
+            "intake_extraction": intake_res.to_dict(),
+            "rx_safety_reminders": rx_safety_reminders,
+            "prompt_injection_detected": prompt_injection_detected,
+            "prompt_injection_signals": inj_signals,
+        }
+
+    has_new_clinical = any(m in low or m in raw for m in _NEW_CLINICAL_OR_CERT_MARKERS) or bool(intake_res.symptoms)
+    has_routine = any(m in low or m in raw for m in _ROUTINE_LOGISTICS_MARKERS)
+    wants_sick_note = any(m in low or m in raw for m in _SICK_NOTE_MARKERS)
+
+    if has_routine and not has_new_clinical and not wants_sick_note:
+        traversed.append("ebm.triage.routine_logistics")
+        return {
+            "tier": 1,
+            "route": "self_serve_careline",
+            "lang": detected_lang,
+            "traversed_nodes": traversed,
+            "guards_fired": guards_fired,
+            "promise_reply_sla": False,
+            "ai_unilateral_billing": False,
+            "response_guidance": "Handle directly under approved clinic protocol via Careline AI (0 doctor minutes).",
+            "response_guidance_zh": "由診所護理助理按已批核流程直接處理預約或行政查詢（毋須打擾醫生）。",
+            "emergency_banner": None,
+            "emergency_banner_en": None,
+            "emergency_banner_zh": None,
+            "triage_screen": triage_res.to_dict(),
+            "intake_extraction": intake_res.to_dict(),
+            "rx_safety_reminders": rx_safety_reminders,
+            "prompt_injection_detected": prompt_injection_detected,
+            "prompt_injection_signals": inj_signals,
+        }
+
+    is_clarifying = any(k in low or k in raw for k in _CLARIFYING_GRACE_MARKERS)
+    if (
+        hours_since_last_visit is not None
+        and hours_since_last_visit <= grace_window_hours
+        and is_clarifying
+        and not wants_sick_note
+    ):
+        traversed.append("ebm.triage.post_visit_grace")
+        return {
+            "tier": 2,
+            "route": "post_visit_grace_my_work",
+            "lang": detected_lang,
+            "traversed_nodes": traversed,
+            "guards_fired": guards_fired,
+            "promise_reply_sla": False,
+            "ai_unilateral_billing": False,
+            "response_guidance": f"Within {grace_window_hours}h grace window — summarise into #my-work for doctor discretion without promising an artificial reply time.",
+            "response_guidance_zh": f"覆診後 {grace_window_hours} 小時寬限期內 — 整理摘要送交醫生檢視，切勿承諾具體回覆時間。",
+            "emergency_banner": None,
+            "emergency_banner_en": None,
+            "emergency_banner_zh": None,
+            "triage_screen": triage_res.to_dict(),
+            "intake_extraction": intake_res.to_dict(),
+            "rx_safety_reminders": rx_safety_reminders,
+            "prompt_injection_detected": prompt_injection_detected,
+            "prompt_injection_signals": inj_signals,
+        }
+
+    traversed.append("ebm.triage.booking_options")
+    return {
+        "tier": 3,
+        "route": "offer_booking_options",
+        "lang": detected_lang,
+        "traversed_nodes": traversed,
+        "guards_fired": guards_fired,
+        "promise_reply_sla": False,
+        "ai_unilateral_billing": False,
+        "response_guidance": "Share relevant file safety reminder (if any) and offer booking options (teleconsult or in-clinic visit) — doctor decides clinical plan & billing.",
+        "response_guidance_zh": "提示相關病歷安全事項（如適用），並提供視像或親身診症預約時段 — 由醫生決定臨床方案及收費。",
+        "emergency_banner": None,
+        "emergency_banner_en": None,
+        "emergency_banner_zh": None,
+        "triage_screen": triage_res.to_dict(),
+        "intake_extraction": intake_res.to_dict(),
+        "rx_safety_reminders": rx_safety_reminders,
+        "prompt_injection_detected": prompt_injection_detected,
+        "prompt_injection_signals": inj_signals,
+    }
+

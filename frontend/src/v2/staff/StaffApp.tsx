@@ -26,6 +26,7 @@ export function StaffApp({ session, initialView = "review" }: StaffAppProps) {
   const [patientSheetOpen, setPatientSheetOpen] = useState(false);
   const [undoState, setUndoState] = useState<{ proposalId: string; patientName: string; secondsLeft: number } | null>(null);
   const [bannerMsg, setBannerMsg] = useState<string | null>(null);
+  const [liveNotice, setLiveNotice] = useState<{ text: string; proposalId?: string } | null>(null);
 
   const loadQueue = async (preferredId?: string) => {
     if (session.role === "clinic_admin") return;
@@ -44,7 +45,62 @@ export function StaffApp({ session, initialView = "review" }: StaffAppProps) {
 
   useEffect(() => {
     setView(session.role === "clinic_admin" ? "settings" : initialView);
-    loadQueue();
+    void loadQueue();
+  }, [session.token, session.role]);
+
+  // Real-time SSE subscription so incoming Phone URTI proposals & Nurse handoffs appear immediately
+  useEffect(() => {
+    if (session.role === "clinic_admin") return;
+    let es: EventSource | null = null;
+    let closed = false;
+    let timer: number | null = null;
+
+    const connect = () => {
+      if (closed) return;
+      es = new EventSource("/api/v1/live/stream");
+      const handleQueueEv = (evt: MessageEvent) => {
+        try {
+          const parsed = JSON.parse(evt.data);
+          const pid = parsed.data?.proposal_id as string | undefined;
+          const stage = parsed.data?.stage as string | undefined;
+          if (stage === "intake_submitted") {
+            setLiveNotice({
+              text: `Live phone intake arrived: ${parsed.data?.patient_name || "Patient"} — ${parsed.data?.title || "URTI review"}`,
+              proposalId: pid,
+            });
+            void loadQueue(pid);
+            return;
+          }
+          if (stage === "nurse_ready") {
+            setLiveNotice({
+              text: `Prepared by ${parsed.data?.nurse_name || "Nurse Rachel"} — ready for Dr. Kenneth Lam`,
+              proposalId: pid,
+            });
+            void loadQueue(pid);
+            return;
+          }
+          void loadQueue();
+        } catch {
+          void loadQueue();
+        }
+      };
+      es.addEventListener("staff.queue_updated", handleQueueEv);
+      es.addEventListener("demo.reset", () => {
+        setLiveNotice(null);
+        void loadQueue();
+      });
+      es.onerror = () => {
+        es?.close();
+        if (!closed) timer = window.setTimeout(connect, 2500);
+      };
+    };
+
+    connect();
+    return () => {
+      closed = true;
+      es?.close();
+      if (timer) window.clearTimeout(timer);
+    };
   }, [session.token, session.role]);
 
   useEffect(() => {
@@ -193,6 +249,15 @@ export function StaffApp({ session, initialView = "review" }: StaffAppProps) {
           )}
         </div>
         <div className="v2-staff-top-right">
+          <a
+            href="/emr"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="v2-kbd-chip"
+            style={{ textDecoration: "none", color: "var(--jade)", borderColor: "#99D5C9", background: "var(--jade-soft)" }}
+          >
+            Sim EMR + Agent X-Ray ↗
+          </a>
           <span className="voice-assistant">{session.nameEn}</span>
           <button type="button" className="v2-kbd-chip" onClick={() => setPaletteOpen(true)} data-testid="cmd-k-btn">
             ⌘K
@@ -201,6 +266,25 @@ export function StaffApp({ session, initialView = "review" }: StaffAppProps) {
       </header>
 
       <FeedLine killSwitchActive={killSwitch} />
+      {liveNotice && (
+        <div
+          className="v2-feed-line"
+          style={{ background: "#ECFDF5", borderColor: "#6EE7B7", color: "#065F46", justifyContent: "space-between" }}
+          data-testid="staff-live-notice"
+        >
+          <span>● {liveNotice.text}</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            {liveNotice.proposalId && (
+              <button type="button" className="v2-kbd-chip" onClick={() => void openItem(liveNotice.proposalId!)}>
+                Open case
+              </button>
+            )}
+            <button type="button" className="v2-text-btn" onClick={() => setLiveNotice(null)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       {bannerMsg && <div className="v2-inline-fail">{bannerMsg}</div>}
 
       {view === "queue" ? (

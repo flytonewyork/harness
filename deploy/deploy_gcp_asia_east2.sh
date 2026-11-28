@@ -151,8 +151,12 @@ gcloud run deploy "${SERVICE}" \
   --allow-unauthenticated \
   --memory=1Gi \
   --cpu=1 \
+  --min-instances=1 \
+  --max-instances=1 \
+  --timeout=3600 \
+  --cpu-boost \
   --add-cloudsql-instances="${CONN_NAME}" \
-  --set-env-vars="HARNESS_ENV=staging,HARNESS_REGION=${REGION},GCP_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},VERTEX_REGION=${REGION},VERTEX_MODEL=gemini-2.5-flash,VAULT_GCS_BUCKET=${VAULT_BUCKET},DEMO_MODE=true,DEMO_SHOW_OTP=true,OUTBOX_WORKER_ENABLED=true" \
+  --set-env-vars="HARNESS_ENV=staging,HARNESS_REGION=${REGION},GCP_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},VERTEX_REGION=${REGION},VERTEX_MODEL=gemini-4-neon,VAULT_GCS_BUCKET=${VAULT_BUCKET},DEMO_MODE=true,DEMO_SHOW_OTP=true,OUTBOX_WORKER_ENABLED=true" \
   --set-secrets="DATABASE_URL=clinic-harness-db-url:latest,DATABASE_ADMIN_URL=clinic-harness-db-admin-url:latest,JWT_SECRET=clinic-harness-jwt-secret:latest,VAULT_KEK_B64=clinic-harness-vault-kek:latest,VAULT_SIGNING_SECRET=clinic-harness-vault-signing:latest" \
   --quiet
 

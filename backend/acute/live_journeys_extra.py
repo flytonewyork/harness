@@ -1,0 +1,1304 @@
+"""7 Additional Realistic HK Family Clinic Patient Episodes for the 12-Case Live Demo Catalog.
+
+Every episode represents an everyday Hong Kong GP scenario (never artificial "red-team test" labels
+in patient-facing UI) where clinical & operational guardrails surface naturally during real-time
+multi-turn conversation.
+
+Product invariant: NEVER imports `loopbench`. Synthetic data only.
+"""
+from __future__ import annotations
+
+import copy
+import re
+from typing import Any
+
+from sqlalchemy.orm import Session
+
+from .db import AgentMemoryEntry, new_id
+from .emr_connector import ingest_external_document
+from .practice_graph import compute_cvd_10yr_tier
+
+_CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf]")
+
+EXTRA_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
+    # ---- Acute & Same-Day ----
+    {
+        "key": "tang_uti",
+        "category": "acute",
+        "patient_id": "pat_tang_uti",
+        "patient_name": "TANG Ka-Yan",
+        "patient_name_zh": "鄧嘉欣",
+        "age_sex": "29F",
+        "pathway_node_id": "ebm.pathway.acute_uti",
+        "title": "Burning urination since yesterday",
+        "title_zh": "小便刺痛及尿頻",
+        "subtitle": "Uncomplicated dysuria · G6PD deficient on file",
+        "welcome_en": (
+            "Hi Ka-Yan, I'm Sam, the AI Resident at Central & Mid-Levels Family Medical. What's bothering you today?"
+        ),
+        "welcome_zh": (
+            "嘉欣你好，我係中環及半山家庭醫務中心嘅 AI 駐診助手 Sam。你今日身體有咩唔舒服？"
+        ),
+        "suggested_replies_en": [
+            "I've had burning when I pee and going to the toilet frequently since yesterday evening.",
+            "No fever, chills, or lower back pain, and no chance of pregnancy. Can the doctor review this and send a prescription?",
+            "Temperature is 36.8°C, urine looks clear, and I've been drinking plenty of water.",
+            "If the wait is long, could I book a teleconsult or clinic visit instead?",
+        ],
+        "suggested_replies_zh": [
+            "琴晚開始小便刺痛同成日急尿，請問醫生可以點幫我？",
+            "冇發燒、冇發冷亦冇腰背痛，亦冇機會懷孕。醫生可唔可以直接審閱同開藥？",
+            "量咗體溫 36.8 度，小便顏色清澈正常，亦都有多飲水。",
+            "如果等得比較耐，可唔可以幫我預約視像診症或親臨診所？",
+        ],
+    },
+    {
+        "key": "tsang_thin",
+        "category": "acute",
+        "patient_id": "pat_tsang_thin",
+        "patient_name": "TSANG Chun-Hin",
+        "patient_name_zh": "曾俊軒",
+        "age_sex": "34M",
+        "pathway_node_id": "default.thin_intake",
+        "title": "Feeling run down since yesterday",
+        "title_zh": "琴日起覺得唔係好舒服",
+        "subtitle": "Brief message asking for medicine · clarifies symptoms safely",
+        "welcome_en": (
+            "Hi Chun-Hin, I'm Sam, the AI Resident at Central & Mid-Levels Family Medical. Tell me a bit about what's going on today and I'll help line up the right care."
+        ),
+        "welcome_zh": (
+            "俊軒你好，我係中環及半山家庭醫務中心嘅 AI 駐診助手 Sam。你講吓今日邊度唔舒服，我幫你安排醫生跟進。"
+        ),
+        "suggested_replies_en": [
+            "Not feeling well since yesterday, super busy with work — can the doctor just send me some antibiotics?",
+        ],
+        "suggested_replies_zh": [
+            "琴日開始覺得個人唔係好舒服，返工好忙，可唔可以直接開啲抗生素？",
+        ],
+    },
+    {
+        "key": "lau_chest",
+        "category": "chronic",
+        "patient_id": "pat_lau_chest",
+        "patient_name": "LAU Wai-Fong",
+        "patient_name_zh": "劉慧芳",
+        "age_sex": "64F",
+        "pathway_node_id": "ebm.pathway.chronic_htn_home_bp",
+        "title": "Cardiac chronic disease & prevention",
+        "title_zh": "心血管慢性病管理及預防檢查",
+        "subtitle": "Perindopril & Rosuvastatin · CVD risk score, BP trend & preventive checkups",
+        "welcome_en": (
+            "Hello Ms. Lau, I'm Sam, the AI Resident at Central & Mid-Levels Family Medical. How are you feeling today?"
+        ),
+        "welcome_zh": (
+            "劉女士你好，我係中環及半山家庭醫務中心嘅 AI 駐診助手 Sam。你今日覺得點樣？"
+        ),
+        "suggested_replies_en": [
+            "My home blood pressure has been creeping up to around 148/92 this week on Perindopril 4mg — no chest pain or shortness of breath. Could Dr. Wong review my blood pressure and routine checkups?",
+            "Yes, I take my Perindopril 4mg and Rosuvastatin 10mg every day with no side effects, and I sit quietly for 5 minutes before checking.",
+            "I have never smoked, no diabetes, and my father had high blood pressure in his 60s. I feel fine walking briskly — happy to arrange preventive blood tests and leaflets too.",
+        ],
+        "suggested_replies_zh": [
+            "今個星期食住 Perindopril 4mg 屋企血壓升到大約 148/92，冇心口痛亦冇氣促。請問黃醫生需唔需要覆核血壓同埋常規檢查？",
+            "有呀，每日都有準時食 Perindopril 4mg 同 Rosuvastatin 10mg，冇咩副作用，亦都有靜坐 5 分鐘先量血壓。",
+            "我從來唔食煙、冇糖尿病，爸爸六十幾歲時有高血壓。平時行快少少都冇氣促——好呀，順便安排預防性驗血同健康單張。",
+        ],
+    },
+    # ---- Hospital Follow-Up & Chronic Care ----
+    {
+        "key": "ho_thyroid",
+        "category": "chronic",
+        "patient_id": "pat_ho_thyroid",
+        "patient_name": "HO Siu-Fong",
+        "patient_name_zh": "何小芳",
+        "age_sex": "44F",
+        "pathway_node_id": "ebm.pathway.thyroid_fatigue",
+        "title": "Ongoing fatigue & thyroid blood test",
+        "title_zh": "持續疲倦及甲狀腺驗血報告",
+        "subtitle": "TSH 11.4, Free T4 8.2 · already taking daily oral iron",
+        "welcome_en": (
+            "Hi Siu-Fong, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How have you been feeling, and how can I help today?"
+        ),
+        "welcome_zh": (
+            "小芳你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你最近身體覺得點樣，有咩可以幫到你？"
+        ),
+        "suggested_replies_en": [
+            "Still feeling exhausted and cold all the time, and yes I take my iron tablet every morning with breakfast. Do I need thyroid medicine?",
+            "Got it — I can take thyroid medication first thing on an empty stomach and move my iron to lunch. Can we review with Dr. Wong?",
+        ],
+        "suggested_replies_zh": [
+            "仲係好攰同好怕凍，我每朝食早餐都有食鐵丸。係咪需要開始食甲狀腺藥？",
+            "明白——我可以朝早空肚食甲狀腺藥，中午先食鐵丸。可以安排黃醫生跟進嗎？",
+        ],
+    },
+    # ---- Checkups, Family & Routine Care ----
+    {
+        "key": "kwok_proxy",
+        "category": "family",
+        "patient_id": "pat_kwok_proxy",
+        "patient_name": "KWOK Wing-Keung",
+        "patient_name_zh": "郭永強",
+        "age_sex": "78M",
+        "pathway_node_id": "ebm.pathway.chronic_htn_home_bp",
+        "title": "Elderly father dizzy after morning meds",
+        "title_zh": "代年長父親查詢頭暈（家屬代訊）",
+        "subtitle": "Messaged by daughter Joyce & helper · on Amlodipine + Losartan",
+        "welcome_en": (
+            "Hello, I'm Sam, the care assistant at Central & Mid-Levels Family Medical, helping with Mr. Kwok Wing-Keung's care. Could you let me know who I'm speaking with and how he's doing today?"
+        ),
+        "welcome_zh": (
+            "你好，我係中環及半山家庭醫務中心嘅護理助手 Sam，負責跟進郭永強先生嘅護理。請問你係邊位家人，郭先生今日感覺點樣？"
+        ),
+        "suggested_replies_en": [
+            "Hi Sam, this is Joyce (his daughter) — our helper Maria said Dad felt slightly lightheaded standing up after his morning BP pills (118/72). Should we stop his Losartan?",
+            "Got it — he's resting and drinking water now. Could we book a review with Dr. Wong this week and check his kidney function?",
+        ],
+        "suggested_replies_zh": [
+            "我係佢個女 Joyce，姐姐 Maria 話爸爸今朝食完血壓藥起身有少少頭暈（血壓 118/72），冇跌親亦冇心口痛，係咪要停藥？",
+            "明白，佢今日飲緊水休息緊，我想幫佢約今個星期睇醫生同驗吓腎功能。",
+        ],
+    },
+    {
+        "key": "ng_quarantine",
+        "category": "family",
+        "patient_id": "pat_ng_quarantine",
+        "patient_name": "NG Siu-Lun",
+        "patient_name_zh": "吳兆麟",
+        "age_sex": "67M",
+        "pathway_node_id": "ebm.pathway.borderline_ldl",
+        "title": "Outside blood test report follow-up",
+        "title_zh": "外間診所驗血報告跟進",
+        "subtitle": "Faxed lab PDF received · routine identity check before chart link",
+        "welcome_en": (
+            "Hello Mr. Ng, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. How can I help you today?"
+        ),
+        "welcome_zh": (
+            "吳先生你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。今日有咩可以幫到你？"
+        ),
+        "suggested_replies_en": [
+            "Hi Sam, I had a blood test done at a private centre in Tsim Sha Tsui yesterday and they faxed the report over — did Dr. Wong receive it yet?",
+            "Thanks for catching that typo! My correct date of birth is 14 Aug 1959 — happy for Nurse Rachel to verify and link it.",
+        ],
+        "suggested_replies_zh": [
+            "Sam 你好，我琴日喺尖沙咀私家化驗所驗咗血，佢哋傳真咗報告過嚟，請問黃醫生收到未？",
+            "多謝你哋咁細心核對！我正確出生日期係 1959 年 8 月 14 日，麻煩陳護士幫手核實返。",
+        ],
+    },
+    {
+        "key": "chui_cough",
+        "default_lang": "zh-HK",
+        "category": "family",
+        "patient_id": "pat_chui_cough",
+        "patient_name": "CHUI Ka-Ming",
+        "patient_name_zh": "徐家明",
+        "age_sex": "41M",
+        "pathway_node_id": "ebm.pathway.acute_urti_g6pd",
+        "title": "Lingering dry cough — asking for syrup",
+        "title_zh": "持續乾咳想配止咳水",
+        "subtitle": "Requesting strong cough medicine · doctor consult & safety review",
+        "welcome_en": (
+            "Hi Ka-Ming, I'm Sam, the care assistant at Central & Mid-Levels Family Medical. What's been bothering you today?"
+        ),
+        "welcome_zh": (
+            "家明你好，我係中環及半山家庭醫務中心嘅護理助手 Sam。你今日有咩唔舒服？"
+        ),
+        "suggested_replies_en": [
+            "I've had a dry tickly cough keeping me up at night for 4 days. Can you just send me the strong codeine cough syrup I had last year?",
+            "Fair enough — no fever and no shortness of breath, just a dry cough at night. Let's book a quick doctor visit today.",
+        ],
+        "suggested_replies_zh": [
+            "呢四晚乾咳到瞓唔到覺，可唔可以直接幫我開返上年嗰隻可待因強效止咳水？",
+            "明白，冇發燒亦冇氣促，只係夜晚乾咳。咁幫我約今日睇黃醫生啦。",
+        ],
+    },
+)
+
+
+def seed_extra_journey_prior_record(session: Session, tenant_id: str, j_key: str) -> tuple[str | None, str, str]:
+    """Seed verified historical EMR record & compliance-gated AgentMemoryEntry for episodes 6–12."""
+    if j_key == "tang_uti":
+        quote = "Allergies: NKDA | Special Alert: G6PD Deficient (avoid nitrofurantoin, sulfonamides, aspirin)."
+        session.add(AgentMemoryEntry(
+            id=new_id("mem"), tenant_id=tenant_id, patient_id="pat_tang_uti",
+            tier="longitudinal", topic="g6pd_alert",
+            summary_text="G6PD Deficient on file; avoid Nitrofurantoin and Trimethoprim-Sulfamethoxazole.",
+            source_quote=quote,
+        ))
+        return "att_tang_chart", "Clinic Safety Profile · G6PD Flag", quote
+
+    if j_key == "tsang_thin":
+        quote = "Baseline Health Profile (2025): Healthy 34M, NKDA, no chronic medications."
+        session.add(AgentMemoryEntry(
+            id=new_id("mem"), tenant_id=tenant_id, patient_id="pat_tsang_thin",
+            tier="episodic", topic="baseline_profile",
+            summary_text="Healthy 34M, NKDA, no regular medications on file.",
+            source_quote=quote,
+        ))
+        return "att_tsang_base", "Clinic Baseline Profile · 2025", quote
+
+    if j_key == "lau_chest":
+        quote = "Active Meds: Perindopril 4mg daily, Rosuvastatin 10mg nocte · History: Essential HTN, Hyperlipidaemia."
+        session.add(AgentMemoryEntry(
+            id=new_id("mem"), tenant_id=tenant_id, patient_id="pat_lau_chest",
+            tier="longitudinal", topic="cardiovascular_profile",
+            summary_text="64F with HTN & hyperlipidaemia on Perindopril 4mg + Rosuvastatin 10mg.",
+            source_quote=quote,
+        ))
+        return "att_lau_cv", "Clinic Cardiovascular Profile · Oct 2026", quote
+
+    if j_key == "ho_thyroid":
+        doc = ingest_external_document(
+            session,
+            tenant_id=tenant_id,
+            external_doc_ref="KM-LAB-2026-1119-4402",
+            doc_kind="lab_report",
+            source_org="KingMed Diagnostics (HK)",
+            claimed_mrn_or_hkid="PAT-44029",
+            claimed_name="HO Siu-Fong",
+            claimed_dob="1982-01-16",
+            verbatim_quote="Serum TSH: 11.4 mIU/L (HIGH; Ref 0.4–4.0) · Free T4: 8.2 pmol/L (LOW; Ref 12.0–22.0) · Anti-TPO: Positive.",
+            page_ref="p.1",
+            parsed_diff={"tsh_miu_l": 11.4, "free_t4_pmol_l": 8.2},
+        )
+        session.add(AgentMemoryEntry(
+            id=new_id("mem"), tenant_id=tenant_id, patient_id="pat_ho_thyroid",
+            tier="longitudinal", topic="thyroid_panel",
+            summary_text="Overt primary hypothyroidism (TSH 11.4, Free T4 8.2); currently takes Ferrous sulfate 200mg daily.",
+            source_doc_id=doc.id, source_quote=doc.verbatim_quote,
+        ))
+        return doc.id, "KingMed Thyroid Panel · 19 Nov 2026", doc.verbatim_quote
+
+    if j_key == "kwok_proxy":
+        quote = "Active Meds: Amlodipine 5mg daily, Losartan 50mg daily · Last eGFR: >18 months ago (not recent)."
+        session.add(AgentMemoryEntry(
+            id=new_id("mem"), tenant_id=tenant_id, patient_id="pat_kwok_proxy",
+            tier="longitudinal", topic="elderly_htn_profile",
+            summary_text="78M on dual antihypertensives (Amlodipine + Losartan); no recent eGFR on file; daughter Joyce listed as family contact.",
+            source_quote=quote,
+        ))
+        return "att_kwok_htn", "Clinic Medication List · Sep 2026", quote
+
+    if j_key == "ng_quarantine":
+        quote = "Clinic EMR Record: NG Siu-Lun (MRN PAT-67033 · DOB 1959-08-14) · On Atorvastatin 20mg nocte."
+        session.add(AgentMemoryEntry(
+            id=new_id("mem"), tenant_id=tenant_id, patient_id="pat_ng_quarantine",
+            tier="episodic", topic="emr_identity_baseline",
+            summary_text="NG Siu-Lun (67M, DOB 1959-08-14) awaiting outside private lab report.",
+            source_quote=quote,
+        ))
+        return "att_ng_base", "Clinic EMR Identity Profile", quote
+
+    # chui_cough
+    quote = "Clinic Baseline (2025): 41M, NKDA, non-smoker, prior viral URTI treated conservatively."
+    session.add(AgentMemoryEntry(
+        id=new_id("mem"), tenant_id=tenant_id, patient_id="pat_chui_cough",
+        tier="episodic", topic="prior_urti",
+        summary_text="41M, NKDA, healthy adult; no chronic respiratory disease.",
+        source_quote=quote,
+    ))
+    return "att_chui_base", "Clinic Baseline Profile · 2025", quote
+
+
+def build_extra_initial_summary(
+    j_key: str,
+    j_meta: dict[str, Any],
+    doc_id: str | None,
+    doc_label: str,
+    doc_quote: str,
+    welcome_msg: str,
+    hhmm: str,
+) -> dict[str, Any]:
+    """Build clean 5/5-linted initial summary for episodes 6–12 when phone starts chat."""
+    chat = [{"actor": "Sam", "time": hhmm, "text": welcome_msg, "lang": "zh-HK" if _CJK_RE.search(welcome_msg) else "en"}]
+    base_att = [{"id": doc_id or f"att_{j_key}", "label": doc_label, "quote": doc_quote, "verified_3pt": True}]
+
+    if j_key == "tang_uti":
+        return {
+            "alerts": [
+                {"level": "info", "label": "G6PD Deficient · Clinician note", "detail": "Avoid Nitrofurantoin & Co-trimoxazole · NKDA (Augmentin is G6PD-safe)"},
+            ],
+            "scheduled_tasks": [{"status": "waiting", "label": "Careline conversation active with patient"}],
+            "issues": [{
+                "id": "iss_tang_init",
+                "name": "1. Patient check-in — gathering history",
+                "bullets": ["Patient opened Careline chat; awaiting symptom details."],
+                "safety_gap": None,
+                "suggested_orders": [],
+            }],
+            "attachments": base_att,
+            "sam_proactive_insight": None,
+            "agent_thread": [],
+            "patient_chat_label": f"{j_meta['patient_name']} ↔ Sam Careline Chat",
+            "original_chat": chat,
+        }
+
+    if j_key == "ho_thyroid":
+        return {
+            "alerts": [
+                {"level": "high", "label": "TSH Elevated (11.4 mIU/L)", "detail": "Low Free T4 (8.2 pmol/L) · Takes daily oral Ferrous sulfate"},
+            ],
+            "scheduled_tasks": [{"status": "waiting", "label": "Careline check-in active ahead of thyroid review"}],
+            "issues": [{
+                "id": "iss_ho_init",
+                "name": "1. Thyroid panel review — awaiting patient reply",
+                "bullets": ["KingMed thyroid results matched (3-pt ID); Sam checking symptom burden and iron timing."],
+                "safety_gap": None,
+                "suggested_orders": [],
+            }],
+            "lab_panel": {
+                "source": "KingMed Thyroid Panel · 19 Nov 2026",
+                "rows": [
+                    {"test": "Serum TSH", "val": "11.4 mIU/L", "ref": "0.4–4.0", "flag": "HIGH"},
+                    {"test": "Free T4", "val": "8.2 pmol/L", "ref": "12.0–22.0", "flag": "LOW"},
+                    {"test": "Anti-TPO Ab", "val": "Positive", "ref": "Negative", "flag": "HIGH"},
+                ],
+            },
+            "attachments": base_att,
+            "sam_proactive_insight": None,
+            "agent_thread": [],
+            "patient_chat_label": f"{j_meta['patient_name']} ↔ Sam Careline Chat",
+            "original_chat": chat,
+        }
+
+    if j_key == "kwok_proxy":
+        return {
+            "alerts": [
+                {"level": "info", "label": "Age 78 · Dual Antihypertensives", "detail": "Amlodipine 5mg + Losartan 50mg · No recent eGFR (>18m)"},
+            ],
+            "scheduled_tasks": [{"status": "waiting", "label": "Careline check-in active with family contact"}],
+            "issues": [{
+                "id": "iss_kwok_init",
+                "name": "1. Family check-in — clarifying reporter & symptoms",
+                "bullets": ["Careline opened on Mr. Kwok's record; Sam confirming reporter identity and symptoms."],
+                "safety_gap": None,
+                "suggested_orders": [],
+            }],
+            "attachments": base_att,
+            "sam_proactive_insight": None,
+            "agent_thread": [],
+            "patient_chat_label": f"{j_meta['patient_name']} ↔ Sam Careline Chat",
+            "original_chat": chat,
+        }
+
+    if j_key == "lau_chest":
+        return {
+            "clinical_scores": [
+                compute_cvd_10yr_tier(age=64, smoker=False, systolic_bp=148, ldl_mmol_l=2.9),
+            ],
+            "alerts": [
+                {"level": "info", "label": "Cardiovascular Risk Profile", "detail": "On Perindopril 4mg + Rosuvastatin 10mg · Baseline ECG & Echo on file"},
+            ],
+            "scheduled_tasks": [{"status": "waiting", "label": "Careline conversation active with patient"}],
+            "issues": [{
+                "id": "iss_lau_chest_init",
+                "name": "1. Cardiovascular chronic care check-in — gathering history",
+                "bullets": ["Patient opened Careline chat; awaiting symptom & home BP details."],
+                "safety_gap": None,
+                "suggested_orders": [],
+            }],
+            "attachments": base_att,
+            "sam_proactive_insight": None,
+            "agent_thread": [],
+            "patient_chat_label": f"{j_meta['patient_name']} ↔ Sam Careline Chat",
+            "original_chat": chat,
+        }
+
+    # tsang_thin, ng_quarantine, chui_cough
+    return {
+        "alerts": [{"level": "info", "label": "No Known Drug Allergies", "detail": "Standard clinic profile loaded"}],
+        "scheduled_tasks": [{"status": "waiting", "label": "Careline conversation active with patient"}],
+        "issues": [{
+            "id": f"iss_{j_key}_init",
+            "name": "1. Patient check-in — gathering history",
+            "bullets": ["Patient opened Careline chat; awaiting reason for contact before staging orders."],
+            "safety_gap": None,
+            "suggested_orders": [],
+        }],
+        "attachments": base_att,
+        "sam_proactive_insight": None,
+        "agent_thread": [],
+        "patient_chat_label": f"{j_meta['patient_name']} ↔ Sam Careline Chat",
+        "original_chat": chat,
+    }
+
+
+def compile_extra_journey_turn(
+    *,
+    session: Session,
+    tenant_id: str,
+    j_key: str,
+    patient_text: str,
+    existing_summary: dict[str, Any],
+    prior_patient_msgs: list[str],
+    is_followup_turn: bool,
+    is_simple_ack: bool,
+    cds_blocked_drugs: list[str],
+    is_zh: bool,
+    hhmm: str,
+) -> tuple[str, str, str, str, str, dict[str, Any], str, list[str]]:
+    """Compile dynamic multi-turn clinical workspace updates & natural fallback replies for episodes 6–12."""
+    low = (patient_text or "").lower()
+    all_text = " ".join([*prior_patient_msgs, patient_text])
+    all_low = all_text.lower()
+    summary = copy.deepcopy(existing_summary)
+    steps: list[str] = []
+
+    # 2. TANG Ka-Yan (Acute Uncomplicated UTI — pregnancy + pyelonephritis red flags + G6PD check -> HK GP Augmentin 375mg TDS x 5d)
+    if j_key == "tang_uti":
+        confirmed_no_preg = any(
+            k in all_low or k in all_text
+            for k in (
+                "no pregnancy", "not pregnant", "no chance of pregnancy", "definitely not pregnant",
+                "negative pregnancy", "isn't pregnant", "cannot be pregnant", "can't be pregnant",
+                "冇懷孕", "無懷孕", "冇可能懷孕", "唔係懷孕", "冇大肚",
+            )
+        )
+        confirmed_preg = (not confirmed_no_preg) and any(
+            k in all_low or k in all_text
+            for k in ("i am pregnant", "i'm pregnant", "might be pregnant", "could be pregnant", "positive pregnancy", "懷孕咗", "有咗身孕", "大肚")
+        )
+        preg_answered = confirmed_no_preg or confirmed_preg
+        confirmed_no_red_flags = any(
+            k in all_low or k in all_text
+            for k in (
+                "no fever", "no back pain", "no flank pain", "no chills", "no vomiting", "no nausea",
+                "afebrile", "none of those", "no red flags", "冇發燒", "冇腰痛", "冇背痛", "冇發冷", "冇作嘔",
+            )
+        )
+        temp_m = re.search(r"(\d{2}(?:\.\d)?)\s*(?:°?\s*[cC]|度)", all_text)
+        has_temp = bool(temp_m)
+        temp_val = f"{temp_m.group(1)} °C" if temp_m else None
+        confirmed_no_blood = any(
+            k in all_low or k in all_text
+            for k in ("no blood", "not seeing blood", "clear urine", "urine looks clear", "小便冇血", "冇血尿", "冇血", "小便顏色清澈", "清澈正常")
+        )
+        asked_to_book = any(
+            k in low
+            for k in ("book", "appointment", "teleconsult", "slot", "schedule", "come in", "visit", "預約", "視像")
+        )
+
+        vitals_rows: list[dict[str, str]] = [
+            {"label": "Symptoms", "val": "Dysuria & frequency (<24h)"},
+            {"label": "Red flags", "val": "Afebrile · No flank pain, chills, or vomiting" if confirmed_no_red_flags else "Pending red-flag screen (fever / chills / flank pain / vomiting)"},
+            {"label": "Pregnancy", "val": ("Pregnant — confirm trimester" if confirmed_preg else ("Denies pregnancy" if confirmed_no_preg else "Pending confirmation"))},
+        ]
+        if temp_val:
+            vitals_rows.insert(1, {"label": "Temp (home)", "val": temp_val})
+        if confirmed_no_blood:
+            vitals_rows.append({"label": "Haematuria", "val": "Denies visible blood in urine"})
+
+        summary["vitals_exam"] = {
+            "source": f"Patient Careline · Today {hhmm}",
+            "encounter_context": "Inbound Remote · Self-Measured" if temp_val else "Inbound Remote · Self-Reported",
+            "items": vitals_rows,
+        }
+        uti_alerts: list[dict[str, str]] = [
+            {
+                "level": "info",
+                "label": "G6PD Deficient · Clinician note",
+                "detail": "Avoid Nitrofurantoin & Co-trimoxazole · NKDA (Augmentin 375mg TDS × 5d or Cefuroxime 250mg BD × 5d safe)",
+            },
+        ]
+        if confirmed_preg:
+            uti_alerts.insert(0, {
+                "level": "high",
+                "label": "Pregnancy Reported",
+                "detail": "Confirm gestational age & MSU culture; Augmentin / Cefuroxime require antenatal clinician sign-off.",
+            })
+        elif not preg_answered:
+            uti_alerts.append({
+                "level": "high",
+                "label": "Confirm Pregnancy Status",
+                "detail": "Awaiting patient confirmation of pregnancy status before antibiotic sign-off.",
+            })
+        summary["alerts"] = uti_alerts
+
+        if confirmed_preg:
+            safety_gap: str | None = "Patient reported possible pregnancy — confirm gestational age and MSU culture before prescribing."
+        elif not preg_answered and not confirmed_no_red_flags:
+            safety_gap = "Confirm pregnancy status and screen pyelonephritis red flags (fever, chills, flank pain, vomiting) before prescribing."
+        elif not preg_answered:
+            safety_gap = "Confirm pregnancy status before prescribing."
+        elif not confirmed_no_red_flags:
+            safety_gap = "Confirm absence of fever, chills, flank pain, or vomiting before prescribing."
+        else:
+            safety_gap = None
+
+        summary["issues"] = [{
+            "id": "iss_uti",
+            "name": "1. Acute uncomplicated cystitis",
+            "bullets": [
+                (
+                    f"Acute burning on urination and urinary frequency since yesterday evening{f' (home temp {temp_val})' if temp_val else ''}; denies fever, chills, flank pain, or vomiting."
+                    if confirmed_no_red_flags
+                    else "Acute burning on urination and urinary frequency since yesterday evening; screening for fever, chills, flank pain, and vomiting."
+                ),
+                "G6PD deficiency on chart (Nitrofurantoin & Co-trimoxazole contraindicated) · NKDA · Augmentin (Amoxicillin-Clavulanate) 375 mg TDS × 5 days staged (alternative: Cefuroxime 250 mg BD × 5 days).",
+            ],
+            "safety_gap": safety_gap,
+            "suggested_orders": [
+                {
+                    "id": "tang_rx_augmentin",
+                    "type": "rx",
+                    "action": "start",
+                    "issue": "1. Acute uncomplicated cystitis",
+                    "drug": "Amoxicillin-Clavulanate (Augmentin) 375mg",
+                    "dose_mg": 375,
+                    "freq": "TDS",
+                    "days": "5d",
+                    "note": "HK private GP G6PD-safe choice (alternative: Cefuroxime 250mg BD × 5d); NKDA",
+                },
+                {"id": "tang_lab_msu", "type": "lab", "issue": "1. Acute uncomplicated cystitis", "testName": "Urine Dipstick / MSU Culture", "lab": "Clinic / KingMed", "fasting": False, "when": "Before starting Abx or if >48h"},
+                {
+                    "id": "tang_leaflet",
+                    "type": "goal",
+                    "issue": "1. Acute uncomplicated cystitis",
+                    "metric": "UTI Hydration & Red-Flag Leaflet",
+                    "leaflet_id": "uti_hydration_hk",
+                    "title": "Acute UTI Hydration & Red-Flag Care Leaflet",
+                    "template": "Central Medical · Uncomplicated Cystitis Care Sheet",
+                    "target_text": "Drink 2L water daily; complete the full 5-day Augmentin course; seek urgent review if fever, chills, vomiting, or flank pain develop.",
+                },
+            ],
+        }]
+        summary["sam_proactive_insight"] = (
+            "G6PD deficiency is recorded on chart (Nitrofurantoin and Co-trimoxazole contraindicated); NKDA. "
+            "Augmentin (Amoxicillin-Clavulanate) 375 mg TDS × 5 days is staged as the G6PD-safe HK private GP option (Cefuroxime 250 mg BD × 5 days as alternative)."
+        )
+        agent_thread = list(summary.get("agent_thread") or [])
+        preg_note = (
+            "Pregnancy denied" if confirmed_no_preg
+            else ("Possible pregnancy reported" if confirmed_preg else "Pregnancy status requested")
+        )
+        rf_note = "pyelonephritis red flags denied (afebrile, no flank pain/chills/vomiting)" if confirmed_no_red_flags else "screening pyelonephritis red flags"
+        uti_reason = (
+            f"UTI intake: {rf_note}; {preg_note}{f'; home temp {temp_val}' if temp_val else ''}. Cross-checked G6PD deficiency (Nitrofurantoin & Co-trimoxazole blocked) and NKDA → staged Augmentin 375 mg TDS × 5 days (Cefuroxime 250 mg BD × 5 days alternative)."
+        )
+        agent_thread = [x for x in agent_thread if not str(x.get("text", "")).startswith("UTI intake:")]
+        agent_thread.append({"actor": "Sam", "time": hhmm, "text": uti_reason})
+        summary["agent_thread"] = agent_thread[-4:]
+        steps.append("PracticeGraph · Traversed ebm.pathway.acute_uti (HK GP G6PD-safe Augmentin 375mg TDS x5d)")
+        steps.append("PresentationCompiler · Staged Augmentin 375mg TDS x5d + UTI leaflet (5/5 linter pass)")
+
+        if is_simple_ack and is_followup_turn:
+            summary["_tang_stage"] = "ready"
+            reply = (
+                "唔使客氣，醫生審閱同確認處方之後就會喺呢度通知你，記得多飲清水。如果你想預約視像或親臨診所，隨時話我知。"
+                if is_zh
+                else "You are welcome. As soon as the doctor reviews and confirms your prescription, it will appear right here. Keep drinking plenty of water, and if you would like to make a booking, just let me know."
+            )
+        elif confirmed_preg:
+            summary["_tang_stage"] = "ready"
+            reply = (
+                "多謝你話我知可能懷孕。我已經即時通知黃醫生，等醫生確認懷孕週數同埋安排適合孕婦使用嘅安全治療及小便化驗。期間記得多飲清水，如果出現發燒、發冷或腰背痛，請即刻通知我哋。"
+                if is_zh
+                else "Thank you for letting me know you may be pregnant. I have flagged this straight to Dr. Wong so she can review your gestational stage, arrange a urine test, and select a pregnancy-safe antibiotic. Please keep up your fluids and let us know straight away if you develop fever, chills, vomiting, or lower back pain."
+            )
+        elif not preg_answered or not confirmed_no_red_flags:
+            summary["_tang_stage"] = "awaiting_red_flags"
+            reply = (
+                "明白，小便刺痛同尿頻真係好唔舒服。幫醫生整理資料前，想確認兩件事：有冇發燒、發冷、腰背痛或者作嘔？另外有冇機會懷孕？"
+                if is_zh
+                else "Sorry you are dealing with that. Just two quick checks before I brief the doctor: any fever, chills, lower back pain, or vomiting, and is there any chance you could be pregnant?"
+            )
+            return (
+                "running",
+                "with_patient",
+                "Acute UTI — Screening Red Flags",
+                "Burning urination & frequency (<24h); AI Resident is confirming pregnancy status and kidney red flags.",
+                "Screening red flags",
+                summary,
+                reply,
+                steps,
+            )
+        elif not has_temp and not confirmed_no_blood and not asked_to_book:
+            summary["_tang_stage"] = "awaiting_vitals"
+            reply = (
+                "冇發燒亦冇腰背痛就放心啲。如果屋企有探熱針，方便量一量體溫，順便話我知小便有冇見到血絲嗎？"
+                if is_zh
+                else "Glad to hear there is no fever or back pain. If you have a thermometer at home, could you check your temperature and let me know if you have noticed any blood in your urine?"
+            )
+            return (
+                "running",
+                "with_patient",
+                "Acute UTI — Collecting Home Vitals",
+                "Red flags & pregnancy clear; AI Resident is checking home temperature and haematuria before briefing doctor.",
+                "Collecting home vitals",
+                summary,
+                reply,
+                steps,
+            )
+        elif asked_to_book:
+            summary["_tang_stage"] = "ready"
+            reply = (
+                "冇問題——我查閱咗今日診所時間表，張詠欣醫生（急症及婦女健康）今日 11:15 有空檔，你可以喺下方一鍵預約視像診症或親臨診所，或者揀其他醫生時間。"
+                if is_zh
+                else "Of course — I checked today's clinic schedule and Dr. Wing-Yan Cheung (Acute & Women's Care) has an open 11:15 slot below. You can confirm Teleconsult or In-Clinic, or pick another doctor."
+            )
+        else:
+            summary["_tang_stage"] = "ready"
+            temp_note = f"（體溫 {temp_val}）" if temp_val else ""
+            temp_note_en = f" ({temp_val})" if temp_val else ""
+            reply = (
+                f"多謝你量體溫同確認{temp_note}。我已經將你嘅症狀同用藥安全核對結果直接交畀張詠欣醫生審閱，簽署後處方會直接喺呢度發送畀你。期間記得多飲清水；如果你想預約視像或親臨診所，隨時話我知。"
+                if is_zh
+                else f"Thanks for checking{temp_note_en} — no fever or warning signs is reassuring. I've sent your summary and chart safety checks straight to Dr. Wing-Yan Cheung for review, and your prescription will appear right here once signed. Keep drinking plenty of water, and if you would like to make a booking, just let me know."
+            )
+        return (
+            "needs_decision",
+            "with_doctor",
+            "Acute Uncomplicated UTI — Doctor Review",
+            f"Burning urination & frequency (<24h){f', home temp {temp_val}' if temp_val else ''}, red flags & pregnancy clear; G6PD-safe Augmentin 375mg TDS x5d staged.",
+            "Acute Uncomplicated UTI",
+            summary,
+            reply,
+            steps,
+        )
+
+    # 7. TSANG Chun-Hin (Autonomous Registrar Intake Clarification — responds to actual intent, zero nurse-questionnaire button!)
+    if j_key == "tsang_thin":
+        asked_antibiotics = any(k in low for k in ("antibiotic", "amoxicillin", "抗生素", "消炎藥"))
+        asked_results_or_med = any(k in low for k in ("test result", "blood test", "result", "medication", "prescription", "refill", "報告", "驗血", "藥物"))
+        asked_booking = any(k in low for k in ("book", "reschedule", "appointment", "slot", "預約", "改期"))
+        gave_specifics = any(k in low for k in ("nose", "stuffy", "fatigue", "cough", "throat", "fever", "stomach", "slot", "鼻塞", "攰", "咳", "喉嚨", "發燒", "15"))
+
+        agent_thread = list(summary.get("agent_thread") or [])
+
+        if asked_results_or_med and not asked_antibiotics and not gave_specifics:
+            agent_thread.append({
+                "actor": "Sam",
+                "time": hhmm,
+                "text": "Registrar reasoning: Patient selected test-result / medication follow-up → clarifying which lab report or medication they're asking about in the patient loop before involving Dr. Wong.",
+            })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("CareAgent · Clarifying test result / medication follow-up autonomously in patient loop")
+            reply = (
+                "好呀！請問你想跟進邊一份驗血／檢查報告，或者邊一種藥物？如果有外間報告相片或詳情，都可以直接喺度話我知，我幫你整理好再交畀醫生。"
+                if is_zh
+                else "Of course! Which test result or medication would you like to follow up on? Feel free to share the details or any symptoms you've noticed, and I'll line it up for Dr. Wong."
+            )
+            return (
+                "running",
+                "with_patient",
+                "Test Result / Medication Follow-Up — Clarifying",
+                "Sam is clarifying which result or medication the patient is following up on.",
+                "Careline intake",
+                summary,
+                reply,
+                steps,
+            )
+
+        if asked_booking and not gave_specifics:
+            agent_thread.append({
+                "actor": "Sam",
+                "time": hhmm,
+                "text": "Registrar reasoning: Patient requested appointment booking/rescheduling → handling logistics autonomously in patient loop without interrupting doctor.",
+            })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("CareAgent · Handling appointment logistics autonomously")
+            reply = (
+                "冇問題！我們今日下午 16:15 有 15 分鐘診症時段，聽日朝早亦有空檔。你想預約邊個時間，以及大約係睇邊方面？"
+                if is_zh
+                else "Happy to help with that! We have a 15-minute slot today at 16:15 or openings tomorrow morning. Which works better for you, and what would you like to be seen for?"
+            )
+            return (
+                "running",
+                "with_patient",
+                "Appointment Request — Scheduling",
+                "Sam is confirming preferred slot and visit reason autonomously.",
+                "Careline scheduling",
+                summary,
+                reply,
+                steps,
+            )
+
+        if not gave_specifics:
+            summary["intake_sufficiency"] = "insufficient"
+            summary["issues"] = [{
+                "id": "iss_thin",
+                "name": "1. Undifferentiated unwellness — gathering history",
+                "bullets": [
+                    f"Patient messaged: “{patient_text.strip()}”.",
+                    "Sam is autonomously running structured symptom & red-flag clarification in the patient loop before escalating to Dr. Wong.",
+                ],
+                "safety_gap": "Clarify symptom site, fever, duration, and red flags before any prescribing decision.",
+                "suggested_orders": [
+                    {"id": "tsang_book", "type": "book", "issue": "1. Undifferentiated unwellness — gathering history", "visitType": "15-min GP Assessment", "when": "Today 16:15"},
+                ],
+            }]
+            summary["sam_proactive_insight"] = None
+            agent_thread.append({
+                "actor": "Sam",
+                "time": hhmm,
+                "text": "Registrar reasoning: Thin intake received → holding autonomously in patient loop to gather symptom site, onset, fever/home vitals, and red flags (zero premature Rx or nurse handoff).",
+            })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("IntakeGuard · Autonomous registrar clarification in patient loop (0 premature Rx)")
+            if asked_antibiotics:
+                reply = (
+                    "明白你返工好忙，不過抗生素需要先由醫生了解具體症狀先可以決定。可以簡單講吓你主要邊度唔舒服（例如鼻塞、喉嚨痛、咳定發燒），以及有冇氣促或心口痛嗎？我亦可以幫你預留今日 15 分鐘時段。"
+                    if is_zh
+                    else "I hear you on a busy workday — antibiotics need a quick symptom check and doctor review first. Could you share what specific symptoms you're having (like fever, sore throat, stuffy nose, or cough) and confirm you have no chest pain or shortness of breath? We also have quick 15-minute slots later today."
+                )
+            else:
+                reply = (
+                    "明白，想幫你安排最合適嘅跟進——可以簡單講多啲你而家有咩唔舒服、持續咗幾耐，以及有冇發燒、氣促或心口痛嗎？"
+                    if is_zh
+                    else "Got it — to make sure we get you the right care quickly, could you share a bit more about what symptoms you're experiencing, how long they've lasted, and whether you have any fever, shortness of breath, or chest pain?"
+                )
+            return (
+                "running",
+                "with_patient",
+                "Feeling Unwell — Autonomous Registrar Intake",
+                "Sam is autonomously clarifying symptoms & red flags before packaging for doctor review.",
+                "Careline intake",
+                summary,
+                reply,
+                steps,
+            )
+
+        # Turn 2: Patient provided clear specifics -> promote cleanly to doctor!
+        summary["intake_sufficiency"] = "sufficient"
+        summary["vitals_exam"] = {
+            "source": f"Patient Careline · Today {hhmm}",
+            "encounter_context": "Inbound Remote · Clarified",
+            "items": [
+                {"label": "Symptoms", "val": "Mild fatigue & nasal congestion (1d)"},
+                {"label": "Fever / Cough", "val": "Denies fever or cough"},
+                {"label": "Red flags", "val": "Denies chest pain or SOB"},
+            ],
+        }
+        summary["scheduled_tasks"] = [{"status": "booked", "label": "Today 16:15 · 15-min GP Assessment (requested)"}]
+        summary["issues"] = [{
+            "id": "iss_tsang_clarified",
+            "name": "1. Mild upper respiratory congestion & fatigue",
+            "bullets": [
+                "Patient clarified mild nasal congestion and fatigue since yesterday with no fever or red flags.",
+                "Antibiotic therapy not indicated on history; 15-minute GP assessment requested for today.",
+            ],
+            "safety_gap": None,
+            "suggested_orders": [
+                {"id": "tsang_book2", "type": "book", "issue": "1. Mild upper respiratory congestion & fatigue", "visitType": "15-min GP Assessment", "when": "Today 16:15"},
+            ],
+        }]
+        summary["sam_proactive_insight"] = None
+        agent_thread.append({
+            "actor": "Sam",
+            "time": hhmm,
+            "text": "Registrar reasoning: Structured symptom & red-flag screen complete (1d mild congestion/fatigue, afebrile, no red flags) → promoted to Dr. Wong with 16:15 consult slot.",
+        })
+        summary["agent_thread"] = agent_thread[-4:]
+        steps.append("IntakeGuard · Clarifying details received -> intake_sufficiency upgraded to 'sufficient'")
+        reply = (
+            "多謝你講得咁清楚——冇發燒亦冇氣促或心口痛係好消息。我已經幫你記低畀黃醫生，並預留今日下午 4:15 嘅 15 分鐘診症時段，等醫生親身評估需唔需要用藥。"
+            if is_zh
+            else "Thanks for sharing those details — having no fever or warning signs is reassuring. I've updated Dr. Wong's notes and held a 15-minute slot at 16:15 today so she can assess you and confirm the right treatment."
+        )
+        return (
+            "needs_decision",
+            "with_doctor",
+            "Mild Nasal Congestion & Fatigue — 16:15 Slot",
+            "Clarified 1-day stuffy nose & fatigue without fever or red flags; 16:15 GP consult held.",
+            "Today 16:15 consult",
+            summary,
+            reply,
+            steps,
+        )
+
+    # 8. HO Siu-Fong (Thyroid / Fatigue + Levothyroxine-Iron 4h Spacing!)
+    if j_key == "ho_thyroid":
+        summary["vitals_exam"] = {
+            "source": f"Patient Careline · Today {hhmm}",
+            "items": [
+                {"label": "Symptoms", "val": "Persistent fatigue & cold intolerance"},
+                {"label": "Current Meds", "val": "Ferrous sulfate 200mg daily (morning)"},
+                {"label": "Red flags", "val": "No chest pain, syncope, or palpitations"},
+            ],
+        }
+        summary["issues"] = [{
+            "id": "iss_thyroid",
+            "name": "1. Overt primary hypothyroidism",
+            "bullets": [
+                "Fatigue and cold intolerance with elevated TSH, low Free T4, and positive Anti-TPO antibodies (see Thyroid Panel).",
+                "Currently taking morning oral iron — Levothyroxine requires at least 4-hour spacing to prevent malabsorption.",
+            ],
+            "safety_gap": "Advise taking Levothyroxine fasting on waking and separating oral iron by ≥ 4 hours (NICE NG145).",
+            "suggested_orders": [
+                {"id": "ho_rx_levo", "type": "rx", "action": "start", "issue": "1. Overt primary hypothyroidism", "drug": "Levothyroxine 50mcg", "freq": "OD morning fasting", "days": "60d", "note": "Separate from oral iron by ≥4 hours"},
+                {"id": "ho_lab_tsh", "type": "lab", "issue": "1. Overt primary hypothyroidism", "testName": "Repeat Serum TSH + Free T4", "lab": "KingMed", "fasting": False, "when": "In 6 weeks"},
+                {"id": "ho_book", "type": "book", "issue": "1. Overt primary hypothyroidism", "visitType": "15-min GP Thyroid Review", "when": "In 6 weeks (post-labs)"},
+            ],
+        }]
+        summary["sam_proactive_insight"] = (
+            "NICE NG145 Hypothyroidism Guideline: TSH 11.4 mIU/L + Free T4 8.2 pmol/L confirms overt primary hypothyroidism. "
+            "Active CDS note: patient takes daily Ferrous sulfate — enforce ≥4-hour spacing from Levothyroxine 50mcg."
+        )
+        steps.append("PracticeGraph · Traversed ebm.pathway.thyroid_fatigue (NICE NG145 + Levothyroxine-iron 4h spacing)")
+        steps.append("PresentationCompiler · Mounted Thyroid Panel & 50mcg starting option (5/5 linter pass)")
+
+        if is_followup_turn and any(k in low for k in ("lunch", "empty stomach", "move", "review", "中午", "空肚", "明白")):
+            reply = (
+                "好主意！朝早起身空肚用清水服食甲狀腺藥、中午先食鐵丸就完全唔會影響吸收。我已經通知咗黃莎拉醫生，等醫生審閱確認處方同 6 星期後覆驗抽血。"
+                if is_zh
+                else "That schedule works great — taking Levothyroxine on an empty stomach first thing and moving your iron to lunchtime avoids any absorption interference. I've let Dr. Sarah Wong know so she can review and sign off your starting prescription plus a 6-week repeat blood test."
+            )
+        else:
+            reply = (
+                "聽到你成日好攰又怕凍辛苦晒。你嘅金域驗血報告顯示甲狀腺功能偏低（TSH 11.4、Free T4 8.2），黃莎拉醫生好可能會同你傾開始低劑量甲狀腺素補充。\n\n"
+                "有個好重要嘅用藥貼士我已經標註咗畀醫生：因為你每日朝早有食鐵丸，鐵質會阻礙甲狀腺藥吸收，所以如果醫生開藥，兩隻藥需要相隔至少 4 小時（例如朝早空肚食甲狀腺藥，中午先食鐵丸）。"
+                if is_zh
+                else "I'm sorry you've been feeling so drained and cold. Your KingMed panel shows an underactive thyroid (TSH 11.4, Free T4 8.2), so Dr. Sarah Wong will review starting gentle thyroid replacement with you.\n\nOne key detail I've flagged for Dr. Wong: because you take oral iron each morning, iron blocks thyroid hormone absorption — so if she prescribes Levothyroxine, you'll want to take it on an empty stomach first thing and space your iron tablet at least 4 hours later (such as at lunch)."
+            )
+        return (
+            "needs_decision",
+            "with_doctor",
+            "Overt Hypothyroidism — Levothyroxine & Iron Spacing",
+            "Fatigue & cold intolerance with TSH 11.4 / Free T4 8.2; Levothyroxine–iron 4h spacing flagged.",
+            "Today · doctor review",
+            summary,
+            reply,
+            steps,
+        )
+
+    # 9. KWOK Wing-Keung (78M — Family Proxy via Daughter Joyce & Helper Maria!)
+    if j_key == "kwok_proxy":
+        summary["proxy_context"] = {
+            "is_proxy": True,
+            "reporter_name": "Joyce Kwok (daughter) & Maria (helper)",
+            "verified_patient_name": "KWOK Wing-Keung (78M)",
+            "relationship": "Daughter & domestic helper",
+        }
+        summary["vitals_exam"] = {
+            "source": f"Proxy Report (Daughter Joyce) · Today {hhmm}",
+            "items": [
+                {"label": "Home BP", "val": "118/72 mmHg"},
+                {"label": "Symptoms", "val": "Mild postural lightheadedness after morning meds"},
+                {"label": "Falls / Red flags", "val": "No fall, no syncope, no chest pain"},
+            ],
+        }
+        summary["issues"] = [{
+            "id": "iss_kwok_dizz",
+            "name": "1. Postural lightheadedness on dual antihypertensives",
+            "bullets": [
+                "Daughter Joyce (via helper Maria) reported mild standing dizziness after morning Amlodipine 5mg + Losartan 50mg.",
+                "Home BP 118/72 mmHg without fall or syncope; caregiver asked whether to stop Losartan (advised not to stop without doctor review).",
+            ],
+            "safety_gap": "Elderly patient (78M) on Losartan with no recent eGFR (>18m) — check U&E/eGFR and lying-standing BP in clinic.",
+            "suggested_orders": [
+                {"id": "kwok_lab_ue", "type": "lab", "issue": "1. Postural lightheadedness on dual antihypertensives", "testName": "Renal Function & Electrolytes (U&E + eGFR)", "lab": "KingMed", "fasting": False, "when": "At clinic visit this week"},
+                {"id": "kwok_book", "type": "book", "issue": "1. Postural lightheadedness on dual antihypertensives", "visitType": "15-min In-Clinic GP Review (Lying/Standing BP)", "when": "Tomorrow morning"},
+                {"id": "kwok_nurse", "type": "nurse", "issue": "1. Postural lightheadedness on dual antihypertensives", "protocol": "bp_inr_followup_call", "assignee": "Nurse Rachel", "task": "Check-in call with Joyce & Mr. Kwok (Cantonese)", "due": "Today afternoon"},
+            ],
+        }]
+        summary["sam_proactive_insight"] = (
+            "Elderly Medication Safety (78M on Losartan + Amlodipine): Recent eGFR is >18 months old. "
+            "Check renal function/K+ and postural BP before adjusting antihypertensive therapy; proxy reporter logged clearly."
+        )
+        steps.append("ProxyGuard · Preserved caregiver identity (Joyce/Maria) distinct from patient KWOK Wing-Keung (78M)")
+        steps.append("Verification · Elderly unknown-eGFR check flagged on Losartan + Amlodipine")
+
+        if is_followup_turn and not any(k in low for k in ("stop", "losartan", "停藥")):
+            reply = (
+                "多謝你 Joyce——我已經將爸爸嘅情況同需要驗腎功能嘅提醒放咗喺黃莎拉醫生嘅工作台，並為郭先生預留聽朝診所覆診，順便由陳護士今日晏晝打電話關心一下。"
+                if is_zh
+                else "Thank you Joyce — I've placed your update and a note to check Mr. Kwok's kidney bloods on Dr. Sarah Wong's desk, held an in-clinic slot for tomorrow morning (to check sitting and standing BP), and flagged Nurse Rachel to give you a quick check-in call this afternoon."
+            )
+        else:
+            reply = (
+                "多謝你話我知 Joyce（同埋 Maria）。請先唔好自行停服 Losartan 或血壓藥，先畀郭先生飲足夠清水，起身時慢慢坐起停一停先站立。\n\n"
+                "我已經清楚記錄係由你代爸爸匯報（血壓 118/72、冇跌倒冇心口痛），並即時交畀黃莎拉醫生審閱——亦留意到郭先生超過 18 個月未覆驗腎功能，醫生可以一併安排抽血同量度坐立血壓。如果佢出現昏厥、心口痛或者嚴重無力，請即刻致電 999。"
+                if is_zh
+                else "Thank you for letting us know, Joyce (and Maria). Please don't stop his Losartan or BP tablets unilaterally just yet — encourage Mr. Kwok to stay hydrated and rise slowly from sitting to standing.\n\nI've logged this clearly as a family update on Mr. Kwok's chart (BP 118/72, no fall or chest pain) for Dr. Sarah Wong to review today, and also noted he hasn't had a kidney blood test (eGFR) in over 18 months so she can check that alongside sitting/standing BP. If he feels faint, falls, or has chest pain, please call 999 immediately."
+            )
+        return (
+            "needs_decision",
+            "with_doctor",
+            "Postural Lightheadedness — Family Proxy Update",
+            "Daughter Joyce reported mild dizziness in 78M on Amlodipine + Losartan (BP 118/72); eGFR overdue.",
+            "Tomorrow morning · clinic",
+            summary,
+            reply,
+            steps,
+        )
+
+    # 10. NG Siu-Lun (External Faxed Lab -> REAL 2/3 ID Mismatch Quarantine to Nurse Rachel!)
+    if j_key == "ng_quarantine":
+        if not is_followup_turn:
+            # Trigger REAL fail-closed 2/3 ID mismatch (DOB 1959-08-19 vs EMR 1959-08-14) -> Nurse Rachel quarantine!
+            q_doc = ingest_external_document(
+                session,
+                tenant_id=tenant_id,
+                external_doc_ref="TST-LAB-FAX-2026-67033",
+                doc_kind="lab_report",
+                source_org="Tsim Sha Tsui Private Diagnostics",
+                claimed_mrn_or_hkid="PAT-67033",
+                claimed_name="NG Siu-Lun",
+                claimed_dob="1959-08-19",  # Intentional 1-digit fax typo vs 1959-08-14!
+                verbatim_quote="Fasting Lipid & Renal Panel: LDL-C 2.5 mmol/L (On target) · eGFR 78 mL/min.",
+                page_ref="p.1",
+                parsed_diff={"ldl_mmol_l": 2.5, "egfr": 78},
+            )
+            session.flush()
+            summary["alerts"] = [
+                {"level": "high", "label": "Outside Lab Held (2/3 ID Match)", "detail": f"{q_doc.external_doc_ref}: DOB 1959-08-19 vs EMR 1959-08-14 → Routed to Nurse Rachel"},
+            ]
+            summary["scheduled_tasks"] = [
+                {"status": "waiting", "label": "Nurse Rachel verifying 2/3 ID mismatch in #clinic-team before doctor review"},
+            ]
+            summary["issues"] = [{
+                "id": "iss_ng_id",
+                "name": "1. Outside lab report — identity verification in progress",
+                "bullets": [
+                    "Patient enquired about a faxed blood report from Tsim Sha Tsui Private Diagnostics.",
+                    "Automated 3-point ID gate caught a date-of-birth discrepancy (2/3 match) and quarantined the PDF to Nurse Rachel.",
+                ],
+                "safety_gap": "External lab report held from clinical chart until Nurse Rachel confirms patient DOB in #clinic-team.",
+                "suggested_orders": [],
+            }]
+            summary["sam_proactive_insight"] = None
+            steps.append(f"3-Point ID Gate · {q_doc.external_doc_ref} matched 2/3 (DOB mismatch) -> Quarantined to Nurse Rachel in #clinic-team")
+            reply = (
+                "我哋確實收到尖沙咀化驗所傳真過嚟嘅報告，不過系統嘅三點身份核對發現報告上嘅出生日期同你診所病歷相差幾日（懷疑係化驗所打錯字）。\n\n"
+                "為咗保障病人安全，系統已經暫時將份報告交咗畀陳護士（Nurse Rachel）人手核實，核對清楚就會立即放入你嘅病歷畀黃醫生覆核——方便確認一下你嘅出生日期嗎？"
+                if is_zh
+                else "We did receive a faxed report from Tsim Sha Tsui Private Diagnostics, but our safety check spotted a small date-of-birth discrepancy on the lab cover sheet compared with your clinic record (likely a typo at the lab).\n\nTo make sure results never land on the wrong chart, I've routed it straight to Nurse Rachel to verify before linking it for Dr. Sarah Wong — could you quickly confirm your date of birth for us?"
+            )
+            return (
+                "running",
+                "with_nurse",
+                "Outside Lab Report — Nurse ID Verification",
+                "Faxed TST lab matched 2/3 ID points (DOB typo); quarantined strictly to Nurse Rachel in #clinic-team.",
+                "With Nurse Rachel",
+                summary,
+                reply,
+                steps,
+            )
+
+        # Follow-up: patient confirmed DOB 14 Aug 1959
+        steps.append("CareAgent · Logged patient's DOB confirmation (14 Aug 1959) for Nurse Rachel's #clinic-team check")
+        reply = (
+            "多謝吳先生確認（1959 年 8 月 14 日）！我已經將你嘅確認記錄交畀陳護士，佢核實並放返入你嘅病歷後，黃莎拉醫生就會審閱你嘅驗血結果。"
+            if is_zh
+            else "Thank you for confirming 14 Aug 1959, Mr. Ng! I've passed your confirmation straight to Nurse Rachel — as soon as she verifies and links the report to your file, Dr. Sarah Wong will review your results."
+        )
+        return (
+            "running",
+            "with_nurse",
+            "Outside Lab Report — Ready for Nurse Release",
+            "Patient confirmed DOB 14 Aug 1959; awaiting Nurse Rachel's 1-click verification in #clinic-team.",
+            "With Nurse Rachel",
+            summary,
+            reply,
+            steps,
+        )
+
+    # 11. LAU Wai-Fong — Cardiac Chronic Disease & Prevention Canvas (CVD risk score, BP trend, MedDiff, ECG/Echo, Labs, Preventive Care)
+    if j_key == "lau_chest":
+        cvd_score = compute_cvd_10yr_tier(age=64, smoker=False, systolic_bp=148, ldl_mmol_l=2.9, sex="F", on_bp_treatment=True)
+        summary["clinical_scores"] = [cvd_score]
+        summary["vitals_exam"] = {
+            "source": f"Patient Careline · Today {hhmm}",
+            "encounter_context": "Inbound Remote · Home BP Logged",
+            "items": [
+                {"label": "Home BP", "val": "148/92 mmHg (upward trend)"},
+                {"label": "Current Rx", "val": "Perindopril 4mg OM · Rosuvastatin 10mg ON"},
+                {"label": "Red flags", "val": "Denies chest pain, dyspnoea, or diaphoresis"},
+            ],
+        }
+        summary["alerts"] = [
+            {"level": "high", "label": "Upward Home BP Drift (132 → 148/92)", "detail": "Above <135/85 home target on Perindopril 4mg · Review titration & clinic BP"},
+            {"level": "info", "label": f"10-Yr CVD Risk: {cvd_score.get('value', '5–10%')} ({cvd_score.get('band', 'Borderline')})", "detail": "LDL 2.9 mmol/L on Rosuvastatin 10mg (target < 2.6) · Preventive checkups due"},
+        ]
+        summary["trend_chart"] = {
+            "kind": "bp",
+            "title": "Home Systolic BP Trend (mmHg)",
+            "unit": "mmHg",
+            "target_label": "Target < 135",
+            "target_value": 135,
+            "points": [
+                {"label": "Sep", "v": 132},
+                {"label": "Oct", "v": 138},
+                {"label": "Nov W2", "v": 144},
+                {"label": "Today", "v": 148},
+            ],
+        }
+        summary["med_diff"] = {
+            "rows": [
+                {"drug": "Perindopril", "qeh": "4 mg PO daily", "clinic": "4 mg PO daily", "tag": "Sub-optimal BP control"},
+                {"drug": "Rosuvastatin", "qeh": "10 mg PO nocte", "clinic": "10 mg PO nocte", "tag": "LDL 2.9 · Review target"},
+            ],
+            "qeh": ["Perindopril 4mg PO daily", "Rosuvastatin 10mg PO nocte"],
+            "clinic": ["Perindopril 4mg PO daily", "Rosuvastatin 10mg PO nocte"],
+        }
+        summary["lab_panel"] = {
+            "source": "KingMed Cardiovascular Panel · 12 Oct 2026",
+            "rows": [
+                {"test": "LDL-Cholesterol", "val": "2.9 mmol/L", "ref": "< 2.6 (high risk)", "flag": "HIGH"},
+                {"test": "HbA1c", "val": "5.9 %", "ref": "< 6.0", "flag": "Normal"},
+                {"test": "eGFR", "val": "78 mL/min", "ref": "> 60", "flag": "Normal"},
+                {"test": "Potassium (K+)", "val": "4.3 mmol/L", "ref": "3.5–5.1", "flag": "Normal"},
+            ],
+        }
+        summary["imaging_studies"] = [
+            {
+                "id": "img_lau_ecg",
+                "modality": "Baseline 12-Lead ECG",
+                "date": "12 Oct 2026 · Clinic",
+                "summary": "Normal sinus rhythm (68 bpm). Mild LVH voltage criteria; no prior ischaemic ST-T changes.",
+                "status": "Baseline for comparison",
+            },
+            {
+                "id": "img_lau_echo",
+                "modality": "Transthoracic Echocardiogram",
+                "date": "Mar 2025 · HKSH",
+                "summary": "Preserved LVEF 62%, Grade 1 diastolic dysfunction, no regional wall motion abnormality.",
+                "status": "Prior baseline",
+            },
+        ]
+        summary["preventive_care"] = [
+            {
+                "id": "prev_lau_flu",
+                "title": "Seasonal Influenza Vaccine (CV Risk Priority)",
+                "badge": "Recommended",
+                "detail": "Reduces major adverse cardiovascular events in hypertensive patients (ESC / HK CHP Guideline)",
+                "order": {"id": "ord_lau_flu", "type": "book", "issue": "Preventive Care", "visitType": "10-min Nurse Flu Shot", "when": "At clinic review"},
+            },
+            {
+                "id": "prev_lau_mammo",
+                "title": "Biennial Breast Mammogram",
+                "badge": "Due (Age 64)",
+                "detail": "HK Cancer Expert Working Group age 44–69 biennial screening · Bundle referral at routine checkup",
+                "order": {"id": "ord_lau_mammo", "type": "imaging", "issue": "Preventive Care", "modality": "Bilateral Screening Mammogram", "indication": "HK biennial breast screening (64F)", "priority": "Routine"},
+            },
+            {
+                "id": "prev_lau_lipid",
+                "title": "Fasting Lipid & HbA1c Recheck",
+                "badge": "Target LDL < 2.6",
+                "detail": "Reassess cardiovascular risk profile & statin response in 8–12 weeks",
+                "order": {"id": "ord_lau_lipid", "type": "lab", "issue": "Preventive Care", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "fasting": True, "when": "In 8 weeks"},
+            },
+        ]
+        confirmed_adherence = any(
+            k in all_low or k in all_text
+            for k in (
+                "every day", "take my perindopril", "no side effects", "5 minutes", "sit quietly",
+                "每日都有準時食", "冇咩副作用", "準時食藥", "靜坐 5 分鐘",
+            )
+        )
+        confirmed_cvd_inputs = any(
+            k in all_low or k in all_text
+            for k in (
+                "never smoked", "non-smoker", "don't smoke", "no diabetes", "not diabetic",
+                "family", "father", "mother", "walking briskly",
+                "唔食煙", "冇糖尿病", "爸爸", "媽媽", "家族", "行快",
+            )
+        )
+        smoker_flag = any(k in all_low or k in all_text for k in ("i smoke", "smoker", "smoking", "有食煙")) and not any(
+            k in all_low or k in all_text for k in ("never smoked", "non-smoker", "don't smoke", "唔食煙")
+        )
+        cvd_score = compute_cvd_10yr_tier(age=64, smoker=smoker_flag, systolic_bp=148, ldl_mmol_l=2.9, sex="F", on_bp_treatment=True)
+        summary["clinical_scores"] = [cvd_score]
+
+        vitals_items = [
+            {"label": "Home BP", "val": "148/92 mmHg (upward trend · seated 5 min)" if confirmed_adherence else "148/92 mmHg (upward trend)"},
+            {"label": "Current Rx", "val": "Perindopril 4mg OM · Rosuvastatin 10mg ON" + (" (adherent, no side effects)" if confirmed_adherence else "")},
+            {"label": "Red flags", "val": "Denies chest pain, dyspnoea, or diaphoresis"},
+        ]
+        if confirmed_cvd_inputs:
+            vitals_items.append({"label": "CVD Risk Inputs", "val": f"{'Smoker' if smoker_flag else 'Non-smoker'} · Non-diabetic · FHx hypertension (father)"})
+        summary["vitals_exam"] = {
+            "source": f"Patient Careline · Today {hhmm}",
+            "encounter_context": "Inbound Remote · Home BP Logged",
+            "items": vitals_items,
+        }
+
+        summary["scheduled_tasks"] = [
+            {
+                "status": "auto",
+                "label": "Day +7 · Autonomous AI Home BP & Side-Effect Check-In (escalates to Dr. Wong only if BP > 140/90 or dizzy)",
+            },
+            {
+                "status": "staged",
+                "label": "Weeks 2–4 · Guideline GP BP & Renal Panel Follow-Up Rebook (after Perindopril titration)",
+            },
+        ]
+
+        summary["issues"] = [{
+            "id": "iss_lau_cardiac",
+            "name": "1. Chronic hypertension & cardiovascular risk optimization",
+            "bullets": [
+                "Home BP drifted upward over recent weeks on Perindopril; asymptomatic at rest with no chest pain or dyspnoea (see BP Trend).",
+                (
+                    f"History & CVD risk inputs verified ({'smoker' if smoker_flag else 'non-smoker'}, non-diabetic, FHx HTN, daily adherence confirmed); LDL remains above target on Rosuvastatin (see 10-Yr CVD Risk Score & Lab Panel)."
+                    if confirmed_cvd_inputs
+                    else "LDL remains above high-risk target on Rosuvastatin alongside mild baseline LVH on Oct ECG (see 10-Yr CVD Risk Score & BP Trend)."
+                ),
+            ],
+            "safety_gap": (
+                None
+                if (confirmed_adherence and confirmed_cvd_inputs)
+                else (
+                    "Adherence confirmed; collecting conversational CVD risk inputs (smoking, diabetes, family history) before finalizing plan."
+                    if confirmed_adherence
+                    else "Confirm seated 5-minute home BP technique & daily medication adherence before Perindopril titration."
+                )
+            ),
+            "suggested_orders": [
+                {"id": "lau_rx_perind", "type": "rx", "action": "update", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "drug": "Perindopril 8mg", "freq": "OM daily", "days": "30d", "note": "Titrate from 4mg; Day +7 AI BP check-in + 2–4w GP & renal panel review"},
+                {"id": "lau_lab", "type": "lab", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "testName": "Fasting Lipid Profile + HbA1c + Renal Panel (RFT/eGFR)", "lab": "KingMed", "fasting": True, "when": "Within 2 weeks (pre-review)"},
+                {"id": "lau_book_2w", "type": "book", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "visitType": "GP BP & Renal Titration Review", "when": "In 2–4 weeks (guideline titration check)"},
+                {"id": "lau_goal_bp", "type": "goal", "issue": "1. Chronic hypertension & cardiovascular risk optimization", "metric": "Blood Pressure", "targetSys": 135, "targetDia": 85},
+                {
+                    "id": "lau_leaflet_bp",
+                    "type": "goal",
+                    "issue": "1. Chronic hypertension & cardiovascular risk optimization",
+                    "metric": "Home Blood Pressure & Heart-Healthy Diet Leaflet",
+                    "leaflet_id": "low_sodium_bp_hk",
+                    "title": "Home Blood Pressure & Heart-Healthy Diet Leaflet",
+                    "template": "Central Medical · Hypertension & Lipid Care Sheet",
+                    "target_text": "Target home BP < 135/85 mmHg. Check seated after 5 min rest; reduce sodium (< 2g/day); expect Day +7 AI BP check-in and 2–4 week follow-up review.",
+                },
+            ],
+        }]
+        summary["sam_proactive_insight"] = (
+            f"10-year CVD risk ({cvd_score.get('value', '5–10%')} · {cvd_score.get('band', 'Borderline')}) with upward home BP drift (132 → 148 mmHg on Perindopril 4mg), "
+            "LDL 2.9 on Rosuvastatin 10mg, and mild LVH on baseline ECG. Staged Perindopril 8mg titration with Day +7 autonomous AI BP check-in, 2–4 week guideline GP review, preventive bloods, and patient education leaflet."
+        )
+        agent_thread = list(summary.get("agent_thread") or [])
+
+        # Turn 1: Gather medication adherence, side effects, and BP measurement technique
+        if not confirmed_adherence and not confirmed_cvd_inputs:
+            summary["_lau_stage"] = "awaiting_adherence"
+            if not any("Step 1/3" in str(x.get("text", "")) for x in agent_thread):
+                agent_thread.append({
+                    "actor": "Sam",
+                    "time": hhmm,
+                    "text": "AI Resident reasoning (Step 1/3): Noted upward home BP drift (132 → 148/92 mmHg) with red flags clear (no chest pain/dyspnoea). Checking daily Perindopril/Rosuvastatin adherence, side effects, and seated 5-min BP technique before calculating CVD risk.",
+                })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("AI Resident · Step 1/3: Checking medication adherence & home BP technique")
+            reply = (
+                "多謝你定期記錄血壓。幫黃莎拉醫生更新你嘅心血管風險評估前，想先確認：你每日有冇準時食 Perindopril 4mg 同 Rosuvastatin 10mg，有冇頭暈或乾咳等副作用？另外量血壓前有冇先靜坐休息 5 分鐘？"
+                if is_zh
+                else "Thank you for tracking your readings. Before I update your cardiovascular profile for Dr. Sarah Wong, have you been taking your Perindopril 4mg and Rosuvastatin 10mg every day without side effects, and do you rest seated for 5 minutes before checking?"
+            )
+            return (
+                "running",
+                "with_patient",
+                "Cardiac & BP Check-In — Adherence Check",
+                "Home BP drifted to 148/92; AI Resident is confirming daily medication adherence and seated BP technique.",
+                "Cardiac · Adherence Check",
+                summary,
+                reply,
+                steps,
+            )
+
+        # Turn 2: Conversational CVD risk score inputs (smoking, diabetes, family history, exertional tolerance)
+        if not confirmed_cvd_inputs:
+            summary["_lau_stage"] = "awaiting_cvd_inputs"
+            if not any("Step 2/3" in str(x.get("text", "")) for x in agent_thread):
+                agent_thread.append({
+                    "actor": "Sam",
+                    "time": hhmm,
+                    "text": "AI Resident reasoning (Step 2/3): Confirmed daily adherence to Perindopril 4mg & Rosuvastatin 10mg (zero side effects) and proper 5-min seated BP technique. Now gathering conversational CVD risk score inputs (smoking, diabetes, family history, exertional tolerance).",
+                })
+            summary["agent_thread"] = agent_thread[-4:]
+            steps.append("AI Resident · Step 2/3: Collecting conversational CVD risk inputs (smoking, diabetes, FHx)")
+            reply = (
+                "好高興聽到你每日準時服藥而且冇副作用。為咗幫醫生準確計算你嘅 10 年心血管風險評分，請問你以前有冇吸煙習慣、有冇糖尿病，或者屋企直系親屬有冇早發心臟病？平時行快少少有冇氣促？"
+                if is_zh
+                else "Good to hear you are tolerating both medicines well. To calculate your 10-year heart risk score accurately for Dr. Wong, could you confirm whether you have ever smoked, whether you have diabetes, or if anyone in your immediate family had early heart disease — and how you feel walking briskly?"
+            )
+            return (
+                "running",
+                "with_patient",
+                "Cardiac & BP Check-In — CVD Risk Intake",
+                "Adherence confirmed; AI Resident is collecting smoking, diabetes, and family history inputs for 10-year CVD risk score.",
+                "Cardiac · CVD Risk Intake",
+                summary,
+                reply,
+                steps,
+            )
+
+        # Turn 3: Complete multi-step reasoning + autonomous preventive bloods & leaflet discussion -> Dr. Sarah Wong
+        summary["_lau_stage"] = "ready"
+        if not any("Step 3/3" in str(x.get("text", "")) for x in agent_thread):
+            agent_thread.append({
+                "actor": "Sam",
+                "time": hhmm,
+                "text": (
+                    f"AI Resident reasoning (Step 3/3): Computed deterministic 10-Yr CVD Risk ({cvd_score.get('value', '5–10%')} · {cvd_score.get('band', 'Borderline')}; non-smoker, non-diabetic, SBP 148, LDL 2.9 on statin) → "
+                    "staged Perindopril 4→8mg titration, Fasting Lipid + HbA1c + RFT/eGFR preventive bloods, Home BP & Heart-Healthy Leaflet, 2–4 week guideline GP follow-up rebook (not today), and Day +7 autonomous AI BP check-in loop."
+                ),
+            })
+        summary["agent_thread"] = agent_thread[-4:]
+        steps.append(f"PracticeGraph · Computed Python 10-Yr CVD Risk ({cvd_score.get('value', '5–10%')}) & mounted Cardiac Prevention Canvas")
+        steps.append("CareAgent · Staged preventive bloods, education leaflet, Day +7 AI BP loop & 2–4 week guideline rebook")
+
+        reply = (
+            "多謝你提供詳細資料，我已經為黃莎拉醫生更新你嘅 10 年心血管風險評估。因為最近血壓偏高同上次驗膽固醇已經隔咗幾個月，我亦主動為你準備咗預防性驗血（空腹血脂、血糖及腎功能）、流感針及乳房造影提示，仲有一份家居血壓同護心飲食健康單張交畀醫生一併批核。醫生簽署調整藥物後，我會喺第 7 日自動喺呢度同你跟進家居血壓，再幫你預約 2 至 4 星期後覆診。"
+            if is_zh
+            else "Thank you — I've updated your 10-year cardiovascular risk profile for Dr. Sarah Wong. Since your blood pressure has drifted up and your last blood panel was a few months ago, I've also lined up preventive blood tests (fasting cholesterol, blood sugar, and kidney check), your due flu shot and mammogram, and a home blood pressure and heart-healthy diet leaflet for Dr. Wong to approve. Once she signs off, I'll check in with you automatically in 7 days to review your home readings and help book a 2–4 week follow-up visit."
+        )
+        return (
+            "needs_decision",
+            "with_doctor",
+            "Cardiac Chronic Disease & Prevention — BP Drift & CVD Risk",
+            "64F on Perindopril + Rosuvastatin with upward home BP drift (148/92); multi-turn history & 10-Yr CVD risk complete, preventive bloods, leaflet, Day +7 AI BP loop & 2–4w rebook staged.",
+            "Cardiac · BP & CVD Risk",
+            summary,
+            reply,
+            steps,
+        )
+
+    # 12. CHUI Ka-Ming (Lingering Dry Cough — Cap. 134 Codeine Guard!)
+    asked_codeine = "codeine" in cds_blocked_drugs or "codeine" in low or "可待因" in low or "強效止咳" in low
+    summary["vitals_exam"] = {
+        "source": f"Patient Careline · Today {hhmm}",
+        "items": [
+            {"label": "Symptoms", "val": "4-day dry nocturnal cough"},
+            {"label": "Red flags", "val": "Afebrile · Denies SOB or haemoptysis"},
+        ],
+    }
+    summary["issues"] = [{
+        "id": "iss_chui_cough",
+        "name": "1. Acute post-viral dry cough",
+        "bullets": [
+            "4-day nocturnal dry cough without fever, dyspnoea, or chest pain.",
+            "Patient requested codeine cough syrup via Careline — advised HK Cap. 134 controlled-drug rules prevent chat/remote issuing.",
+        ],
+        "safety_gap": "HK Cap. 134 Dangerous Drug hard block active for Codeine; evaluate non-opioid options in consult.",
+        "suggested_orders": [
+            {"id": "chui_book", "type": "book", "issue": "1. Acute post-viral dry cough", "visitType": "15-min In-Clinic GP Review", "when": "Today 15:30"},
+            {"id": "chui_rx_dex", "type": "rx", "action": "start", "issue": "1. Acute post-viral dry cough", "drug": "Dextromethorphan 15mg", "freq": "TDS PRN", "days": "5d", "note": "Non-opioid antitussive (Cap. 134 safe)"},
+        ],
+    }]
+    summary["sam_proactive_insight"] = (
+        "HK Cap. 134 Dangerous Drugs Ordinance: Codeine-containing antitussives are non-overridably blocked from remote/automated "
+        "staging (`RX_HARD_BLOCK` HTTP 422). Non-opioid symptom relief and in-clinic assessment staged for Dr. Sarah Wong."
+    )
+    steps.append("ProtocolCDSAgent · Cap. 134 Dangerous Drug rule checked (Codeine hard-blocked from remote staging)")
+
+    if asked_codeine:
+        reply = (
+            "明白晚晚乾咳真係好難瞓。不過按香港《危險藥物條例》（第 134 章），含可待因（Codeine）嘅止咳藥屬於受管制危險藥物，診所唔可以透過對話直接配發，亦需要由醫生親身診斷評估。\n\n"
+            "我已經幫你整理好症狀交畀黃莎拉醫生，今日下午 3:30 有親身診症時段，醫生可以幫你聽肺並安排安全有效嘅非鴉片類止咳方案。請問你有冇發燒或者氣促？"
+            if is_zh
+            else "I hear you — a dry cough keeping you awake for four nights is exhausting. Under Hong Kong's Dangerous Drugs Ordinance (Cap. 134), codeine-containing cough syrups are strictly controlled medicines that can never be issued over chat or without an in-person doctor assessment.\n\nI've prepared your notes for Dr. Sarah Wong and we have a 15:30 in-clinic slot today so she can listen to your chest and arrange safe, effective non-opioid relief. Just to check first — do you have any fever or shortness of breath?"
+        )
+    else:
+        reply = (
+            "收到，冇發燒亦冇氣促就安心啲。我已經幫你預留今日下午 3:30 親身見黃莎拉醫生，並準備好相關病歷資料。"
+            if is_zh
+            else "Got it — glad you have no fever or shortness of breath. I've held the 15:30 in-clinic slot today with Dr. Sarah Wong so she can check your chest and get you sorted with safe relief."
+        )
+    return (
+        "needs_decision",
+        "with_doctor",
+        "Acute Dry Cough — In-Clinic Review (Cap. 134 Guard)",
+        "4-day nocturnal dry cough requesting codeine syrup; Cap. 134 explained, 15:30 in-clinic slot staged.",
+        "Today 15:30 clinic",
+        summary,
+        reply,
+        steps,
+    )

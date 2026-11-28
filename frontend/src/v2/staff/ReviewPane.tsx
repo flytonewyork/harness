@@ -196,14 +196,41 @@ export function ReviewPane({
             )}
           </section>
 
+          {Array.isArray(detail.payload?.contraindications_noted) && detail.payload.contraindications_noted.length > 0 && (
+            <section className="v2-sec">
+              <div className="v2-sec-label" style={{ color: "var(--red)" }}>CDS Safety Contraindications Caught</div>
+              <div className="v2-card-flat" style={{ borderColor: "var(--red-line)", background: "var(--red-bg)" }}>
+                {detail.payload.contraindications_noted.map((c: string, i: number) => (
+                  <div key={i} className="v2-summary-item" style={{ color: "var(--red)", fontSize: 13 }}>
+                    • {c}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {!isClinician && (
             <section className="v2-sec">
+              {Array.isArray(detail.payload?.nurse_checklist) && detail.payload.nurse_checklist.length > 0 && (
+                <div className="v2-card-flat" style={{ marginBottom: 12 }}>
+                  <div className="v2-sec-label">Clinic Protocol Prep Checklist (RN Scope — Zero Prescribing Authority)</div>
+                  {detail.payload.nurse_checklist.map((item: { id: string; label: string; done?: boolean }) => (
+                    <label
+                      key={item.id}
+                      style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 0", fontSize: 13, cursor: "pointer" }}
+                    >
+                      <input type="checkbox" defaultChecked={Boolean(item.done)} style={{ marginTop: 3 }} />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
               <div className="v2-sec-label">Nurse preparation note for Dr. Lam</div>
               <input
                 className="v2-composer-input"
                 value={nurseNote}
                 onChange={(e) => setNurseNote(e.target.value)}
-                placeholder="Vitals verified, document checked, ready for doctor review…"
+                placeholder="Vitals verified, G6PD/Penicillin allergy confirmed, ready for doctor review…"
                 data-testid="nurse-prep-input"
               />
             </section>

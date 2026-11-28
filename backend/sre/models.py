@@ -52,7 +52,7 @@ class SREConfig(BaseModel):
     state_gcs_bucket: str = Field(default_factory=lambda: os.environ.get("SRE_STATE_GCS_BUCKET", ""))
     state_local_path: str = Field(default_factory=lambda: os.environ.get("SRE_STATE_LOCAL_PATH", "/tmp/tmrw-sre-state.json"))
     alert_webhook_url: str = Field(default_factory=lambda: os.environ.get("ALERT_WEBHOOK_URL", ""))
-    vertex_model: str = Field(default_factory=lambda: os.environ.get("VERTEX_MODEL", "gemini-2.5-flash"))
+    vertex_model: str = Field(default_factory=lambda: os.environ.get("VERTEX_MODEL", "gemini-4-hydrogen"))
     enable_vertex_rca: bool = Field(default_factory=lambda: os.environ.get("ENABLE_VERTEX_RCA", "true").lower() in ("1", "true", "yes"))
     allow_llm_mutations: bool = Field(default_factory=lambda: os.environ.get("SRE_ALLOW_LLM_MUTATIONS", "false").lower() in ("1", "true", "yes"))
     auto_remediate: bool = Field(default_factory=lambda: os.environ.get("AUTO_REMEDIATE", "true").lower() in ("1", "true", "yes"))

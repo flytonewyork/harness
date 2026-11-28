@@ -204,7 +204,9 @@ def test_probes_metrics_observability_outbox_dcr_reply_and_statutory_hold(acute_
     rj = ready.json()
     assert rj["ok"] is True
     assert rj["checks"]["postgres"]["ok"] is True
-    assert rj["checks"]["forced_rls"]["rls_tables"] == 21
+    from backend.acute.db import TENANT_SCOPED_TABLES
+    assert rj["checks"]["forced_rls"]["rls_tables"] == len(TENANT_SCOPED_TABLES)
+    assert rj["checks"]["forced_rls"]["rls_tables"] == 27
     assert rj["checks"]["vault"]["ok"] is True
 
     metrics = client.get("/api/v1/metrics")

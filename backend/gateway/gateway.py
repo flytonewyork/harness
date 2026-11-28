@@ -54,6 +54,9 @@ TRANSIENT_HTTP_STATUSES: frozenset[int] = frozenset({429, 500, 502, 503, 504})
 # Approximate per-1K-token pricing (USD) for budget accounting
 MODEL_PRICING_PER_1K: dict[str, tuple[float, float]] = {
     # model_prefix -> (input_usd_per_1k, output_usd_per_1k)
+    "gemini-4-neon": (0.00300, 0.01500),
+    "gemini-4-hydrogen": (0.00150, 0.00750),
+    "gemini-3.5-flash-lite": (0.00030, 0.00250),
     "gemini-2.5-flash": (0.00015, 0.00060),
     "gemini-2.5-pro": (0.00125, 0.00500),
     "gemini-2.0-flash": (0.00010, 0.00040),
@@ -548,31 +551,39 @@ class VertexAIProvider(ModelProvider):
         if self._explicit_token and self.project_id:
             return self._explicit_token, self.project_id
         try:
-            import google.auth  # type: ignore[import-untyped]
-            import google.auth.transport.requests  # type: ignore[import-untyped]
+            from backend.agentic.transports import acquire_vertex_adc_token
 
-            creds, default_project = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
-            creds.refresh(google.auth.transport.requests.Request())
-            project = self.project_id or default_project
-            if not project or not creds.token:
+            token, project = acquire_vertex_adc_token(self.project_id)
+            if not project or not token:
                 raise ProviderUnavailableError("Vertex AI ADC missing project or token")
-            return str(creds.token), str(project)
+            return str(token), str(project)
         except ProviderUnavailableError:
             raise
         except Exception as exc:
             raise ProviderUnavailableError(f"Vertex AI ADC unavailable: {exc}") from exc
 
     def build_url(self, *, region: str, project: str, model_id: str) -> str:
-        return (
-            f"https://{region}-aiplatform.googleapis.com/v1/projects/{project}"
-            f"/locations/{region}/publishers/google/models/{model_id}:generateContent"
-        )
+        from backend.agentic.transports import build_vertex_generate_content_url
+
+        return build_vertex_generate_content_url(region=region, project=project, model=model_id)
 
     def invoke(self, call: ProviderCall) -> ProviderResult:
+        try:
+            from backend.agentic.transports import (
+                build_gemini_generation_config,
+                extract_gemini_visible_text,
+                get_shared_llm_http_client,
+            )
+        except ImportError:
+            build_gemini_generation_config = None  # type: ignore[assignment]
+            extract_gemini_visible_text = None  # type: ignore[assignment]
+            get_shared_llm_http_client = None  # type: ignore[assignment]
+
         token, project = self._get_token_and_project()
         url = self.build_url(region=call.region, project=project, model_id=call.model_id)
         headers = {
             "Authorization": f"Bearer {token}",
+            "x-goog-user-project": project,
             "Content-Type": "application/json",
             "X-Vertex-Zero-Data-Retention": "true",
             "X-No-Training": "true",
@@ -582,16 +593,27 @@ class VertexAIProvider(ModelProvider):
             {"role": "user" if m["role"] == "user" else "model", "parts": [{"text": m["content"]}]}
             for m in call.messages
         ]
-        gen_config: dict[str, Any] = {
-            "temperature": call.temperature,
-            "maxOutputTokens": call.max_tokens,
-        }
-        if call.response_json:
+        if build_gemini_generation_config is not None:
+            gen_config = build_gemini_generation_config(
+                call.model_id,
+                temperature=call.temperature,
+                max_output_tokens=call.max_tokens,
+                expect_json=call.response_json,
+                thinking_level="MINIMAL",
+            )
+        else:
+            gen_config = {
+                "temperature": call.temperature,
+                "maxOutputTokens": call.max_tokens,
+            }
+            if call.response_json:
+                gen_config["responseMimeType"] = "application/json"
+
+        if call.response_json and call.output_schema:
             gen_config["responseMimeType"] = "application/json"
-            if call.output_schema:
-                sanitized = _vertex_sanitize_schema(call.output_schema)
-                if sanitized:
-                    gen_config["responseSchema"] = sanitized
+            sanitized = _vertex_sanitize_schema(call.output_schema)
+            if sanitized:
+                gen_config["responseSchema"] = sanitized
 
         payload: dict[str, Any] = {
             "contents": contents,
@@ -607,10 +629,16 @@ class VertexAIProvider(ModelProvider):
         if call.tools:
             payload["tools"] = call.tools
 
-        client = self._client or httpx.Client(timeout=self.timeout_s)
-        close_after = self._client is None
+        close_after = False
+        if self._client is not None:
+            client = self._client
+        elif get_shared_llm_http_client is not None:
+            client = get_shared_llm_http_client()
+        else:
+            client = httpx.Client(timeout=self.timeout_s)
+            close_after = True
         try:
-            resp = client.post(url, headers=headers, json=payload)
+            resp = client.post(url, headers=headers, json=payload, timeout=self.timeout_s)
             _check_http_error(resp, self.name)
             body = resp.json()
         except (httpx.TimeoutException, httpx.ConnectError) as exc:
@@ -621,7 +649,9 @@ class VertexAIProvider(ModelProvider):
 
         candidates = body.get("candidates") or []
         parts = (((candidates[0] if candidates else {}).get("content") or {}).get("parts") or [])
-        text = "".join(str(p.get("text", "")) for p in parts)
+        text = (
+            extract_gemini_visible_text(parts) if extract_gemini_visible_text is not None else ""
+        ) or "".join(str(p.get("text", "")) for p in parts)
         usage = body.get("usageMetadata") or {}
         in_tok = int(usage.get("promptTokenCount") or _estimate_tokens(call.system_prompt + call.user_prompt))
         out_tok = int(usage.get("candidatesTokenCount") or _estimate_tokens(text))

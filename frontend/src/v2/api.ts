@@ -124,6 +124,14 @@ export interface CompanionHome {
   now: Record<string, any> | null;
   goal_line: { label_en: string; label_zh: string; current: string; source_quote: string } | null;
   protocol_nudges: Array<{ id: string; because_en: string; because_zh: string; action_en: string; action_zh: string; source_quote: string; source_doc: string }>;
+  rich_cards?: Array<Record<string, any>>;
+  available_slots?: Array<Record<string, any>>;
+  agent_state?: {
+    workflow_stage?: string;
+    phone_connected?: boolean;
+    flu_vax_deferred?: boolean;
+    tool_call_count?: number;
+  };
   review_sla: { doctor_name: string; due_at: string; label_en: string; label_zh: string; status: string };
   timeline: Array<{ id: string; direction: string; voice: "doctor" | "patient" | "assistant"; sender_label: string; body: string; created_at: string }>;
   episodes: Array<{ id: string; title: string; encounter_type: string; status: string; date: string; summary: string; source_text: string }>;
@@ -138,6 +146,87 @@ export interface CompanionHome {
   };
   crisis_hotlines: Array<{ name_en: string; name_zh: string; tel: string; display: string }>;
   runtime_toggles?: Record<string, any>;
+}
+
+export interface ToolCallRecord {
+  id: string;
+  timestamp: string;
+  agent: string;
+  tool: string;
+  authority: "READ" | "MEMORY" | "CDS" | "DRAFT" | "BLOCKED" | "SIGNED_WRITE";
+  args: Record<string, any>;
+  result: Record<string, any>;
+  duration_ms: number;
+  emr_target?: string | null;
+}
+
+export interface EmrPatient {
+  id: string;
+  source: "hero_live" | "clinic_live" | "loopbench_sim";
+  badge: string;
+  name_en: string;
+  name_zh: string;
+  sex: string;
+  dob: string;
+  age?: number | null;
+  hkid_masked: string;
+  phone_masked: string;
+  employer: string;
+  g6pd_deficient: boolean;
+  allergies: string[];
+  current_meds: string[];
+  egfr?: number | null;
+  weight_kg?: number | null;
+  flu_vax_status: string;
+  booked_slot?: Record<string, any> | null;
+  phone_connected: boolean;
+  workflow_stage: string;
+  open_loops: Array<{ id: string; family: string; status: string; urgency: number; title: string; source: string; quote?: string }>;
+  documents: Array<{ id: string; kind: string; lab_name: string; date: string; title: string; status: string; highlight_quote: string; text: string }>;
+  observations: Array<{ id: string; loinc: string; display: string; value: string; recorded_at: string; quote?: string }>;
+  encounters: Array<{ id: string; type: string; status: string; icd10: string; icpc2: string; chief_complaint: string; clinical_note: string; created_at: string }>;
+  prescriptions: Array<{ id: string; items: Array<Record<string, any>>; mchk_reg_no: string; fulfilment_mode: string; fulfilment_status: string; signed_at: string }>;
+  certificates: Array<{ id: string; days_off: number; start_date: string; end_date: string; mchk_reg_no: string; diagnosis_icd10?: string; verification_hash?: string; signed_at: string }>;
+  immunizations: Array<{ id: string; vaccine: string; status: string; scheduled_at: string }>;
+}
+
+export interface EmrOverview {
+  clinic: {
+    name: string;
+    emr_profile: string;
+    doctor_on_duty: string;
+    nurse_on_duty: string;
+    region: string;
+    ai_enabled: boolean;
+  };
+  engine: { live: boolean; provider: string; model: string; label: string };
+  hero_patient_id: string;
+  patients: EmrPatient[];
+  feeds: Array<Record<string, any>>;
+  protocols: Array<{ id: string; name: string; rules: string[] }>;
+  tool_schemas: Array<{ name: string; authority: string; description: string; parameters: Record<string, any> }>;
+  available_slots: Array<Record<string, any>>;
+  agent_state: {
+    patient_id: string;
+    phone_connected: boolean;
+    phone_connected_at?: string | null;
+    workflow_stage: string;
+    engine_mode: string;
+    active_agent?: string | null;
+    memory: {
+      emr_memory: Record<string, any>;
+      episodic_memory: Array<{ key: string; value: string; verbatim_quote: string; source: string; verified: boolean; updated_at?: string }>;
+      protocol_memory: Array<{ id: string; name: string; rules: string[] }>;
+    };
+    context_window: Record<string, any> | null;
+    tool_calls: ToolCallRecord[];
+    booked_slot?: Record<string, any> | null;
+    flu_vax_deferred?: boolean;
+    active_proposal_id?: string | null;
+    last_emr_highlight?: { target: string; authority: string; tool: string; timestamp: string } | null;
+  };
+  recent_events: Array<{ seq: number; id: string; type: string; patient_id?: string | null; timestamp: string; data: Record<string, any> }>;
+  audit_log: Array<{ id: string; action: string; actor_role: string; actor_id: string; resource_type: string; resource_id: string; created_at: string; metadata: Record<string, any> }>;
 }
 
 const TOKEN_KEY = "tmrw_v2_session";
@@ -182,6 +271,21 @@ export const v2Api = {
   demoPersonas: () => req<Record<string, any>>("/api/v1/demo/personas"),
   demoLoginAs: (persona: string) => req<Record<string, any>>("/api/v1/demo/login-as", { method: "POST", body: JSON.stringify({ persona }) }),
   demoReset: () => req<Record<string, any>>("/api/v1/demo/reset", { method: "POST" }),
+  qrCheckin: (patientId: string, lang = "en") =>
+    req<Record<string, any>>(`/api/v1/demo/qr-checkin/${encodeURIComponent(patientId)}?lang=${encodeURIComponent(lang)}`, { method: "POST" }),
+  emrOverview: (patientId?: string, mode?: "live" | "seeded") => {
+    const params = new URLSearchParams();
+    if (patientId) params.set("patient_id", patientId);
+    if (mode) params.set("mode", mode);
+    const qs = params.toString();
+    return req<EmrOverview>(qs ? `/api/v1/emr/overview?${qs}` : "/api/v1/emr/overview");
+  },
+  emrResetUrti: (patientId: string) =>
+    req<Record<string, any>>(`/api/v1/emr/patient/${encodeURIComponent(patientId)}/reset-urti`, { method: "POST" }),
+  emrSimulateAuthorityProbe: (patientId: string) =>
+    req<Record<string, any>>(`/api/v1/emr/simulate-authority-probe?patient_id=${encodeURIComponent(patientId)}`, { method: "POST" }),
+  patientAgentTurn: (body: { action: "message" | "book_flu_slot" | "submit_urti_intake" | "ack_info_pack"; message?: string; payload?: Record<string, any>; lang?: string }, tok: string) =>
+    req<Record<string, any>>("/api/v1/patient/agent/turn", { method: "POST", body: JSON.stringify(body) }, tok),
   staffQueue: (tok: string) => req<{ items: StaffQueueItem[]; kill_switch_active: boolean; viewer_role: "clinician" | "nurse" }>("/api/v1/clinician/queue", {}, tok),
   proposalDetail: (id: string, tok: string) => req<ProposalDetail>(`/api/v1/clinician/proposals/${id}`, {}, tok),
   nurseReady: (id: string, prepNote: string, tok: string) =>
@@ -207,6 +311,8 @@ export const v2Api = {
   },
   certDownloadToken: (certId: string, tok: string) =>
     req<{ download_url: string }>(`/api/v1/patient/certificates/${certId}/download-token`, { method: "POST" }, tok),
+  rxDownloadToken: (rxId: string, tok: string) =>
+    req<{ download_url: string }>(`/api/v1/patient/prescriptions/${rxId}/download-token`, { method: "POST" }, tok),
   downloadVaultPdf: async (downloadUrl: string, tok: string, filename = "HK_Medical_Certificate.pdf") => {
     const res = await fetch(downloadUrl, { headers: { Authorization: `Bearer ${tok}` } });
     if (!res.ok) {
@@ -232,4 +338,125 @@ export const v2Api = {
   adminDataRequests: (tok: string) => req<{ requests: Array<Record<string, any>> }>("/api/v1/admin/data-requests", {}, tok),
   adminResolveDataReq: (id: string, tok: string) =>
     req<Record<string, any>>(`/api/v1/admin/data-requests/${id}/resolve`, { method: "POST", body: JSON.stringify({ status: "completed", resolution_note: "Resolved via clinic settings" }) }, tok),
+
+  // Execution Layer & 3-Layer Practice Knowledge Graph (Loops 1–5)
+  workspaceOverview: (mode: "live" | "seeded" = "live") =>
+    req<Record<string, any>>(`/api/v1/workspace/overview?mode=${encodeURIComponent(mode)}`),
+  liveDemoJourneys: (pack?: string) =>
+    req<Record<string, any>>(
+      pack ? `/api/v1/demo/live/journeys?pack=${encodeURIComponent(pack)}` : "/api/v1/demo/live/journeys",
+    ),
+  liveChatStart: (journeyKey: string, lang: "en" | "zh-HK" = "en", forceRestart = false) =>
+    req<Record<string, any>>("/api/v1/demo/live/chat/start", {
+      method: "POST",
+      body: JSON.stringify({ journey_key: journeyKey, lang, force_restart: forceRestart }),
+    }),
+  liveChatState: (journeyKey: string, lang: "en" | "zh-HK" = "en") =>
+    req<Record<string, any>>(`/api/v1/demo/live/chat/state/${encodeURIComponent(journeyKey)}?lang=${encodeURIComponent(lang)}`),
+  liveChatTurn: (
+    journeyKey: string,
+    message: string,
+    lang: "en" | "zh-HK" = "en",
+    isPreset = false,
+    attachment?: Record<string, any>,
+  ) =>
+    req<Record<string, any>>("/api/v1/demo/live/chat/turn", {
+      method: "POST",
+      body: JSON.stringify({
+        journey_key: journeyKey,
+        message,
+        lang,
+        is_preset: isPreset,
+        ...(attachment ? { attachment } : {}),
+      }),
+    }),
+  liveAvailability: (journeyKey?: string) =>
+    req<Record<string, any>>(
+      journeyKey
+        ? `/api/v1/demo/live/availability?journey_key=${encodeURIComponent(journeyKey)}`
+        : "/api/v1/demo/live/availability",
+    ),
+  liveChatBook: (body: {
+    journeyKey: string;
+    doctorId: string;
+    slotId: string;
+    modality: "async_message" | "teleconsult" | "in_clinic";
+    offerId?: string;
+    lang?: "en" | "zh-HK";
+  }) =>
+    req<Record<string, any>>("/api/v1/demo/live/chat/book", {
+      method: "POST",
+      body: JSON.stringify({
+        journey_key: body.journeyKey,
+        doctor_id: body.doctorId,
+        slot_id: body.slotId,
+        modality: body.modality,
+        offer_id: body.offerId,
+        lang: body.lang || "en",
+      }),
+    }),
+  liveChatCheckin: (journeyKey: string, lang: "en" | "zh-HK" = "en") =>
+    req<Record<string, any>>("/api/v1/demo/live/chat/checkin", {
+      method: "POST",
+      body: JSON.stringify({ journey_key: journeyKey, lang }),
+    }),
+  liveDemoReset: () => req<Record<string, any>>("/api/v1/demo/live/reset", { method: "POST" }),
+  workspacePreview: (caseId: string, instructionText: string) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/preview`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText }) }),
+  workspaceAsk: (caseId: string, question: string, actorName = "Locum Dr. Sarah Wong") =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/ask`, { method: "POST", body: JSON.stringify({ instruction_text: question, actor_name: actorName }) }),
+  workspaceAgentManifest: () =>
+    req<Record<string, any>>("/api/v1/workspace/agent-manifest"),
+  workspaceCaseAgentTraces: (caseId: string) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/agent-traces`),
+  workspaceGovernedToolProbe: (caseId: string) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/governed-tool-probe`, { method: "POST" }),
+  workspaceMcpStatus: () =>
+    req<Record<string, any>>("/api/v1/workspace/mcp-status"),
+  workspacePacks: () =>
+    req<Record<string, any>>("/api/v1/workspace/packs"),
+  workspaceAiTeamTick: (caseId: string, loopId: string, metrics: Record<string, number>) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/ai-team-tick`, {
+      method: "POST",
+      body: JSON.stringify({ loop_id: loopId, metrics }),
+    }),
+  workspaceSendLeaflet: (caseId: string, leaflet: Record<string, any>, actorName = "Dr. Sarah Wong") =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/send-leaflet`, {
+      method: "POST",
+      body: JSON.stringify({ leaflet, actor_name: actorName }),
+    }),
+  workspaceRecordExam: (
+    caseId: string,
+    body: {
+      stage: "nurse" | "doctor";
+      actor_name: string;
+      exam_note: string;
+      modality?: "in_person" | "live_video";
+      vitals?: Array<{ label: string; val: string }>;
+    },
+  ) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/record-exam`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  workspaceCommit: (caseId: string, instructionText: string, actorName = "Locum Dr. Sarah Wong") =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/commit`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText, actor_name: actorName }) }),
+  workspaceUndo: (caseId: string, traceId: string) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/undo/${traceId}`, { method: "POST" }),
+  workspaceTick: (caseId: string, eventKind: string) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/simulate-tick`, { method: "POST", body: JSON.stringify({ event_kind: eventKind }) }),
+  workspaceTriageSim: (messageText: string, hoursSinceLastVisit = 24, patientG6pd = true) =>
+    req<Record<string, any>>("/api/v1/workspace/triage/simulate", {
+      method: "POST",
+      body: JSON.stringify({ message_text: messageText, hours_since_last_visit: hoursSinceLastVisit, patient_g6pd: patientG6pd }),
+    }),
+  workspaceIngestDoc: (body: Record<string, any>) =>
+    req<Record<string, any>>("/api/v1/workspace/documents/ingest", { method: "POST", body: JSON.stringify(body) }),
+  workspaceReset: () => req<Record<string, any>>("/api/v1/workspace/reset", { method: "POST" }),
+  graphOnboard: (body: Record<string, any>) =>
+    req<Record<string, any>>("/api/v1/graph/onboard", { method: "POST", body: JSON.stringify(body) }),
+  graphQuery: (question: string) =>
+    req<Record<string, any>>("/api/v1/graph/query", { method: "POST", body: JSON.stringify({ question }) }),
+  curatorDecide: (proposalId: string, decision: "approve" | "dismiss", decidedBy = "Dr. Kenneth Lam (Lead GP)") =>
+    req<Record<string, any>>(`/api/v1/curator/proposals/${proposalId}/decide`, { method: "POST", body: JSON.stringify({ decision, decided_by: decidedBy }) }),
 };

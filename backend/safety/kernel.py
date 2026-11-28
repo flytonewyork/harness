@@ -324,6 +324,27 @@ def filter_verbatim_quotes(quotes: list[str], source_text: str) -> tuple[list[st
     return kept, dropped
 
 
+# Benign colloquial "confused" about pills, dosages, or clinic logistics — NOT acute altered mental status.
+# Never masks acute neurological confusion ("feel confused", "suddenly confused", "drowsy and confused",
+# "confused and talking nonsense", "very confused", "disoriented", "delirious", "hallucinating").
+BENIGN_COLLOQUIAL_CONFUSED_RE = re.compile(
+    r"\b(?:a\s+bit|a\s+little|slightly|kind\s+of|sort\s+of|somewhat)\s+confused\b"
+    r"|\bconfused\s+(?:about|by|over|with|which|what|whether|how)\b"
+    r"|\bconfused\b(?=\s*[—–\-:,][^.\n!?]{0,110}\b(?:pills?|meds?|medication|medicine|tablets?|dose|dosage|prescription|warfarin|statin|appointment|booking|slot|result|report|instructions?|which\s+(?:one|should\s+i))\b)",
+    re.I,
+)
+BENIGN_ADMIN_CONFUSION_RE = re.compile(
+    r"\b(?:a\s+bit|a\s+little|slightly|kind\s+of|somewhat)\s+confused\b|"
+    r"\bconfused\s+(?:about|by|which|whether|with\s+(?:the|my)|—|--|-)\b",
+    re.I,
+)
+NEURO_CONFUSION_CUES_RE = re.compile(
+    r"\b(?:sudden(?:ly)?|drowsy|slurred|unresponsive|collapsed|faint(?:ed|ing)?|seizure|fever|headache|"
+    r"disoriented|delirious|hallucinat\w*|incoherent|elderly|dad|father|mum|mother|grandma|grandpa)\b",
+    re.I,
+)
+
+
 def normalize_clauses(text: str) -> NormalizationResult:
     """Produce a clause-normalized copy for red-flag screening while recording suppressed phrases.
 
@@ -340,6 +361,13 @@ def normalize_clauses(text: str) -> NormalizationResult:
         return f"{m.group(1)}得好犀利"
 
     work = BENIGN_HYPERBOLE_RE.sub(_mask_idiom, text or "")
+
+    if not NEURO_CONFUSION_CUES_RE.search(work):
+        def _mask_colloquial_confused(m: re.Match[str]) -> str:
+            suppressed.append(f"colloquial_confusion:{m.group(0)}")
+            return re.sub(r"confused", "unsure", m.group(0), flags=re.I)
+
+        work = BENIGN_COLLOQUIAL_CONFUSED_RE.sub(_mask_colloquial_confused, work)
 
     def _mask_hist(m: re.Match[str]) -> str:
         suppressed.append(f"remote_history:{m.group(0)}")
@@ -530,6 +558,15 @@ def screen_safety(
     for code, pat in ACUTE_RED_FLAG_PATTERNS:
         m = re.search(pat, scan_text, re.I)
         if m:
+            if (
+                profile != SafetyProfile.STRICT_FLOOR
+                and code == "confusion_ams"
+                and m.group(0).strip().lower() == "confused"
+                and BENIGN_ADMIN_CONFUSION_RE.search(scan_text)
+                and not NEURO_CONFUSION_CUES_RE.search(scan_text)
+            ):
+                norm_res.suppressed.append(f"benign_admin_confusion:{m.group(0)}")
+                continue
             kind = _upgrade_kind(kind, "red_flag")
             if code not in flags:
                 flags.append(code)
