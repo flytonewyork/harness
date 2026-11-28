@@ -32,11 +32,13 @@ from sqlalchemy import func, select, text as sql_text
 from sqlalchemy.orm.attributes import flag_modified
 
 from ..gateway import ModelGateway, TenantPolicy, load_protocol
+from ..gateway.persistence import make_postgres_gateway_audit_sink
 from ..vault import DocumentVault, VaultError
 from .adapters import (
     BookingAdapter,
     CorporateBillingAdapter,
     FluVaxAdapter,
+    LabsAdapter,
     PharmacyFulfilmentAdapter,
     WhatsAppDoorbellAdapter,
     WorkspaceAdapterDispatcher,
@@ -140,6 +142,7 @@ from .security import (
     _get_jwt_secret,
     build_fhir_r4_bundle,
     client_ip_from_request,
+    decode_jwt,
     extract_claims,
     hash_secret,
     mask_hkid,
@@ -692,6 +695,7 @@ def create_acute_app(
     booking_adapter = BookingAdapter()
     rx_adapter = PharmacyFulfilmentAdapter()
     vax_adapter = FluVaxAdapter()
+    labs_adapter = LabsAdapter()
     billing_adapter = CorporateBillingAdapter()
     emr_adapter = SimulatedPostgresEMRAdapter()
     workspace_dispatcher = WorkspaceAdapterDispatcher(
@@ -699,6 +703,7 @@ def create_acute_app(
         vax_adapter=vax_adapter,
         rx_adapter=rx_adapter,
         wa_adapter=wa_adapter,
+        labs_adapter=labs_adapter,
     )
     workflows = DurableWorkflowEngine()
     workflows.register_default_handlers(whatsapp_adapter=wa_adapter)
@@ -708,6 +713,8 @@ def create_acute_app(
     multi_agent = MultiAgentHarness(live_bus)
 
     database.init_schema()
+    if model_gw._audit_sink is None:
+        model_gw.set_audit_sink(make_postgres_gateway_audit_sink(database))
     if seed_on_startup:
         seed_demo_data(database, doc_vault, runtime=harness_rt)
 
@@ -1553,10 +1560,21 @@ def create_acute_app(
         """Streamable HTTP JSON-RPC 2.0 MCP endpoint (`2025-03-26`) for the Simulated Clinic EMR.
 
         Supports `initialize`, `ping`, `tools/list`, `tools/call`, `resources/list`, and `resources/read`
-        with per-tenant HK PDPO scoping and server-side Asymmetric Authority enforcement (`-32003`).
+        with per-tenant HK PDPO scoping, SMART on FHIR v2 scope enforcement, and server-side
+        Asymmetric Authority enforcement (`-32003`).
         """
         tenant_id = _workspace_tenant(request)
         actor_role = str(request.headers.get("X-MCP-Actor-Role") or "assistant").strip().lower()
+        smart_scopes: str | None = None
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            claims = decode_jwt(auth_header.split(" ", 1)[1].strip())
+            tenant_id = str(claims.get("tid") or tenant_id)
+            actor_role = str(claims.get("role") or actor_role).strip().lower()
+            if "scope" in claims:
+                smart_scopes = str(claims.get("scope") or "")
+        if "X-SMART-Scope" in request.headers:
+            smart_scopes = request.headers.get("X-SMART-Scope", "")
         try:
             payload = await request.json()
         except Exception:
@@ -1568,6 +1586,7 @@ def create_acute_app(
             payload,
             tenant_id=tenant_id,
             actor_role=actor_role,
+            smart_scopes=smart_scopes,
         )
         return JSONResponse(status_code=200, content=resp)
 
@@ -3650,7 +3669,12 @@ def create_acute_app(
     @app.get("/api/v1/patient/export")
     def patient_export_fhir(request: Request):
         """HK PDPO DPP6 Data Access Request (DAR) -> HL7 FHIR R4 IPS-aligned Collection Bundle."""
-        claims = extract_claims(request, allowed_roles=("patient",), require_step_up=True)
+        claims = extract_claims(
+            request,
+            allowed_roles=("patient",),
+            require_step_up=True,
+            required_scopes=("patient/*.read",),
+        )
         tenant_id, pid = claims["tid"], claims["sub"]
         with database.tenant_session(tenant_id) as s:
             pat = s.get(Patient, pid)
@@ -3668,8 +3692,32 @@ def create_acute_app(
                    for r in s.scalars(select(Prescription).where(Prescription.patient_id == pid)).all()]
             imms = [{"id": i.id, "cvx_code": i.cvx_code, "vaccine_display": i.vaccine_display, "status": i.status, "slot_at": i.slot_at.isoformat()}
                     for i in s.scalars(select(Immunization).where(Immunization.patient_id == pid)).all()]
-            auds = [{"id": a.id, "action": a.action, "actor_id": a.actor_id, "actor_role": a.actor_role, "created_at": a.created_at.isoformat()}
-                    for a in s.scalars(select(AuditEvent).where(AuditEvent.resource_id == pid)).all()]
+            auds = [
+                {
+                    "id": a.id,
+                    "action": a.action,
+                    "actor_id": a.actor_id,
+                    "actor_role": a.actor_role,
+                    "resource_type": a.resource_type,
+                    "resource_id": a.resource_id,
+                    "created_at": a.created_at.isoformat(),
+                }
+                for a in s.scalars(select(AuditEvent).where(AuditEvent.resource_id == pid)).all()
+            ]
+            runs = [
+                {
+                    "id": r.id,
+                    "encounter_id": r.encounter_id,
+                    "protocol_id": r.protocol_id,
+                    "protocol_version": r.protocol_version,
+                    "model_id": r.model_id,
+                    "provider": r.provider,
+                    "region": r.region,
+                    "prompt_hash": r.prompt_hash,
+                    "created_at": r.created_at.isoformat(),
+                }
+                for r in s.scalars(select(AgentRun).where(AgentRun.patient_id == pid)).all()
+            ]
             record_audit(
                 s, tenant_id=tenant_id, actor_role="patient", actor_id=pid,
                 action="pdpo.dar_exported", resource_type="Patient", resource_id=pid,
@@ -3682,7 +3730,7 @@ def create_acute_app(
                     "g6pd_deficient": pat.g6pd_deficient, "allergies": pat.allergies_json, "status": pat.status,
                 },
                 consents=consents, encounters=encs, observations=obs, certificates=certs,
-                prescriptions=rxs, immunizations=imms, audit_events=auds,
+                prescriptions=rxs, immunizations=imms, audit_events=auds, agent_runs=runs,
             )
 
     @app.post("/api/v1/patient/data-correction")
@@ -4173,9 +4221,6 @@ def create_acute_app(
     @app.post("/api/v1/clinician/proposals/{proposal_id}/decide")
     def clinician_decide(proposal_id: str, body: ClinicianDecideReq, request: Request):
         """Stories 12, 13, 14: Signed clinician decision -> optionally signs encrypted Cert PDF & e-Script."""
-        claims = extract_claims(request, allowed_roles=("clinician",))
-        tenant_id, doc_id = claims["tid"], claims["sub"]
-
         # Normalize flat frontend fields into canonical issue_cert / issue_rx inputs
         eff_issue_cert = body.issue_cert
         if eff_issue_cert is None and body.issue_certificate:
@@ -4186,6 +4231,14 @@ def create_acute_app(
         eff_issue_rx = body.issue_rx
         if eff_issue_rx is None and body.rx_items:
             eff_issue_rx = IssueRxInput(items=body.rx_items, override_reason=body.override_reason)
+
+        req_scopes: list[str] = ["user/Proposal.write"]
+        if eff_issue_rx:
+            req_scopes.append("user/MedicationRequest.write")
+        if eff_issue_cert:
+            req_scopes.append("user/DocumentReference.write")
+        claims = extract_claims(request, allowed_roles=("clinician",), required_scopes=tuple(req_scopes))
+        tenant_id, doc_id = claims["tid"], claims["sub"]
 
         with database.tenant_session(tenant_id) as s:
             doc = s.get(Practitioner, doc_id)

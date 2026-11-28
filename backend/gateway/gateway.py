@@ -922,6 +922,7 @@ class ModelGateway:
         prefer_replay: bool = False,
         circuit_breaker_ttl_s: float = 120.0,
         fallback_handler: Callable[[GatewayRequest, ProviderCall], str] | None = None,
+        audit_sink: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self.replay = replay_provider or ReplayProvider()
         self.providers: dict[str, ModelProvider] = {
@@ -949,7 +950,13 @@ class ModelGateway:
         self.circuit_breaker_trips: int = 0
         self.fallback_count: int = 0
         self.fallback_handler = fallback_handler
+        self._audit_sink: Callable[[dict[str, Any]], None] | None = audit_sink
         self.audit_log: list[dict[str, Any]] = []
+
+    def set_audit_sink(self, sink: Callable[[dict[str, Any]], None] | None) -> None:
+        """Attach or clear a persistent audit sink invoked on every ModelGateway audit event."""
+        with self._lock:
+            self._audit_sink = sink
 
     def set_tenant_policy(self, policy: TenantPolicy) -> None:
         with self._lock:
@@ -1081,6 +1088,12 @@ class ModelGateway:
         entry = {"ts": datetime.now(timezone.utc).isoformat(), **fields}
         with self._lock:
             self.audit_log.append(entry)
+            sink = self._audit_sink
+        if sink is not None:
+            try:
+                sink(dict(entry))
+            except Exception:
+                pass
 
     def complete(self, req: GatewayRequest) -> GatewayResponse:
         """Execute a governed model call with residency, zero-tools, budget, retry, and replay fallback."""
@@ -1237,10 +1250,13 @@ class ModelGateway:
         self._record_audit(
             event="gateway_complete",
             tenant_id=req.tenant_id,
+            patient_id=req.metadata.get("patient_id") if isinstance(req.metadata, dict) else None,
+            encounter_id=req.metadata.get("encounter_id") if isinstance(req.metadata, dict) else None,
             provider=result.provider_name,
             model_id=req.model_id,
             region=region,
             protocol_id=protocol_id,
+            protocol_version=bundle.version if bundle else "1.0.0",
             protocol_hash=protocol_hash,
             input_hash=input_hash,
             cache_key=cache_key,
@@ -1250,8 +1266,11 @@ class ModelGateway:
             tools_enabled=bool(effective_tools),
             from_cache=result.from_cache,
             fallback_used=fallback_used,
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
             total_tokens=total_tokens,
             cost_usd=cost_usd,
+            latency_ms=latency_ms,
             attempts=attempts,
             validation_errors=validation_errors,
         )

@@ -25,6 +25,11 @@ from backend.acute.live_bus import LiveHarnessBus
 from backend.acute.practice_graph import evaluate_preventive_care
 from backend.acute.rx_rules import check_prescription_safety
 from backend.acute.scheduling import build_clinic_availability
+from backend.acute.security import (
+    DEFAULT_ROLE_SMART_SCOPES,
+    parse_smart_scopes,
+    smart_scope_allows,
+)
 from backend.acute.triage import screen_acute_message
 from backend.agentic.memory import ClinicalMemoryManager, PostgresAgentMemoryStore
 from backend.agentic.tools import (
@@ -48,6 +53,27 @@ JSONRPC_INVALID_PARAMS = -32602
 JSONRPC_INTERNAL_ERROR = -32603
 MCP_AUTHORITY_DENIED_CODE = -32003
 MCP_RESOURCE_NOT_FOUND_CODE = -32004
+
+# SMART on FHIR v2 required scopes per MCP tool and resource kind
+MCP_TOOL_REQUIRED_SCOPES: dict[str, str] = {
+    "emr.get_patient_chart": "patient/Patient.read",
+    "emr.get_clinical_records": "patient/Observation.read",
+    "emr.check_preventive_gaps": "patient/Immunization.read",
+    "clinic.get_available_slots": "user/Appointment.read",
+    "clinic.book_slot": "user/Appointment.write",
+    "safety.screen_red_flags": "patient/Observation.read",
+    "memory.upsert_fact": "user/Proposal.write",
+    "cds.check_medication_safety": "patient/MedicationRequest.read",
+    "harness.stage_staff_proposal": "user/Proposal.write",
+    "emr.write_signed_orders": "user/MedicationRequest.write",
+}
+
+MCP_RESOURCE_REQUIRED_SCOPES: dict[str, str] = {
+    "patient_chart": "patient/Patient.read",
+    "patient_records": "patient/Observation.read",
+    "patient_preventive": "patient/Immunization.read",
+    "clinic_availability": "user/Appointment.read",
+}
 
 _RESOURCE_URI_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("patient_chart", re.compile(r"^emr://patients/([^/]+)/chart$")),
@@ -97,6 +123,7 @@ class ClinicEMRMCPServer:
             "transports": ["in_process", "streamable_http_jsonrpc"],
             "emr_adapter": self.emr.connector_name,
             "emr_tier": self.emr.connector_tier,
+            "smart_scopes_enforced": True,
             "tools_total": len(specs),
             "tools_permitted_for_ai": sum(1 for s in specs if s.authority in AGENT_PERMITTED_AUTHORITIES),
             "tools_blocked_for_ai": [s.name for s in specs if s.authority not in AGENT_PERMITTED_AUTHORITIES],
@@ -158,6 +185,7 @@ class ClinicEMRMCPServer:
         *,
         tenant_id: str,
         actor_role: str = "assistant",
+        smart_scopes: str | list[str] | tuple[str, ...] | None = None,
         runtime_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Dispatch a single MCP JSON-RPC 2.0 request and return a spec-compliant JSON-RPC 2.0 response."""
@@ -168,6 +196,11 @@ class ClinicEMRMCPServer:
         method = payload["method"]
         params = payload.get("params") if isinstance(payload.get("params"), dict) else {}
         ctx = dict(runtime_context or {})
+        granted_scopes = (
+            parse_smart_scopes(smart_scopes)
+            if smart_scopes is not None
+            else DEFAULT_ROLE_SMART_SCOPES.get(actor_role, ("patient/*.read",))
+        )
 
         if method == "initialize":
             return self._ok(
@@ -178,6 +211,7 @@ class ClinicEMRMCPServer:
                         "name": MCP_SERVER_NAME,
                         "version": MCP_SERVER_VERSION,
                         "emrAdapter": self.emr.connector_name,
+                        "smartScopesEnforced": True,
                     },
                     "capabilities": {
                         "tools": {"listChanged": False},
@@ -205,6 +239,7 @@ class ClinicEMRMCPServer:
                                 "idempotent": s.idempotent,
                                 "emr_target": s.emr_target,
                                 "ai_permitted": s.authority in AGENT_PERMITTED_AUTHORITIES,
+                                "smart_scope": MCP_TOOL_REQUIRED_SCOPES.get(s.name, "patient/*.read"),
                             },
                         }
                         for s in specs
@@ -225,7 +260,13 @@ class ClinicEMRMCPServer:
             uri = str(params.get("uri") or "").strip()
             if not uri:
                 return self._err(req_id, JSONRPC_INVALID_PARAMS, "Missing required param 'uri'.")
-            return self._handle_resource_read(req_id, uri=uri, tenant_id=tenant_id, ctx=ctx)
+            return self._handle_resource_read(
+                req_id,
+                uri=uri,
+                tenant_id=tenant_id,
+                granted_scopes=granted_scopes,
+                ctx=ctx,
+            )
 
         if method == "tools/call":
             raw_name = str(params.get("name") or "").strip()
@@ -240,6 +281,7 @@ class ClinicEMRMCPServer:
                 arguments=args,
                 tenant_id=tenant_id,
                 actor_role=actor_role,
+                granted_scopes=granted_scopes,
                 ctx=ctx,
             )
 
@@ -252,12 +294,31 @@ class ClinicEMRMCPServer:
         *,
         uri: str,
         tenant_id: str,
+        granted_scopes: tuple[str, ...],
         ctx: dict[str, Any],
     ) -> dict[str, Any]:
         for kind, pat in _RESOURCE_URI_PATTERNS:
             m = pat.match(uri)
             if not m:
                 continue
+            req_scope = MCP_RESOURCE_REQUIRED_SCOPES.get(kind, "patient/*.read")
+            if not smart_scope_allows(granted_scopes, req_scope):
+                self.denied_count += 1
+                reason = (
+                    f"DENIED (SMART on FHIR Scope): resource '{uri}' requires scope '{req_scope}', "
+                    f"granted={list(granted_scopes)}."
+                )
+                return self._err(
+                    req_id,
+                    MCP_AUTHORITY_DENIED_CODE,
+                    reason,
+                    data={
+                        "error_code": "SMART_SCOPE_DENIED",
+                        "uri": uri,
+                        "required_scope": req_scope,
+                        "granted_scopes": list(granted_scopes),
+                    },
+                )
             target = m.group(1)
             if kind == "patient_chart":
                 data = self._exec_get_patient_chart({"patient_id": target}, tenant_id=tenant_id, ctx=ctx)
@@ -290,6 +351,7 @@ class ClinicEMRMCPServer:
         arguments: dict[str, Any],
         tenant_id: str,
         actor_role: str,
+        granted_scopes: tuple[str, ...],
         ctx: dict[str, Any],
     ) -> dict[str, Any]:
         canon_name = self._schema_registry.resolve_name(tool_name)
@@ -317,6 +379,34 @@ class ClinicEMRMCPServer:
                 MCP_AUTHORITY_DENIED_CODE,
                 reason,
                 data={"error_code": "AUTHORITY_DENIED", "tool": spec.name, "authority": spec.authority.value},
+            )
+
+        # Server-side SMART on FHIR v2 scope gate (third defense layer)
+        req_scope = MCP_TOOL_REQUIRED_SCOPES.get(spec.name, "patient/*.read")
+        if not smart_scope_allows(granted_scopes, req_scope):
+            self.denied_count += 1
+            reason = (
+                f"DENIED (SMART on FHIR Scope): tool '{spec.name}' requires scope '{req_scope}', "
+                f"granted={list(granted_scopes)}."
+            )
+            pid = str(arguments.get("patient_id") or ctx.get("patient_id") or "")
+            self._emit_sse(
+                pid,
+                tool=spec.name,
+                authority=ToolAuthority.BLOCKED.value,
+                emr_target=spec.emr_target or "smart_scope_gate",
+                summary=reason,
+            )
+            return self._err(
+                req_id,
+                MCP_AUTHORITY_DENIED_CODE,
+                reason,
+                data={
+                    "error_code": "SMART_SCOPE_DENIED",
+                    "tool": spec.name,
+                    "required_scope": req_scope,
+                    "granted_scopes": list(granted_scopes),
+                },
             )
 
         arg_errors = validate_tool_args(spec, arguments)

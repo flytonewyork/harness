@@ -178,6 +178,100 @@ def _get_jwt_secret() -> str:
     return secret
 
 
+# --- SMART on FHIR v2 Scopes (Stage 3 Permission Gate) ---
+DEFAULT_ROLE_SMART_SCOPES: dict[str, tuple[str, ...]] = {
+    "patient": ("patient/*.read", "patient/Observation.write", "patient/Consent.write"),
+    "assistant": ("patient/*.read", "user/Proposal.write", "user/Appointment.read", "user/Appointment.write"),
+    "agent": ("patient/*.read", "user/Proposal.write", "user/Appointment.read", "user/Appointment.write"),
+    "nurse": (
+        "patient/*.read",
+        "user/*.read",
+        "user/Proposal.write",
+        "user/Immunization.write",
+        "user/Appointment.write",
+    ),
+    "clinician": (
+        "patient/*.read",
+        "user/*.read",
+        "user/Proposal.write",
+        "user/MedicationRequest.write",
+        "user/DocumentReference.write",
+        "user/ServiceRequest.write",
+        "user/Appointment.write",
+    ),
+    "clinic_admin": ("user/*.read", "system/AuditEvent.read"),
+    "corporate_admin": ("system/Group.read",),
+}
+
+_SMART_SCOPE_RE = re.compile(
+    r"^(patient|user|system)/([A-Za-z]+|\*)\.(read|write|[cruds]+)$"
+)
+
+
+def parse_smart_scopes(raw: str | list[str] | tuple[str, ...] | None) -> tuple[str, ...]:
+    """Normalize a space-separated SMART scope string or iterable into a canonical tuple."""
+    if raw is None:
+        return ()
+    if isinstance(raw, str):
+        tokens = [tok.strip() for tok in raw.replace(",", " ").split() if tok.strip()]
+    else:
+        tokens = [str(tok).strip() for tok in raw if str(tok).strip()]
+    seen: list[str] = []
+    for tok in tokens:
+        if tok not in seen:
+            seen.append(tok)
+    return tuple(seen)
+
+
+def _smart_action_matches(granted_action: str, required_action: str) -> bool:
+    if granted_action == required_action:
+        return True
+    # SMART v2 granular CRUD shorthand compatibility (e.g. .rs satisfies .read, .cruds satisfies .write)
+    if required_action == "read" and ("r" in granted_action or "s" in granted_action) and granted_action != "write":
+        return True
+    if required_action == "write" and any(ch in granted_action for ch in ("c", "u", "d")) and granted_action != "read":
+        return True
+    return False
+
+
+def smart_scope_allows(granted_scopes: list[str] | tuple[str, ...], required_scope: str) -> bool:
+    """Return True iff at least one SMART on FHIR scope in `granted_scopes` satisfies `required_scope`."""
+    req_m = _SMART_SCOPE_RE.match(required_scope.strip())
+    if not req_m:
+        return False
+    req_ctx, req_res, req_act = req_m.groups()
+
+    for scope in granted_scopes:
+        m = _SMART_SCOPE_RE.match(scope.strip())
+        if not m:
+            continue
+        g_ctx, g_res, g_act = m.groups()
+        # Context hierarchy: user/* or system/* can satisfy patient/* reads ONLY when explicitly matching context
+        # (strict least-privilege: patient/ matches patient/, user/ matches user/ or patient/ read if resource matches)
+        ctx_ok = (g_ctx == req_ctx) or (g_ctx == "user" and req_ctx == "patient" and req_act == "read")
+        if not ctx_ok:
+            continue
+        res_ok = (g_res == "*") or (g_res == req_res)
+        if not res_ok:
+            continue
+        if _smart_action_matches(g_act, req_act):
+            return True
+    return False
+
+
+def require_smart_scopes(
+    granted_scopes: list[str] | tuple[str, ...],
+    required_scopes: list[str] | tuple[str, ...],
+) -> None:
+    """Raise HTTP 403 (`SMART_SCOPE_DENIED`) if any required SMART scope is missing."""
+    missing = [s for s in required_scopes if not smart_scope_allows(granted_scopes, s)]
+    if missing:
+        raise HTTPException(
+            403,
+            f"SMART_SCOPE_DENIED: missing required scope(s) {', '.join(missing)}",
+        )
+
+
 # --- JWT & RBAC / ABAC ---
 def mint_jwt(
     *,
@@ -187,14 +281,17 @@ def mint_jwt(
     step_up_verified: bool = False,
     corporate_id: str | None = None,
     mchk_reg_no: str | None = None,
+    scopes: list[str] | tuple[str, ...] | None = None,
     ttl_minutes: int = 120,
 ) -> str:
     now = datetime.now(timezone.utc)
+    eff_scopes = parse_smart_scopes(scopes) if scopes is not None else DEFAULT_ROLE_SMART_SCOPES.get(role, ())
     payload: dict[str, Any] = {
         "sub": subject_id,
         "role": role,
         "tid": tenant_id,
         "step_up": step_up_verified,
+        "scope": " ".join(eff_scopes),
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=ttl_minutes)).timestamp()),
     }
@@ -214,15 +311,28 @@ def decode_jwt(token: str) -> dict[str, Any]:
         raise HTTPException(401, "Invalid authentication token") from exc
 
 
-def extract_claims(request: Request, *, allowed_roles: tuple[str, ...], require_step_up: bool = False) -> dict[str, Any]:
+def extract_claims(
+    request: Request,
+    *,
+    allowed_roles: tuple[str, ...],
+    require_step_up: bool = False,
+    required_scopes: tuple[str, ...] = (),
+) -> dict[str, Any]:
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(401, "Missing Bearer token")
     claims = decode_jwt(auth.split(" ", 1)[1].strip())
-    if claims.get("role") not in allowed_roles:
-        raise HTTPException(403, f"Role '{claims.get('role')}' is not permitted for this action")
+    role = str(claims.get("role") or "")
+    if role not in allowed_roles:
+        raise HTTPException(403, f"Role '{role}' is not permitted for this action")
     if require_step_up and not claims.get("step_up"):
         raise HTTPException(403, "OTP step-up verification required before accessing clinical data")
+    if required_scopes:
+        if "scope" in claims:
+            granted = parse_smart_scopes(claims.get("scope"))
+        else:
+            granted = DEFAULT_ROLE_SMART_SCOPES.get(role, ())
+        require_smart_scopes(granted, required_scopes)
     return claims
 
 
@@ -272,6 +382,63 @@ class SlidingRateLimiter:
 
 
 # --- HL7 FHIR R4 Bundle Serializer (PDPO DPP6 DAR & IPS Alignment) ---
+def _fhir_audit_type_and_action(action_name: str) -> tuple[dict[str, str], str]:
+    low = (action_name or "").lower()
+    if "export" in low or "dar" in low:
+        return (
+            {
+                "system": "http://dicom.nema.org/resources/ontology/DCM",
+                "code": "110106",
+                "display": "Export",
+            },
+            "R",
+        )
+    if "auth" in low or "login" in low or "otp" in low or "magic" in low:
+        return (
+            {
+                "system": "http://dicom.nema.org/resources/ontology/DCM",
+                "code": "110114",
+                "display": "User Authentication",
+            },
+            "E",
+        )
+    if "delete" in low or "erase" in low or "withdraw" in low:
+        return (
+            {
+                "system": "http://terminology.hl7.org/CodeSystem/audit-event-type",
+                "code": "rest",
+                "display": "RESTful Operation",
+            },
+            "D",
+        )
+    if "create" in low or "sign" in low or "issue" in low or "submit" in low or "seed" in low:
+        return (
+            {
+                "system": "http://terminology.hl7.org/CodeSystem/audit-event-type",
+                "code": "rest",
+                "display": "RESTful Operation",
+            },
+            "C",
+        )
+    if "update" in low or "edit" in low or "decide" in low:
+        return (
+            {
+                "system": "http://terminology.hl7.org/CodeSystem/audit-event-type",
+                "code": "rest",
+                "display": "RESTful Operation",
+            },
+            "U",
+        )
+    return (
+        {
+            "system": "http://dicom.nema.org/resources/ontology/DCM",
+            "code": "110110",
+            "display": "Patient Record",
+        },
+        "R",
+    )
+
+
 def build_fhir_r4_bundle(
     *,
     patient: dict[str, Any],
@@ -282,8 +449,12 @@ def build_fhir_r4_bundle(
     prescriptions: list[dict[str, Any]],
     immunizations: list[dict[str, Any]],
     audit_events: list[dict[str, Any]],
+    agent_runs: list[dict[str, Any]] | None = None,
+    provenances: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Serialize a patient's record into an HL7 FHIR R4 Collection Bundle (IPS-aligned)."""
+    """Serialize a patient's record into an HL7 FHIR R4 Collection Bundle (IPS-aligned)
+    with spec-valid R4 `AuditEvent` and `Provenance` resources.
+    """
     entries: list[dict[str, Any]] = []
 
     def add(resource: dict[str, Any]) -> None:
@@ -369,10 +540,13 @@ def build_fhir_r4_bundle(
         add(res)
 
     for rx in prescriptions:
+        rx_targets: list[dict[str, str]] = []
         for idx, item in enumerate(rx.get("items") or []):
+            med_req_id = f"{rx['id']}-{idx}"
+            rx_targets.append({"reference": f"MedicationRequest/{med_req_id}"})
             add({
                 "resourceType": "MedicationRequest",
-                "id": f"{rx['id']}-{idx}",
+                "id": med_req_id,
                 "status": "active",
                 "intent": "order",
                 "medicationCodeableConcept": {
@@ -386,6 +560,39 @@ def build_fhir_r4_bundle(
                 "requester": {"identifier": {"system": "http://mchk.org.hk/reg", "value": rx["mchk_reg_no"]}},
                 "dosageInstruction": [{"text": f"{item.get('dose_mg', '')}mg {item.get('frequency', '')} x {item.get('days', '')}d"}],
             })
+        if rx_targets:
+            add({
+                "resourceType": "Provenance",
+                "id": f"prov-rx-{rx['id']}",
+                "target": rx_targets,
+                "recorded": rx["signed_at"],
+                "activity": {
+                    "coding": [{
+                        "system": "http://terminology.hl7.org/CodeSystem/v3-DataOperation",
+                        "code": "CREATE",
+                        "display": "create",
+                    }]
+                },
+                "agent": [{
+                    "type": {
+                        "coding": [{
+                            "system": "http://terminology.hl7.org/CodeSystem/provenance-participant-type",
+                            "code": "author",
+                            "display": "Author",
+                        }]
+                    },
+                    "who": {"identifier": {"system": "http://mchk.org.hk/reg", "value": rx["mchk_reg_no"]}},
+                }],
+                "signature": [{
+                    "type": [{
+                        "system": "urn:iso-astm:E1762-95:2013",
+                        "code": "1.2.840.10065.1.12.1.1",
+                        "display": "Author's Signature",
+                    }],
+                    "when": rx["signed_at"],
+                    "who": {"identifier": {"system": "http://mchk.org.hk/reg", "value": rx["mchk_reg_no"]}},
+                }],
+            })
 
     for cert in certificates:
         add({
@@ -397,6 +604,39 @@ def build_fhir_r4_bundle(
             "date": cert["signed_at"],
             "author": [{"identifier": {"system": "http://mchk.org.hk/reg", "value": cert["mchk_reg_no"]}}],
             "content": [{"attachment": {"contentType": "application/pdf", "hash": cert["verification_hash"]}}],
+        })
+        add({
+            "resourceType": "Provenance",
+            "id": f"prov-cert-{cert['id']}",
+            "target": [{"reference": f"DocumentReference/{cert['id']}"}],
+            "recorded": cert["signed_at"],
+            "activity": {
+                "coding": [{
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-DataOperation",
+                    "code": "CREATE",
+                    "display": "create",
+                }]
+            },
+            "agent": [{
+                "type": {
+                    "coding": [{
+                        "system": "http://terminology.hl7.org/CodeSystem/provenance-participant-type",
+                        "code": "author",
+                        "display": "Author",
+                    }]
+                },
+                "who": {"identifier": {"system": "http://mchk.org.hk/reg", "value": cert["mchk_reg_no"]}},
+            }],
+            "signature": [{
+                "type": [{
+                    "system": "urn:iso-astm:E1762-95:2013",
+                    "code": "1.2.840.10065.1.12.1.1",
+                    "display": "Author's Signature",
+                }],
+                "when": cert["signed_at"],
+                "who": {"identifier": {"system": "http://mchk.org.hk/reg", "value": cert["mchk_reg_no"]}},
+                "sigFormat": "application/pdf",
+            }],
         })
 
     for imm in immunizations:
@@ -410,13 +650,119 @@ def build_fhir_r4_bundle(
             "occurrenceDateTime": imm["slot_at"],
         })
 
+    for run in agent_runs or []:
+        target_ref = f"Encounter/{run['encounter_id']}" if run.get("encounter_id") else f"Patient/{patient['id']}"
+        add({
+            "resourceType": "Provenance",
+            "id": f"prov-run-{run['id']}",
+            "target": [{"reference": target_ref}],
+            "recorded": run.get("created_at") or datetime.now(timezone.utc).isoformat(),
+            "policy": [
+                f"urn:tmrw:protocol:{run.get('protocol_id', 'unknown')}:{run.get('protocol_version', '1.0.0')}"
+                f"#sha256:{str(run.get('prompt_hash') or '')[:16]}"
+            ],
+            "activity": {
+                "coding": [{
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-ActReason",
+                    "code": "TREAT",
+                    "display": "AI-assisted clinical decision support draft",
+                }]
+            },
+            "agent": [{
+                "type": {
+                    "coding": [{
+                        "system": "http://terminology.hl7.org/CodeSystem/provenance-participant-type",
+                        "code": "assembler",
+                        "display": "Assembler",
+                    }]
+                },
+                "who": {
+                    "identifier": {"system": "http://tmrw.hk/fhir/model-gateway", "value": f"{run.get('provider', 'gateway')}:{run.get('model_id', 'unknown')}"},
+                    "display": f"ModelGateway ({run.get('provider', 'gateway')}/{run.get('model_id', 'unknown')} @ {run.get('region', 'asia-east2')})",
+                },
+            }],
+        })
+
+    for p_item in provenances or []:
+        add({
+            "resourceType": "Provenance",
+            "id": p_item["id"],
+            "target": p_item.get("target") or [{"reference": f"Patient/{patient['id']}"}],
+            "recorded": p_item.get("recorded") or datetime.now(timezone.utc).isoformat(),
+            "activity": p_item.get("activity") or {
+                "coding": [{
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-DataOperation",
+                    "code": "CREATE",
+                    "display": "create",
+                }]
+            },
+            "agent": p_item.get("agent") or [{
+                "type": {
+                    "coding": [{
+                        "system": "http://terminology.hl7.org/CodeSystem/provenance-participant-type",
+                        "code": "author",
+                        "display": "Author",
+                    }]
+                },
+                "who": {"display": p_item.get("who_display") or "TMRW HK Clinical Loop OS"},
+            }],
+        })
+
     for ae in audit_events:
+        ae_type, ae_action = _fhir_audit_type_and_action(str(ae.get("action") or ""))
+        res_type = str(ae.get("resource_type") or "Patient")
+        res_id = str(ae.get("resource_id") or patient["id"])
+        outcome_raw = str(ae.get("outcome") or "0")
+        outcome_code = outcome_raw if outcome_raw in ("0", "4", "8", "12") else "0"
         add({
             "resourceType": "AuditEvent",
             "id": ae["id"],
-            "type": {"code": ae["action"]},
+            "type": ae_type,
+            "subtype": [{
+                "system": "http://tmrw.hk/fhir/audit-action",
+                "code": ae["action"],
+                "display": ae["action"],
+            }],
+            "action": ae_action,
             "recorded": ae["created_at"],
-            "agent": [{"who": {"identifier": {"value": ae["actor_id"]}}, "role": [{"text": ae["actor_role"]}]}],
+            "outcome": outcome_code,
+            "agent": [{
+                "type": {
+                    "coding": [{
+                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                        "code": "AUT" if ae.get("actor_role") == "clinician" else "IRCP",
+                        "display": "author" if ae.get("actor_role") == "clinician" else "information recipient",
+                    }]
+                },
+                "who": {
+                    "identifier": {
+                        "system": "http://tmrw.hk/fhir/actor",
+                        "value": ae["actor_id"],
+                    }
+                },
+                "role": [{"text": ae["actor_role"]}],
+                "requestor": bool(ae.get("requestor", True)),
+            }],
+            "source": {
+                "site": ae.get("site") or "TMRW HK Clinic",
+                "observer": {
+                    "identifier": {"system": "http://tmrw.hk/fhir/system", "value": "tmrw-clinic-loop-os"},
+                    "display": "TMRW HK Clinical Loop OS",
+                },
+                "type": [{
+                    "system": "http://terminology.hl7.org/CodeSystem/security-source-type",
+                    "code": "4",
+                    "display": "Application Server",
+                }],
+            },
+            "entity": [{
+                "what": {"reference": f"{res_type}/{res_id}"},
+                "type": {
+                    "system": "http://terminology.hl7.org/CodeSystem/audit-entity-type",
+                    "code": "1" if res_type == "Patient" else "2",
+                    "display": "Person" if res_type == "Patient" else "System Object",
+                },
+            }],
         })
 
     return {
