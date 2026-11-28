@@ -43,6 +43,7 @@ from backend.acute.terminology import (
     validate_observation_coding,
     validate_snomed_codes,
 )
+from backend.case.context import build_scrubbed_clinical_context
 from backend.gateway.gateway import (
     GatewayError,
     GatewayRequest,
@@ -52,6 +53,22 @@ from backend.gateway.gateway import (
     load_protocol,
 )
 from backend.precare import safety as precare_safety
+from backend.safety.kernel import (
+    ACUTE_BANNED_OUTBOUND_PATTERNS as _ACUTE_BANNED_OUTBOUND_PATTERNS,
+    ACUTE_CRISIS_PATTERNS,
+    ACUTE_RED_FLAG_PATTERNS,
+    DOUBLE_SICKENING_RE as _DOUBLE_SICKENING_RE,
+    KIND_ORDER,
+    PREGNANT_HOST_RE as _PREGNANT_HOST_RE,
+    PROMPT_INJECTION_PATTERNS,
+    SafetyProfile,
+    check_outbound_safety,
+    detect_prompt_injection,
+    extract_numeric_vitals as _extract_numeric_vitals,
+    filter_verbatim_quotes,
+    normalize_clauses,
+    screen_safety,
+)
 
 # --- Fixed Non-LLM Bilingual Emergency & Crisis Banners ---
 AUTOMATED_LABEL_EN = "Care team (automated)"
@@ -86,286 +103,11 @@ CRISIS_BANNER_ZH = (
 )
 CRISIS_BANNER_BILINGUAL = f"{CRISIS_BANNER_EN}\n\n---\n\n{CRISIS_BANNER_ZH}"
 
-KIND_ORDER: dict[str | None, int] = {None: 0, "red_flag": 1, "crisis": 2}
-
-
-# --- Safe Negation, Remote Third-Party History, & Idiom Specificity Helpers ---
-# Tightly scoped Cantonese hyperbole idioms ONLY when attached to benign flu/cold symptoms.
-# Never matches chest pain, severe headache, suicidal context, or overdose.
-_BENIGN_HYPERBOLE_RE = re.compile(
-    r"(咳|流鼻水|鼻塞|喉嚨痛|喉嚨痕|攰|眼瞓|周身痛|骨痛|發燒)到(想死|死咁滯|快死)"
-)
-
-# Remote past third-party history (e.g. "husband had heart attack in 2019", "brother had severe allergy when he was a kid", "grandmother fainted last summer")
-_REMOTE_THIRD_PARTY_HISTORY_RE = re.compile(
-    r"\b(?:my\s+)?(?:husband|wife|spouse|father|mother|dad|mum|mom|grandpa|grandma|"
-    r"grandfather|grandmother|uncle|aunt|brother|sister|friend|colleague|boss)\b"
-    r"[^.,;!?]{0,60}\b(?:had|suffered(?:\s+from)?|died\s+of|history\s+of|fainted|collapsed)\b"
-    r"[^.,;!?]{0,60}\b(?:in\s+(?:19\d{2}|20[0-2]\d)|\d+\s+years?\s+ago|years?\s+ago|previously|before|"
-    r"last\s+(?:year|summer|winter|month)|when\s+(?:he|she|they)\s+(?:was|were)\s+(?:a\s+)?(?:kid|child|young))\b",
-    re.I,
-)
-_REMOTE_THIRD_PARTY_ZH_RE = re.compile(
-    r"(?:老公|老婆|爸爸|媽媽|阿爸|阿媽|公公|婆婆|爺爺|嫲嫲|朋友|同事)"
-    r"(?:喺)?(?:(?:19\d{2}|20[0-2]\d)年|\d+年前|以前|之前|上年|去年)[^，。；！？!?]{0,20}"
-    r"(?:中過風|試過心臟病發|心臟病發過|有過心臟病|中風過|試過暈低|暈過)"
-)
-
-# Clause-scoped explicit English & Cantonese symptom negation (supports HK code-switching!)
-_CLAUSE_SPLIT_RE = re.compile(r"([.,;!?，。；！？]|\b(?:but|however|except|although|though|yet)\b|但係|但是|不過|但|只是|淨係)", re.I)
-
-_EN_NEG_TERM = (
-    r"(?:chest\s+(?:pain|tightness|pressure|discomfort)|short(?:ness)?\s+of\s+breath|breathlessness|"
-    r"difficulty\s+breathing|trouble\s+breathing|stiff\s+neck|blue\s+lips|cyanosis|confusion|"
-    r"fainting|syncope|seizures?|palpitations?|rash|vomiting(?:\s+blood)?|coughing\s+(?:up\s+)?blood|"
-    r"black\s+(?:tarry\s+)?stools?|tarry\s+stools?|suicidal(?:\s+thoughts?)?|self[- ]?harm|"
-    r"haemoptysis|bleeding|fever|cough|diarrh?oea|headache|dizziness|heart\s+attack|stroke)"
-)
-_EN_NEGATED_SYMPTOM_RE = re.compile(
-    r"(?<![A-Za-z])(?:no|not(?:\s+having)?|without|denies|denied|deny|negative\s+for|neither|never\s+had|"
-    r"haven'?t\s+had|don'?t\s+have|doesn'?t\s+have|didn'?t\s+have|zero|none\s+of)\s+"
-    r"(?:any\s+)?"
-    + _EN_NEG_TERM
-    + r"(?:\s*(?:,|/|or|nor|and)\s*(?:no\s+|any\s+)?" + _EN_NEG_TERM + r")*",
-    re.I,
-)
-
-_ZH_NEG_TERM = (
-    r"(?:胸口痛|心口痛|胸痛|胸悶|心口翳|胸口翳|氣促|呼吸困難|唞唔到氣|抖唔到氣|咳血|吐血|"
-    r"暈低|暈倒|發紺|嘴唇發紫|嘴唇腫|喉嚨腫|嚴重敏感|發紫|叫唔醒|抽筋|頸硬|頸部僵硬|意識混亂|"
-    r"發燒|咳嗽|咳|嘔吐|嘔|肚瀉|腹瀉|紅疹|"
-    r"chest\s+(?:pain|tightness|pressure)|short(?:ness)?\s+of\s+breath|breathlessness|fainting|dizziness)"
-)
-_ZH_NEGATED_SYMPTOM_RE = re.compile(
-    r"(?:冇|無|沒有|唔覺有|並無|否認)(?:任何)?\s*"
-    + _ZH_NEG_TERM
-    + r"(?:(?:\s*[、，,同或及和]\s*(?:冇|無|沒有)?\s*|\s*(?:冇|無|沒有)\s*)" + _ZH_NEG_TERM + r")*",
-    re.I,
-)
-
 
 def _normalize_for_rules_floor(text: str) -> tuple[str, list[str]]:
-    """Produce a clause-normalized copy for red-flag screening while recording suppressed benign phrases."""
-    suppressed: list[str] = []
-
-    def _mask_idiom(m: re.Match[str]) -> str:
-        suppressed.append(f"idiom:{m.group(0)}")
-        return f"{m.group(1)}得好犀利"
-
-    work = _BENIGN_HYPERBOLE_RE.sub(_mask_idiom, text)
-
-    def _mask_hist(m: re.Match[str]) -> str:
-        suppressed.append(f"remote_history:{m.group(0)}")
-        return " [remote_history] "
-
-    work = _REMOTE_THIRD_PARTY_HISTORY_RE.sub(_mask_hist, work)
-    work = _REMOTE_THIRD_PARTY_ZH_RE.sub(_mask_hist, work)
-
-    # Clause-by-clause negation masking (never crosses 'but', 'however', punctuation, '但', '不過')
-    parts = _CLAUSE_SPLIT_RE.split(work)
-    cleaned_parts: list[str] = []
-    for part in parts:
-        if not part or _CLAUSE_SPLIT_RE.fullmatch(part):
-            cleaned_parts.append(part)
-            continue
-
-        def _mask_neg(m: re.Match[str]) -> str:
-            suppressed.append(f"negation:{m.group(0)}")
-            return " [negated_symptom] "
-
-        c = _EN_NEGATED_SYMPTOM_RE.sub(_mask_neg, part)
-        c = _ZH_NEGATED_SYMPTOM_RE.sub(_mask_neg, c)
-        cleaned_parts.append(c)
-
-    return "".join(cleaned_parts), suppressed
-
-
-# --- Expanded Hong Kong Acute Flu-Season Red Flags ---
-ACUTE_CRISIS_PATTERNS: list[tuple[str, str]] = [
-    ("indirect_suicidal_ideation", r"don'?t see the point any ?more"),
-    ("indirect_suicidal_ideation", r"can'?t go on any ?more"),
-    ("indirect_suicidal_ideation", r"tired of living"),
-    ("indirect_suicidal_ideation", r"wish i wasn'?t (here|alive)"),
-    ("indirect_suicidal_ideation", r"saying goodbye to everyone"),
-    ("indirect_suicidal_ideation", r"everyone (would be|is) better off without me"),
-    ("indirect_suicidal_ideation", r"撐唔住.{0,6}(想走|放棄生命|唔想活)"),
-    ("indirect_suicidal_ideation", r"唔想再拖累屋企人"),
-    ("indirect_suicidal_ideation", r"已經同(大家|屋企人)道別"),
-    ("indirect_suicidal_ideation", r"準備好後事"),
-    ("indirect_suicidal_ideation", r"想一覺瞓死"),
-]
-
-ACUTE_RED_FLAG_PATTERNS: list[tuple[str, str]] = [
-    # Cyanosis
-    ("cyanosis", r"\b(blue|bluish|purple|grey|gray)\s+(lips?|tongue|fingers?|fingernails?|face|around\s+(?:the\s+)?mouth)\b"),
-    ("cyanosis", r"\b(lips?|fingers?|fingernails?|face|skin)\s+(?:have\s+|has\s+|had\s+)?(are|is|turned|turning|went|gone|looking|look)\s+(blue|bluish|purple|grey|gray)\b"),
-    ("cyanosis", r"\bcyanosis\b|\bcyanotic\b"),
-    ("cyanosis", r"(嘴唇|口唇|手指|塊面|咀唇)(發紫|變紫|變藍|發青|變青)|發紺"),
-    # Haemoptysis (including descriptive modifiers like "coughed up bright red blood")
-    ("haemoptysis", r"\bcough(?:ed|ing)?\s+(?:up\s+)?(?:\w+\s+){0,3}blood\b|咳(?:出|咗)?(?:啲|鮮紅|好多)?血"),
-    # Inability to speak full sentences / severe respiratory distress
-    ("cannot_speak_full_sentences", r"(can'?t|cannot|unable\s+to)\s+(speak|talk|say|finish|complete)\s+(in\s+)?(full\s+)?sentences?"),
-    ("cannot_speak_full_sentences", r"too\s+(breathless|short\s+of\s+breath)\s+to\s+(talk|speak)"),
-    ("cannot_speak_full_sentences", r"(ribs?|chest\s+wall)\s+(pulling\s+in|indrawing|sucking\s+in)|\bretractions?\b"),
-    ("cannot_speak_full_sentences", r"講唔到成句|講幾隻字就要唞氣|唞氣好似拉風箱|肋骨凹陷|吸氣凹陷"),
-    # Confusion / altered mental status / delirium
-    ("confusion_ams", r"\b(confused|disoriented|delirious|hallucinating|incoherent)\b"),
-    ("confusion_ams", r"\b(talking\s+nonsense|not\s+making\s+sense|doesn'?t\s+know\s+where\s+(?:he|she|they)\s+(?:is|are))\b"),
-    ("confusion_ams", r"(意識混亂|神志不清|神智不清|神智迷糊|胡言亂語|認唔到人|答非所問|呆滯叫唔醒)"),
-    # Non-blanching / petechial / purpuric rash (meningitis/sepsis)
-    ("non_blanching_rash", r"\bnon[- ]?blanching\b|\bpetechia\w*|\bpurpur(?:a|ic)\b"),
-    ("non_blanching_rash", r"\b(rash|spots?)\b.{0,35}\b(doesn'?t|does\s+not|won'?t|did\s+not)\s+(fade|blanch|disappear)\b"),
-    ("non_blanching_rash", r"\bglass\s+test\b.{0,25}\b(doesn'?t|does\s+not|still\s+visible|positive|failed)\b"),
-    ("non_blanching_rash", r"(按落去|玻璃杯按壓).{0,8}(唔褪色|唔退色)|唔會?(?:褪色|退色).{0,8}(紅點|紅疹|紫斑|紫紅色?皮疹|皮疹)|瘀點|紫癜"),
-    # Meningitis red flags (stiff neck + photophobia / severe headache / fever)
-    ("meningitis_red_flag", r"\b(?:stiff\s+neck|neck\s+stiffness)\b.{0,50}\b(?:photophobia|bright\s+lights?|can'?t\s+look\s+at\s+light|fever|worst\s+headache|rash)\b"),
-    ("meningitis_red_flag", r"\b(?:photophobia|bright\s+lights?\s+hurt)\b.{0,50}\b(?:stiff\s+neck|neck\s+stiffness|fever|severe\s+headache)\b"),
-    ("meningitis_red_flag", r"(?:頸硬|頸梗|頸部僵硬).{0,25}(?:畏光|怕光|發燒|高燒|劇烈頭痛|紅疹|皮疹)|(?:畏光|怕光).{0,25}(?:頸硬|頸梗|頸部僵硬|發燒|高燒)"),
-    # Sudden unilateral vision loss
-    ("sudden_unilateral_vision_loss", r"\bsudden(?:ly)?\s+(?:lost|loss\s+of)\s+(?:all\s+|my\s+|the\s+)?(?:vision|sight)\b"),
-    ("sudden_unilateral_vision_loss", r"\b(?:went\s+blind|lost\s+(?:all\s+|my\s+)?(?:sight|vision)|can'?t\s+see(?:\s+anything)?)\s+(?:in|out\s+of)\s+(?:one|my\s+left|my\s+right|the\s+left|the\s+right)\s+eye\b"),
-    ("sudden_unilateral_vision_loss", r"\bcurtain\s+(?:came\s+)?over\s+(?:my\s+)?(?:eye|vision)\b"),
-    ("sudden_unilateral_vision_loss", r"(一隻眼|單眼|左眼|右眼).{0,8}突然.{0,4}(睇唔到|失明|盲咗|黑晒|黑咗)|突然(單眼)?失明"),
-    # Pediatric / elderly caregiver acute deterioration
-    ("pediatric_deterioration", r"\b(baby|infant|toddler|child|kid|son|daughter|newborn)\b.{0,50}\b(floppy|limp|lethargic|no\s+wet\s+(?:nappies|diapers)|not\s+drinking|refusing\s+fluids|sunken\s+eyes|grunting|won'?t\s+wake|hard\s+to\s+wake|seizure|fitting|blue|stridor|bulging\s+fontanelle)\b"),
-    ("pediatric_deterioration", r"(bb|嬰兒|小朋友|個仔|個女|阿仔|阿女).{0,25}(軟晒|叫唔醒|冇反應|唔肯飲水|冇尿|唔肯食奶|抽筋|發紫|吸氣凹陷|呼吸好急|喘鳴)"),
-    ("elderly_deterioration", r"\b(elderly|grandma|grandpa|grandmother|grandfather|mother|father|mum|mom|dad)\b.{0,45}\b(confused|delirious|collapsed|won'?t\s+wake|unresponsive|gasping|blue\s+lips|not\s+making\s+sense|fell\s+and\s+hit)\b"),
-    ("elderly_deterioration", r"(婆婆|公公|阿媽|阿爸|老人家|爺爺|嫲嫲).{0,25}(意識混亂|神志不清|胡言亂語|暈低|叫唔醒|冇反應|唞唔到氣|嘴唇發紫)"),
-]
-
-# Composite guideline red-flag detectors (NICE NG143 / HK HA A&E / RCOG / IDSA)
-# 1. Calf pain / unilateral leg swelling + sudden dyspnoea / chest pain -> suspected PE
-_CALF_DVT_RE = re.compile(
-    r"\b(?:calf\s+(?:pain|ache|swollen|swelling|tender|tight|cramp)|"
-    r"(?:left|right|one)\s+(?:calf|leg)\s+(?:is\s+)?(?:swollen|painful|hot|red|tender)|swollen\s+calf)\b|"
-    r"(?:小腿(?:痛|腫|脹|紅腫)|單腳腫|一隻腳腫)",
-    re.I,
-)
-_ACUTE_DYSPNOEA_PE_RE = re.compile(
-    r"\b(?:sudden(?:ly)?\s+(?:short(?:ness)?\s+of\s+breath|breathless|dyspnoea|dyspnea|can'?t\s+breathe)|"
-    r"short(?:ness)?\s+of\s+breath|breathless|dyspnoea|dyspnea|chest\s+pain|pleuritic)\b|"
-    r"(?:突然(?:氣促|唞唔到氣|呼吸困難|唞氣辛苦)|氣促|唞唔到氣|呼吸困難|胸痛|心口痛)",
-    re.I,
-)
-
-# 2. Neutropenic sepsis (chemotherapy / neutropenia / transplant / immunosuppressant + fever >= 38C)
-# Note: use (?<![A-Za-z]) so HK code-switched CJK+EN like "食緊immunosuppressant" still matches cleanly.
-_NEUTROPENIC_HOST_RE = re.compile(
-    r"(?<![A-Za-z])(?:chemo(?:therapy)?|neutropeni[a-z]*|(?:bone\s+marrow|stem\s+cell|kidney|liver|organ)\s+transplant|"
-    r"active\s+cancer\s+treatment|immunosuppress[a-z]*)(?![A-Za-z])|"
-    r"(?:化療|中性粒細胞減少|骨髓移植|器官移植|免疫抑制劑|免疫力嚴重受抑)",
-    re.I,
-)
-_FEVER_MENTION_RE = re.compile(
-    r"(?<![A-Za-z])(?:fever|febrile|chills|rigors|high\s+temp(?:erature)?)(?![A-Za-z])|發燒|高燒|發冷|打冷震",
-    re.I,
-)
-
-# 3. Febrile infant < 3 months (NICE NG143 / HK HA Paediatrics mandatory A&E sepsis workup)
-_INFANT_UNDER_3M_RE = re.compile(
-    r"\b(?:newborn|neonate|(?:[1-9]|1[0-2])\s*[- ]?weeks?[- ]?old\s+(?:baby|infant|son|daughter)|"
-    r"(?:1|2)\s*[- ]?months?[- ]?old\s+(?:baby|infant|son|daughter)|under\s+3\s+months?\s+old)\b|"
-    r"(?:初生(?:嬰兒|BB)|(?:1|2|一|兩)個月大(?:嬰兒|BB)|未滿(?:3|三)個月(?:嬰兒|BB))",
-    re.I,
-)
-
-# 4. Pregnancy emergency red flags (vaginal bleeding, reduced fetal movements, severe pre-eclampsia signs)
-_PREGNANT_HOST_RE = re.compile(
-    r"\b(?:pregnant|pregnancy|\d+\s*weeks?\s+pregnant|expecting\s+a\s+baby)\b|懷孕|大肚|有咗BB|孕婦",
-    re.I,
-)
-_OBSTETRIC_DANGER_RE = re.compile(
-    r"\b(?:vaginal\s+bleeding|bleeding\s+down\s+below|spotting\s+heavily|"
-    r"(?:reduced|decreased|less|no)\s+(?:fetal|baby)\s+movements?|baby\s+(?:stopped|not)\s+moving|"
-    r"(?:severe\s+headache|blinding\s+headache).{0,35}(?:blurr?y?\s+vision|flashing\s+lights?|swollen\s+face|upper\s+abdominal|epigastric)|"
-    r"pre[- ]?eclampsia|water\s+broke)\b|"
-    r"(?:陰道出血|下體流血|見紅好多|胎動減少|冇胎動|BB唔郁|劇烈頭痛.{0,15}(?:視力模糊|眼花|上腹痛)|穿羊水)",
-    re.I,
-)
-
-# 5. Secondary bacterial pneumonia ("double-sickening" on day 4-7 after initial viral improvement)
-_DOUBLE_SICKENING_RE = re.compile(
-    r"\b(?:(?:got|felt|getting)\s+better.{0,30}(?:then|and\s+now|but\s+now).{0,25}(?:got\s+)?(?:much\s+)?(?:worse|worsened|relapsed)|"
-    r"fever\s+(?:came|is)\s+back\s+(?:higher|worse)|fever.{0,20}returning|"
-    r"rusty\s+sputum|dark\s+green\s+phlegm\s+with\s+(?:high\s+)?fever)\b|"
-    r"(?:好返少少.{0,15}(?:又再發燒|突然轉差|變嚴重)|退燒幾日後又再燒|鐵鏽色痰|濃綠痰.{0,10}高燒)",
-    re.I,
-)
-
-# --- Vitals Extraction Regexes ---
-_SPO2_RE = re.compile(
-    r"(?:spo2|sp02|o2\s*sat(?:uration)?|oxygen(?:\s+saturation|\s+level)?|oximeter|pulse\s+ox|血氧(?:飽和度)?)"
-    r"[^0-9]{0,20}(\d{2,3}(?:\.\d)?)\s*%?",
-    re.I,
-)
-_TEMP_CEL_RE = re.compile(
-    r"(?:(?:temp(?:erature)?|fever|體溫|發燒|燒到|探熱)[^0-9]{0,18})?"
-    r"(?<!\d)(3[5-9](?:\.\d{1,2})?|4[0-2](?:\.\d{1,2})?)\s*(?:°\s*c\b|℃|deg(?:rees?)?\s*c\b|cel(?:sius)?\b|c(?![A-Za-z])|度)",
-    re.I,
-)
-_TEMP_BARE_CTX_RE = re.compile(
-    r"(?:temp(?:erature)?|fever|體溫|發燒|燒到|探熱)\s*(?:is|was|at|of|:|=|去到|有)?\s*"
-    r"(?<!\d)(3[5-9](?:\.\d{1,2})?|4[0-2](?:\.\d{1,2})?)(?!\d)",
-    re.I,
-)
-_TEMP_FAHR_RE = re.compile(
-    r"(?<!\d)(9[6-9](?:\.\d)?|10[0-8](?:\.\d)?)\s*(?:°\s*f\b|℉|deg(?:rees?)?\s*f\b|f(?![A-Za-z]))",
-    re.I,
-)
-_HR_RE = re.compile(r"(?:heart\s*rate|pulse|\bhr\b|心率|脈搏)[^0-9]{0,12}(\d{2,3})\b", re.I)
-_RR_RE = re.compile(r"(?:resp(?:iratory)?\s*rate|\brr\b|呼吸頻率)[^0-9]{0,12}(\d{1,2})\b", re.I)
-_BP_RE = re.compile(r"(?:blood\s*pressure|\bbp\b|血壓)[^0-9]{0,12}(\d{2,3})\s*/\s*(\d{2,3})\b", re.I)
-
-# --- Prompt-Injection Detection ---
-PROMPT_INJECTION_PATTERNS: list[str] = [
-    *precare_safety.INSTRUCTION,
-    r"ignore\s+(?:all\s+|your\s+|any\s+|the\s+)?(?:previous|prior|above|system)\s+(?:instructions?|rules?|prompts?)",
-    r"ignore\s+(?:all\s+)?(?:red\s*flags?|safety|alerts?|warnings?|triage)",
-    r"disregard\s+(?:all\s+|your\s+|previous\s+)?(?:instructions?|rules?|prompts?|guidelines?)",
-    r"\b(?:developer|system|admin|root|supervisor)\s+(?:override|mode|prompt|command|directive)\b",
-    r"\b(?:execute|call|invoke|run)\s+(?:tool|function|endpoint|api)\b",
-    r"\bskip\s+(?:pdpo|consent|verification|otp|safety|triage|review)\b",
-    r"<!--\s*(?:system|instruction|override|admin)\b",
-    r"\b(?:clear|delete|remove|wipe)\s+(?:patient\.)?allergies\b",
-    r"\b(?:reply|send|post|message)\s+(?:to\s+)?(?:my\s+)?whatsapp\s+directly\b",
-    r"\bdump\s+(?:all\s+)?(?:patients?|records?|database|secrets?|prompt)\b",
-    r"\b(?:approve|prescribe|issue|dispense|authorize|authorise)\s+(?:me\s+)?(?:amoxicillin|augmentin|antibiotics?|codeine|oseltamivir|tamiflu|steroids?|prescription|rx)\b",
-    r"\b(?:issue|give|grant|write|sign|generate)\s+(?:me\s+)?(?:\d+\s*days?\s+)?(?:sick[- ]?leave|medical\s+certificate|\bmc\b)\b",
-    r"\b(?:tell|confirm|say)\s+(?:me\s+)?(?:that\s+)?(?:i'?m|i\s+am|it'?s|everything\s+is)\s+(?:normal|fine|healthy|ok|okay|safe)\b",
-    r"\bbypass\s+(?:safety|doctor|clinician|review|triage|rules?)\b",
-    r"\[system\]|<\|system\|>|^\s*#\s*system\b",
-    r"唔理(?:之前|以上)(?:嘅)?(?:指令|規則)",
-    r"忽略(?:之前|以上)(?:嘅)?(?:指令|規則)",
-    r"(?:即刻|直接)(?:批准?|開|出)(?:抗生素|阿莫西林|病假紙?|\d+日病假)",
-    r"(?:話|講)俾我知我(?:好)?正常|話我正常|當我冇事",
-]
-
-
-def detect_prompt_injection(text: str) -> tuple[bool, list[str]]:
-    """Detect prompt-injection attempts and return exact verbatim matched substrings."""
-    matches: list[str] = []
-    for pat in PROMPT_INJECTION_PATTERNS:
-        m = re.search(pat, text, re.I | re.M)
-        if m:
-            q = m.group(0)
-            if q and q in text and q not in matches:
-                matches.append(q)
-    return bool(matches), matches
-
-
-def filter_verbatim_quotes(quotes: list[str], source_text: str) -> tuple[list[str], list[str]]:
-    """Keep ONLY exact verbatim substrings of `source_text`; return (kept, dropped)."""
-    kept: list[str] = []
-    dropped: list[str] = []
-    for q in quotes:
-        if not isinstance(q, str) or not q.strip():
-            continue
-        if q in source_text:
-            if q not in kept:
-                kept.append(q)
-        else:
-            dropped.append(q)
-    return kept, dropped
+    """Backwards-compatible wrapper around `backend.safety.kernel.normalize_clauses`."""
+    res = normalize_clauses(text)
+    return res.normalized_text, res.suppressed
 
 
 # --- Dataclasses ---
@@ -503,102 +245,6 @@ def detect_language(text: str) -> str:
     return "en"
 
 
-# --- Vitals Helper ---
-def _extract_numeric_vitals(text: str, vitals: dict[str, Any] | None = None) -> tuple[dict[str, float], list[dict[str, Any]]]:
-    """Extract LOINC+UCUM numeric observations from structured vitals and free text."""
-    parsed: dict[str, float] = {}
-    observations: list[dict[str, Any]] = []
-    seen_loinc: set[str] = set()
-
-    def _add_obs(loinc: str, val: float, source: str, quote: str | None = None) -> None:
-        meta = LOINC_OBSERVATIONS[loinc]
-        obs: dict[str, Any] = {
-            "loinc_code": loinc,
-            "display": meta[0],
-            "display_zh": meta[1],
-            "ucum_unit": meta[2],
-            "value_num": round(val, 2),
-            "source": source,
-        }
-        if quote and quote in text:
-            obs["quote"] = quote
-        observations.append(obs)
-        seen_loinc.add(loinc)
-
-    # Structured vitals first (authoritative device / form readings)
-    if vitals:
-        for key, loinc in (
-            ("temp_c", "8310-5"),
-            ("temperature_c", "8310-5"),
-            ("temperature", "8310-5"),
-            ("spo2", "2708-6"),
-            ("spo2_pct", "2708-6"),
-            ("hr", "8867-4"),
-            ("heart_rate", "8867-4"),
-            ("rr", "9279-1"),
-            ("respiratory_rate", "9279-1"),
-            ("sbp", "8480-6"),
-            ("dbp", "8462-4"),
-        ):
-            if key in vitals and vitals[key] is not None and loinc not in seen_loinc:
-                val = float(vitals[key])
-                if loinc == "8310-5" and val > 50.0:  # Fahrenheit passed in
-                    val = round((val - 32.0) * 5.0 / 9.0, 2)
-                parsed[loinc] = val
-                _add_obs(loinc, val, "vitals")
-
-    # Free-text vitals
-    if "2708-6" not in seen_loinc:
-        m = _SPO2_RE.search(text)
-        if m:
-            val = float(m.group(1))
-            if 50.0 <= val <= 100.0:
-                parsed["2708-6"] = val
-                _add_obs("2708-6", val, "text", m.group(0))
-
-    if "8310-5" not in seen_loinc:
-        m = _TEMP_CEL_RE.search(text) or _TEMP_BARE_CTX_RE.search(text)
-        if m:
-            val = float(m.group(1))
-            if 34.0 <= val <= 43.0:
-                parsed["8310-5"] = val
-                _add_obs("8310-5", val, "text", m.group(0))
-        else:
-            mf = _TEMP_FAHR_RE.search(text)
-            if mf:
-                val_c = round((float(mf.group(1)) - 32.0) * 5.0 / 9.0, 2)
-                parsed["8310-5"] = val_c
-                _add_obs("8310-5", val_c, "text", mf.group(0))
-
-    if "8867-4" not in seen_loinc:
-        m = _HR_RE.search(text)
-        if m:
-            val = float(m.group(1))
-            if 30 <= val <= 240:
-                parsed["8867-4"] = val
-                _add_obs("8867-4", val, "text", m.group(0))
-
-    if "9279-1" not in seen_loinc:
-        m = _RR_RE.search(text)
-        if m:
-            val = float(m.group(1))
-            if 6 <= val <= 70:
-                parsed["9279-1"] = val
-                _add_obs("9279-1", val, "text", m.group(0))
-
-    if "8480-6" not in seen_loinc:
-        m = _BP_RE.search(text)
-        if m:
-            sbp, dbp = float(m.group(1)), float(m.group(2))
-            if 50 <= sbp <= 260 and 30 <= dbp <= 160:
-                parsed["8480-6"] = sbp
-                parsed["8462-4"] = dbp
-                _add_obs("8480-6", sbp, "text", m.group(0))
-                _add_obs("8462-4", dbp, "text", m.group(0))
-
-    return parsed, observations
-
-
 # --- 1. Union-Only Bilingual Red-Flag Triage ---
 def _banner_for_kind(kind: str | None, lang: str) -> tuple[str | None, str | None, str | None]:
     if kind == "crisis":
@@ -627,18 +273,26 @@ def screen_acute_message(
 ) -> TriageResult:
     """Union-only bilingual red-flag triage.
 
-    1. Deterministic rules floor FIRST (reuses `backend.precare.safety.screen` + HK acute red flags + vitals).
+    1. Deterministic rules floor FIRST via canonical `backend.safety.kernel.screen_safety`
+       (`SafetyProfile.CLAUSE_AWARE_FLOOR`: precare floor + HK acute red flags + vitals).
     2. Optional Model Gateway screen in STRICT union-only mode: may add red flags or raise urgency,
        NEVER remove a rules-floor flag or lower urgency.
     3. Any emergency returns fixed non-LLM bilingual 999 / A&E (+ Samaritans 24h) banner and urgency=4.
     """
     raw_text = text or ""
-    norm_text, suppressed = _normalize_for_rules_floor(raw_text)
-    inj_detected, inj_matches = detect_prompt_injection(raw_text)
-
-    rules_flags: list[str] = []
-    evidence_quotes: list[str] = []
-    rules_kind: str | None = None
+    verdict = screen_safety(
+        raw_text,
+        profile=SafetyProfile.CLAUSE_AWARE_FLOOR,
+        vitals=vitals,
+        check_hypertensive_crisis=False,
+    )
+    rules_kind = verdict.kind
+    rules_urgency = verdict.urgency
+    rules_flags = list(verdict.flags)
+    evidence_quotes = list(verdict.evidence_quotes)
+    suppressed = list(verdict.suppressed_negations)
+    inj_detected = verdict.prompt_injection_detected
+    inj_matches = list(verdict.prompt_injection_matches)
 
     def _add_quote(q: str) -> None:
         if q and q in raw_text and q not in evidence_quotes:
@@ -647,147 +301,11 @@ def screen_acute_message(
     def _upgrade_kind(current: str | None, new_kind: str | None) -> str | None:
         return new_kind if KIND_ORDER[new_kind] > KIND_ORDER[current] else current
 
-    # Step 1A: Reuse backend.precare.safety.screen on specificity-normalized text
-    precare_kind = precare_safety.screen(norm_text)
-    if precare_kind == "crisis":
-        rules_kind = _upgrade_kind(rules_kind, "crisis")
-        rules_flags.append("precare_crisis_floor")
-        for pat in precare_safety.CRISIS:
-            m = re.search(pat, norm_text, re.I)
-            if m:
-                _add_quote(m.group(0))
-                break
-    elif precare_kind == "red_flag":
-        rules_kind = _upgrade_kind(rules_kind, "red_flag")
-        rules_flags.append("precare_red_flag_floor")
-        for pat in precare_safety.RED_FLAGS:
-            m = re.search(pat, norm_text, re.I)
-            if m:
-                _add_quote(m.group(0))
-                break
-        if precare_safety.low_sugar(norm_text):
-            rules_flags.append("hypoglycaemia_lt_4")
-
-    # Step 1B: Expanded indirect crisis patterns
-    for code, pat in ACUTE_CRISIS_PATTERNS:
-        m = re.search(pat, norm_text, re.I)
-        if m:
-            rules_kind = _upgrade_kind(rules_kind, "crisis")
-            if code not in rules_flags:
-                rules_flags.append(code)
-            _add_quote(m.group(0))
-
-    # Step 1C: Expanded HK acute flu-season red flags
-    for code, pat in ACUTE_RED_FLAG_PATTERNS:
-        m = re.search(pat, norm_text, re.I)
-        if m:
-            rules_kind = _upgrade_kind(rules_kind, "red_flag")
-            if code not in rules_flags:
-                rules_flags.append(code)
-            _add_quote(m.group(0))
-
-    # Step 1D: Composite clinical guideline red flags (PE, neutropenic sepsis, febrile infant <3m, obstetric emergency, double-sickening)
-    calf_m = _CALF_DVT_RE.search(norm_text)
-    dys_m = _ACUTE_DYSPNOEA_PE_RE.search(norm_text)
-    if calf_m and dys_m:
-        rules_kind = _upgrade_kind(rules_kind, "red_flag")
-        if "suspected_pe_calf_dyspnoea" not in rules_flags:
-            rules_flags.append("suspected_pe_calf_dyspnoea")
-        _add_quote(calf_m.group(0))
-        _add_quote(dys_m.group(0))
-
-    # Step 1E: Numeric vitals thresholds (text + structured vitals — NEWS2 / HK HA A&E Cat 1-2)
-    vitals_map, vitals_obs = _extract_numeric_vitals(raw_text, vitals)
-    rules_urgency = 1
-
-    temp_c = vitals_map.get("8310-5")
-    has_febrile = (temp_c is not None and temp_c >= 38.0) or bool(_FEVER_MENTION_RE.search(norm_text))
-
-    # Neutropenic sepsis: chemo / neutropenia / immunosuppressed + fever >=38C -> immediate 999/A&E
-    neut_m = _NEUTROPENIC_HOST_RE.search(norm_text)
-    if neut_m and has_febrile:
-        rules_kind = _upgrade_kind(rules_kind, "red_flag")
-        if "neutropenic_sepsis_risk" not in rules_flags:
-            rules_flags.append("neutropenic_sepsis_risk")
-        _add_quote(neut_m.group(0))
-        fm = _FEVER_MENTION_RE.search(norm_text)
-        if fm:
-            _add_quote(fm.group(0))
-
-    # Febrile infant < 3 months (NICE NG143 / HK HA Paediatrics mandatory A&E sepsis workup)
-    inf_m = _INFANT_UNDER_3M_RE.search(norm_text)
-    if inf_m and has_febrile:
-        rules_kind = _upgrade_kind(rules_kind, "red_flag")
-        if "febrile_infant_under_3m" not in rules_flags:
-            rules_flags.append("febrile_infant_under_3m")
-        _add_quote(inf_m.group(0))
-        fm = _FEVER_MENTION_RE.search(norm_text)
-        if fm:
-            _add_quote(fm.group(0))
-
-    # Obstetric red flag (pregnancy + bleeding / reduced fetal movement / pre-eclampsia signs)
-    preg_m = _PREGNANT_HOST_RE.search(norm_text)
-    ob_m = _OBSTETRIC_DANGER_RE.search(norm_text)
-    if preg_m and ob_m:
-        rules_kind = _upgrade_kind(rules_kind, "red_flag")
-        if "obstetric_red_flag" not in rules_flags:
-            rules_flags.append("obstetric_red_flag")
-        _add_quote(preg_m.group(0))
-        _add_quote(ob_m.group(0))
-
-    # Secondary bacterial pneumonia ("double-sickening") -> priority urgent clinician review (urgency 3)
-    ds_m = _DOUBLE_SICKENING_RE.search(norm_text)
-    if ds_m:
-        rules_urgency = max(rules_urgency, 3)
-        _add_quote(ds_m.group(0))
-
-    spo2 = vitals_map.get("2708-6")
-    if spo2 is not None:
-        if spo2 < 94.0:
-            rules_kind = _upgrade_kind(rules_kind, "red_flag")
-            rules_flags.append("hypoxia_spo2_lt_94")
-        elif spo2 == 94.0:
-            rules_urgency = max(rules_urgency, 3)
-
-    if temp_c is not None:
-        if temp_c >= 40.0:
-            rules_kind = _upgrade_kind(rules_kind, "red_flag")
-            rules_flags.append("hyperpyrexia_temp_gte_40c")
-        elif temp_c <= 35.0:
-            rules_kind = _upgrade_kind(rules_kind, "red_flag")
-            rules_flags.append("hypothermia_sepsis_temp_lte_35c")
-        elif temp_c >= 39.5:
-            rules_urgency = max(rules_urgency, 3)
-        elif temp_c >= 38.5:
-            rules_urgency = max(rules_urgency, 2)
-
-    rr = vitals_map.get("9279-1")
-    if rr is not None and rr >= 25.0:
-        rules_kind = _upgrade_kind(rules_kind, "red_flag")
-        rules_flags.append("tachypnoea_rr_gte_25")
-
-    hr = vitals_map.get("8867-4")
-    if hr is not None and hr >= 130.0:
-        rules_kind = _upgrade_kind(rules_kind, "red_flag")
-        rules_flags.append("tachycardia_hr_gte_130")
-
-    sbp = vitals_map.get("8480-6")
-    if sbp is not None and sbp < 90.0:
-        rules_kind = _upgrade_kind(rules_kind, "red_flag")
-        rules_flags.append("hypotension_sbp_lt_90")
-
-    for obs in vitals_obs:
-        if obs.get("quote"):
-            _add_quote(obs["quote"])
-
-    if rules_kind in ("crisis", "red_flag"):
-        rules_urgency = 4
-
     # Step 2: Model Gateway Screen (STRICT UNION-ONLY MODE)
     model_flags: list[str] = []
     model_kind: str | None = None
     model_urgency = 1
-    screened_by = f"rules:{precare_safety.SCREEN_VERSION}+hk_acute_v1"
+    screened_by = f"rules:{verdict.version}+hk_acute_v1"
     dropped_model_quotes: list[str] = []
     gateway_audit: dict[str, Any] = {}
 
@@ -895,6 +413,15 @@ def screen_acute_message(
             "gateway": gateway_audit,
             "dropped_model_quotes": dropped_model_quotes,
             "prompt_injection_matches": inj_matches,
+            "negated_context": {
+                "negated_context_detected": verdict.negated_context_detected,
+                "is_carer": verdict.is_carer,
+                "suppressed_negations": suppressed,
+            },
+            "safety_kernel": {
+                "version": verdict.version,
+                "profile": verdict.profile,
+            },
         },
     )
 
@@ -1183,17 +710,6 @@ def extract_intake(
 
 
 # --- 3. Consult Draft Proposal & Deterministic Validators ---
-_ACUTE_BANNED_OUTBOUND_PATTERNS: list[tuple[str, str]] = [
-    ("autonomous_sick_leave", r"\bsick[- ]?leave\s+(?:has\s+been|is|was)\s+(?:issued|approved|granted|signed)\b"),
-    ("autonomous_sick_leave", r"\b(?:issued|approved|granted)\s+(?:you\s+)?(?:\d+\s*days?\s+)?(?:sick[- ]?leave|medical\s+certificate)\b"),
-    ("autonomous_sick_leave", r"已(?:發出|批出|簽發)(?:\d+日)?病假"),
-    ("autonomous_prescription", r"\bprescription\s+(?:has\s+been|is|was)\s+(?:issued|approved|signed|dispensed)\b"),
-    ("autonomous_prescription", r"\b(?:prescribed|approved)\s+(?:you\s+)?(?:amoxicillin|augmentin|oseltamivir|antibiotics?|codeine)\b"),
-    ("autonomous_prescription", r"已(?:處方|批出處方|開藥)"),
-    ("diagnostic_certainty", r"\byou\s+definitely\s+have\b|\bconfirmed\s+diagnosis\b"),
-]
-
-
 def _select_working_diagnosis(intake: dict[str, Any]) -> dict[str, str]:
     snomed = set(intake.get("snomed_codes") or [])
     obs_list = intake.get("observations") or []
@@ -1285,6 +801,7 @@ def draft_consult_proposal(
     tenant_id: str = "default",
     model_id: str = "gemini-2.5-flash",
     provider: str = "vertex",
+    case_context: dict[str, Any] | None = None,
 ) -> DraftBundle:
     """Produce an L1 clinician-reviewed acute consult draft bundle and run all deterministic validators."""
     intake_dict = intake.to_dict() if isinstance(intake, IntakeExtraction) else dict(intake)
@@ -1571,6 +1088,11 @@ def draft_consult_proposal(
     # Governed zero-tools gateway refinement: safely merge LLM SOAP text refinements ONLY when
     # they pass 100% of deterministic L1 validators (verbatim quotes, zero banned claims, terminology).
     if gateway is not None:
+        scrubbed_ctx = (
+            case_context
+            if case_context is not None
+            else build_scrubbed_clinical_context(patient=patient, observations=observations)
+        )
         draft_prompt_payload = {
             "source_text": source_text,
             "working_diagnosis": working_dx,
@@ -1578,6 +1100,7 @@ def draft_consult_proposal(
             "observations": observations,
             "evidence_quotes": evidence_quotes,
             "contraindications_noted": contraindications_noted,
+            "clinical_context": scrubbed_ctx,
             "lang": eff_lang,
         }
         try:
@@ -1797,7 +1320,7 @@ def validate_proposal(
 
     errors.extend(term_errors)
 
-    # 4. Banned-Claims & Outbound Reassurance Check
+    # 4. Banned-Claims & Outbound Reassurance Check (via canonical safety kernel)
     claim_errors: list[str] = []
     summary = str(data.get("patient_summary_draft") or "")
     if not summary:
@@ -1810,13 +1333,7 @@ def validate_proposal(
         else:
             label = AUTOMATED_LABEL_ZH if lang == "zh" else AUTOMATED_LABEL_EN
 
-        outbound_fails = precare_safety.check_outbound(summary, label)
-        for f in outbound_fails:
-            claim_errors.append(f"check_outbound_violation:{f}")
-
-        for code, pat in _ACUTE_BANNED_OUTBOUND_PATTERNS:
-            if re.search(pat, summary, re.I):
-                claim_errors.append(f"banned_claim:{code}")
+        claim_errors.extend(check_outbound_safety(summary, label))
 
     errors.extend(claim_errors)
 
@@ -1909,6 +1426,7 @@ class AcuteHarnessRuntime:
         lang: str | None = None,
         tenant_id: str = "default",
         kill_switch: bool | None = None,
+        case_context: dict[str, Any] | None = None,
     ) -> DraftBundle:
         eff_kill = self.kill_switch if kill_switch is None else bool(kill_switch)
         return draft_consult_proposal(
@@ -1919,6 +1437,7 @@ class AcuteHarnessRuntime:
             tenant_id=tenant_id,
             model_id=self.default_model_id,
             provider=self.default_provider,
+            case_context=case_context,
         )
 
     def process_intake(
@@ -1930,6 +1449,7 @@ class AcuteHarnessRuntime:
         lang: str = "auto",
         tenant_id: str = "default",
         kill_switch: bool | None = None,
+        case_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Run full L1 acute intake pipeline: union-only red-flag screen -> short-circuit emergency OR extract+draft."""
         triage = self.screen_message(text, lang=lang, vitals=vitals, tenant_id=tenant_id, kill_switch=kill_switch)
@@ -1942,7 +1462,14 @@ class AcuteHarnessRuntime:
                 "escalated": True,
             }
         intake = self.extract(text, vitals=vitals, lang=lang, tenant_id=tenant_id, kill_switch=kill_switch)
-        draft = self.draft(intake, patient or {}, lang=None if lang == "auto" else lang, tenant_id=tenant_id, kill_switch=kill_switch)
+        draft = self.draft(
+            intake,
+            patient or {},
+            lang=None if lang == "auto" else lang,
+            tenant_id=tenant_id,
+            kill_switch=kill_switch,
+            case_context=case_context,
+        )
         return {
             "triage": triage,
             "intake": intake,

@@ -3008,15 +3008,41 @@ def create_acute_app(
                     },
                 }
 
+            t_row = s.get(Tenant, tenant_id)
+            ai_on = bool(t_row.ai_enabled) if t_row else True
+            allowed_regions = list(t_row.allowed_regions) if t_row and t_row.allowed_regions else ["asia-east2"]
+            allow_cb = bool(t_row.allow_cross_border_inference) if t_row else False
+            model_gw.set_tenant_policy(TenantPolicy(
+                tenant_id=tenant_id,
+                allowed_regions=tuple(allowed_regions),
+                allow_cross_border_inference=allow_cb,
+            ))
+
             obs = s.scalars(select(Observation).where(Observation.patient_id == pat_id).order_by(Observation.recorded_at.desc()).limit(10)).all()
+            open_props = s.scalars(
+                select(Proposal).where(Proposal.patient_id == pat_id, Proposal.status == "pending_review").order_by(Proposal.created_at.desc()).limit(5)
+            ).all()
+            patient_conflicts: list[dict[str, Any]] = []
+            for p_row in open_props:
+                raw_cf = (p_row.payload_json or {}).get("conflicts") or []
+                for cf in raw_cf:
+                    if isinstance(cf, dict):
+                        patient_conflicts.append(cf)
+                    elif isinstance(cf, str) and cf.strip():
+                        patient_conflicts.append({"drug": "Medication reconciliation", "summary": cf.strip()})
+
             ans = answer_companion_question(
                 body.message,
                 patient={
                     "name_en": pat.name_en, "allergies": pat.allergies_json,
                     "current_meds": pat.current_meds_json, "g6pd_deficient": pat.g6pd_deficient,
+                    "egfr": pat.egfr, "weight_kg": pat.weight_kg,
                 },
                 observations=[{"loinc_code": o.loinc_code, "display": o.display, "value_text": o.value_text} for o in obs],
                 lang=body.lang or pat.preferred_lang,
+                conflicts=patient_conflicts,
+                gateway=model_gw if ai_on else None,
+                tenant_id=tenant_id,
             )
             created_prop_id: str | None = None
             low_msg = body.message.lower()
@@ -3025,8 +3051,6 @@ def create_acute_app(
                 for k in ("fever", "flu", "cough", "sore throat", "rat", "tamiflu", "oseltamivir", "sick leave", "發燒", "流感", "喉嚨痛", "咳", "快測", "病假")
             )
             if is_new_symptom:
-                t_row = s.get(Tenant, tenant_id)
-                ai_on = bool(t_row.ai_enabled) if t_row else True
                 intake_res = harness_rt.process_intake(
                     body.message.strip(),
                     patient={
