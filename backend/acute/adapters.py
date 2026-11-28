@@ -880,10 +880,301 @@ class CorporateBillingAdapter:
         }
 
 
-# -------------------------------------------------------------------------------------- 6. Workspace Confirm / Undo Dispatcher
+# -------------------------------------------------------------------------------------- 6. Diagnostic Labs & Pathology Adapter (WO #72 Stage 3)
+HK_LAB_PANELS: dict[str, dict[str, Any]] = {
+    "cbc": {
+        "display": "Complete Blood Count (CBC)",
+        "loinc_codes": ["718-7", "6690-2", "777-3"],
+        "turnaround_hours": 12,
+        "fasting_required": False,
+    },
+    "iron_studies": {
+        "display": "Iron Studies & Serum Ferritin",
+        "loinc_codes": ["2276-4", "2498-4"],
+        "turnaround_hours": 24,
+        "fasting_required": True,
+    },
+    "lipid_apob": {
+        "display": "Fasting Lipid Profile + ApoB + Lp(a)",
+        "loinc_codes": ["13457-7", "1884-6", "10835-7"],
+        "turnaround_hours": 24,
+        "fasting_required": True,
+    },
+    "hba1c": {
+        "display": "Glycated Haemoglobin (HbA1c)",
+        "loinc_codes": ["4548-4"],
+        "turnaround_hours": 12,
+        "fasting_required": False,
+    },
+    "renal_electrolytes": {
+        "display": "Renal Function & Electrolytes (RFT / eGFR / K+)",
+        "loinc_codes": ["33914-3", "2823-3", "2160-0"],
+        "turnaround_hours": 6,
+        "fasting_required": False,
+    },
+    "coag_inr": {
+        "display": "Prothrombin Time / INR",
+        "loinc_codes": ["6301-6"],
+        "turnaround_hours": 4,
+        "fasting_required": False,
+    },
+    "thyroid": {
+        "display": "Thyroid Function Test (TSH, Free T4)",
+        "loinc_codes": ["3016-3", "3024-7"],
+        "turnaround_hours": 24,
+        "fasting_required": False,
+    },
+    "urine_culture": {
+        "display": "Mid-Stream Urine Microscopy & Culture (MSU C&S)",
+        "loinc_codes": ["630-4"],
+        "turnaround_hours": 48,
+        "fasting_required": False,
+    },
+}
+
+_LAB_CRITICAL_RULES: dict[str, tuple[float | None, float | None, str]] = {
+    # loinc_code -> (critical_low, critical_high, label)
+    "2823-3": (2.5, 6.0, "Serum Potassium critical"),
+    "718-7": (7.0, None, "Severe anaemia Hb < 7.0 g/dL"),
+    "6301-6": (None, 5.0, "Supratherapeutic INR >= 5.0 (bleeding risk)"),
+    "2345-7": (3.0, 25.0, "Critical blood glucose"),
+}
+
+
+class LabsAdapter:
+    """Hong Kong diagnostic laboratory & pathology adapter (KingMed / PathLab / PHS simulator)
+    implementing `AdapterContract` with deterministic `FaultInjector`, idempotent ordering,
+    FHIR-aligned LOINC/UCUM result fetching, critical-value detection, and HMAC webhook verification.
+    """
+
+    name = "hk_labs_pathology"
+    capabilities = ("order_panel", "fetch_results", "ingest_webhook", "cancel_order", "verify_webhook")
+
+    def __init__(
+        self,
+        *,
+        fault_injector: FaultInjector | None = None,
+        default_partner: str = "KingMed Diagnostics HK",
+    ) -> None:
+        self.faults = fault_injector or FaultInjector()
+        self.default_partner = default_partner
+        self.orders: dict[str, dict[str, Any]] = {}
+        self.results: dict[str, list[dict[str, Any]]] = {}
+
+    @staticmethod
+    def _evaluate_critical_flags(observations: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+        criticals: list[dict[str, Any]] = []
+        for obs in observations:
+            loinc = str(obs.get("loinc_code") or "").strip()
+            val = obs.get("value_num")
+            if loinc not in _LAB_CRITICAL_RULES or val is None:
+                continue
+            try:
+                num = float(val)
+            except (TypeError, ValueError):
+                continue
+            lo, hi, label = _LAB_CRITICAL_RULES[loinc]
+            if (lo is not None and num < lo) or (hi is not None and num >= hi):
+                criticals.append(
+                    {
+                        "loinc_code": loinc,
+                        "value_num": num,
+                        "ucum_unit": obs.get("ucum_unit") or "",
+                        "alert": label,
+                    }
+                )
+        return criticals
+
+    def order_panel(
+        self,
+        *,
+        patient_id: str,
+        practitioner_id: str,
+        panels: Sequence[str],
+        clinical_indication: str = "",
+        priority: str = "routine",
+        lab_partner: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> AdapterResult:
+        if not panels:
+            raise AdapterError("At least one lab panel is required", retryable=False, code="empty_panels")
+        norm_priority = priority.strip().lower()
+        if norm_priority not in ("routine", "urgent", "stat"):
+            raise AdapterError(f"Unsupported lab priority: {priority}", retryable=False, code="invalid_priority")
+
+        cached = self.faults.check("labs.order", idempotency_key)
+        if cached is not None:
+            return cached
+
+        resolved_panels: list[dict[str, Any]] = []
+        loinc_codes: list[str] = []
+        fasting = False
+        for raw_panel in panels:
+            key = str(raw_panel).strip().lower()
+            meta = HK_LAB_PANELS.get(key)
+            if meta:
+                resolved_panels.append({"code": key, "display": meta["display"], "loinc_codes": list(meta["loinc_codes"])})
+                loinc_codes.extend(meta["loinc_codes"])
+                fasting = fasting or bool(meta["fasting_required"])
+            else:
+                resolved_panels.append({"code": key, "display": str(raw_panel).strip(), "loinc_codes": []})
+
+        order_ref = f"lab_{uuid.uuid4().hex[:12]}"
+        record = {
+            "order_ref": order_ref,
+            "patient_id": patient_id,
+            "practitioner_id": practitioner_id,
+            "lab_partner": lab_partner or self.default_partner,
+            "panels": resolved_panels,
+            "loinc_codes": sorted(set(loinc_codes)),
+            "fasting_required": fasting,
+            "clinical_indication": clinical_indication,
+            "priority": norm_priority,
+            "status": "ordered",
+            "idempotency_key": idempotency_key or "",
+            "ordered_at": datetime.now(timezone.utc).isoformat(),
+        }
+        self.orders[order_ref] = record
+
+        res = AdapterResult(
+            ok=True,
+            external_ref=order_ref,
+            status="ordered",
+            payload=record,
+            idempotency_key=idempotency_key or "",
+        )
+        return self.faults.record(idempotency_key, res)
+
+    def publish_simulated_results(
+        self,
+        order_ref: str,
+        observations: Sequence[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Seed deterministic lab observations for a placed order (used by simulators/CI)."""
+        if order_ref not in self.orders:
+            raise AdapterError(f"Unknown lab order_ref: {order_ref}", retryable=False, code="order_not_found")
+        obs_list = [dict(o) for o in observations]
+        self.results[order_ref] = obs_list
+        self.orders[order_ref]["status"] = "completed"
+        criticals = self._evaluate_critical_flags(obs_list)
+        return {"order_ref": order_ref, "status": "completed", "observations": obs_list, "critical_alerts": criticals}
+
+    def fetch_results(
+        self,
+        order_ref: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> AdapterResult:
+        cached = self.faults.check("labs.fetch_results", idempotency_key)
+        if cached is not None:
+            return cached
+        order = self.orders.get(order_ref)
+        if order is None:
+            raise AdapterError(f"Unknown lab order_ref: {order_ref}", retryable=False, code="order_not_found")
+        obs = list(self.results.get(order_ref) or [])
+        criticals = self._evaluate_critical_flags(obs)
+        status = "final" if obs else order["status"]
+        payload = {
+            "order_ref": order_ref,
+            "patient_id": order["patient_id"],
+            "lab_partner": order["lab_partner"],
+            "status": status,
+            "observations": obs,
+            "critical_alerts": criticals,
+            "has_critical": bool(criticals),
+        }
+        res = AdapterResult(
+            ok=True,
+            external_ref=order_ref,
+            status=status,
+            payload=payload,
+            idempotency_key=idempotency_key or "",
+        )
+        return self.faults.record(idempotency_key, res)
+
+    def ingest_result_webhook(
+        self,
+        *,
+        raw_body: bytes,
+        signature: str,
+        secret: str,
+        idempotency_key: str | None = None,
+    ) -> AdapterResult:
+        if not self.verify_webhook(raw_body, signature, secret):
+            raise AdapterError("Invalid lab webhook HMAC signature", retryable=False, code="invalid_signature")
+        cached = self.faults.check("labs.webhook", idempotency_key)
+        if cached is not None:
+            return cached
+        import json
+
+        data = json.loads(raw_body.decode("utf-8"))
+        order_ref = str(data.get("order_ref") or "").strip()
+        observations = list(data.get("observations") or [])
+        if order_ref in self.orders:
+            self.results[order_ref] = observations
+            self.orders[order_ref]["status"] = "completed"
+        criticals = self._evaluate_critical_flags(observations)
+        payload = {
+            "order_ref": order_ref,
+            "observation_count": len(observations),
+            "critical_alerts": criticals,
+            "has_critical": bool(criticals),
+            "status": "ingested",
+        }
+        res = AdapterResult(
+            ok=True,
+            external_ref=order_ref or f"labwh_{uuid.uuid4().hex[:10]}",
+            status="ingested",
+            payload=payload,
+            idempotency_key=idempotency_key or "",
+        )
+        return self.faults.record(idempotency_key, res)
+
+    def cancel_order(
+        self,
+        order_ref: str,
+        *,
+        reason: str = "Clinician cancelled",
+        idempotency_key: str | None = None,
+    ) -> AdapterResult:
+        cached = self.faults.check("labs.cancel", idempotency_key)
+        if cached is not None:
+            return cached
+        order = self.orders.get(order_ref)
+        if order is None:
+            raise AdapterError(f"Unknown lab order_ref: {order_ref}", retryable=False, code="order_not_found")
+        if order["status"] == "completed":
+            raise AdapterError("Cannot cancel completed lab order", retryable=False, code="invalid_transition")
+        order["status"] = "cancelled"
+        order["cancel_reason"] = reason
+        res = AdapterResult(
+            ok=True,
+            external_ref=order_ref,
+            status="cancelled",
+            payload=dict(order),
+            idempotency_key=idempotency_key or "",
+        )
+        return self.faults.record(idempotency_key, res)
+
+    def verify_webhook(self, raw_body: bytes, signature: str, secret: str) -> bool:
+        return verify_hmac_sha256(raw_body, signature, secret)
+
+    def health(self) -> dict[str, Any]:
+        return {
+            "adapter": self.name,
+            "mode": "simulated",
+            "default_partner": self.default_partner,
+            "capabilities": list(self.capabilities),
+            "orders_count": len(self.orders),
+            "ok": "labs.order" not in self.faults.permanent_down,
+        }
+
+
+# -------------------------------------------------------------------------------------- 7. Workspace Confirm / Undo Dispatcher
 class WorkspaceAdapterDispatcher:
-    """Orchestrates BookingAdapter, FluVaxAdapter, PharmacyFulfilmentAdapter, and WhatsAppDoorbellAdapter
-    for `/workspace` confirm & 10-second Undo rollback with full idempotency and WhatsAppLeakageGuard enforcement.
+    """Orchestrates BookingAdapter, FluVaxAdapter, PharmacyFulfilmentAdapter, LabsAdapter, and
+    WhatsAppDoorbellAdapter for `/workspace` confirm & 10-second Undo rollback with full idempotency
+    and WhatsAppLeakageGuard enforcement.
     """
 
     def __init__(
@@ -893,11 +1184,13 @@ class WorkspaceAdapterDispatcher:
         vax_adapter: FluVaxAdapter,
         rx_adapter: PharmacyFulfilmentAdapter,
         wa_adapter: WhatsAppDoorbellAdapter,
+        labs_adapter: LabsAdapter | None = None,
     ) -> None:
         self.booking_adapter = booking_adapter
         self.vax_adapter = vax_adapter
         self.rx_adapter = rx_adapter
         self.wa_adapter = wa_adapter
+        self.labs_adapter = labs_adapter or LabsAdapter()
         self._trace_records: dict[str, dict[str, list[dict[str, Any]]]] = {}
 
     def dispatch_orders(
@@ -916,6 +1209,7 @@ class WorkspaceAdapterDispatcher:
         bookings: list[dict[str, Any]] = []
         vaccinations: list[dict[str, Any]] = []
         pharmacy_orders: list[dict[str, Any]] = []
+        lab_orders: list[dict[str, Any]] = []
         whatsapp_doorbells: list[dict[str, Any]] = []
 
         # 1. Dispatch /book orders -> FluVaxAdapter (if flu/vaccine) or BookingAdapter
@@ -996,9 +1290,30 @@ class WorkspaceAdapterDispatcher:
                 }
             )
 
+        # 2B. Dispatch /lab orders -> LabsAdapter
+        active_labs = [o for o in orders if o.get("type") == "lab"]
+        for idx, lab_ord in enumerate(active_labs):
+            panel_name = str(lab_ord.get("panel") or lab_ord.get("test") or lab_ord.get("title") or "cbc")
+            l_res = self.labs_adapter.order_panel(
+                patient_id=patient_id,
+                practitioner_id=practitioner_id,
+                panels=[panel_name],
+                clinical_indication=str(lab_ord.get("rationale") or lab_ord.get("indication") or ""),
+                priority=str(lab_ord.get("priority") or "routine"),
+                idempotency_key=f"ws_lab_{trace_id}_{idx}",
+            )
+            lab_orders.append(
+                {
+                    "adapter": self.labs_adapter.name,
+                    "order_ref": l_res.external_ref,
+                    "panel": panel_name,
+                    "status": l_res.status,
+                }
+            )
+
         # 3. Non-clinical WhatsApp utility doorbell (strictly enforced by WhatsAppLeakageGuard!)
-        if has_certificate or active_rx or bookings or vaccinations:
-            tpl_id = "document_ready" if (has_certificate or active_rx) else "booking_confirmed"
+        if has_certificate or active_rx or bookings or vaccinations or lab_orders:
+            tpl_id = "document_ready" if (has_certificate or active_rx or lab_orders) else "booking_confirmed"
             params: dict[str, Any] = {
                 "url": portal_url,
                 "doctor_name": practitioner_name,
@@ -1026,16 +1341,18 @@ class WorkspaceAdapterDispatcher:
             "bookings": bookings,
             "vaccinations": vaccinations,
             "pharmacy_orders": pharmacy_orders,
+            "lab_orders": lab_orders,
             "whatsapp_doorbells": whatsapp_doorbells,
         }
         self._trace_records[trace_id] = bundle
         return bundle
 
     def rollback_trace(self, trace_id: str, *, reason: str = "Clinician triggered 10-second Undo") -> dict[str, Any]:
-        """Idempotently cancel provisional bookings, vaccination slots, and pharmacy stubs for an undone trace."""
+        """Idempotently cancel provisional bookings, vaccination slots, pharmacy stubs, and lab orders for an undone trace."""
         bundle = self._trace_records.get(trace_id) or {}
         cancelled_bookings: list[str] = []
         cancelled_pharmacy_orders: list[str] = []
+        cancelled_lab_orders: list[str] = []
 
         for bk in bundle.get("bookings") or []:
             ref = bk.get("booking_ref")
@@ -1067,8 +1384,19 @@ class WorkspaceAdapterDispatcher:
                 except AdapterError:
                     pass
 
+        for lab in bundle.get("lab_orders") or []:
+            ref = lab.get("order_ref")
+            if ref:
+                try:
+                    self.labs_adapter.cancel_order(ref, reason=reason, idempotency_key=f"undo_lab_{trace_id}_{ref}")
+                    lab["status"] = "cancelled"
+                    cancelled_lab_orders.append(ref)
+                except AdapterError:
+                    pass
+
         return {
             "cancelled_bookings": cancelled_bookings,
             "cancelled_pharmacy_orders": cancelled_pharmacy_orders,
+            "cancelled_lab_orders": cancelled_lab_orders,
         }
 
