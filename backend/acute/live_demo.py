@@ -41,6 +41,12 @@ from .agent_harness import (
     invoke_structured_json,
     resolve_fast_chat_model,
 )
+from .agentic_runtime import (
+    append_case_agent_trace,
+    build_compact_trace_record,
+    build_preset_trace_record,
+    run_governed_patient_turn,
+)
 
 logger = logging.getLogger(__name__)
 from .certificates import enrich_prescription_item_for_patient
@@ -2651,8 +2657,9 @@ def handle_live_chat_turn(
     lang: str = "en",
     is_preset: bool = False,
     attachment: dict[str, Any] | None = None,
+    transport_override: Any | None = None,
 ) -> dict[str, Any]:
-    """Process a patient chat turn: defined presets run 100% deterministically; free text invokes live LLM with deterministic pre-gates."""
+    """Process a patient chat turn: defined presets run 100% deterministically; free text runs GovernedAgentRunner with deterministic pre-gates."""
     t_turn_start = time.perf_counter()
     text = (message_text or "").strip()
     if not text:
@@ -2662,7 +2669,7 @@ def handle_live_chat_turn(
     j_key = j["key"]
     pid = j["patient_id"]
     is_zh = _is_zh(text, lang)
-    use_deterministic_preset = bool(is_preset or _is_defined_preset_message(j, text))
+    use_deterministic_preset = bool((is_preset or _is_defined_preset_message(j, text)) and transport_override is None)
     engine = (
         {
             "live": False,
@@ -2777,6 +2784,16 @@ def handle_live_chat_turn(
             alerts.insert(0, {"level": "high", "label": "999 Red-Flag Exit Triggered", "detail": f"Patient message triggered deterministic HK 999 safety floor ({hhmm})"})
             summary["alerts"] = alerts
             timeline.append({"date": f"Today {hhmm}", "label": "SafetySentinel · Deterministic 999 red-flag exit triggered (pre-LLM).", "agent": "SafetySentinel"})
+            pre_gate_trace = build_preset_trace_record(
+                surface="live_patient_turn",
+                user_input=text,
+                ctx_tel={"total_tokens_est": 0, "token_budget_ceiling": 4096, "within_budget": True},
+                tool_calls=[{"tool": "safety.screen_red_flags", "authority": "CDS", "ok": True, "emr_target": "triage", "duration_ms": 0.5}],
+                short_circuited_pre_gate=True,
+                injection_signals=inj_signals,
+                latency_ms=round((time.perf_counter() - t_turn_start) * 1000, 2),
+            )
+            append_case_agent_trace(summary, pre_gate_trace)
 
             case.state = "needs_decision"
             case.baton = "with_doctor"
@@ -2804,6 +2821,7 @@ def handle_live_chat_turn(
                 "messages": chat,
                 "crisis": crisis_payload,
                 "prompt_injection_detected": prompt_inj,
+                "agent_trace": pre_gate_trace,
                 "suggested_replies": j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"],
             }
 
@@ -2818,6 +2836,16 @@ def handle_live_chat_turn(
             chat.append({"actor": "Sam", "time": hhmm, "text": _plain_chat_text(reply), "lang": "zh-HK" if is_zh else "en"})
             summary["original_chat"] = chat
             timeline.append({"date": f"Today {hhmm}", "label": f"SecurityGuard · Prompt injection neutralized ({', '.join(inj_signals[:3])}) — zero tools exposed.", "agent": "SecurityGuard"})
+            inj_trace = build_preset_trace_record(
+                surface="live_patient_turn",
+                user_input=text,
+                ctx_tel={"total_tokens_est": 0, "token_budget_ceiling": 4096, "within_budget": True},
+                tool_calls=[{"tool": "prompt_injection.fence", "authority": "BLOCKED", "ok": False, "error_code": "PROMPT_INJECTION_BLOCKED", "emr_target": "guard", "duration_ms": 0.4}],
+                short_circuited_pre_gate=True,
+                injection_signals=inj_signals,
+                latency_ms=round((time.perf_counter() - t_turn_start) * 1000, 2),
+            )
+            append_case_agent_trace(summary, inj_trace)
             case.summary_json = summary
             case.timeline_json = timeline
             flag_modified(case, "summary_json")
@@ -2838,6 +2866,7 @@ def handle_live_chat_turn(
                 "messages": chat,
                 "crisis": None,
                 "prompt_injection_detected": True,
+                "agent_trace": inj_trace,
                 "suggested_replies": j["suggested_replies_zh"] if is_zh else j["suggested_replies_en"],
             }
 
@@ -2915,9 +2944,20 @@ def handle_live_chat_turn(
         availability_roster = build_clinic_availability(session, tenant_id, for_case_key=j_key)
         availability_prompt_line = format_availability_for_prompt(availability_roster)
         case_id = case.id
+        case_pathway_node_id = case.pathway_node_id
+        case_verified_quotes = [
+            {"id": a.get("id"), "label": a.get("label"), "quote": a.get("quote")}
+            for a in (updated_summary.get("attachments") or [])
+            if isinstance(a, dict) and a.get("quote")
+        ]
+        active_graph_nodes_for_turn = list(graph.get("nodes") or [])[:4]
+        total_graph_nodes_for_turn = len(graph.get("nodes") or []) or 14
+        careline_name_for_turn = str((graph.get("careline_profile") or {}).get("name") or "Sam")
+        clinic_name_for_turn = str((graph.get("clinic_profile") or {}).get("name") or "Central & Mid-Levels Family Medical")
         session.flush()
 
-    # 4. Live Autonomous AI Registrar — invoked ONLY on custom free-text messages (defined demo presets run 100% deterministically).
+    # 4. Live Governed Agentic Turn (GovernedAgentRunner: 5-slot ContextCompiler + Progressive Skills + Real Tools + 1-Retry Repair)
+    # Defined demo presets run 100% deterministically (Milestone 1 zero-regression guarantee).
     reply = fallback_reply
     live_reply_used = False
     llm_offer_booking = False
@@ -2932,17 +2972,9 @@ def handle_live_chat_turn(
     llm_thought_tokens: int | None = None
     llm_error: str | None = None
     dynamic_suggested_replies: list[str] = []
+    governed_trace_record: dict[str, Any] | None = None
 
-    if engine.get("live") and not use_deterministic_preset:
-        lang_directive = (
-            "Write patient_reply warmly in natural HK Traditional Chinese/Cantonese (繁體中文)."
-            if is_zh
-            else "Write patient_reply warmly in clear, natural English."
-        )
-        recent_turns = "\n".join(
-            f"- {m.get('actor', 'User')}: {str(m.get('text') or '')[:180]}"
-            for m in chat[-6:]
-        )
+    if (engine.get("live") or transport_override is not None) and not use_deterministic_preset:
         if has_day3:
             phase_desc = (
                 "PHASE 4 (Day+3 post-sign): Doctor already signed 3d ago. "
@@ -2972,203 +3004,224 @@ def handle_live_chat_turn(
                 "(never re-ask stated facts); route_to_admin for pure scheduling/vaccines; escalate_to_doctor once ready for Dr. Sarah Wong."
             )
 
-        sys_prompt = (
-            "You are Sam, Clinic Careline AI Registrar at Central & Mid-Levels Family Medical (HK). "
-            "Strict Asymmetric Authority: gather history, extract vitals, check live doctor availability & offer bookings, route admin tasks, or stage briefs for our doctors; "
-            "NEVER prescribe, issue/extend sick-leave, sign, diagnose definitively, or promise reply SLAs.\n"
-            "Return STRICT JSON ONLY:\n"
-            '{"patient_reply":str,"clinical_reasoning":str,"registrar_action":"keep_in_patient_loop"|"escalate_to_doctor"|"route_to_admin"|"close_quietly",'
-            '"offer_booking":bool,"extracted_vitals":[{"label":str,"val":str}],"issue_summary_update":str,"admin_task":str,"suggested_patient_replies":[str,str]}\n'
-            "Rules:\n"
-            "- patient_reply: 1-2 crisp, calm, empathetic sentences answering what they JUST wrote for the current phase; "
-            "NEVER use exclamation marks (! or ！) — use plain periods and question marks; "
-            "never re-ask already stated facts; if confused ('whaat?'), apologize & clarify; never say 'feeling better' unless stated; "
-            "when suggesting a visit or appointment, mention an exact open doctor & time from Live open slots and set offer_booking=true so the booking card appears below; "
-            "NEVER mention internal alerts/jargon (G6PD, haemolysis, nitrofurantoin, drug-class mechanisms) to patient (keep in clinical_reasoning); "
-            "never claim to be a doctor or repeat a prior reply.\n"
-            "- clinical_reasoning: 1 terse clinical line (<=20 words) for doctor (phase, safety, why action); never write chat-formatting meta-commentary (never say 'patient chat kept simple and jargon-free').\n"
-            "- issue_summary_update: <=15 words (or \"\" if unchanged); admin_task: \"\" unless route_to_admin.\n"
-            "- suggested_patient_replies: 0-2 short calm chips (<=65 chars, same language) replying ONLY to topics explicitly mentioned in patient_reply.\n"
-            f"{lang_directive}"
-        )
-        user_prompt = (
-            f"Phase: {phase_desc}\n"
-            f"Patient: {j['patient_name']} ({j['age_sex']})\n"
-            f"{availability_prompt_line}\n"
-            f"Chart (clinician-only): {chart_facts}\n"
-            f"CDS (clinician-only): {cds_warnings or 'None'}\n"
-            f"Chat:\n{recent_turns}\n\n"
-            f"Latest: {text}"
-        )
         chat_engine = dict(engine)
         if chat_engine.get("provider") in ("gemini", "vertex"):
             chat_engine["model"] = resolve_fast_chat_model(chat_engine)
-        llm_call = invoke_structured_json(
-            system_prompt=sys_prompt,
-            user_prompt=user_prompt,
-            temperature=0.25,
-            max_output_tokens=760,
-            patient_names_for_scrub=[j["patient_name"]],
-            engine_override=chat_engine,
-            timeout_seconds=20.0,
-            thinking_level="LOW",
+
+        fallback_action = (
+            "escalate_to_doctor"
+            if new_state == "needs_decision"
+            else ("route_to_admin" if new_state == "scheduled" else "keep_in_patient_loop")
         )
-        llm_provider_used = llm_call.provider
-        llm_model_used = llm_call.model
-        llm_region_used = llm_call.region
-        llm_latency_ms = llm_call.latency_ms
-        llm_attempts = llm_call.attempts_tried
-        llm_fallback_used = llm_call.fallback_used
-        llm_prompt_tokens = llm_call.prompt_tokens
-        llm_output_tokens = llm_call.output_tokens
-        llm_thought_tokens = llm_call.thought_tokens
-        if llm_call.ok and isinstance(llm_call.json_payload, dict) and llm_call.json_payload.get("patient_reply"):
-            obj = llm_call.json_payload
-            parsed_reply = str(obj["patient_reply"]).strip()
-            parsed_reasoning = str(obj.get("clinical_reasoning") or "").strip()
-            reg_action = str(obj.get("registrar_action") or "").strip().lower()
-            llm_offer_booking = bool(obj.get("offer_booking"))
-            extracted_vitals: list[dict[str, str]] = []
-            if isinstance(obj.get("extracted_vitals"), list):
-                extracted_vitals = [
-                    {"label": str(v.get("label", "")).strip(), "val": str(v.get("val", "")).strip()}
-                    for v in obj["extracted_vitals"]
-                    if isinstance(v, dict) and v.get("label") and v.get("val")
-                ][:4]
-            issue_update = str(obj.get("issue_summary_update") or "").strip()
-            admin_task = str(obj.get("admin_task") or "").strip()
+        try:
+            gov_trace = run_governed_patient_turn(
+                db,
+                tenant_id=tenant_id,
+                patient_id=pid,
+                patient_name=j["patient_name"],
+                case_key=j_key,
+                pathway_node_id=case_pathway_node_id,
+                active_graph_nodes=active_graph_nodes_for_turn,
+                total_graph_nodes=total_graph_nodes_for_turn,
+                clinical_state={
+                    "patient_name": j["patient_name"],
+                    "age_sex": j["age_sex"],
+                    "chart_facts_clinician_only": chart_facts,
+                    "cds_warnings_clinician_only": cds_warnings or [],
+                    "case_state": new_state,
+                    "lead_line": lead_line,
+                },
+                verified_quotes=case_verified_quotes,
+                conversation_turns=chat[-6:],
+                current_input=text,
+                phase_desc=phase_desc,
+                availability_prompt_line=availability_prompt_line,
+                is_zh=is_zh,
+                clinic_name=clinic_name_for_turn,
+                careline_name=careline_name_for_turn,
+                fallback_reply=fallback_reply,
+                fallback_action=fallback_action,
+                engine=chat_engine,
+                live_bus=live_bus,
+                transport_override=transport_override,
+                source_corpus=[text] + [str(m.get("text") or "") for m in chat[-6:]],
+            )
+        except Exception as exc:
+            logger.warning("GovernedAgentRunner transport error on journey=%s: %s; using deterministic fallback", j_key, exc)
+            gov_trace = None
+            llm_error = f"governed_runner_error:{type(exc).__name__}:{str(exc)[:120]}"
+            llm_fallback_used = True
 
-            raw_sug_list = obj.get("suggested_patient_replies")
-            if not isinstance(raw_sug_list, list):
-                raw_sug_list = obj.get("dynamic_suggested_replies")
-            if isinstance(raw_sug_list, list):
-                already_sent = {
-                    str(m.get("text") or "").strip().lower()
-                    for m in chat
-                    if m.get("actor") not in ("Sam", "Assistant", "Clinic")
-                }
-                seen_sug: set[str] = set()
-                for raw_s in raw_sug_list:
-                    if not isinstance(raw_s, str):
-                        continue
-                    cand_s = _plain_chat_text(raw_s).strip()
-                    low_s = cand_s.lower()
-                    if not cand_s or len(cand_s) > 140 or low_s in already_sent or low_s in seen_sug:
-                        continue
-                    if screen_acute_message(cand_s).kind is not None:
-                        continue
-                    seen_sug.add(low_s)
-                    dynamic_suggested_replies.append(cand_s)
-                    if len(dynamic_suggested_replies) >= 2:
-                        break
+        if gov_trace is not None:
+            governed_trace_record = build_compact_trace_record(
+                gov_trace,
+                surface="live_patient_turn",
+                user_input=text,
+            )
+            llm_provider_used = gov_trace.provider
+            llm_model_used = gov_trace.model
+            llm_region_used = gov_trace.region
+            llm_latency_ms = int(gov_trace.latency_ms)
+            llm_attempts = int(gov_trace.attempts_tried or (1 + int(gov_trace.retries or 0)))
+            llm_fallback_used = bool(gov_trace.fallback_used)
+            llm_prompt_tokens = (
+                gov_trace.prompt_tokens_actual
+                if gov_trace.prompt_tokens_actual is not None
+                else gov_trace.context_snapshot.get("total_tokens_est")
+            )
+            llm_output_tokens = gov_trace.output_tokens_actual
+            llm_thought_tokens = gov_trace.thought_tokens_actual
 
-            screened = screen_agent_output(parsed_reply, channel="patient_careline")
-            if screened.passed and parsed_reply:
-                reply = parsed_reply
-                live_reply_used = True
+            if not gov_trace.fallback_used and isinstance(gov_trace.final_json, dict) and gov_trace.final_json.get("patient_reply"):
+                obj = gov_trace.final_json
+                parsed_reply = str(obj["patient_reply"]).strip()
+                parsed_reasoning = str(obj.get("clinical_reasoning") or "").strip()
+                reg_action = str(obj.get("registrar_action") or "").strip().lower()
+                llm_offer_booking = bool(obj.get("offer_booking"))
+                extracted_vitals: list[dict[str, str]] = []
+                if isinstance(obj.get("extracted_vitals"), list):
+                    extracted_vitals = [
+                        {"label": str(v.get("label", "")).strip(), "val": str(v.get("val", "")).strip()}
+                        for v in obj["extracted_vitals"]
+                        if isinstance(v, dict) and v.get("label") and v.get("val")
+                    ][:4]
+                issue_update = str(obj.get("issue_summary_update") or "").strip()
+                admin_task = str(obj.get("admin_task") or "").strip()
+
+                raw_sug_list = obj.get("suggested_patient_replies")
+                if not isinstance(raw_sug_list, list):
+                    raw_sug_list = obj.get("dynamic_suggested_replies")
+                if isinstance(raw_sug_list, list):
+                    already_sent = {
+                        str(m.get("text") or "").strip().lower()
+                        for m in chat
+                        if m.get("actor") not in ("Sam", "Assistant", "Clinic")
+                    }
+                    seen_sug: set[str] = set()
+                    for raw_s in raw_sug_list:
+                        if not isinstance(raw_s, str):
+                            continue
+                        cand_s = _plain_chat_text(raw_s).strip()
+                        low_s = cand_s.lower()
+                        if not cand_s or len(cand_s) > 140 or low_s in already_sent or low_s in seen_sug:
+                            continue
+                        if screen_acute_message(cand_s).kind is not None:
+                            continue
+                        seen_sug.add(low_s)
+                        dynamic_suggested_replies.append(cand_s)
+                        if len(dynamic_suggested_replies) >= 2:
+                            break
+
+                screened = screen_agent_output(parsed_reply, channel="patient_careline")
+                if screened.passed and parsed_reply:
+                    reply = parsed_reply
+                    live_reply_used = True
+                else:
+                    llm_error = f"output_screen_blocked:{[v.get('code') for v in screened.violations]}"
+                    logger.warning("Governed registrar reply blocked by output screen (%s); using fallback", llm_error)
+
+                if dynamic_suggested_replies and live_reply_used:
+                    updated_summary["_dynamic_suggested_replies"] = {
+                        "lang": "zh-HK" if is_zh else "en",
+                        "replies": dynamic_suggested_replies,
+                    }
+                elif live_reply_used:
+                    updated_summary.pop("_dynamic_suggested_replies", None)
+
+                # Execute the governed registrar's chosen harness action (never weakening CDS safety blocks or MCHK doctor escalation!)
+                if reg_action in ("keep_in_patient_loop", "escalate_to_doctor", "route_to_admin", "close_quietly"):
+                    if reg_action == "keep_in_patient_loop" and not cds_blocked and not has_signed:
+                        new_state = "running"
+                        new_baton = "with_patient"
+                        next_cp = "Registrar intake"
+                    elif reg_action == "escalate_to_doctor":
+                        new_state = "needs_decision"
+                        new_baton = "with_doctor"
+                        next_cp = "Ready for doctor review"
+                    elif reg_action == "route_to_admin" and not cds_blocked and new_state != "needs_decision":
+                        new_state = "scheduled"
+                        new_baton = "idle"
+                        next_cp = "Admin / Nurse handoff"
+                        ah_list = list(updated_summary.get("admin_handoffs") or [])
+                        task_desc = admin_task or f"Autonomous request from {j['patient_name']}: “{text.strip()}” — coordinate with Clinic Admin / Nurse (doctor kept out of loop)."
+                        if not any(task_desc[:40] in str(x.get("task", "")) for x in ah_list):
+                            ah_list.append({
+                                "id": new_id("adm"),
+                                "route": f"Sam ({llm_model_used} Registrar) → Clinic Admin / Nurse Rachel",
+                                "task": task_desc,
+                                "status": "pending_admin",
+                                "created_at": utcnow().isoformat(),
+                            })
+                            updated_summary["admin_handoffs"] = ah_list
+                    elif reg_action == "close_quietly" and not cds_blocked and new_state != "needs_decision":
+                        new_state = "scheduled"
+                        new_baton = "idle"
+                        next_cp = "Quiet monitoring"
+
+                    live_bus.append_tool_call(
+                        pid,
+                        {
+                            "agent": "CareAgent",
+                            "tool": f"registrar.{reg_action}",
+                            "authority": "DRAFT",
+                            "emr_target": "clinic_team" if reg_action == "route_to_admin" else "workspace",
+                            "summary": (
+                                f"{llm_model_used} ({llm_provider_used}/{llm_region_used}) chose {reg_action}"
+                                + (f" · {len(gov_trace.tool_calls)} tool(s)" if gov_trace.tool_calls else "")
+                                + (f" · {gov_trace.retries} repair" if gov_trace.retries else "")
+                                + (f" · {len(extracted_vitals)} vitals" if extracted_vitals else "")
+                            ),
+                        },
+                    )
+                    agent_steps.append(f"GovernedAgentRunner ({llm_model_used}) · Executed {reg_action} ({len(gov_trace.tool_calls)} tools, {gov_trace.retries} retries)")
+
+                # Merge dynamically extracted home vitals into Physical Exam & Vitals card
+                if extracted_vitals:
+                    ve = dict(updated_summary.get("vitals_exam") or {})
+                    ve["source"] = f"Patient Careline · Today {hhmm}"
+                    ve.setdefault("encounter_context", "Post-Care Follow-Up" if has_signed else "Inbound Remote · Self-Measured")
+                    existing_items = [it for it in (ve.get("items") or []) if isinstance(it, dict)]
+                    existing_labels = {str(it.get("label", "")).lower() for it in existing_items}
+                    for ev in extracted_vitals:
+                        if ev["label"].lower() not in existing_labels:
+                            existing_items.insert(0, ev)
+                        else:
+                            for idx_it, it in enumerate(existing_items):
+                                if str(it.get("label", "")).lower() == ev["label"].lower():
+                                    existing_items[idx_it] = ev
+                    ve["items"] = existing_items[:5]
+                    updated_summary["vitals_exam"] = ve
+
+                if issue_update:
+                    lead_line = issue_update[:220]
+
+                if parsed_reasoning:
+                    at = list(updated_summary.get("agent_thread") or [])
+                    at.append({
+                        "actor": f"Sam · {llm_model_used} Registrar",
+                        "time": hhmm,
+                        "text": parsed_reasoning,
+                    })
+                    updated_summary["agent_thread"] = at[-5:]
             else:
-                llm_error = f"output_screen_blocked:{[v.get('code') for v in screened.violations]}"
-                logger.warning("Live registrar reply blocked by output screen (%s); using fallback", llm_error)
-
-            if dynamic_suggested_replies and live_reply_used:
-                updated_summary["_dynamic_suggested_replies"] = {
-                    "lang": "zh-HK" if is_zh else "en",
-                    "replies": dynamic_suggested_replies,
-                }
-            elif live_reply_used:
-                updated_summary.pop("_dynamic_suggested_replies", None)
-
-            # Execute the live registrar's chosen harness action (never weakening CDS safety blocks or MCHK doctor escalation!)
-            if reg_action in ("keep_in_patient_loop", "escalate_to_doctor", "route_to_admin", "close_quietly"):
-                if reg_action == "keep_in_patient_loop" and not cds_blocked and not has_signed:
-                    new_state = "running"
-                    new_baton = "with_patient"
-                    next_cp = "Registrar intake"
-                elif reg_action == "escalate_to_doctor":
-                    new_state = "needs_decision"
-                    new_baton = "with_doctor"
-                    next_cp = "Ready for doctor review"
-                elif reg_action == "route_to_admin" and not cds_blocked and new_state != "needs_decision":
-                    new_state = "scheduled"
-                    new_baton = "idle"
-                    next_cp = "Admin / Nurse handoff"
-                    ah_list = list(updated_summary.get("admin_handoffs") or [])
-                    task_desc = admin_task or f"Autonomous request from {j['patient_name']}: “{text.strip()}” — coordinate with Clinic Admin / Nurse (doctor kept out of loop)."
-                    if not any(task_desc[:40] in str(x.get("task", "")) for x in ah_list):
-                        ah_list.append({
-                            "id": new_id("adm"),
-                            "route": f"Sam ({llm_model_used} Registrar) → Clinic Admin / Nurse Rachel",
-                            "task": task_desc,
-                            "status": "pending_admin",
-                            "created_at": utcnow().isoformat(),
-                        })
-                        updated_summary["admin_handoffs"] = ah_list
-                elif reg_action == "close_quietly" and not cds_blocked and new_state != "needs_decision":
-                    new_state = "scheduled"
-                    new_baton = "idle"
-                    next_cp = "Quiet monitoring"
-
+                llm_error = gov_trace.fallback_reason or "governed_runner_fallback"
+                logger.warning(
+                    "GovernedAgentRunner fallback on journey=%s provider=%s model=%s reason=%s",
+                    j_key,
+                    gov_trace.provider,
+                    gov_trace.model,
+                    llm_error,
+                )
                 live_bus.append_tool_call(
                     pid,
                     {
-                        "agent": "CareAgent",
-                        "tool": f"registrar.{reg_action}",
-                        "authority": "DRAFT",
-                        "emr_target": "clinic_team" if reg_action == "route_to_admin" else "workspace",
-                        "summary": f"{llm_model_used} ({llm_provider_used}/{llm_region_used}) chose {reg_action}" + (f" · {len(extracted_vitals)} vitals" if extracted_vitals else ""),
+                        "agent": "GovernedAgentRunner",
+                        "tool": "llm.fallback",
+                        "authority": "READ",
+                        "emr_target": "diagnostics",
+                        "summary": f"Governed fallback ({gov_trace.provider}/{gov_trace.model}: {llm_error[:140]}) -> deterministic registrar used",
                     },
                 )
-                agent_steps.append(f"RegistrarAgent ({llm_model_used}) · Executed {reg_action}")
-
-            # Merge dynamically extracted home vitals into Physical Exam & Vitals card
-            if extracted_vitals:
-                ve = dict(updated_summary.get("vitals_exam") or {})
-                ve["source"] = f"Patient Careline · Today {hhmm}"
-                ve.setdefault("encounter_context", "Post-Care Follow-Up" if has_signed else "Inbound Remote · Self-Measured")
-                existing_items = [it for it in (ve.get("items") or []) if isinstance(it, dict)]
-                existing_labels = {str(it.get("label", "")).lower() for it in existing_items}
-                for ev in extracted_vitals:
-                    if ev["label"].lower() not in existing_labels:
-                        existing_items.insert(0, ev)
-                    else:
-                        for idx_it, it in enumerate(existing_items):
-                            if str(it.get("label", "")).lower() == ev["label"].lower():
-                                existing_items[idx_it] = ev
-                ve["items"] = existing_items[:5]
-                updated_summary["vitals_exam"] = ve
-
-            # Update lead line / issue summary with live registrar synthesis
-            if issue_update:
-                lead_line = issue_update[:220]
-
-            if parsed_reasoning:
-                at = list(updated_summary.get("agent_thread") or [])
-                at.append({
-                    "actor": f"Sam · {llm_model_used} Registrar",
-                    "time": hhmm,
-                    "text": parsed_reasoning,
-                })
-                updated_summary["agent_thread"] = at[-5:]
-        else:
-            llm_error = llm_call.error or "missing_patient_reply"
-            logger.warning(
-                "Live LLM fallback on journey=%s provider=%s region=%s model=%s error=%s",
-                j_key,
-                llm_call.provider,
-                llm_call.region,
-                llm_call.model,
-                llm_error,
-            )
-            live_bus.append_tool_call(
-                pid,
-                {
-                    "agent": "CareAgent",
-                    "tool": "llm.fallback",
-                    "authority": "READ",
-                    "emr_target": "diagnostics",
-                    "summary": f"Live LLM failed ({llm_call.provider}/{llm_call.region}/{llm_call.model}: {llm_error[:140]}) -> deterministic registrar used",
-                },
-            )
 
     # Anti-repetition guard: never repeat any of the last 4 Sam replies verbatim
     recent_sam_texts = [
@@ -3309,6 +3362,21 @@ def handle_live_chat_turn(
             channel="patient_phone",
         )
         updated_summary["_context_snapshot"] = ctx_tel
+        persisted_trace = governed_trace_record or build_preset_trace_record(
+            surface="live_patient_turn",
+            user_input=text,
+            ctx_tel=ctx_tel,
+            tool_calls=[
+                {"tool": "safety.screen_red_flags", "authority": "CDS", "ok": True, "emr_target": "triage", "duration_ms": 0.4},
+                *(
+                    [{"tool": "cds.check_medication_safety", "authority": "CDS", "ok": True, "emr_target": "cds_rules", "duration_ms": 0.6}]
+                    if asked_drugs
+                    else []
+                ),
+            ],
+            latency_ms=round((time.perf_counter() - t_turn_start) * 1000, 2),
+        )
+        append_case_agent_trace(updated_summary, persisted_trace)
         updated_summary["_compilation_telemetry"] = {
             "provider": llm_provider_used if live_reply_used else engine.get("provider", "deterministic"),
             "model": llm_model_used if live_reply_used else engine.get("model", "clinic-harness-tool-engine-v1"),
@@ -3392,6 +3460,7 @@ def handle_live_chat_turn(
         "crisis": None,
         "prompt_injection_detected": False,
         "lint_report": lint,
+        "agent_trace": persisted_trace,
         "llm_meta": {
             "mode": "deterministic_preset" if use_deterministic_preset else ("live_llm" if live_reply_used else "deterministic_fallback"),
             "live_reply_used": live_reply_used,

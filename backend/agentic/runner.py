@@ -40,6 +40,8 @@ class ModelTurnResponse:
     region: str = "asia-east2"
     prompt_tokens_actual: int | None = None
     output_tokens_actual: int | None = None
+    thought_tokens_actual: int | None = None
+    attempts_tried: int = 1
 
 
 class ModelTransport(Protocol):
@@ -75,6 +77,10 @@ class AgentRunTrace:
     final_text: str
     final_json: dict[str, Any] | None
     latency_ms: float
+    prompt_tokens_actual: int | None = None
+    output_tokens_actual: int | None = None
+    thought_tokens_actual: int | None = None
+    attempts_tried: int = 1
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -96,6 +102,10 @@ class AgentRunTrace:
             "final_text": self.final_text,
             "final_json": self.final_json,
             "latency_ms": self.latency_ms,
+            "prompt_tokens_actual": self.prompt_tokens_actual,
+            "output_tokens_actual": self.output_tokens_actual,
+            "thought_tokens_actual": self.thought_tokens_actual,
+            "attempts_tried": self.attempts_tried,
         }
 
 
@@ -289,11 +299,21 @@ class GovernedAgentRunner:
         fallback_used = False
         fallback_reason: str | None = None
 
+        final_resp = last_resp
+        total_attempts = int(getattr(last_resp, "attempts_tried", 1) or 1)
         if violations:
             retries = 1
             repair_payload = final_json if final_json is not None else {"text": final_text}
+            if expect_json:
+                repair_tpl = (
+                    PRESENTATION_SELF_REPAIR_V1
+                    if template.task_kind == "workspace_compile"
+                    else PROMPT_REGISTRY.get("generic_json_self_repair", PRESENTATION_SELF_REPAIR_V1)
+                )
+            else:
+                repair_tpl = template
             repair_ctx = self.compiler.compile(
-                template=PRESENTATION_SELF_REPAIR_V1 if expect_json else template,
+                template=repair_tpl,
                 skills=active_skills,
                 active_graph_nodes=active_graph_nodes or [],
                 total_graph_nodes=total_graph_nodes,
@@ -314,6 +334,8 @@ class GovernedAgentRunner:
                 max_output_tokens=template.max_output_tokens,
                 expect_json=expect_json,
             )
+            final_resp = repair_resp
+            total_attempts += int(getattr(repair_resp, "attempts_tried", 1) or 1)
             final_text, final_json, violations = self._validate_response(
                 repair_resp,
                 expect_json=expect_json,
@@ -332,9 +354,9 @@ class GovernedAgentRunner:
             prompt_id=template.prompt_id,
             prompt_version=template.version,
             prompt_fingerprint=template.fingerprint(),
-            provider=last_resp.provider,
-            model=last_resp.model,
-            region=last_resp.region or region,
+            provider=final_resp.provider,
+            model=final_resp.model,
+            region=final_resp.region or region,
             short_circuited_pre_gate=False,
             prompt_injection_signals=injection_signals,
             skills_loaded=snapshot.skills_loaded,
@@ -347,6 +369,10 @@ class GovernedAgentRunner:
             final_text=final_text,
             final_json=final_json,
             latency_ms=round((time.perf_counter() - t0) * 1000, 2),
+            prompt_tokens_actual=final_resp.prompt_tokens_actual,
+            output_tokens_actual=final_resp.output_tokens_actual,
+            thought_tokens_actual=final_resp.thought_tokens_actual,
+            attempts_tried=total_attempts,
         )
 
     @staticmethod

@@ -37,6 +37,11 @@ from .agent_harness import (
     invoke_clinical_qa,
     invoke_structured_json,
 )
+from .agentic_runtime import (
+    append_case_agent_trace,
+    build_compact_trace_record,
+    run_governed_private_sam_qa,
+)
 from .curator import (
     ensure_active_practice_graph,
     get_effective_practice_graph,
@@ -1532,6 +1537,7 @@ def _serialize_case(
         "timeline": c.timeline_json,
         "goal": c.goal_json,
         "traces": [_serialize_trace(t) for t in traces],
+        "agent_traces": list(raw_summary.get("_agent_run_traces") or []) if isinstance(raw_summary, dict) else [],
         "updated_at": c.updated_at.isoformat(),
     }
 
@@ -2375,8 +2381,9 @@ def ask_case_agent(
     question: str,
     actor_name: str = "Locum Dr. Sarah Wong",
     engine_override: dict[str, Any] | None = None,
+    transport_override: Any | None = None,
 ) -> dict[str, Any]:
-    """Live Private Sam Q&A routed through `agent_harness.invoke_clinical_qa()` + `SAM_PRIVATE_REGISTRAR_QA_V1` + `screen_agent_output`.
+    """Live Private Sam Q&A routed through `GovernedAgentRunner` (`SAM_PRIVATE_REGISTRAR_QA_V1` + `READ`/`CDS` tools + output screen).
 
     Strictly ephemeral & private (`ephemeral_private: True`, `written_to_emr: False`) — NEVER written to Clinic EMR.
     """
@@ -2412,67 +2419,108 @@ def ask_case_agent(
             channel="private_sam",
             template=SAM_PRIVATE_REGISTRAR_QA_V1,
         )
-
-        ans = ""
-        fallback_used = False
-        model_meta: dict[str, Any] = {
-            "provider": engine.get("provider", "deterministic"),
-            "model": engine.get("model", "clinic-harness-tool-engine-v1"),
-            "region": engine.get("region", "local"),
-            "total_tokens_est": snap.total_tokens_est,
-            "phi_scrubbed": snap.phi_scrubbed,
-            "fallback_used": False,
+        det_ans = _deterministic_sam_qa_answer(case, q)
+        active_nodes = _prune_active_graph_nodes(graph, case.pathway_node_id)
+        total_nodes = len(graph.get("nodes") or []) or 14
+        summary_clean = _strip_internal_summary_keys(case.summary_json)
+        clinical_state = {
+            k: v
+            for k, v in summary_clean.items()
+            if k not in ("agent_thread", "original_chat", "attachments")
         }
+        verified_quotes = [
+            {"id": a.get("id"), "label": a.get("label"), "quote": a.get("quote")}
+            for a in (summary_clean.get("attachments") or [])
+            if isinstance(a, dict) and a.get("quote")
+        ]
+        conv_turns = list(summary_clean.get("original_chat") or [])[-4:] + list(summary_clean.get("agent_thread") or [])[-4:]
+        careline_name = str((graph.get("careline_profile") or {}).get("name") or "Sam")
 
-        if engine.get("live") and not inj_signals:
-            call_res = invoke_clinical_qa(
-                system_prompt=snap.system_message,
-                user_prompt=snap.user_message,
-                temperature=0.1,
-                max_output_tokens=360,
-                patient_names_for_scrub=[case.patient_name],
-                engine_override=engine,
+    ans = ""
+    fallback_used = False
+    model_meta: dict[str, Any] = {
+        "provider": engine.get("provider", "deterministic"),
+        "model": engine.get("model", "clinic-harness-tool-engine-v1"),
+        "region": engine.get("region", "local"),
+        "total_tokens_est": snap.total_tokens_est,
+        "phi_scrubbed": snap.phi_scrubbed,
+        "fallback_used": False,
+    }
+    agent_trace_record: dict[str, Any] | None = None
+
+    if (engine.get("live") or transport_override is not None) and not inj_signals:
+        try:
+            gov_trace = run_governed_private_sam_qa(
+                db,
+                tenant_id=tenant_id,
+                case=case,
+                active_graph_nodes=active_nodes,
+                total_graph_nodes=total_nodes,
+                clinical_state=clinical_state,
+                verified_quotes=verified_quotes,
+                conversation_turns=conv_turns,
+                question=q,
+                careline_name=careline_name,
+                deterministic_answer=det_ans,
+                engine=engine,
+                transport_override=transport_override,
             )
-            model_meta.update(call_res.to_dict())
-            if call_res.ok and call_res.text:
-                screen = screen_agent_output(
-                    call_res.text,
-                    banned_claims=SAM_PRIVATE_REGISTRAR_QA_V1.banned_output_patterns,
-                    channel="workspace",
-                    is_sam_note=True,
-                )
-                if screen.passed and not any(p in call_res.text.lower() for p in CHATTY_SAM_PHRASES):
-                    ans = call_res.text.strip()
-                else:
-                    fallback_used = True
-                    model_meta["screen_violations"] = screen.violations
+            agent_trace_record = build_compact_trace_record(
+                gov_trace,
+                surface="private_sam_qa",
+                user_input=q,
+            )
+            model_meta.update({
+                "provider": gov_trace.provider,
+                "model": gov_trace.model,
+                "region": gov_trace.region,
+                "latency_ms": gov_trace.latency_ms,
+                "retries": gov_trace.retries,
+                "tool_calls_count": len(gov_trace.tool_calls),
+                "prompt_fingerprint": gov_trace.prompt_fingerprint,
+            })
+            cand = (gov_trace.final_text or "").strip()
+            if not gov_trace.fallback_used and cand and not any(p in cand.lower() for p in CHATTY_SAM_PHRASES):
+                ans = cand
             else:
                 fallback_used = True
+                if gov_trace.output_violations:
+                    model_meta["screen_violations"] = gov_trace.output_violations
+        except Exception:
+            fallback_used = True
 
-        if not ans:
-            ans = _deterministic_sam_qa_answer(case, q)
-            if engine.get("live"):
-                fallback_used = True
+    if not ans:
+        ans = det_ans
+        if engine.get("live") or transport_override is not None:
+            fallback_used = True
 
-        model_meta["fallback_used"] = fallback_used
-        model_meta["objective_signal"] = has_objective_sam_signal(ans)
+    model_meta["fallback_used"] = fallback_used
+    model_meta["objective_signal"] = has_objective_sam_signal(ans)
 
-        summary = copy.deepcopy(case.summary_json or {})
+    with db.tenant_session(tenant_id) as session:
+        case_row = session.execute(
+            select(CaseLoop).where(CaseLoop.tenant_id == tenant_id, CaseLoop.id == case_id)
+        ).scalars().first()
+        if case_row is None:
+            raise ValueError("Case not found.")
+        summary = copy.deepcopy(case_row.summary_json or {})
         thread = list(summary.get("agent_thread") or [])
         thread.append({"who": "doctor", "actor": actor_name, "text": q, "ephemeral_private": True})
         thread.append({
             "who": "agent",
-            "actor": graph["careline_profile"]["name"],
+            "actor": careline_name,
             "text": ans,
             "ephemeral_private": True,
         })
         summary["agent_thread"] = thread
-        case.summary_json = summary
-        flag_modified(case, "summary_json")
-        case.updated_at = utcnow()
+        if agent_trace_record is not None:
+            append_case_agent_trace(summary, agent_trace_record)
+        case_row.summary_json = summary
+        flag_modified(case_row, "summary_json")
+        case_row.updated_at = utcnow()
         session.flush()
         return {
-            "case_id": case.id,
+            "case_id": case_row.id,
             "question": q,
             "answer": ans,
             "agent_thread": thread,
@@ -2482,6 +2530,7 @@ def ask_case_agent(
             "prompt_injection_detected": bool(inj_signals),
             "model_telemetry": model_meta,
             "context_snapshot": ctx_tel,
+            "agent_trace": agent_trace_record,
         }
 
 

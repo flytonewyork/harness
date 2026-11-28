@@ -889,6 +889,26 @@ export function ClinicWorkspaceApp() {
     }
   };
 
+  const triggerGovernedToolProbe = async () => {
+    if (!activeCase?.id) {
+      setBanner("Select any patient case first to run the live GovernedAgentRunner multi-step probe.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await v2Api.workspaceGovernedToolProbe(activeCase.id);
+      const t = res?.trace;
+      const toolCount = Array.isArray(t?.tool_calls) ? t.tool_calls.length : 0;
+      const retries = Number(t?.retries || 0);
+      setBanner(
+        `GovernedAgentRunner probe complete: ${toolCount} tool calls (incl. BLOCKED signed write), ${retries} diagnostic self-repair retry, SHA-256 #${t?.prompt_fingerprint || "—"}.`,
+      );
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const copyQrUrl = async () => {
     try {
       await navigator.clipboard.writeText(phoneQrUrl);
@@ -3381,6 +3401,36 @@ export function ClinicWorkspaceApp() {
                   style={{ width: `${ctxPct}%` }}
                 />
               </div>
+              {Array.isArray(xrayCtx?.slots) && xrayCtx.slots.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4 }} data-testid="xray-five-slot-breakdown">
+                  {xrayCtx.slots.map((sl: any, sIdx: number) => {
+                    const est = Number(sl.tokens_est || 0);
+                    const bud = Number(sl.budget_tokens || 1);
+                    const pct = Math.min(100, Math.round((est / bud) * 100));
+                    const shortName = String(sl.slot || "").replace(/^slot(\d)_/, "S$1 · ").replace(/_/g, " ");
+                    return (
+                      <div key={sl.slot || sIdx} style={{ fontSize: 11 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", color: "var(--ws-ink-2)" }}>
+                          <span style={{ textTransform: "capitalize" }}>{shortName}</span>
+                          <span className="ws-num">
+                            {est}/{bud} tok{sl.truncated ? " · trimmed" : ""}
+                          </span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 2, background: "var(--ws-border)", overflow: "hidden", marginTop: 1 }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: sl.truncated ? "#d97706" : "#0f766e" }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2, fontSize: 10.5, color: "var(--ws-ink-3)" }}>
+                    {xrayCtx.subgraph_pruning_ratio && <span>Graph: {xrayCtx.subgraph_pruning_ratio}</span>}
+                    <span>· PDPO Scrub: {xrayCtx.phi_scrubbed ? "Redacted (off-HK)" : "HK asia-east2 native"}</span>
+                    {Array.isArray(xrayCtx.dropped_items) && xrayCtx.dropped_items.length > 0 && (
+                      <span>· Dropped: {xrayCtx.dropped_items.join(", ")}</span>
+                    )}
+                  </div>
+                </div>
+              )}
               <div style={{ fontSize: 11.5, color: "var(--ws-ink-3)", display: "flex", justifyContent: "space-between" }}>
                 <span>Live SSE Stream</span>
                 <span>{sseConnected ? "Connected" : "Standby"}</span>
@@ -3405,8 +3455,102 @@ export function ClinicWorkspaceApp() {
               )}
             </div>
 
+            <div className="ws-xray-card" data-testid="governed-trace-inspector">
+              <div className="ws-xray-title">
+                5. Governed Agent Turn Traces ({Array.isArray(activeCase?.agent_traces) ? activeCase.agent_traces.length : 0})
+              </div>
+              {!activeCase || !Array.isArray(activeCase.agent_traces) || activeCase.agent_traces.length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--ws-ink-3)" }}>
+                  Send any patient message, ask Sam privately, or click “Run Governed Multi-Step Probe” below to inspect SHA-256 prompt fingerprints, loaded skills, tool authority decisions, and 1-retry self-repair.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {activeCase.agent_traces.slice(0, 5).map((tr: any, tIdx: number) => (
+                    <div
+                      key={tr.id || tIdx}
+                      style={{
+                        border: "1px solid var(--ws-border)",
+                        borderRadius: 8,
+                        padding: "7px 8px",
+                        background: "var(--ws-bg)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <strong style={{ fontSize: 11.5 }}>
+                          {tr.prompt_id || "turn"}@{tr.prompt_version || "1.0.0"}
+                        </strong>
+                        <span className="ws-num" style={{ fontSize: 10.5, color: "var(--ws-ink-3)" }}>
+                          #{tr.prompt_fingerprint || "—"} · {Math.round(Number(tr.latency_ms || 0))}ms
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        <span className={`ws-pill ${tr.short_circuited_pre_gate ? "ws-pill-red" : tr.fallback_used ? "ws-pill-amber" : "ws-pill-jade"}`} style={{ fontSize: 10.5, padding: "1px 6px" }}>
+                          {tr.short_circuited_pre_gate
+                            ? "Pre-Gate (0 LLM tok)"
+                            : tr.fallback_used
+                              ? `Fallback (${tr.fallback_reason || "safe"})`
+                              : `${tr.provider}/${tr.model}`}
+                        </span>
+                        {Number(tr.retries || 0) > 0 && (
+                          <span className="ws-pill ws-pill-amber" style={{ fontSize: 10.5, padding: "1px 6px" }}>
+                            {tr.retries}x Diagnostic Repair
+                          </span>
+                        )}
+                        {tr.context_snapshot?.total_tokens_est != null && (
+                          <span className="ws-pill ws-num" style={{ fontSize: 10.5, padding: "1px 6px" }}>
+                            {tr.context_snapshot.total_tokens_est}/4096 tok
+                          </span>
+                        )}
+                      </div>
+                      {tr.input_preview && (
+                        <div style={{ fontSize: 11, color: "var(--ws-ink-2)", fontStyle: "italic" }}>
+                          “{tr.input_preview}”
+                        </div>
+                      )}
+                      {Array.isArray(tr.skills_loaded) && tr.skills_loaded.length > 0 && (
+                        <div style={{ fontSize: 10.5, color: "var(--ws-ink-3)" }}>
+                          Skills: {tr.skills_loaded.map((sk: any) => sk.name || sk).join(" · ")}
+                        </div>
+                      )}
+                      {Array.isArray(tr.prompt_injection_signals) && tr.prompt_injection_signals.length > 0 && (
+                        <div style={{ fontSize: 10.5, color: "#b91c1c" }}>
+                          Injection signals fenced: {tr.prompt_injection_signals.join(", ")}
+                        </div>
+                      )}
+                      {Array.isArray(tr.tool_calls) && tr.tool_calls.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 2 }}>
+                          {tr.tool_calls.map((tc: any, cIdx: number) => (
+                            <div key={tc.call_id || cIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, fontSize: 11 }}>
+                              <span className="ws-num" style={{ color: tc.ok ? "var(--ws-ink-1)" : "#b91c1c" }}>
+                                {tc.tool}{tc.error_code ? ` (${tc.error_code})` : ""}{tc.deduplicated ? " [cached]" : ""}
+                              </span>
+                              <span
+                                className={`ws-pill ${
+                                  tc.authority === "BLOCKED" || !tc.ok
+                                    ? "ws-pill-red"
+                                    : tc.authority === "CDS"
+                                      ? "ws-pill-amber"
+                                      : "ws-pill-jade"
+                                }`}
+                                style={{ fontSize: 10, padding: "0 5px" }}
+                              >
+                                {tc.authority || "READ"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="ws-xray-card">
-              <div className="ws-xray-title">5. Live Agent Tool Stream ({recentToolCalls.length})</div>
+              <div className="ws-xray-title">6. Live Agent Tool Stream ({recentToolCalls.length})</div>
               {recentToolCalls.length === 0 ? (
                 <div style={{ fontSize: 12, color: "var(--ws-ink-3)" }}>
                   Tool calls will stream here in real time as the patient scans the QR code and chats with Sam.
@@ -3441,8 +3585,17 @@ export function ClinicWorkspaceApp() {
             </div>
 
             <div className="ws-xray-card">
-              <div className="ws-xray-title">6. Live Engineering Probes &amp; Deep-Dive</div>
+              <div className="ws-xray-title">7. Live Engineering Probes &amp; Deep-Dive</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="ws-btn ws-btn-active"
+                  disabled={busy || !activeCase}
+                  onClick={triggerGovernedToolProbe}
+                  data-testid="run-governed-tool-probe-btn"
+                >
+                  Run Governed Multi-Step Probe
+                </button>
                 <button type="button" className="ws-btn" disabled={busy} onClick={triggerAuthorityProbe}>
                   Probe Authority Guard (BLOCKED)
                 </button>

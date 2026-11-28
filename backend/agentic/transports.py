@@ -389,7 +389,17 @@ class LiveHTTPModelTransport:
             candidate_models.append(DEFAULT_GEMINI_FAST_MODEL)
 
         contents = [
-            {"role": "model" if m.get("role") == "assistant" else "user", "parts": [{"text": str(m.get("content") or "")}]}
+            {
+                "role": "model" if m.get("role") == "assistant" else "user",
+                "parts": [
+                    {
+                        "text": str(
+                            m.get("content")
+                            or (f"[Tool calls requested: {', '.join(m['tool_calls'])}]" if m.get("tool_calls") else "")
+                        )
+                    }
+                ],
+            }
             for m in messages
         ]
 
@@ -474,7 +484,13 @@ class LiveHTTPModelTransport:
         max_output_tokens: int,
     ) -> ModelTurnResponse:
         anth_msgs = [
-            {"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content") or "")}
+            {
+                "role": "assistant" if m.get("role") == "assistant" else "user",
+                "content": str(
+                    m.get("content")
+                    or (f"[Tool calls requested: {', '.join(m['tool_calls'])}]" if m.get("tool_calls") else "")
+                ),
+            }
             for m in messages
         ]
         body: dict[str, Any] = {
@@ -525,7 +541,13 @@ class LiveHTTPModelTransport:
         expect_json: bool,
     ) -> ModelTurnResponse:
         oai_msgs = [{"role": "system", "content": system_message}] + [
-            {"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content") or "")}
+            {
+                "role": "assistant" if m.get("role") == "assistant" else "user",
+                "content": str(
+                    m.get("content")
+                    or (f"[Tool calls requested: {', '.join(m['tool_calls'])}]" if m.get("tool_calls") else "")
+                ),
+            }
             for m in messages
         ]
         body: dict[str, Any] = {

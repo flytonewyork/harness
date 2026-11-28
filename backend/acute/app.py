@@ -93,6 +93,10 @@ from .live_demo import (
     start_live_journey,
     trigger_post_sign_checkin,
 )
+from .agentic_runtime import (
+    get_live_agentic_manifest,
+    run_live_governed_tool_probe,
+)
 from .db import (
     TENANT_SCOPED_TABLES,
     AgentRun,
@@ -1526,6 +1530,43 @@ def create_acute_app(
                 case_id=case_id,
                 question=body.instruction_text,
                 actor_name=body.actor_name,
+            )
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
+
+    @app.get("/api/v1/workspace/agent-manifest")
+    def workspace_agent_manifest(request: Request):
+        """HK PDPO / PCPD governance manifest of all SHA-256 prompts, clinical SKILL.md specs & tool authorities."""
+        tenant_id = _workspace_tenant(request)
+        return get_live_agentic_manifest(database, tenant_id)
+
+    @app.get("/api/v1/workspace/cases/{case_id}/agent-traces")
+    def workspace_case_agent_traces(case_id: str, request: Request):
+        """Return persisted GovernedAgentRunner turn traces (5-slot context, tools, retries, violations) for a case."""
+        tenant_id = _workspace_tenant(request)
+        with database.tenant_session(tenant_id) as session:
+            case = session.execute(
+                select(CaseLoop).where(CaseLoop.tenant_id == tenant_id, CaseLoop.id == case_id)
+            ).scalars().first()
+            if case is None:
+                raise HTTPException(404, "Case not found.")
+            raw = case.summary_json if isinstance(case.summary_json, dict) else {}
+            return {
+                "case_id": case.id,
+                "patient_id": case.patient_id,
+                "agent_traces": list(raw.get("_agent_run_traces") or []),
+            }
+
+    @app.post("/api/v1/workspace/cases/{case_id}/governed-tool-probe")
+    def workspace_case_governed_tool_probe(case_id: str, request: Request):
+        """Run a live DB-backed multi-step GovernedAgentRunner probe (READ + CDS + BLOCKED SIGNED_WRITE + MEMORY + 1-retry repair)."""
+        tenant_id = _workspace_tenant(request)
+        try:
+            return run_live_governed_tool_probe(
+                database,
+                tenant_id=tenant_id,
+                case_id=case_id,
+                live_bus=live_bus,
             )
         except ValueError as exc:
             raise HTTPException(404, str(exc))

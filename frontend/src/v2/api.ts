@@ -405,6 +405,12 @@ export const v2Api = {
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/preview`, { method: "POST", body: JSON.stringify({ instruction_text: instructionText }) }),
   workspaceAsk: (caseId: string, question: string, actorName = "Locum Dr. Sarah Wong") =>
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/ask`, { method: "POST", body: JSON.stringify({ instruction_text: question, actor_name: actorName }) }),
+  workspaceAgentManifest: () =>
+    req<Record<string, any>>("/api/v1/workspace/agent-manifest"),
+  workspaceCaseAgentTraces: (caseId: string) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/agent-traces`),
+  workspaceGovernedToolProbe: (caseId: string) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/governed-tool-probe`, { method: "POST" }),
   workspaceSendLeaflet: (caseId: string, leaflet: Record<string, any>, actorName = "Dr. Sarah Wong") =>
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/send-leaflet`, {
       method: "POST",
