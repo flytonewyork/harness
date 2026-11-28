@@ -124,6 +124,17 @@ def test_crisis_classification_separates_medical_and_mental_health():
     assert tels == {"23892222", "28960000", "23820000"}
 
 
+def test_companion_crisis_unified_with_triage_floor():
+    # SpO2 93% must trigger medical_999 (aligned with triage.py < 94% threshold, previously missed at < 92%)
+    assert classify_crisis("Feeling slightly tired", spo2=93) == "medical_999"
+    # Clause-scoped negation must not false-trigger 999
+    assert classify_crisis("No chest pain, no shortness of breath. Mild runny nose.") is None
+    # Expanded HK red flags & indirect self-harm from canonical triage floor
+    assert classify_crisis("I've given away most of my belongings and written goodbye letters") == "mental_health_crisis"
+    assert classify_crisis("My left calf is swollen and painful and I now have sudden shortness of breath") == "medical_999"
+    assert classify_crisis("Fever shot up to 40.2C tonight") == "medical_999"
+
+
 def test_mvp_demo_stories_nurse_rbac_conflict_undo_and_companion(tmp_path):
     from backend.vault.vault import LocalFSBackend
     os.environ["HARNESS_ENV"] = "staging"

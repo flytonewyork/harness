@@ -160,8 +160,79 @@ class ClaudeCLIReader:
         return ans
 
 
+class GatewayReader:
+    """Routes any journey `Task` through the single governed `ModelGateway`.
+
+    Enforces HK PDPO residency gating, zero-tools isolation, `<document>` fencing,
+    provider-native JSON schema, budgets, circuit breaking, and audit logging.
+    Returns `None` on fallback/error so callers preserve explicit `fell_back` provenance.
+    """
+
+    def __init__(
+        self,
+        gateway=None,
+        *,
+        provider: str = "vertex",
+        model: str = "gemini-2.5-flash",
+        tenant_id: str = "default",
+        region: str | None = None,
+    ):
+        from backend.gateway.gateway import ModelGateway
+
+        self.gateway = gateway or ModelGateway()
+        self.provider = provider
+        self.model = pin(model)
+        self.tenant_id = tenant_id
+        self.region = region
+        self.name = f"gateway:{provider}:{self.model}"
+        self.last: dict = {}
+
+    def read(self, task: Task, text: str, *, context_summary: str | None = None) -> dict | None:
+        from backend.gateway.gateway import GatewayError, GatewayRequest, ResidencyViolationError
+
+        safe_doc = (text or "").replace("</document>", "<\\/document>")
+        user_payload = f"<document>\n{safe_doc}\n</document>"
+        if context_summary:
+            user_payload = f"Clinical context (PHI-scrubbed):\n{context_summary}\n\n{user_payload}"
+        req = GatewayRequest(
+            prompt=user_payload,
+            system_prompt=task.system(),
+            model_id=self.model,
+            provider=self.provider,
+            region=self.region,
+            tenant_id=self.tenant_id,
+            task_type="extraction",
+            tools=None,
+            response_json=True,
+            fence_untrusted_input=False,
+            output_schema=task.schema,
+            metadata={"task_name": task.name, "task_version": task.version, "task_fp": task.fingerprint()},
+        )
+        try:
+            resp = self.gateway.complete(req)
+        except ResidencyViolationError:
+            raise
+        except GatewayError as exc:
+            self.last = {"error": str(exc)[:200], "fallback_used": True}
+            return None
+
+        self.last = {
+            "cost_usd": resp.cost_usd,
+            "input_tokens": resp.input_tokens,
+            "output_tokens": resp.output_tokens,
+            "latency_ms": resp.latency_ms,
+            "region": resp.region,
+            "redacted": resp.redacted,
+            "fallback_used": resp.fallback_used,
+            "validation_errors": list(resp.validation_errors),
+        }
+        if resp.fallback_used or not isinstance(resp.parsed, dict) or resp.parsed.get("fallback"):
+            return None
+        return resp.parsed
+
+
 def make_reader(spec: str | None):
-    """None or "keyword": no model. "replay:<raw.jsonl>" or "claude-cli:<model>[:<effort>]"."""
+    """None or "keyword": no model. "replay:<raw.jsonl>", "claude-cli:<model>[:<effort>]", or "gateway:<provider>:<model>"."""
     if not spec or spec == "keyword":
         return None
     if spec.startswith("replay:"):
@@ -169,6 +240,11 @@ def make_reader(spec: str | None):
     if spec.startswith("claude-cli:"):
         _, model, *effort = spec.split(":")
         return ClaudeCLIReader(model, effort[0] if effort else None)
+    if spec.startswith("gateway:"):
+        parts = spec.split(":")
+        provider = parts[1] if len(parts) > 1 and parts[1] else "vertex"
+        model = parts[2] if len(parts) > 2 and parts[2] else "gemini-2.5-flash"
+        return GatewayReader(provider=provider, model=model)
     raise ValueError(f"unknown reader {spec}")
 
 

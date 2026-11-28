@@ -12,6 +12,10 @@ Small project: the product (`harness`) and its test bed (`../loopbench`). Keep c
   Mac mini without him.
 
 ## Commands
+- **Pre-flight (before creating a branch or editing code):** `bash scripts/team_status.sh` — checks active branches across
+  both repos (including un-PR'd ones), open PRs, Dispatch Board leases (Issue #70), and file/lane collisions. Claim your
+  lane (`python3 scripts/agent_em.py claim --lane <lane> ...`), open a **Day-0 Draft PR** on the first commit, check
+  paths (`python3 scripts/agent_em.py check-paths ...`), and release via `handoff`. Lane rules: `docs/em/LANES.yaml` & `docs/em/OPERATING_SYSTEM.md`.
 - Tests: `python -m pytest -q`. Before a PR: `scripts/check.sh` runs what CI gates, for both repos (harness and loopbench
   tests, scoreboard, journey gate; seed 1, or `scripts/check.sh 1 2 3` as CI). Hard fails and made-up quotes must be 0.
 - `claude -p` model runs and rebuilds from `~/loopbench-data` happen on the Mac mini only.

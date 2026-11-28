@@ -1,0 +1,103 @@
+version: "1.0"
+dispatch_board_repo: "flytonewyork/harness"
+dispatch_board_issue: 70
+repos:
+  - "flytonewyork/harness"
+  - "flytonewyork/loopbench"
+
+rules:
+  max_branch_age_hours: 24
+  require_draft_pr_on_first_commit: true
+  default_lookback_days: 7
+  require_scripts_check_before_pr: true
+
+# Exclusive module write lanes. Only ONE active agent may hold a lane at a time.
+# Cross-lane edits require a recorded handoff or convergence Work Order on Issue #70.
+lanes:
+  lane-a-safety-gateway:
+    description: "Deterministic safety kernel, ModelGateway, triage, companion, FHIR/PDPO security, protocols & SRE"
+    paths:
+      - "backend/safety/**"
+      - "backend/gateway/**"
+      - "backend/acute/triage.py"
+      - "backend/acute/companion.py"
+      - "backend/acute/security.py"
+      - "backend/acute/observability.py"
+      - "backend/acute/rx_rules.py"
+      - "backend/acute/certificates.py"
+      - "backend/acute/terminology.py"
+      - "backend/acute/verification.py"
+      - "backend/sre/**"
+      - "protocols/**"
+
+  lane-b-agentic-graph:
+    description: "Agentic runtime, skills/prompts/memory, practice knowledge graph, pathway runner, curator & clinic packs"
+    paths:
+      - "backend/agentic/**"
+      - "backend/acute/agent_harness.py"
+      - "backend/acute/agentic_runtime.py"
+      - "backend/acute/practice_graph.py"
+      - "backend/acute/pathway_runner.py"
+      - "backend/acute/curator.py"
+      - "backend/acute/workflows.py"
+      - "backend/acute/scheduling.py"
+      - "backend/knowledge/**"
+      - "packs/**"
+      - "knowledge/**"
+      - "skills/**"
+
+  lane-c-mcp-integrations:
+    description: "Permission Gate, MCP Clinic EMR server/client, EMR connectors, external adapters & vault"
+    paths:
+      - "backend/mcp/**"
+      - "backend/acute/emr_connector.py"
+      - "backend/acute/adapters.py"
+      - "backend/acute/contracts.py"
+      - "backend/acute/legacy_feed.py"
+      - "backend/vault/**"
+
+  lane-d-workspace-ui:
+    description: "Frontend apps (/workspace, /emr, /c, /p, /ec), workspace engine, live demo flows & live bus"
+    paths:
+      - "frontend/**"
+      - "backend/acute/workspace_engine.py"
+      - "backend/acute/live_demo*.py"
+      - "backend/acute/live_journeys*.py"
+      - "backend/acute/live_bus.py"
+      - "demo/**"
+
+  lane-e-evals-loopbench:
+    description: "Turn-level eval suites, lookback runner, blind sets & LoopBench test bed"
+    paths:
+      - "evals/**"
+      - "backend/lookback/**"
+      - "backend/adapters/**"
+      - "loopbench/**"
+
+  lane-f-core-engine:
+    description: "Core clinic loop engine, append-only CaseLog, extractors, plug-in journeys, precare & core API"
+    paths:
+      - "backend/engine/**"
+      - "backend/case/**"
+      - "backend/extract/**"
+      - "backend/journeys/**"
+      - "backend/precare/**"
+      - "backend/api/**"
+
+  lane-g-platform-em:
+    description: "PM/EM tooling, CI workflows, deploy configs & architecture docs"
+    paths:
+      - "docs/em/**"
+      - "scripts/agent_em.py"
+      - "scripts/team_status.sh"
+      - ".github/**"
+      - "deploy/**"
+
+# Shared chokepoints: keep edits minimal/additive and always coordinate on Issue #70.
+shared_chokepoints:
+  - "backend/acute/app.py"
+  - "backend/acute/db.py"
+  - "backend/acute/seed.py"
+  - "NOW.md"
+  - "CLAUDE.md"
+  - "pyproject.toml"

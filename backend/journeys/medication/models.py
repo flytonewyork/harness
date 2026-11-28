@@ -30,6 +30,40 @@ Return JSON only: {"findings": [{"kind": one of red_flag|side_effect|crisis|conf
 Negated symptoms ("no rash"), someone else's symptoms and long-past events are not findings, except an emergency about
 someone else (urgency 3). If nothing needs the doctor, return {"findings": []}."""
 
+MED_READER_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["findings"],
+    "properties": {
+        "findings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["kind", "label", "urgency", "quote"],
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "red_flag",
+                            "side_effect",
+                            "crisis",
+                            "confusion",
+                            "adherence",
+                            "dose_question",
+                            "repeat",
+                            "question",
+                        ],
+                    },
+                    "label": {"type": "string"},
+                    "urgency": {"type": "integer", "minimum": 1, "maximum": 4},
+                    "quote": {"type": "string"},
+                },
+            },
+        }
+    },
+}
+
 
 def _prompt_fp() -> str:
     """Hash of the system prompt. A prompt edit cannot replay answers written for the old one."""
@@ -62,8 +96,11 @@ class ClaudeCLIReader:
         self.cache = _Cache(cache)
 
     def command(self) -> list[str]:
-        return [self.binary, "-p", "--model", self.model, "--system-prompt", SYSTEM, "--tools", "", "--strict-mcp-config",
-                "--disable-slash-commands", "--no-session-persistence", "--output-format", "json"]
+        return [
+            self.binary, "-p", "--model", self.model, "--system-prompt", SYSTEM, "--tools", "", "--strict-mcp-config",
+            "--disable-slash-commands", "--no-session-persistence", "--output-format", "json",
+            "--json-schema", json.dumps(MED_READER_SCHEMA),
+        ]
 
     def run(self, text: str, context: dict) -> list[dict]:
         classes = list(context.get("classes", []))
@@ -116,3 +153,60 @@ class ReplayReader:
             self.misses += 1
             return []                              # do not cache the floor's findings as the model's
         return hit
+
+
+class GatewayMedicationModel:
+    """Routes medication-message screening through the single governed `ModelGateway`."""
+
+    def __init__(
+        self,
+        gateway=None,
+        *,
+        provider: str = "vertex",
+        model: str = "gemini-2.5-flash",
+        tenant_id: str = "default",
+        region: str | None = None,
+    ):
+        from backend.gateway.gateway import ModelGateway
+
+        self.gateway = gateway or ModelGateway()
+        self.provider = provider
+        self.model = pin(model)
+        self.tenant_id = tenant_id
+        self.region = region
+        self.name = f"gateway[{provider}:{self.model}]"
+        self.last_miss = False
+
+    def run(self, text: str, context: dict) -> list[dict]:
+        from backend.gateway.gateway import GatewayError, GatewayRequest, ResidencyViolationError
+
+        classes = list(context.get("classes", []))
+        safe_doc = (text or "").replace("</document>", "<\\/document>")
+        user = f"The patient takes: {', '.join(classes) or 'not known'}.\n<document>\n{safe_doc}\n</document>"
+        req = GatewayRequest(
+            prompt=user,
+            system_prompt=SYSTEM,
+            model_id=self.model,
+            provider=self.provider,
+            region=self.region,
+            tenant_id=self.tenant_id,
+            task_type="triage",
+            tools=None,
+            response_json=True,
+            fence_untrusted_input=False,
+            output_schema=MED_READER_SCHEMA,
+            metadata={"prompt_version": PROMPT_VERSION, "prompt_fp": _prompt_fp()},
+        )
+        try:
+            resp = self.gateway.complete(req)
+        except ResidencyViolationError:
+            raise
+        except GatewayError:
+            self.last_miss = True
+            return []
+
+        if resp.fallback_used or not isinstance(resp.parsed, dict) or resp.parsed.get("fallback"):
+            self.last_miss = True
+            return []
+        self.last_miss = False
+        return list(resp.parsed.get("findings") or [])

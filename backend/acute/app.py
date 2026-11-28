@@ -3067,6 +3067,7 @@ def create_acute_app(
                 vitals["rat_covid"] = rat_covid
 
             # Respect per-tenant kill switch without mutating shared singleton state
+            intake_started = time.monotonic()
             res = harness_rt.process_intake(
                 symptom_text,
                 vitals=vitals,
@@ -3079,6 +3080,7 @@ def create_acute_app(
                 tenant_id=tenant_id,
                 kill_switch=not ai_enabled,
             )
+            intake_latency_ms = max(0, int(round((time.monotonic() - intake_started) * 1000.0)))
             triage = res["triage"]
             intake = res["intake"]
             draft = res["draft"] if ai_enabled else None
@@ -3120,22 +3122,37 @@ def create_acute_app(
                     value_num=spo2, ucum_unit="%", source_quote=f"SpO2 {spo2}%",
                 ))
 
+            run_protocol_id = "flu_intake_v1" if triage.is_emergency else "acute_consult_draft_v1"
+            proto_bundle = harness_rt.protocols.get(run_protocol_id)
+            gw_meta = (
+                (draft.gateway_audit if draft and draft.gateway_audit else None)
+                or (triage.audit.get("gateway") if isinstance(triage.audit, dict) else None)
+                or {}
+            )
+            real_proto_hash = str(
+                gw_meta.get("protocol_hash")
+                or (draft.protocol_hash if draft else "")
+                or (proto_bundle.protocol_hash if proto_bundle else sha256_hex(f"{run_protocol_id}:1.0.0"))
+            )[:64]
             run = AgentRun(
                 id=new_id("run"),
                 tenant_id=tenant_id,
                 patient_id=pid,
                 encounter_id=enc.id,
-                protocol_id="flu_intake_v1" if triage.is_emergency else "acute_consult_draft_v1",
-                protocol_version="1.0.0",
-                model_id="rules-floor" if not ai_enabled else harness_rt.default_model_id,
-                provider="rules" if not ai_enabled else harness_rt.default_provider,
-                region=allowed_regions[0] if allowed_regions else "asia-east2",
-                prompt_hash=sha256_hex("flu_intake_v1:1.0.0")[:16],
-                redacted=False,
-                input_hash=sha256_hex(symptom_text)[:16],
-                output_json={"triage": triage.to_dict(), "ai_enabled": ai_enabled},
-                validators_json=[{"check": "verbatim_quotes", "passed": True}, {"check": "zero_tools", "passed": True}],
-                latency_ms=12,
+                protocol_id=run_protocol_id,
+                protocol_version=proto_bundle.version if proto_bundle else "1.0.0",
+                model_id="rules-floor" if not ai_enabled else str(gw_meta.get("model_id") or harness_rt.default_model_id),
+                provider="rules" if not ai_enabled else str(gw_meta.get("provider") or harness_rt.default_provider),
+                region=str(gw_meta.get("region") or (allowed_regions[0] if allowed_regions else "asia-east2")),
+                prompt_hash=real_proto_hash,
+                redacted=bool(gw_meta.get("redacted", False)),
+                input_hash=sha256_hex(symptom_text),
+                output_json={"triage": triage.to_dict(), "ai_enabled": ai_enabled, "gateway": gw_meta},
+                validators_json=[
+                    {"check": "verbatim_quotes", "passed": True if not draft else bool(draft.validation.checks.get("verbatim_quotes", True))},
+                    {"check": "zero_tools", "passed": not bool(gw_meta.get("tools_enabled", False))},
+                ],
+                latency_ms=intake_latency_ms,
             )
             s.add(run)
             s.flush()
@@ -3404,7 +3421,26 @@ def create_acute_app(
         status_text = "; ".join(p for p in parts if p) or "48h check-in submitted"
         need_human = bool(body.need_human or body.status == "worse" or bool(body.new_red_flags))
 
-        triage = harness_rt.screen_message(status_text, tenant_id=tenant_id)
+        with database.admin_session() as adm:
+            tenant = adm.get(Tenant, tenant_id)
+            ai_enabled = bool(tenant.ai_enabled) if tenant else True
+            allowed_regions = list(tenant.allowed_regions) if tenant and tenant.allowed_regions else ["asia-east2"]
+            allow_cb = bool(tenant.allow_cross_border_inference) if tenant else False
+
+        model_gw.set_tenant_policy(TenantPolicy(
+            tenant_id=tenant_id,
+            allowed_regions=tuple(allowed_regions),
+            allow_cross_border_inference=allow_cb,
+        ))
+
+        fu_started = time.monotonic()
+        triage = harness_rt.screen_message(
+            status_text,
+            tenant_id=tenant_id,
+            protocol_id="followup_48h_v1",
+            kill_switch=not ai_enabled,
+        )
+        fu_latency_ms = max(0, int(round((time.monotonic() - fu_started) * 1000.0)))
         urgency = 4 if triage.is_emergency else (3 if need_human else max(1, triage.urgency))
         with database.tenant_session(tenant_id) as s:
             _assert_patient_active(s.get(Patient, pid))
@@ -3415,6 +3451,34 @@ def create_acute_app(
             )
             if not enc or enc.patient_id != pid:
                 raise HTTPException(404, "Encounter not found")
+            fu_bundle = harness_rt.protocols.get("followup_48h_v1")
+            gw_meta = (triage.audit.get("gateway") if isinstance(triage.audit, dict) else None) or {}
+            fu_proto_hash = str(
+                gw_meta.get("protocol_hash")
+                or (fu_bundle.protocol_hash if fu_bundle else sha256_hex("followup_48h_v1:1.0.0"))
+            )[:64]
+            run = AgentRun(
+                id=new_id("run"),
+                tenant_id=tenant_id,
+                patient_id=pid,
+                encounter_id=enc.id,
+                protocol_id="followup_48h_v1",
+                protocol_version=fu_bundle.version if fu_bundle else "1.0.0",
+                model_id="rules-floor" if not ai_enabled else str(gw_meta.get("model_id") or harness_rt.default_model_id),
+                provider="rules" if not ai_enabled else str(gw_meta.get("provider") or harness_rt.default_provider),
+                region=str(gw_meta.get("region") or (allowed_regions[0] if allowed_regions else "asia-east2")),
+                prompt_hash=fu_proto_hash,
+                redacted=bool(gw_meta.get("redacted", False)),
+                input_hash=sha256_hex(status_text),
+                output_json={"triage": triage.to_dict(), "ai_enabled": ai_enabled, "gateway": gw_meta},
+                validators_json=[
+                    {"check": "verbatim_quotes", "passed": True},
+                    {"check": "zero_tools", "passed": not bool(gw_meta.get("tools_enabled", False))},
+                ],
+                latency_ms=fu_latency_ms,
+            )
+            s.add(run)
+            s.flush()
             prop = Proposal(
                 id=new_id("prop"),
                 tenant_id=tenant_id,
@@ -3425,7 +3489,8 @@ def create_acute_app(
                 sla_due_at=utcnow() + timedelta(minutes=15 if urgency == 4 else 120),
                 status="pending_review",
                 protocol_id="followup_48h_v1",
-                protocol_version="1.0.0",
+                protocol_version=fu_bundle.version if fu_bundle else "1.0.0",
+                agent_run_id=run.id,
                 payload_json={"status_text": status_text, "need_human": need_human, "triage": triage.to_dict()},
                 source_quotes_json=[status_text[:200]],
                 checks_json=[{"id": "quotes", "status": "pass", "detail": "Patient 48h check-in quoted verbatim"}],
@@ -4712,15 +4777,41 @@ def create_acute_app(
                     },
                 }
 
+            t_row = s.get(Tenant, tenant_id)
+            ai_on = bool(t_row.ai_enabled) if t_row else True
+            allowed_regions = list(t_row.allowed_regions) if t_row and t_row.allowed_regions else ["asia-east2"]
+            allow_cb = bool(t_row.allow_cross_border_inference) if t_row else False
+            model_gw.set_tenant_policy(TenantPolicy(
+                tenant_id=tenant_id,
+                allowed_regions=tuple(allowed_regions),
+                allow_cross_border_inference=allow_cb,
+            ))
+
             obs = s.scalars(select(Observation).where(Observation.patient_id == pat_id).order_by(Observation.recorded_at.desc()).limit(10)).all()
+            open_props = s.scalars(
+                select(Proposal).where(Proposal.patient_id == pat_id, Proposal.status == "pending_review").order_by(Proposal.created_at.desc()).limit(5)
+            ).all()
+            patient_conflicts: list[dict[str, Any]] = []
+            for p_row in open_props:
+                raw_cf = (p_row.payload_json or {}).get("conflicts") or []
+                for cf in raw_cf:
+                    if isinstance(cf, dict):
+                        patient_conflicts.append(cf)
+                    elif isinstance(cf, str) and cf.strip():
+                        patient_conflicts.append({"drug": "Medication reconciliation", "summary": cf.strip()})
+
             ans = answer_companion_question(
                 body.message,
                 patient={
                     "name_en": pat.name_en, "allergies": pat.allergies_json,
                     "current_meds": pat.current_meds_json, "g6pd_deficient": pat.g6pd_deficient,
+                    "egfr": pat.egfr, "weight_kg": pat.weight_kg,
                 },
                 observations=[{"loinc_code": o.loinc_code, "display": o.display, "value_text": o.value_text} for o in obs],
                 lang=body.lang or pat.preferred_lang,
+                conflicts=patient_conflicts,
+                gateway=model_gw if ai_on else None,
+                tenant_id=tenant_id,
             )
             created_prop_id: str | None = None
             low_msg = body.message.lower()
@@ -4729,8 +4820,6 @@ def create_acute_app(
                 for k in ("fever", "flu", "cough", "sore throat", "rat", "tamiflu", "oseltamivir", "sick leave", "發燒", "流感", "喉嚨痛", "咳", "快測", "病假")
             )
             if is_new_symptom:
-                t_row = s.get(Tenant, tenant_id)
-                ai_on = bool(t_row.ai_enabled) if t_row else True
                 intake_res = harness_rt.process_intake(
                     body.message.strip(),
                     patient={

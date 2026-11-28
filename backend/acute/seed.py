@@ -852,6 +852,152 @@ def seed_demo_data(db: Database, vault: DocumentVault, runtime: AcuteHarnessRunt
             created_at=now - timedelta(minutes=17),
         ))
 
+        # Story D: LAM Wing-Keung (M 54) — EC Internal GI/Endoscopy Cross-Referral + Existing DOAC+NSAID Guardrail + Structured Summary
+        gi_consult_text = (
+            "EC HEALTHCARE GP CONSULTATION RECORD (Central Clinic, 10:05 HKT)\n"
+            "Patient: LAM, Wing-Keung (林永強)  |  DOB: 09/06/1972 (54M)  |  HKID: C618XXX(X)\n"
+            "Panel Coverage: Bupa HK Panel / AIA / Bowtie VHIS Flexi\n\n"
+            "「醫生，我近六個星期食完嘢之後成日上腹痛同火燒心，persistent epigastric pain for 6 weeks，"
+            "自己買過胃藥食都係唔掂。呢兩個月仲輕咗 3kg（lost ~3kg），冇黑便、冇嘔血。"
+            "我爸爸60歲嗰陣有胃癌（father had stomach cancer at 60），想問可唔可以開啲強力消炎止痛藥同安排照胃鏡？」\n\n"
+            "PMH: Paroxysmal AF (2024, Queen Mary Hospital) — on Apixaban 5mg BD.\n"
+            "Allergies: Penicillin (urticaria).  |  G6PD: Normal.\n"
+            "Vitals: BP 126/78 mmHg · HR 74/min · Temp 36.7°C · SpO2 99% · Abdomen: mild epigastric tenderness, no guarding."
+        )
+        pat_gi = Patient(
+            id="pat_lam_gi_referral",
+            tenant_id=DEMO_TENANT_1,
+            corporate_id=None,
+            campaign_id=None,
+            phone_hash=sha256_hex("+85291000014"),
+            phone_masked="****0014",
+            name_en="LAM Wing-Keung",
+            name_zh="林永強",
+            dob="1972-06-09",
+            sex="M",
+            hkid_masked="C618XXX(X)",
+            preferred_lang="zh-HK",
+            g6pd_deficient=False,
+            allergies_json=["Penicillin"],
+            current_meds_json=["Apixaban 5mg BD (DOAC — paroxysmal AF)"],
+            weight_kg=68.0,
+            egfr=86.0,
+            ehealth_consent=True,
+            referral_code="REF-GI014",
+            status="active",
+        )
+        s.add(pat_gi)
+        s.flush()
+        enc_gi = Encounter(
+            id="enc_lam_gi_referral",
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_gi.id,
+            encounter_type="specialist_cross_referral",
+            status="pending_review",
+            chief_complaint_text=gi_consult_text,
+            icd10_code="K30",
+            icpc2_code="D07",
+            snomed_codes_json=["79922009", "89362005", "162057007"],
+            clinical_note=(
+                "STRUCTURED SUMMARY (FHIR R4 / HK PANEL READY)\n"
+                "Coding: ICD-10 K30 (Functional dyspepsia / persistent epigastric pain) | ICPC-2 D07 | "
+                "SNOMED CT: 79922009 (Epigastric pain), 89362005 (Unintentional weight loss), 162057007 (Family history GI malignancy).\n\n"
+                "PRE-DRAFTED EC HEALTHCARE INTERNAL REFERRAL:\n"
+                "To: EC Healthcare Gastroenterology & Endoscopy Centre (Central / Mong Kok) — Priority: Urgent 14-day OGD + H. pylori + GI Specialist Consult.\n"
+                "Triggers: 6-week persistent epigastric pain + ~3kg unintentional weight loss + first-degree FHx gastric cancer (father at 60).\n"
+                "Periprocedural Alert: Active Apixaban 5mg BD (DOAC) — hold/bridge per BSG/ESGE endoscopy guideline; Penicillin allergy.\n\n"
+                "HK INSURER CLAIM & PRE-AUTH SUMMARY (Bupa HK / AIA / Bowtie VHIS):\n"
+                "Outpatient GP Consult (HK$480) + Day-Case OGD w/ Biopsy Pre-Auth (CPT 43239, Est. HK$14,800, Cashless VHIS Eligible) | "
+                "Attending: Dr. Kenneth Lam (MCHK M14829)."
+            ),
+            created_at=now - timedelta(minutes=8),
+        )
+        s.add(enc_gi)
+        s.flush()
+        s.add(Observation(
+            id=new_id("obs"),
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_gi.id,
+            encounter_id=enc_gi.id,
+            loinc_code="8310-5",
+            display="Body temperature",
+            value_num=36.7,
+            value_text="36.7 Cel",
+            ucum_unit="Cel",
+            source_quote="Temp 36.7°C",
+        ))
+        s.add(Observation(
+            id=new_id("obs"),
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_gi.id,
+            encounter_id=enc_gi.id,
+            loinc_code="8480-6",
+            display="Systolic blood pressure",
+            value_num=126.0,
+            value_text="126/78 mmHg",
+            ucum_unit="mm[Hg]",
+            source_quote="BP 126/78 mmHg",
+        ))
+        s.add(Proposal(
+            id="prop_lam_gi_referral",
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_gi.id,
+            encounter_id=enc_gi.id,
+            kind="ec_cross_referral",
+            urgency=3,
+            status="pending_review",
+            sla_due_at=now + timedelta(hours=1),
+            protocol_id="acute_consult_draft_v1",
+            protocol_version="1.0.0",
+            payload_json={
+                "story_tag": "ec_gi_referral",
+                "title": "Persistent epigastric pain (6w) + gastric Ca FHx: EC GI/OGD referral pre-drafted & DOAC+NSAID flagged.",
+                "summary_points": [
+                    {"text": "6 weeks persistent post-prandial epigastric pain refractory to OTC antacids.", "quote": "persistent epigastric pain for 6 weeks"},
+                    {"text": "First-degree family history of gastric cancer (father at 60) + ~3kg unintentional weight loss — urgent EC GI & Endoscopy Centre (OGD) referral pre-drafted.", "quote": "father had stomach cancer at 60"},
+                    {"text": "Patient requested strong anti-inflammatory analgesia while on Apixaban 5mg BD (DOAC) — live DDI guardrail flagged Ibuprofen pre-sign.", "quote": "on Apixaban 5mg BD"},
+                ],
+                "case_sites": ["EC Central GP", "EC Gastroenterology & Endoscopy Centre", "eHealth"],
+                "conflicts": [],
+                "draft": {
+                    "working_diagnosis": {
+                        "icd10": "K30",
+                        "icpc2": "D07",
+                        "display": "Functional dyspepsia / persistent epigastric pain (OGD evaluation)",
+                    },
+                    "suggested_medications": [
+                        {"drug": "ec_gi_ogd_referral", "display": "Internal Referral: EC Healthcare Gastroenterology & Endoscopy Centre (Urgent 14d OGD + H. pylori; Apixaban hold notice)", "is_non_acute_order": True},
+                        {"drug": "bupa_aia_bowtie_preauth", "display": "Structured Pre-Auth Packet: Bupa / AIA / Bowtie VHIS Day-Case OGD (ICD-10 K30 / ICPC-2 D07 / CPT 43239)", "is_non_acute_order": True},
+                        {"drug": "ibuprofen", "display": "Patient-requested Ibuprofen 400 mg TDS (HOLD — Major DDI w/ Apixaban DOAC)", "dose_mg": 400, "frequency": "TDS", "days": 5},
+                        {"drug": "paracetamol", "display": "Paracetamol 500 mg QDS PRN × 5 days (DOAC-safe analgesia)", "dose_mg": 500, "frequency": "QDS", "days": 5},
+                    ],
+                    "suggested_sick_leave": {"days_off": 1, "start_date": today_hkt.isoformat()},
+                    "patient_summary_draft": (
+                        "林先生你好，鑑於你持續上腹痛六星期、體重輕微下降及父親曾患胃癌，我已為你預備醫思健康腸胃肝臟科及內視鏡中心優先轉介信及自願醫保預先批核摘要，安排專科評估及胃鏡檢查（OGD）。"
+                        "由於你正服用薄血藥 Apixaban，消炎止痛藥（Ibuprofen）會大幅增加胃出血風險，故不建議處方；現改開較安全的撲熱息痛作暫時止痛。請勿自行停服薄血藥，如出現黑便、嘔血或劇烈腹痛請即往急症室。"
+                    ),
+                },
+            },
+            source_quotes_json=[
+                {"field": "Epigastric pain (6w)", "quote": "persistent epigastric pain for 6 weeks", "source": "EC GP Consult"},
+                {"field": "Gastric Ca FHx", "quote": "father had stomach cancer at 60", "source": "EC GP Consult"},
+                {"field": "Weight loss", "quote": "lost ~3kg", "source": "EC GP Consult"},
+                {"field": "Active DOAC", "quote": "on Apixaban 5mg BD", "source": "EC GP Consult"},
+            ],
+            checks_json=[],
+            created_at=now - timedelta(minutes=7),
+        ))
+        s.add(Message(
+            id=new_id("msg"),
+            tenant_id=DEMO_TENANT_1,
+            patient_id=pat_gi.id,
+            encounter_id=enc_gi.id,
+            direction="inbound",
+            sender_role="patient",
+            body_text="林醫生，我上腹痛咗六個星期，爸爸以前有胃癌，想問需唔需要喺醫思健康安排照胃鏡？同埋我有保柏同 Bowtie 醫療保險。",
+            created_at=now - timedelta(minutes=6),
+        ))
+
         # ------------------------------------------------------------------
         # Story E (Working-Age Real-Phone URTI & Sick-Leave Live Demo):
         # LAM Wing-Yan (32F, Harbour FinTech, G6PD-deficient, Penicillin allergy)
@@ -975,7 +1121,7 @@ def seed_demo_data(db: Database, vault: DocumentVault, runtime: AcuteHarnessRunt
             action="demo.seeded",
             resource_type="Tenant",
             resource_id=DEMO_TENANT_1,
-            metadata={"synthetic_only": True, "patients": len(synthetic_patients) + 4},
+            metadata={"synthetic_only": True, "patients": len(synthetic_patients) + 5},
         )
 
     # Seed Tenant 2 with one clinician & one patient (for cross-tenant RLS verification & multi-clinic demo)

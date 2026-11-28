@@ -121,7 +121,7 @@ SNOMED_SYMPTOMS: dict[str, tuple[str, str]] = {
     # Pathway 6: T2DM symptoms
     "28442001": ("Polyuria", "多尿"),
     "17173007": ("Polydipsia", "口渴多飲"),
-    "89362005": ("Weight loss", "體重減輕"),
+    "89362005": ("Unintentional weight loss", "體重異常下降"),
     # Pathway 7: Thyroid symptoms
     "267032009": ("Cold intolerance", "怕冷"),
     "698862001": ("Heat intolerance", "怕熱"),
@@ -134,6 +134,9 @@ SNOMED_SYMPTOMS: dict[str, tuple[str, str]] = {
     "248595008": ("Suprapubic pain", "下腹恥骨上痛"),
     "247355005": ("Flank pain", "腰側痛（腎盂腎炎紅旗）"),
     "165232002": ("Haematuria", "血尿"),
+    # GI / Specialist cross-referral findings
+    "79922009": ("Epigastric pain", "上腹痛／胃痛"),
+    "162057007": ("Family history of malignant neoplasm of digestive organ", "消化道惡性腫瘤家族史"),
 }
 
 # --- Dual ICD-10 + ICPC-2 Hong Kong Primary Care Diagnoses (Pathways 1–8) ---
@@ -172,6 +175,11 @@ HK_DIAGNOSES: dict[str, dict[str, str]] = {
         "icd10": "A09", "icd10_display": "Infectious gastroenteritis and colitis, unspecified",
         "icpc2": "D73", "icpc2_display": "Gastroenteritis presumed infection",
         "display_zh": "急性腸胃炎",
+    },
+    "K30": {
+        "icd10": "K30", "icd10_display": "Functional dyspepsia / persistent epigastric pain (OGD evaluation)",
+        "icpc2": "D07", "icpc2_display": "Dyspepsia / indigestion",
+        "display_zh": "持續性上腹痛／消化不良（須胃鏡評估）",
     },
     # Pathways 1, 3, 4, 5 chronic / post-discharge GP diagnoses
     "I48.9": {

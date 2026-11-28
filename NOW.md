@@ -1,15 +1,13 @@
 # NOW
 
-The one queue for harness and loopbench. Keep it under 2 KB. Last updated 24 Nov 2026.
+The one queue for harness and loopbench (<2 KB). Multi-agent Dispatch Board: Issue #70 (`scripts/team_status.sh`). Updated 28 Nov 2026.
 
-**Focus until 26 Nov go/no-go:** written next step from EC Healthcare. **Feature freeze:** hone the working live demo (Tracks 1–4).
+**Focus until the 26 Nov go/no-go:** a written next step from EC Healthcare. Everything else is in `archive/` or Parked.
 
 ## In progress (three at most)
 
-1. **EC discovery scope.** One-page scope for one EC clinic, no patient data (`docs/EC_DISCOVERY_SCOPE.md`).
-   Fill the **[after Wed]** fields from the 11 Nov meeting (`docs/EC_MEETING_PREP.md`, `docs/EC_JULIE_CHEATSHEET.md`).
-2. **Hone working EC & Head-of-AI live demo (PR #65 / `feat/live-demo-convergence`).** Specs: `docs/PRODUCT_DECISIONS.md`,
-   `docs/AGENT_HANDOFF.md` (§7), `docs/HEAD_OF_AI_DEMO_PREP.md`. Live: `/workspace` (blank QR), `/p/chat`, `/emr`, `/c`.
+1. **EC discovery & Head of AI pilot brief.** Scope (`docs/EC_DISCOVERY_SCOPE.md`), 2-week design-partner pilot brief (`docs/EC_HEAD_OF_AI_PILOT_BRIEF.md`), and A4 architecture diagram (`docs/EC_ARCHITECTURE_ONEPAGER.html`).
+2. **EC demo, Stage 1–2 hardening & PM/EM convergence.** Stage 1–2 merged (#67, #69); PM/EM system (`scripts/agent_em.py`, `docs/em/LANES.yaml`, Issue #70) + P0 convergence WO #71 (`feat/intelligent-harness-v1`). Gate: `scripts/check.sh`.
 3. **The care line.** The doctor's WhatsApp line, harness #28 (spec 005), stacked on #26. Service `com.tmrw.careline`
    stays off until Thomas restarts it.
 
@@ -23,6 +21,7 @@ The one queue for harness and loopbench. Keep it under 2 KB. Last updated 24 Nov
 
 1. Wire the product's platform checks into the EC look-back, with a parity test against LoopBench's.
 2. Overnight page for critical results (labs post at any hour; the engine runs three times a day).
+3. Stage 3 Permission Gate: valid R4 `AuditEvent`/`Provenance`, persisted gateway audits, SMART scopes, `LabsAdapter`, read/draft-only MCP server.
 
 ## Parked until the 1 Feb 2027 review
 
