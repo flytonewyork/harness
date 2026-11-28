@@ -466,6 +466,7 @@ class DraftBundle:
     validation: ValidationResult = field(default_factory=lambda: ValidationResult(valid=True))
     protocol_id: str = "acute_consult_draft_v1"
     protocol_hash: str = ""
+    gateway_audit: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -481,6 +482,7 @@ class DraftBundle:
             "evidence_quotes": list(self.evidence_quotes),
             "protocol_id": self.protocol_id,
             "protocol_hash": self.protocol_hash,
+            "gateway_audit": dict(self.gateway_audit),
             "validation": {
                 "valid": self.validation.valid,
                 "errors": list(self.validation.errors),
@@ -621,6 +623,7 @@ def screen_acute_message(
     tenant_id: str = "default",
     model_id: str = "gemini-2.5-flash",
     provider: str = "vertex",
+    protocol_id: str = "flu_intake_v1",
 ) -> TriageResult:
     """Union-only bilingual red-flag triage.
 
@@ -791,20 +794,27 @@ def screen_acute_message(
     if gateway is not None and enable_model_screen and not kill_switch:
         req = GatewayRequest(
             prompt=raw_text,
-            protocol_id="flu_intake_v1",
+            protocol_id=protocol_id,
             model_id=model_id,
             provider=provider,
             tenant_id=tenant_id,
             task_type="triage",
             tools=None,  # Explicit zero-tools isolation
             response_json=True,
+            fence_untrusted_input=True,
         )
         try:
             resp = gateway.complete(req)
         except ResidencyViolationError:
             raise
         except GatewayError as exc:
-            gateway_audit = {"provider": provider, "model_id": model_id, "fallback_used": True, "error": str(exc)[:160]}
+            gateway_audit = {
+                "provider": provider,
+                "model_id": model_id,
+                "protocol_id": protocol_id,
+                "fallback_used": True,
+                "error": str(exc)[:160],
+            }
             resp = None
 
         if resp is not None:
@@ -812,10 +822,13 @@ def screen_acute_message(
                 "provider": resp.provider,
                 "model_id": resp.model_id,
                 "region": resp.region,
+                "protocol_id": resp.protocol_id,
                 "protocol_hash": resp.protocol_hash,
                 "redacted": resp.redacted,
                 "fallback_used": resp.fallback_used,
                 "tools_enabled": resp.tools_enabled,
+                "latency_ms": resp.latency_ms,
+                "validation_errors": list(resp.validation_errors),
             }
             screened_by = f"union({screened_by}, gateway:{resp.provider}:{resp.model_id})"
 
@@ -824,6 +837,8 @@ def screen_acute_message(
                 raw_m_kind = parsed.get("kind")
                 if raw_m_kind in ("crisis", "red_flag"):
                     model_kind = raw_m_kind
+                elif parsed.get("recovery_trajectory") == "emergency":
+                    model_kind = "red_flag"
                 raw_m_flags = parsed.get("red_flags") or []
                 if isinstance(raw_m_flags, list):
                     model_flags = [str(f) for f in raw_m_flags if f]
@@ -832,6 +847,8 @@ def screen_acute_message(
                     model_urgency = max(1, min(4, raw_u))
                 except (TypeError, ValueError):
                     model_urgency = 1
+                if parsed.get("recovery_trajectory") == "worsening":
+                    model_urgency = max(model_urgency, 3)
 
                 # Verify any model evidence quotes are exact verbatim substrings
                 cand_quotes: list[str] = []
@@ -1113,6 +1130,7 @@ def extract_intake(
             task_type="extraction",
             tools=None,
             response_json=True,
+            fence_untrusted_input=True,
         )
         resp = gateway.complete(req)
         parsed = resp.parsed or {}
@@ -1265,6 +1283,8 @@ def draft_consult_proposal(
     *,
     lang: str | None = None,
     tenant_id: str = "default",
+    model_id: str = "gemini-2.5-flash",
+    provider: str = "vertex",
 ) -> DraftBundle:
     """Produce an L1 clinician-reviewed acute consult draft bundle and run all deterministic validators."""
     intake_dict = intake.to_dict() if isinstance(intake, IntakeExtraction) else dict(intake)
@@ -1548,25 +1568,114 @@ def draft_consult_proposal(
         protocol_hash=bundle_proto.protocol_hash if bundle_proto else "",
     )
 
-    # Optionally record a governed zero-tools gateway audit if caller explicitly passed a live/replay gateway
-    # (deterministic floor & validators always govern the output)
+    # Governed zero-tools gateway refinement: safely merge LLM SOAP text refinements ONLY when
+    # they pass 100% of deterministic L1 validators (verbatim quotes, zero banned claims, terminology).
     if gateway is not None:
+        draft_prompt_payload = {
+            "source_text": source_text,
+            "working_diagnosis": working_dx,
+            "snomed_codes": snomed_codes,
+            "observations": observations,
+            "evidence_quotes": evidence_quotes,
+            "contraindications_noted": contraindications_noted,
+            "lang": eff_lang,
+        }
         try:
-            gateway.complete(
+            resp = gateway.complete(
                 GatewayRequest(
-                    prompt=json.dumps(
-                        {"diagnosis": working_dx["icd10"], "snomed_codes": snomed_codes, "lang": eff_lang},
-                        ensure_ascii=False,
-                    ),
+                    prompt=json.dumps(draft_prompt_payload, ensure_ascii=False),
                     protocol_id="acute_consult_draft_v1",
+                    model_id=model_id,
+                    provider=provider,
                     tenant_id=tenant_id,
                     task_type="consult_draft",
                     tools=None,
                     response_json=True,
+                    fence_untrusted_input=True,
                 )
             )
-        except Exception:
-            pass
+        except ResidencyViolationError:
+            raise
+        except Exception as exc:
+            draft.gateway_audit = {
+                "provider": provider,
+                "model_id": model_id,
+                "protocol_id": "acute_consult_draft_v1",
+                "fallback_used": True,
+                "error": str(exc)[:160],
+                "llm_merge_applied": False,
+            }
+            resp = None
+
+        if resp is not None:
+            draft.protocol_hash = resp.protocol_hash or draft.protocol_hash
+            draft.gateway_audit = {
+                "provider": resp.provider,
+                "model_id": resp.model_id,
+                "region": resp.region,
+                "protocol_id": resp.protocol_id,
+                "protocol_hash": resp.protocol_hash,
+                "redacted": resp.redacted,
+                "fallback_used": resp.fallback_used,
+                "tools_enabled": resp.tools_enabled,
+                "latency_ms": resp.latency_ms,
+                "validation_errors": list(resp.validation_errors),
+                "llm_merge_applied": False,
+            }
+            parsed = resp.parsed if isinstance(resp.parsed, dict) else None
+            has_banned = any(e.startswith("banned_claim:") for e in resp.validation_errors)
+            if parsed and not resp.fallback_used and not parsed.get("fallback") and not has_banned:
+                cand_note = dict(draft.clinical_note)
+                llm_note = parsed.get("clinical_note")
+                changed = False
+                if isinstance(llm_note, dict):
+                    for sec in ("subjective", "assessment", "plan"):
+                        val = llm_note.get(sec)
+                        if isinstance(val, str) and val.strip():
+                            cand_note[sec] = val.strip()
+                            changed = True
+
+                cand_quotes = list(draft.evidence_quotes)
+                raw_llm_quotes = parsed.get("evidence_quotes")
+                if isinstance(raw_llm_quotes, list):
+                    kept_q, dropped_q = filter_verbatim_quotes(
+                        [str(q) for q in raw_llm_quotes if isinstance(q, str)],
+                        source_text,
+                    )
+                    if dropped_q:
+                        draft.gateway_audit["dropped_llm_quotes"] = dropped_q
+                    for q in kept_q:
+                        if q not in cand_quotes:
+                            cand_quotes.append(q)
+                            changed = True
+
+                if changed:
+                    candidate = DraftBundle(
+                        status=draft.status,
+                        autonomy_level=draft.autonomy_level,
+                        clinician_signoff_required=draft.clinician_signoff_required,
+                        working_diagnosis=dict(draft.working_diagnosis),
+                        clinical_note=cand_note,
+                        suggested_sick_leave=dict(draft.suggested_sick_leave),
+                        suggested_medications=list(draft.suggested_medications),
+                        contraindications_noted=list(draft.contraindications_noted),
+                        patient_summary_draft=draft.patient_summary_draft,
+                        evidence_quotes=cand_quotes,
+                        protocol_id=draft.protocol_id,
+                        protocol_hash=draft.protocol_hash,
+                        gateway_audit=dict(draft.gateway_audit),
+                    )
+                    cand_val = validate_proposal(candidate, source_text, patient=patient, lang=eff_lang)
+                    if cand_val.valid:
+                        draft.clinical_note = cand_note
+                        draft.evidence_quotes = cand_quotes
+                        draft.gateway_audit["llm_merge_applied"] = True
+                    else:
+                        draft.gateway_audit["llm_merge_rejected"] = list(cand_val.errors)
+            elif has_banned:
+                draft.gateway_audit["llm_merge_rejected"] = [
+                    e for e in resp.validation_errors if e.startswith("banned_claim:")
+                ]
 
     draft.validation = validate_proposal(draft, source_text, patient=patient, lang=eff_lang)
     return draft
@@ -1755,6 +1864,7 @@ class AcuteHarnessRuntime:
         vitals: dict[str, Any] | None = None,
         tenant_id: str = "default",
         kill_switch: bool | None = None,
+        protocol_id: str = "flu_intake_v1",
     ) -> TriageResult:
         eff_kill = self.kill_switch if kill_switch is None else bool(kill_switch)
         return screen_acute_message(
@@ -1767,6 +1877,7 @@ class AcuteHarnessRuntime:
             tenant_id=tenant_id,
             model_id=self.default_model_id,
             provider=self.default_provider,
+            protocol_id=protocol_id,
         )
 
     def extract(
@@ -1806,6 +1917,8 @@ class AcuteHarnessRuntime:
             gateway=None if eff_kill else self.gateway,
             lang=lang,
             tenant_id=tenant_id,
+            model_id=self.default_model_id,
+            provider=self.default_provider,
         )
 
     def process_intake(

@@ -54,6 +54,7 @@ class SREConfig(BaseModel):
     alert_webhook_url: str = Field(default_factory=lambda: os.environ.get("ALERT_WEBHOOK_URL", ""))
     vertex_model: str = Field(default_factory=lambda: os.environ.get("VERTEX_MODEL", "gemini-2.5-flash"))
     enable_vertex_rca: bool = Field(default_factory=lambda: os.environ.get("ENABLE_VERTEX_RCA", "true").lower() in ("1", "true", "yes"))
+    allow_llm_mutations: bool = Field(default_factory=lambda: os.environ.get("SRE_ALLOW_LLM_MUTATIONS", "false").lower() in ("1", "true", "yes"))
     auto_remediate: bool = Field(default_factory=lambda: os.environ.get("AUTO_REMEDIATE", "true").lower() in ("1", "true", "yes"))
     cooldown_seconds: int = Field(default_factory=lambda: int(os.environ.get("SRE_COOLDOWN_SECONDS", "180")))
     max_actions_per_window: int = Field(default_factory=lambda: int(os.environ.get("SRE_MAX_ACTIONS_PER_WINDOW", "3")))

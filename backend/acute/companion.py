@@ -10,11 +10,11 @@ Enforces Opus 5.5 + HK Cap. 161 clinical safety principles:
 """
 from __future__ import annotations
 
-import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .security import HKT
+from .triage import screen_acute_message
 
 HK_MENTAL_HEALTH_HOTLINES: list[dict[str, str]] = [
     {"name_en": "Samaritan Befrienders Hong Kong (24h)", "name_zh": "香港撒瑪利亞防止自殺會（24小時）", "tel": "23892222", "display": "2389 2222"},
@@ -22,31 +22,44 @@ HK_MENTAL_HEALTH_HOTLINES: list[dict[str, str]] = [
     {"name_en": "Suicide Prevention Services (24h)", "name_zh": "生命熱線（24小時）", "tel": "23820000", "display": "2382 0000"},
 ]
 
-_MH_CRISIS_RE = re.compile(
-    r"(suicid|kill myself|end my life|self[- ]?harm|cannot cope|want to die|overdos|"
-    r"自殺|輕生|唔想活|不想活|想死|割脈|頂唔順|傷害自己)",
-    re.I,
-)
-_MED_CRISIS_RE = re.compile(
-    r"(chest pain|chest tightness|can'?t breathe|cannot breathe|shortness of breath|blue lips|"
-    r"coughing up blood|stroke|slurred speech|seizure|unconscious|fainted|severe allergic|"
-    r"心口痛|胸痛|胸悶|抖唔到氣|呼吸困難|嘴唇發紫|咳血|中風|抽筋|昏迷)",
-    re.I,
-)
 
+def classify_crisis(
+    text: str,
+    *,
+    systolic: int | None = None,
+    diastolic: int | None = None,
+    spo2: int | None = None,
+) -> str | None:
+    """Deterministically separate `mental_health_crisis` vs `medical_999` (zero LLM dependency).
 
-def classify_crisis(text: str, *, systolic: int | None = None, diastolic: int | None = None, spo2: int | None = None) -> str | None:
-    """Deterministically separate `mental_health_crisis` vs `medical_999` (zero LLM dependency)."""
+    Delegates text and vitals screening to the canonical deterministic rules floor in
+    `backend.acute.triage.screen_acute_message` (SpO2 < 94%, full HK bilingual red-flag and
+    crisis patterns, clause-scoped negation) plus hypertensive crisis thresholds (BP >= 180/110).
+    """
     raw = str(text or "")
-    if _MH_CRISIS_RE.search(raw):
+    vitals: dict[str, float] = {}
+    if spo2 is not None:
+        vitals["spo2"] = float(spo2)
+    if systolic is not None:
+        vitals["sbp"] = float(systolic)
+    if diastolic is not None:
+        vitals["dbp"] = float(diastolic)
+
+    triage = screen_acute_message(
+        raw,
+        lang="auto",
+        gateway=None,
+        vitals=vitals or None,
+        enable_model_screen=False,
+    )
+    if triage.kind == "crisis":
         return "mental_health_crisis"
-    if _MED_CRISIS_RE.search(raw):
+    if triage.kind == "red_flag":
         return "medical_999"
     if (systolic is not None and systolic >= 180) or (diastolic is not None and diastolic >= 110):
         return "medical_999"
-    if spo2 is not None and spo2 < 92:
-        return "medical_999"
     return None
+
 
 
 def next_clinic_review_sla(now: datetime | None = None, doctor_name: str = "Dr. Kenneth Lam") -> dict[str, Any]:
