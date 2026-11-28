@@ -101,3 +101,85 @@ shared_chokepoints:
   - "NOW.md"
   - "CLAUDE.md"
   - "pyproject.toml"
+
+# Explicit 4-Agent Engineering Stream Roster.
+# Invariant (tested in tests/test_agent_em.py): every lane above belongs to EXACTLY ONE stream.
+streams:
+  stream-1-trust-gate:
+    role: "Trust, Safety, Gateway & Permission Gate Lead"
+    owned_lanes:
+      - "lane-a-safety-gateway"
+      - "lane-c-mcp-integrations"
+    chokepoint_role: "additive-only (app.py/db.py for MCP/FHIR/audit wiring)"
+    provides_seams:
+      - "backend.safety.kernel (screen_safety, check_outbound_safety)"
+      - "backend.gateway.ModelGateway (residency, schemas, fencing, AgentRun audits)"
+      - "backend.mcp.ClinicEMRMCPServer + SMART scopes + EMR/Labs/Pharmacy adapters"
+    consumes_seams:
+      - "backend.case.context (read-only)"
+      - "backend.agentic.tools schema registry (read-only)"
+    never_touches:
+      - "backend/engine/**"
+      - "backend/case/**"
+      - "backend/journeys/**"
+      - "backend/agentic/**"
+      - "frontend/**"
+      - "evals/**"
+
+  stream-2-core-evals:
+    role: "Core Clinical Loop Engine & LoopBench Evals Lead"
+    owned_lanes:
+      - "lane-f-core-engine"
+      - "lane-e-evals-loopbench"
+    chokepoint_role: "none (pure engine, case log, lookback & evals)"
+    provides_seams:
+      - "backend.engine (ClinicPort, RulesHarness v1.0/v1.1, AgenticHarness, trace)"
+      - "backend.case (CaseLog, CaseView, build_scrubbed_clinical_context)"
+      - "backend.extract & backend.journeys + LoopBench/Turn Eval CI gates"
+    consumes_seams:
+      - "backend.gateway.ModelGateway public API (read-only — never edits gateway.py)"
+    never_touches:
+      - "backend/acute/**"
+      - "backend/gateway/**"
+      - "backend/mcp/**"
+      - "backend/agentic/**"
+      - "frontend/**"
+
+  stream-3-clinical-ai:
+    role: "Clinical Intelligence, Practice Graph & Forward-Deployment Packs Lead"
+    owned_lanes:
+      - "lane-b-agentic-graph"
+    chokepoint_role: "none (declarative packs, graph nodes & agentic runtime)"
+    provides_seams:
+      - "backend.agentic (GovernedAgentRunner, skills, prompts, memory, context)"
+      - "backend.acute.{practice_graph,pathway_runner,curator,workflows,scheduling}"
+      - "backend.knowledge & knowledge/<clinic_id>/ + packs/*.yaml + skills/clinical/*"
+    consumes_seams:
+      - "backend.safety.kernel & ModelGateway (read-only)"
+      - "backend.mcp.InProcessMCPClient (read-only)"
+    never_touches:
+      - "backend/safety/**"
+      - "backend/gateway/**"
+      - "backend/mcp/**"
+      - "backend/engine/**"
+      - "frontend/**"
+
+  stream-4-surfaces-em:
+    role: "Product UX Surfaces, Live Demos & Platform/EM Integration Steward"
+    owned_lanes:
+      - "lane-d-workspace-ui"
+      - "lane-g-platform-em"
+    chokepoint_role: "Integration Steward (owns app.py router split WO #73, db.py coordination, NOW.md & CI)"
+    provides_seams:
+      - "frontend/** (/workspace, /emr, /c, /p, /ec) & live demo flows"
+      - "backend/acute/routes/* (post-WO #73 modular FastAPI routers)"
+      - "docs/em/*, scripts/agent_em.py, pr-overlap-guard.yml & Issue #70 governance"
+    consumes_seams:
+      - "All backend API & MCP contracts (read-only)"
+    never_touches:
+      - "backend/safety/**"
+      - "backend/gateway/**"
+      - "backend/engine/**"
+      - "backend/case/**"
+      - "backend/mcp/**"
+

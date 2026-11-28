@@ -145,3 +145,27 @@ def test_evaluate_path_conflicts_and_pr_guard_comment():
     assert "backend/mcp/clinic_emr_server.py" in comment
     assert "backend/acute/app.py" in comment
     assert "Issue #70" in comment
+
+
+def test_four_stream_roster_partitions_all_lanes_without_overlap():
+    cfg = agent_em.load_lanes_config()
+    assert len(cfg["streams"]) == 4
+    assert agent_em.validate_streams_config(cfg) == []
+
+    # Catch duplicate lane assignment
+    bad_dup = {
+        "lanes": {"a": {"paths": ["a/**"]}, "b": {"paths": ["b/**"]}},
+        "streams": {
+            "s1": {"owned_lanes": ["a"]},
+            "s2": {"owned_lanes": ["a", "b"]},
+        },
+    }
+    assert any("multiple streams" in e for e in agent_em.validate_streams_config(bad_dup))
+
+    # Catch unassigned lane
+    bad_gap = {
+        "lanes": {"a": {"paths": ["a/**"]}, "b": {"paths": ["b/**"]}},
+        "streams": {"s1": {"owned_lanes": ["a"]}},
+    }
+    assert any("Unassigned lanes" in e for e in agent_em.validate_streams_config(bad_gap))
+
