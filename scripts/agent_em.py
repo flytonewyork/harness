@@ -678,6 +678,61 @@ def cmd_pr_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def validate_streams_config(config: dict[str, Any]) -> list[str]:
+    """Verify every lane in `lanes` is owned by EXACTLY ONE stream in `streams`."""
+    errors: list[str] = []
+    defined_lanes = set((config.get("lanes") or {}).keys())
+    streams = config.get("streams") or {}
+    if not isinstance(streams, dict) or not streams:
+        return ["Missing or empty `streams` roster in LANES.yaml"]
+
+    owner_of: dict[str, str] = {}
+    for sname, scfg in streams.items():
+        owned = list((scfg or {}).get("owned_lanes") or [])
+        if not owned:
+            errors.append(f"Stream `{sname}` owns zero lanes")
+        for ln in owned:
+            if ln not in defined_lanes:
+                errors.append(f"Stream `{sname}` references unknown lane `{ln}`")
+            elif ln in owner_of:
+                errors.append(f"Lane `{ln}` assigned to multiple streams: `{owner_of[ln]}` and `{sname}`")
+            else:
+                owner_of[ln] = sname
+
+    unassigned = sorted(defined_lanes - set(owner_of.keys()))
+    if unassigned:
+        errors.append(f"Unassigned lanes not owned by any stream: {', '.join(unassigned)}")
+    return errors
+
+
+def cmd_roster(args: argparse.Namespace) -> int:
+    config = load_lanes_config()
+    errs = validate_streams_config(config)
+    leases = active_leases(fetch_dispatch_leases(config)) if not args.offline else []
+    lease_by_lane = {l["lane"]: l for l in leases}
+
+    streams = config.get("streams") or {}
+    print(f"=== 4-Agent Stream Roster (Dispatch Board: {config['dispatch_board_repo']}#{config.get('dispatch_board_issue')}) ===\n")
+    for sname, scfg in streams.items():
+        owned = scfg.get("owned_lanes") or []
+        print(f"## {sname} — {scfg.get('role', '')}")
+        print(f"  Owned lanes: {', '.join(owned)}")
+        print(f"  Chokepoints: {scfg.get('chokepoint_role', 'none')}")
+        active_here = [lease_by_lane[ln] for ln in owned if ln in lease_by_lane]
+        if active_here:
+            for l in active_here:
+                print(f"  LIVE LEASE:  [{l['lane']}] `{l['branch']}` ({l.get('status')}) — {l.get('summary', '')}")
+        elif not args.offline:
+            print("  LIVE LEASE:  (open / unclaimed)")
+        print()
+    if errs:
+        print("CONFIG ERRORS:", file=sys.stderr)
+        for e in errs:
+            print(f"  ! {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Antigravity Multi-Agent PM & EM Control Plane CLI")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -689,6 +744,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_board = sub.add_parser("board", help="Show open Work Orders and active lane leases")
     p_board.set_defaults(func=cmd_board)
+
+    p_roster = sub.add_parser("roster", help="Show the explicit 4-Agent Stream Roster and live lane ownership")
+    p_roster.add_argument("--offline", action="store_true", help="Print roster from LANES.yaml without querying GitHub")
+    p_roster.set_defaults(func=cmd_roster)
 
     p_chk = sub.add_parser("check-paths", help="Check planned file paths for collisions (exit 2 on conflict)")
     p_chk.add_argument("paths", nargs="+")
