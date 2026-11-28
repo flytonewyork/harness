@@ -1,0 +1,55 @@
+name: "Agent Work Order"
+description: "Create a scoped product/engineering work order with an exclusive lane and acceptance criteria for Antigravity agents"
+title: "[WO] "
+labels: ["work-order"]
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - "P0 — Critical / Convergence / Blocker"
+        - "P1 — High / Current Milestone"
+        - "P2 — Normal / Next"
+    validations:
+      required: true
+  - type: dropdown
+    id: lane
+    attributes:
+      label: Primary Ownership Lane (docs/em/LANES.yaml)
+      options:
+        - lane-a-safety-gateway
+        - lane-b-agentic-graph
+        - lane-c-mcp-integrations
+        - lane-d-workspace-ui
+        - lane-e-evals-loopbench
+        - lane-f-core-engine
+        - lane-g-platform-em
+        - shared-chokepoints
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Product Goal & Why
+      placeholder: "What user/clinical/partner outcome does this move?"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      value: |
+        - [ ] Implementation complete within claimed lane
+        - [ ] Regression tests added
+        - [ ] `bash scripts/check.sh` ends `== all green`
+        - [ ] `NOW.md` updated (< 2 KB)
+    validations:
+      required: true
+  - type: textarea
+    id: seams
+    attributes:
+      label: Seam Contracts & Dependencies
+      placeholder: "Depends on #... / Exposes interface ... / Touches chokepoints ..."
+    validations:
+      required: false
