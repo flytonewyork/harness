@@ -1,0 +1,45 @@
+pack_id: ec_clinic_1
+extends: default
+version: "1.0.0"
+safety_floor: immutable
+description: >
+  EC Healthcare Phase 0 discovery data access overlay. Adds HK private lab panel synonyms,
+  CMS closure markers, and scanned lab/insurer document header patterns.
+
+emr_profile:
+  vendor: ec_healthcare_cms
+  structured_labs: true
+  attachment_labs: true
+  ehealth_pull_available: true
+  scan_lag_hours: 12
+  courier_lag_hours: 24
+  notes: "EC Healthcare multi-site CMS: structured KingMed/PHC labs plus scanned specialist letters and eHealth pull for consented patients."
+
+lab_test_synonyms:
+  "r/lft": [Creatinine, Potassium, Sodium, Urea, eGFR, ALT, AST, ALP]
+  "lrft": [Creatinine, Potassium, Sodium, Urea, eGFR, ALT, AST, ALP]
+  "rfts": [Creatinine, Potassium, Sodium, Urea, eGFR]
+  "lfts": [ALT, AST, ALP]
+  "uec": [Sodium, Potassium, Urea, Creatinine, eGFR]
+  "cbp": [Haemoglobin]
+  "cbc/dc": [Haemoglobin]
+  "fbc": [Haemoglobin]
+  "lipid profile": [cholesterol, Triglycerides]
+  "fasting lipids": [cholesterol, Triglycerides]
+  "tft": [TSH]
+  "thyroid function": [TSH]
+  "tsh": [TSH]
+  "fbs": [Glucose]
+  "fasting glucose": [Glucose]
+  "fg": [Glucose]
+
+closure_markers:
+  - "form completed"
+  - "sent to insurer"
+  - "APS completed"
+  - "已填妥"
+  - "已遞交保險"
+
+document_id_patterns:
+  - "Member\\s+Name\\s*:\\s*([A-Z][A-Z'-]+(?: [A-Z][A-Z'-]+)*),\\s*([A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*)*)"
+  - "Insured\\s*:\\s*([A-Z][A-Z'-]+(?: [A-Z][A-Z'-]+)*),\\s*([A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*)*)"

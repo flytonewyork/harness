@@ -1,0 +1,50 @@
+pack_id: default
+version: "1.0.0"
+safety_floor: immutable
+description: >
+  Product baseline routing, cover rules, role split, and doctor-approved recall templates.
+  Asymmetric authority invariant: only doctors close clinical items; journeys never message patients directly.
+
+cover_rules:
+  - id: sessional_urgent_cover
+    condition: "owner_absent_within_urgency_window"
+    fallback_role: duty_doctor
+    escalate_after_hours: 24
+    notes: "Urgent/critical items route to duty doctor if the usual doctor is not rostered within the urgency window."
+  - id: locum_continuity
+    condition: "owner_is_locum"
+    fallback_role: lead_gp
+    escalate_after_hours: 48
+    notes: "Open follow-ups authored by a sessional/locum doctor escalate to the Lead GP for continuity."
+
+role_split:
+  doctor_only_actions:
+    - close_item
+    - confirm_fact
+    - reject_fact
+    - sign_prescription
+    - sign_medical_certificate
+    - send_patient_message
+  front_desk_actions:
+    - book_followup_appointment
+    - chase_external_lab_pdf
+    - log_outbound_admin_call
+    - verify_insurance_consent_attachment
+
+# All templates MUST remain doctor_sent_only: true. WhatsApp templates must carry zero clinical content or IDs.
+templates:
+  - id: recall_followup_en
+    channel: whatsapp
+    lang: en
+    doctor_sent_only: true
+    body: "Hello from the clinic team. Your doctor would like to arrange a follow-up visit. Please tap your secure clinic link or call reception during clinic hours."
+  - id: recall_followup_zh
+    channel: whatsapp
+    lang: zh-HK
+    doctor_sent_only: true
+    body: "你好，診所團隊聯絡你。醫生希望為你安排覆診，請點擊安全連結或於辦公時間致電診所接待處。"
+  - id: lab_review_recall_en
+    channel: whatsapp
+    lang: en
+    doctor_sent_only: true
+    body: "Hello from the clinic team. Your doctor has an update to discuss with you at a brief follow-up. Please reply or call reception to choose a convenient time."
