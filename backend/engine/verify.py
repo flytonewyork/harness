@@ -28,15 +28,13 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta
 
+from ..case.quote import norm
+
 STEPS = ["source", "identity", "finding", "context", "assessment", "loop_status", "routing", "request"]
 CHECKS = ["evidence", "quotes", "identity", "searches", "duplicate", "owner", "reasoning"]
 STATUSES = ["pass", "warn", "fail", "na"]
 WINDOW_DAYS = {4: 0, 3: 1, 2: 3, 1: 7}            # how soon the owner must be working, by urgency
 LIMITS = {"steps": 20, "cites": 12, "text": 600, "quote": 300}
-
-
-def norm(s) -> str:
-    return " ".join(str(s).split())
 
 
 def _dt(s):

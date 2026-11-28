@@ -25,7 +25,8 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta
 
-from ...engine.rules import Why, cite, day, line_with, parse_lab_text, when
+from ...engine.rules import parse_lab_text
+from ...engine.trace import Why, cite, day, line_with, when
 
 NAME = "post_checkup"
 SUMMARY = ("After a health check, every report reaches the patient through their doctor: one item if nobody has gone "

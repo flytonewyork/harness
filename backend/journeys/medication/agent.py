@@ -285,7 +285,7 @@ class MedicationJourney:
 
     # ----------------------------------------------------------------------------- the items
     def _why(self):
-        from backend.engine.rules import Why        # the engine's trace builder (imported late: no cycle)
+        from backend.engine.trace import Why
         return Why()
 
     def _open(self, api, key, pid, family, reason, evidence, urgency, hint, why, meta, escalates=None):
@@ -293,7 +293,7 @@ class MedicationJourney:
         if escalates is None:
             self.raise_item(api, key, pid, family, reason[:200], evidence, urgency, hint, None, why=why)
         elif key not in self.raised:                 # the engine's raise_item has no escalates: same steps, linked
-            from backend.engine.rules import URGENCY_LABEL, WINDOW, when
+            from backend.engine.trace import URGENCY_LABEL, WINDOW, when
             owner, route_txt = self.route(api, hint, pid, urgency)
             due = api.now + timedelta(days=WINDOW[urgency])
             why.add("routing", route_txt)

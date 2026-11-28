@@ -70,8 +70,43 @@ class LoginError(RuntimeError):
 LOGIN = re.compile(r"authenticat|log ?in|oauth|api key|/login", re.I)
 
 
-def norm(s) -> str:
-    return " ".join(str(s).split())
+from ..case.quote import norm
+
+
+def invoke_claude_cli(
+    cmd: list[str],
+    user_input: str,
+    *,
+    timeout: int = 300,
+    prefix: str = "reader-",
+) -> tuple[dict | None, dict]:
+    """Canonical safe `claude -p` invocation in an empty temp dir with envelope & login-error handling.
+
+    Returns `(parsed_json_or_none, raw_envelope)`.
+    """
+    with tempfile.TemporaryDirectory(prefix=prefix) as empty:
+        p = subprocess.run(cmd, input=user_input, capture_output=True, text=True, timeout=timeout, cwd=empty)
+    try:  # claude -p reports some failures (login, API errors) only in its envelope
+        env = json.loads(p.stdout) if p.stdout.strip() else {}
+    except ValueError:
+        env = {}
+    err = (p.stderr + " " + (str(env.get("result", "")) if env.get("is_error") else "")).strip()
+    if p.returncode != 0 or env.get("is_error") or not env:
+        if LOGIN.search(err):
+            raise LoginError(f"claude is not logged in (run `claude`, then /login): {err[:200]}")
+        raise RuntimeError(f"claude -p failed ({p.returncode}): {err[:300]}")
+    ans = env.get("structured_output")
+    if ans is None:
+        raw = env.get("result", "")
+        if isinstance(raw, dict):
+            ans = raw
+        elif isinstance(raw, str) and raw.strip():
+            try:
+                ans = json.loads(raw)
+            except ValueError:
+                m = re.search(r"\{.*\}", raw, re.S)
+                ans = json.loads(m.group(0)) if m else None
+    return ans, env
 
 
 def verify(task: Task, text: str, raw: dict | None) -> tuple[dict | None, list[str]]:
@@ -140,23 +175,13 @@ class ClaudeCLIReader:
         return cmd + (["--effort", self.effort] if self.effort else [])
 
     def read(self, task: Task, text: str) -> dict | None:
-        with tempfile.TemporaryDirectory(prefix="reader-") as empty:
-            p = subprocess.run(self.command(task), input=f"<document>\n{text}\n</document>", capture_output=True,
-                               text=True, timeout=self.timeout, cwd=empty)
-        try:                                       # claude -p reports some failures (login, API errors) only in its envelope
-            env = json.loads(p.stdout) if p.stdout.strip() else {}
-        except ValueError:
-            env = {}
-        err = (p.stderr + " " + (str(env.get("result", "")) if env.get("is_error") else "")).strip()
-        if p.returncode != 0 or env.get("is_error") or not env:
-            if LOGIN.search(err):
-                raise LoginError(f"claude is not logged in (run `claude`, then /login): {err[:200]}")
-            raise RuntimeError(f"claude -p failed ({p.returncode}): {err[:300]}")
+        ans, env = invoke_claude_cli(
+            self.command(task),
+            f"<document>\n{text}\n</document>",
+            timeout=self.timeout,
+            prefix="reader-",
+        )
         self.last = {"cost_usd": env.get("total_cost_usd"), "usage": env.get("usage"), "seconds": (env.get("duration_ms") or 0) / 1000}
-        ans = env.get("structured_output")
-        if ans is None:
-            m = re.search(r"\{.*\}", env.get("result", ""), re.S)
-            ans = json.loads(m.group(0)) if m else None
         return ans
 
 
@@ -177,7 +202,7 @@ class GatewayReader:
         tenant_id: str = "default",
         region: str | None = None,
     ):
-        from backend.gateway.gateway import ModelGateway
+        from backend.gateway import ModelGateway
 
         self.gateway = gateway or ModelGateway()
         self.provider = provider
@@ -188,7 +213,7 @@ class GatewayReader:
         self.last: dict = {}
 
     def read(self, task: Task, text: str, *, context_summary: str | None = None) -> dict | None:
-        from backend.gateway.gateway import GatewayError, GatewayRequest, ResidencyViolationError
+        from backend.gateway import GatewayError, GatewayRequest, ResidencyViolationError
 
         safe_doc = (text or "").replace("</document>", "<\\/document>")
         user_payload = f"<document>\n{safe_doc}\n</document>"

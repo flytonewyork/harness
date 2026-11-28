@@ -28,7 +28,7 @@ import re
 from collections import Counter
 from datetime import datetime, timedelta
 
-from ...engine.rules import URGENCY_LABEL, Why, cite, day, line_with, when
+from ...engine.trace import URGENCY_LABEL, Why, cite, day, line_with, when
 from ...extract.reader import Task, verify
 
 FAMILY = "insurance_paperwork"

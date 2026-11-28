@@ -428,7 +428,7 @@ def test_claude_cli_reader_uses_the_shared_safe_invocation(tmp_path, monkeypatch
             stderr = ""
         return P()
 
-    monkeypatch.setattr("backend.journeys.medication.models.subprocess.run", fake_run)
+    monkeypatch.setattr("backend.extract.reader.subprocess.run", fake_run)
     reader = ClaudeCLIReader(model="opus", cache=tmp_path / "c.json", timeout=1)
     assert reader.model == "claude-opus-5-5"
     found = reader.run("a rash", {"classes": ["statin"]})
@@ -454,7 +454,7 @@ def test_claude_cli_reader_uses_the_shared_safe_invocation(tmp_path, monkeypatch
             stderr = ""
         return P()
 
-    monkeypatch.setattr("backend.journeys.medication.models.subprocess.run", login_run)
+    monkeypatch.setattr("backend.extract.reader.subprocess.run", login_run)
     logged_out = ClaudeCLIReader(model="sonnet", cache=tmp_path / "login.json", timeout=1)
     with pytest.raises(LoginError):
         logged_out.run("another rash", {"classes": []})
