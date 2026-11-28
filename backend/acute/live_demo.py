@@ -80,6 +80,7 @@ from .live_journeys_corporate import (
     compile_corporate_journey_turn,
     seed_corporate_journey_prior_record,
 )
+from .pathway_runner import get_declarative_pathway_runner
 from .live_journeys_extra import (
     EXTRA_LIVE_JOURNEYS,
     build_extra_initial_summary,
@@ -264,7 +265,12 @@ CORE_LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
     },
 )
 
-LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (*CORE_LIVE_JOURNEYS, *EXTRA_LIVE_JOURNEYS, *CORPORATE_LIVE_JOURNEYS)
+LIVE_JOURNEYS: tuple[dict[str, Any], ...] = (
+    *CORE_LIVE_JOURNEYS,
+    *EXTRA_LIVE_JOURNEYS,
+    *CORPORATE_LIVE_JOURNEYS,
+    *get_declarative_pathway_runner().all_journeys(),
+)
 JOURNEY_BY_KEY: dict[str, dict[str, Any]] = {j["key"]: j for j in LIVE_JOURNEYS}
 JOURNEY_BY_PATIENT_ID: dict[str, dict[str, Any]] = {j["patient_id"]: j for j in LIVE_JOURNEYS}
 
@@ -474,6 +480,10 @@ live_demo_coordinator = LiveDemoCoordinator()
 # -------------------------------------------------------------------------------------- Journey Case Builders (5/5 Linter Clean)
 def _seed_journey_prior_record(session: Session, tenant_id: str, j_key: str) -> tuple[str | None, str, str]:
     """Ensure the journey's verified historical EMR document & memory exist (returns doc_id, label, quote)."""
+    decl_runner = get_declarative_pathway_runner()
+    if decl_runner.is_declarative_journey(j_key):
+        dj = decl_runner.get_journey(j_key) or {}
+        return None, f"{dj.get('pack', 'declarative')} YAML Biomarker Panel", str(dj.get("subtitle") or "")
     if j_key in CORPORATE_JOURNEY_KEYS:
         return seed_corporate_journey_prior_record(session, tenant_id, j_key)
     if j_key in EXTRA_JOURNEY_KEYS:
@@ -571,6 +581,9 @@ def _seed_journey_prior_record(session: Session, tenant_id: str, j_key: str) -> 
 def _build_initial_summary(j_key: str, doc_id: str | None, doc_label: str, doc_quote: str, welcome_msg: str) -> dict[str, Any]:
     """Initial clean 5/5-linted summary when patient scans QR & Sam starts welcoming them."""
     j = JOURNEY_BY_KEY[j_key]
+    decl_runner = get_declarative_pathway_runner()
+    if decl_runner.is_declarative_journey(j_key):
+        return decl_runner.build_initial_summary(j_key, welcome_msg=welcome_msg)
     if j_key in CORPORATE_JOURNEY_KEYS:
         return build_corporate_initial_summary(j_key, doc_id, doc_label, doc_quote, welcome_msg, _hkt_hhmm())
     if j_key in EXTRA_JOURNEY_KEYS:
@@ -956,9 +969,13 @@ def get_live_journeys_status(
 ) -> dict[str, Any]:
     """List flagship 4 HK GP journeys by default, or 4 Central Health Corporate Wellness journeys when pack='corporate_health'."""
     norm_pack = (pack or "gp").strip().lower()
+    decl_pack = get_declarative_pathway_runner().resolve_pack(norm_pack)
     if norm_pack in ("corporate", "corporate_health", "wellness"):
         visible_journeys = [JOURNEY_BY_KEY[k] for k in CORPORATE_4_JOURNEY_KEYS if k in JOURNEY_BY_KEY]
         active_pack = "corporate_health"
+    elif decl_pack is not None:
+        visible_journeys = list(decl_pack.journeys)
+        active_pack = decl_pack.pack_id
     elif include_all:
         visible_journeys = [*CORE_LIVE_JOURNEYS, *EXTRA_LIVE_JOURNEYS]
         active_pack = "all"
@@ -1093,6 +1110,30 @@ def start_live_journey(
     with db.tenant_session(tenant_id) as session:
         ensure_active_practice_graph(session, tenant_id)
         _ensure_workspace_fk_entities(session, tenant_id)
+        if session.get(Patient, pid) is None:
+            age_sex = str(j.get("age_sex") or "40M")
+            sex_ch = "F" if age_sex.upper().endswith("F") else "M"
+            age_num = int("".join(ch for ch in age_sex if ch.isdigit()) or "40")
+            birth_year = max(1930, 2026 - age_num)
+            session.add(
+                Patient(
+                    id=pid,
+                    tenant_id=tenant_id,
+                    phone_hash=f"decl_{pid}",
+                    phone_masked="****8801",
+                    name_en=str(j.get("patient_name") or pid),
+                    name_zh=str(j.get("patient_name_zh") or ""),
+                    dob=f"{birth_year}-06-15",
+                    sex=sex_ch,
+                    hkid_masked="L402XXX(X)",
+                    preferred_lang=str(j.get("default_lang") or "en"),
+                    g6pd_deficient=False,
+                    allergies_json=[],
+                    current_meds_json=[],
+                    referral_code=f"REF-{pid[-8:].upper()}",
+                )
+            )
+            session.flush()
         graph = get_effective_practice_graph(session, tenant_id)
 
         existing = session.scalar(
@@ -1364,6 +1405,20 @@ def _compile_journey_turn_update(
     low = (patient_text or "").lower().strip()
     summary = copy.deepcopy(existing_summary)
     steps: list[str] = []
+
+    decl_runner = get_declarative_pathway_runner()
+    if decl_runner.is_declarative_journey(j_key):
+        return decl_runner.compile_turn_update(
+            j_key=j_key,
+            patient_text=patient_text,
+            existing_summary=summary,
+            is_zh=is_zh,
+            current_state=current_state,
+            current_baton=current_baton,
+            current_title=current_title,
+            current_lead=current_lead,
+            current_cp=current_cp,
+        )
 
     # Detect prior patient & assistant turns so Sam responds to what the user ACTUALLY said
     raw_chat = existing_summary.get("original_chat") or []

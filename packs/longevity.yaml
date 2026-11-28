@@ -1,0 +1,352 @@
+pack_id: longevity
+version: "1.0.0"
+display_name: "HK Preventive & Longevity Clinic"
+display_name_zh: "香港預防及長壽醫學診所"
+subtitle: "ApoB · Lp(a) · HbA1c · DEXA · Autonomous # ai-team Loops (Declarative YAML Pack)"
+clinic_name: "Central Longevity & Preventive Clinic"
+careline_name: "Sam"
+aliases:
+  - longevity
+  - preventive_longevity
+  - executive_longevity
+
+practice_graph_overlay:
+  optimal_targets:
+    apob_g_l: { operator: "<=", value: 0.80, label: "Optimal ApoB <= 0.80 g/L (ESC / Attia Preventive)" }
+    lpa_nmol_l: { operator: "<", value: 75.0, label: "Normal Lp(a) < 75 nmol/L" }
+    hba1c_pct: { operator: "<", value: 5.4, label: "Optimal Metabolic HbA1c < 5.4%" }
+    hs_crp_mg_l: { operator: "<", value: 1.0, label: "Low-grade inflammation hs-CRP < 1.0 mg/L" }
+  safety_rules:
+    - "Never start lipid-lowering or glucose-lowering Rx autonomously; stage draft for MCHK GP sign-off."
+    - "Route optimal-zone annual reviews directly to Nurse / # clinic-team with zero doctor interruption."
+
+journeys:
+  - key: longevity_apob
+    category: chronic
+    patient_id: pat_longevity_apob
+    patient_name: "CHEUNG Alex"
+    patient_name_zh: "張家朗"
+    age_sex: "46M"
+    default_lang: en
+    pathway_node_id: ebm.pathway.borderline_ldl
+    title: "Longevity · Elevated ApoB & Lp(a)"
+    title_zh: "長壽門診・ApoB 及 Lp(a) 偏高"
+    subtitle: "ApoB 1.18 g/L · Lp(a) 142 nmol/L · Day+30/90 # ai-team titration loop"
+    risk_tier: moderate
+    lead_line_initial: "Executive longevity blood panel uploaded; screening CAD family history & lipid goals."
+    ai_title_initial: "Longevity Lipid Review — CHEUNG Alex"
+    welcome_en: "Hi Alex, welcome to Central Longevity & Preventive Clinic. I'm Sam, your care assistant. Your recent preventive health panel is ready — would you like to review it together before Dr. Sarah Wong checks your plan?"
+    welcome_zh: "Alex 你好，歡迎使用中環長壽及預防醫學診所。我係護理助手 Sam，你最近嘅預防健康檢驗報告已經出爐，想唔想先一齊整理重點，再交俾黃醫生審視計劃？"
+    suggested_replies_en:
+      - "Yes please — my father had a heart stent at 54, I exercise 4x/week, non-smoker, and want an aggressive ApoB target under 0.80."
+      - "I'd love to add a Coronary Calcium score or DEXA scan and check my ApoB again in 90 days."
+    suggested_replies_zh:
+      - "好呀，我爸爸 54 歲通波仔，我每星期運動 4 次、唔食煙，希望將 ApoB 控制喺 0.80 以下。"
+      - "我想加做冠狀動脈鈣化掃描或者 DEXA 掃描，並喺 90 日後覆檢 ApoB。"
+    initial_summary:
+      intake_sufficiency: sufficient
+      alerts:
+        - level: moderate
+          label: "Elevated ApoB & Inherited Lp(a)"
+          detail: "Fasting ApoB 1.18 g/L (optimal <=0.80) and Lp(a) 142 nmol/L (>75 threshold)."
+      lab_panel:
+        title: "Longevity Biomarker Panel (KingMed · Today)"
+        rows:
+          - name: "Apolipoprotein B (ApoB)"
+            value: "1.18"
+            unit: "g/L"
+            ref: "<= 0.80 optimal"
+            flag: "H"
+          - name: "Lipoprotein(a) [Lp(a)]"
+            value: "142"
+            unit: "nmol/L"
+            ref: "< 75 normal"
+            flag: "H"
+          - name: "hs-CRP"
+            value: "0.7"
+            unit: "mg/L"
+            ref: "< 1.0 optimal"
+            flag: ""
+          - name: "HbA1c"
+            value: "5.2"
+            unit: "%"
+            ref: "< 5.4 optimal"
+            flag: ""
+      trend_chart:
+        title: "ApoB Trajectory (g/L)"
+        unit: "g/L"
+        target_label: "Optimal <= 0.80"
+        points:
+          - label: "2024"
+            val: 1.04
+          - label: "2025"
+            val: 1.11
+          - label: "Today"
+            val: 1.18
+      issues:
+        - id: iss_longevity_apob
+          name: "Elevated Atherogenic Risk (ApoB + Lp(a))"
+          bullets:
+            - "Upward ApoB trend over 24 months despite regular exercise."
+            - "Genetic Lp(a) elevation warrants strict atherogenic particle control."
+          safety_gap: "Confirm paternal CAD history and statin/ezetimibe preference before doctor review."
+          suggested_orders: []
+      scheduled_tasks:
+        - id: loop_apob_day30
+          label: "Day +30 Adherence & Side-Effect Check-In"
+          due: "In 30 days"
+          owner: "ai_team"
+          wake_trigger: "Wake GP if patient reports myalgia or misses therapy; stay quiet if tolerating well."
+        - id: loop_apob_day90
+          label: "Day +90 Repeat ApoB & Lipid Panel"
+          due: "In 90 days"
+          owner: "ai_team"
+          wake_trigger: "Wake GP if repeat ApoB > 0.80 g/L; auto-close quietly if <= 0.80 g/L."
+    intake_stages:
+      - stage_id: stage_1_family_history
+        match_any: ["stent", "father", "0.80", "exercise", "通波仔", "爸爸", "運動"]
+        next_state: needs_decision
+        next_baton: with_doctor
+        next_checkpoint: "Ready for doctor review"
+        ai_title: "Longevity ApoB & Lp(a) Risk — CHEUNG Alex"
+        lead_line: "Premature paternal CAD + rising ApoB + elevated Lp(a); staged CAC/DEXA + 90d repeat ApoB + Rosuvastatin option for GP."
+        reply_en: "Thank you for sharing your father's history and fitness routine. I have prepared your biomarker trend, preventive imaging options, and a draft lipid plan for Dr. Sarah Wong to review."
+        reply_zh: "多謝你提供家族病史同運動習慣。我已整理好你嘅長壽指標趨勢、影像檢查建議同初步血脂計劃，交俾黃醫生審批。"
+        update_issues:
+          - id: iss_longevity_apob
+            name: "Elevated Atherogenic Risk (ApoB + Lp(a))"
+            bullets:
+              - "Premature paternal CAD (stent age 54), non-smoker, exercises 4x/week."
+              - "Aims for preventive ApoB <= 0.80 g/L with low-dose statin/ezetimibe discussion."
+            safety_gap: null
+            suggested_orders:
+              - id: ord_apob_rx
+                type: rx
+                issue: iss_longevity_apob
+                action: start
+                drug: "Rosuvastatin 5mg"
+                freq: "ON"
+                days: 90
+              - id: ord_apob_img
+                type: imaging
+                issue: iss_longevity_apob
+                modality: "DEXA"
+                test_name: "Coronary Artery Calcium (CAC) Score + DEXA Body Composition"
+                protocol: "Preventive cardiology & lean-mass baseline"
+              - id: ord_apob_lab
+                type: lab
+                issue: iss_longevity_apob
+                test_name: "Repeat Fasting ApoB, Lipid Panel & ALT (90d)"
+              - id: ord_apob_goal
+                type: goal
+                issue: iss_longevity_apob
+                metric: "ApoB"
+                target: "<= 0.80 g/L"
+                protocol: "Target ApoB <= 0.80 g/L · Mediterranean fiber + Zone-2 protocol"
+                leaflet_id: "longevity_apob_guide"
+    ai_team_loops:
+      - loop_id: day30_adherence_check
+        label: "Day +30 Longevity Adherence Check"
+        due_days: 30
+        metric: "myalgia_score"
+        wake_operator: ">="
+        wake_threshold: 1.0
+        wake_message: "Patient reported statin myalgia on Day +30 AI check-in — woke on-duty GP for dose adjustment."
+        optimal_operator: "=="
+        optimal_threshold: 0.0
+        optimal_message: "Day +30 adherence confirmed with zero side effects — continuing quiet monitoring to Day +90 ApoB retest."
+        optimal_action: stay_scheduled
+      - loop_id: day90_apob_retest
+        label: "Day +90 Repeat ApoB Biomarker Loop"
+        due_days: 90
+        metric: "apob"
+        wake_operator: ">"
+        wake_threshold: 0.80
+        wake_message: "Day +90 repeat ApoB remains above optimal threshold (>0.80 g/L) — woke on-duty GP to consider adding Ezetimibe 10mg."
+        optimal_operator: "<="
+        optimal_threshold: 0.80
+        optimal_message: "Day +90 repeat ApoB reached optimal zone (<=0.80 g/L) — loop auto-closed quietly with zero doctor interruption."
+        optimal_action: auto_close_quietly
+
+  - key: longevity_hba1c
+    category: chronic
+    patient_id: pat_longevity_hba1c
+    patient_name: "KWOK Stephanie"
+    patient_name_zh: "郭詩敏"
+    age_sex: "42F"
+    default_lang: en
+    pathway_node_id: ebm.pathway.t2dm_hba1c
+    title: "Longevity · Borderline HbA1c & CGM"
+    title_zh: "長壽門診・邊緣糖化血紅素及動態血糖"
+    subtitle: "HbA1c 5.8% · 14-day CGM onboarding · Day+90 HbA1c retest loop"
+    risk_tier: low
+    lead_line_initial: "Borderline HbA1c detected on executive longevity screen; exploring CGM & lifestyle protocol."
+    ai_title_initial: "Metabolic Longevity — KWOK Stephanie"
+    welcome_en: "Hi Stephanie, welcome to Central Longevity & Preventive Clinic. I'm Sam, your care assistant. Your executive preventive checkup results are in — how would you like to review your next steps today?"
+    welcome_zh: "Stephanie 你好，歡迎使用中環長壽及預防醫學診所。我係護理助手 Sam，你嘅年度預防健康檢驗報告已經備妥，今日想點樣開始跟進？"
+    suggested_replies_en:
+      - "Yes, I'd like to try a 14-day CGM sensor with Nurse Rachel and recheck HbA1c in 3 months without starting medication yet."
+    suggested_replies_zh:
+      - "好呀，我想先跟陳護士配戴 14 日 CGM 動態血糖儀，暫時唔食藥，三個月後再覆檢 HbA1c。"
+    initial_summary:
+      intake_sufficiency: sufficient
+      alerts:
+        - level: low
+          label: "Prediabetic Metabolic Drift"
+          detail: "HbA1c rose from 5.3% to 5.8% over 18 months (optimal longevity target <5.4%)."
+      lab_panel:
+        title: "Metabolic Longevity Panel (Today)"
+        rows:
+          - name: "HbA1c"
+            value: "5.8"
+            unit: "%"
+            ref: "< 5.4 optimal"
+            flag: "H"
+          - name: "Fasting Insulin"
+            value: "9.8"
+            unit: "uIU/mL"
+            ref: "< 6.0 optimal"
+            flag: "H"
+          - name: "Fasting Glucose"
+            value: "5.5"
+            unit: "mmol/L"
+            ref: "< 5.3 optimal"
+            flag: "H"
+      issues:
+        - id: iss_longevity_metabolic
+          name: "Early Metabolic Drift (Borderline HbA1c)"
+          bullets:
+            - "Upward glycaemic trend over 18 months; patient interested in lifestyle-first intervention."
+          safety_gap: null
+          suggested_orders:
+            - id: ord_cgm_nurse
+              type: nurse
+              issue: iss_longevity_metabolic
+              protocol: "14-day CGM Sensor Onboarding & Dietary Protein/Zone-2 Briefing (Nurse Rachel)"
+            - id: ord_hba1c_lab
+              type: lab
+              issue: iss_longevity_metabolic
+              test_name: "Repeat HbA1c & Fasting Insulin (90d)"
+            - id: ord_hba1c_goal
+              type: goal
+              issue: iss_longevity_metabolic
+              metric: "HbA1c"
+              target: "< 5.4%"
+              protocol: "Target HbA1c < 5.4% · 150 min/wk Zone-2 + post-meal walks"
+              leaflet_id: "longevity_metabolic_guide"
+      scheduled_tasks:
+        - id: loop_hba1c_day90
+          label: "Day +90 Repeat HbA1c Check"
+          due: "In 90 days"
+          owner: "ai_team"
+          wake_trigger: "Wake GP if repeat HbA1c >= 6.0%; auto-close quietly if < 5.4%."
+    intake_stages:
+      - stage_id: stage_1_cgm_plan
+        match_any: ["cgm", "nurse", "3 months", "medication", "動態血糖", "護士", "三個月"]
+        next_state: scheduled
+        next_baton: idle
+        next_checkpoint: "Nurse CGM bay + Day +90 AI loop"
+        ai_title: "Metabolic CGM Loop — KWOK Stephanie"
+        lead_line: "Lifestyle-first CGM onboarding routed to Nurse Rachel; Day +90 HbA1c AI loop armed (zero doctor interruption)."
+        reply_en: "Great choice. I have routed your 14-day CGM onboarding directly to Nurse Rachel in our clinic team and armed your Day +90 HbA1c recheck loop — no doctor visit needed unless your repeat result climbs."
+        reply_zh: "好決定。我已將你嘅 14 日 CGM 教學同配戴安排交俾陳護士跟進，並設定好 90 日後 HbA1c 覆檢追蹤——除非數值進一步上升，否則無需額外見醫生。"
+        admin_handoff_task: "Onboard KWOK Stephanie for 14-day CGM sensor + Zone-2 lifestyle guide (declarative longevity pack)."
+    ai_team_loops:
+      - loop_id: day90_hba1c_retest
+        label: "Day +90 Repeat HbA1c Loop"
+        due_days: 90
+        metric: "hba1c"
+        wake_operator: ">="
+        wake_threshold: 6.0
+        wake_message: "Day +90 repeat HbA1c reached >= 6.0% — woke on-duty GP to review pharmacotherapy and diabetes workup."
+        optimal_operator: "<"
+        optimal_threshold: 5.4
+        optimal_message: "Day +90 repeat HbA1c returned to optimal longevity zone (< 5.4%) — auto-closed quietly with zero doctor interruption."
+        optimal_action: auto_close_quietly
+
+  - key: longevity_optimal
+    category: chronic
+    patient_id: pat_longevity_optimal
+    patient_name: "LAM David"
+    patient_name_zh: "林大衛"
+    age_sex: "38M"
+    default_lang: en
+    pathway_node_id: ebm.triage.routine_logistics
+    title: "Longevity · Optimal Biomarkers (Auto-Close)"
+    title_zh: "長壽門診・全項理想指標（自動結案）"
+    subtitle: "ApoB 0.68 · HbA1c 5.1% · hs-CRP 0.4 · Zero doctor burden"
+    risk_tier: low
+    lead_line_initial: "Annual longevity biomarkers all within optimal targets; scheduling DEXA & 180d recall."
+    ai_title_initial: "Optimal Longevity Panel — LAM David"
+    welcome_en: "Hi David, welcome back to Central Longevity & Preventive Clinic. I'm Sam, your care assistant. Ready to plan your annual preventive check-in and body-composition scan?"
+    welcome_zh: "David 你好，歡迎返到中環長壽及預防醫學診所。我係護理助手 Sam，準備好安排你嘅年度預防健康覆檢同身體成分掃描未？"
+    suggested_replies_en:
+      - "Yes please — book my annual DEXA with Nurse Rachel and check in with me in 6 months."
+    suggested_replies_zh:
+      - "好呀，幫我預約陳護士嘅年度 DEXA 掃描，6 個月後再提醒我。"
+    initial_summary:
+      intake_sufficiency: sufficient
+      alerts: []
+      lab_panel:
+        title: "Annual Longevity Biomarkers (Optimal)"
+        rows:
+          - name: "Apolipoprotein B (ApoB)"
+            value: "0.68"
+            unit: "g/L"
+            ref: "<= 0.80 optimal"
+            flag: ""
+          - name: "HbA1c"
+            value: "5.1"
+            unit: "%"
+            ref: "< 5.4 optimal"
+            flag: ""
+          - name: "hs-CRP"
+            value: "0.4"
+            unit: "mg/L"
+            ref: "< 1.0 optimal"
+            flag: ""
+      issues:
+        - id: iss_longevity_optimal
+          name: "Annual Longevity Maintenance (All Markers Optimal)"
+          bullets:
+            - "Cardiometabolic and inflammatory biomarkers remain solidly within preventive targets."
+          safety_gap: null
+          suggested_orders:
+            - id: ord_opt_dexa
+              type: imaging
+              issue: iss_longevity_optimal
+              modality: "DEXA"
+              test_name: "Annual DEXA Body Composition & Bone Density"
+            - id: ord_opt_nurse
+              type: nurse
+              issue: iss_longevity_optimal
+              protocol: "Annual Preventive DEXA & VO2max Bay Check-In"
+      scheduled_tasks:
+        - id: loop_optimal_day180
+          label: "Day +180 Preventive Longevity Recall"
+          due: "In 180 days"
+          owner: "ai_team"
+          wake_trigger: "Auto-close quietly if markers stay optimal; wake GP only on new abnormal labs."
+    intake_stages:
+      - stage_id: stage_1_book_dexa
+        match_any: ["dexa", "nurse", "6 months", "book", "掃描", "護士", "個月"]
+        next_state: scheduled
+        next_baton: idle
+        next_checkpoint: "Nurse DEXA bay + Day +180 AI recall"
+        ai_title: "Optimal Maintenance — LAM David"
+        lead_line: "All biomarkers optimal; annual DEXA handed off to # clinic-team and Day +180 # ai-team recall armed (zero doctor burden)."
+        reply_en: "All set. I have scheduled your annual DEXA handoff with Nurse Rachel and armed your 6-month preventive check-in in our background care loop — no doctor visit needed."
+        reply_zh: "已經安排好。我已通知陳護士跟進你嘅年度 DEXA 掃描，並設定好 6 個月後嘅自動追蹤提醒，今次無需打擾醫生。"
+        admin_handoff_task: "Coordinate annual DEXA body composition bay slot for LAM David (optimal longevity recall)."
+    ai_team_loops:
+      - loop_id: day180_preventive_recall
+        label: "Day +180 Longevity Biomarker Recall"
+        due_days: 180
+        metric: "apob"
+        wake_operator: ">"
+        wake_threshold: 0.80
+        wake_message: "Day +180 recall ApoB drifted above 0.80 g/L — woke on-duty GP for preventive review."
+        optimal_operator: "<="
+        optimal_threshold: 0.80
+        optimal_message: "Day +180 recall ApoB stayed optimal (<=0.80 g/L) — auto-closed quietly with zero doctor burden."
+        optimal_action: auto_close_quietly

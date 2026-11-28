@@ -27,18 +27,24 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
+from backend.agentic.tools import build_default_clinic_tool_registry
 from backend.agentic.transports import (
+    _FAILED_LLM_TARGETS,
     DEFAULT_GEMINI_CHAT_MODEL,
     DEFAULT_GEMINI_FAST_MODEL,
     DEFAULT_GEMINI_REASONING_MODEL,
     acquire_vertex_adc_token,
     build_gemini_generation_config,
     build_vertex_generate_content_url,
+    clear_failed_llm_targets,
     detect_adc_quota_project,
     detect_provider_chain,
     extract_gemini_visible_text,
     get_shared_llm_http_client,
     is_gemini_4_model,
+    is_target_cached_failed,
+    list_failed_llm_targets,
+    mark_target_failed,
     normalize_gemini_model,
     reset_adc_cache,
 )
@@ -191,124 +197,10 @@ def available_clinic_slots(now: datetime | None = None) -> list[dict[str, Any]]:
     ]
 
 
+# Canonical tool schemas derived from `backend.agentic.tools.build_default_clinic_tool_registry` (single source of truth).
 TOOL_SCHEMAS: list[dict[str, Any]] = [
-    {
-        "name": "emr.get_patient_chart",
-        "authority": "READ",
-        "description": "Read patient demographics, allergies, G6PD status, active medications, eGFR, and employer plan from the simulated clinic EMR.",
-        "parameters": {
-            "type": "object",
-            "properties": {"patient_id": {"type": "string"}},
-            "required": ["patient_id"],
-        },
-    },
-    {
-        "name": "emr.get_clinical_records",
-        "authority": "READ",
-        "description": "Retrieve recent lab reports, GP consult notes, observations, and open follow-up loops from the LoopBench-backed EMR.",
-        "parameters": {
-            "type": "object",
-            "properties": {"patient_id": {"type": "string"}},
-            "required": ["patient_id"],
-        },
-    },
-    {
-        "name": "emr.check_preventive_gaps",
-        "authority": "READ",
-        "description": "Evaluate seasonal flu vaccination eligibility, corporate coverage, and open preventive/post-visit follow-up items.",
-        "parameters": {
-            "type": "object",
-            "properties": {"patient_id": {"type": "string"}},
-            "required": ["patient_id"],
-        },
-    },
-    {
-        "name": "clinic.get_available_slots",
-        "authority": "READ",
-        "description": "Query live bookable nurse vaccination and clinic follow-up slots.",
-        "parameters": {
-            "type": "object",
-            "properties": {"service": {"type": "string", "enum": ["flu_vaccine", "teleconsult"]}},
-            "required": ["service"],
-        },
-    },
-    {
-        "name": "clinic.book_slot",
-        "authority": "DRAFT",
-        "description": "Book a preventive vaccination slot in the clinic schedule and record it in the simulated EMR.",
-        "parameters": {
-            "type": "object",
-            "properties": {"patient_id": {"type": "string"}, "slot_id": {"type": "string"}},
-            "required": ["patient_id", "slot_id"],
-        },
-    },
-    {
-        "name": "safety.screen_red_flags",
-        "authority": "CDS",
-        "description": "Run deterministic HK 999 Medical and Mental-Health crisis screen (zero LLM bypass).",
-        "parameters": {
-            "type": "object",
-            "properties": {"message": {"type": "string"}, "temp_c": {"type": "number"}},
-            "required": ["message"],
-        },
-    },
-    {
-        "name": "memory.upsert_fact",
-        "authority": "MEMORY",
-        "description": "Persist a structured clinical fact into session episodic memory ONLY with a verified verbatim quote.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "key": {"type": "string"},
-                "value": {"type": "string"},
-                "verbatim_quote": {"type": "string"},
-                "source": {"type": "string"},
-            },
-            "required": ["key", "value", "verbatim_quote"],
-        },
-    },
-    {
-        "name": "cds.check_medication_safety",
-        "authority": "CDS",
-        "description": "Evaluate proposed or patient-asked medications against HK G6PD, allergy cross-reactivity, renal, and antibiotic stewardship rules.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "patient_id": {"type": "string"},
-                "drugs": {"type": "array", "items": {"type": "string"}},
-                "diagnosis_icd10": {"type": "string"},
-            },
-            "required": ["patient_id", "drugs"],
-        },
-    },
-    {
-        "name": "harness.stage_staff_proposal",
-        "authority": "DRAFT",
-        "description": "Stage a structured acute URTI clinical packet (draft orders + MCHK sick-leave draft + nurse checklist) in the clinic review queue. Cannot sign or close.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "patient_id": {"type": "string"},
-                "symptoms": {"type": "array", "items": {"type": "string"}},
-                "onset": {"type": "string"},
-                "temp_c": {"type": "number"},
-                "rat_result": {"type": "string"},
-                "sick_leave_days": {"type": "integer"},
-                "patient_message": {"type": "string"},
-            },
-            "required": ["patient_id"],
-        },
-    },
-    {
-        "name": "emr.write_signed_orders",
-        "authority": "BLOCKED",
-        "description": "Doctor-only MCHK signature write-back to EMR. Strictly DENIED if invoked by an AI agent (asymmetric authority).",
-        "parameters": {
-            "type": "object",
-            "properties": {"proposal_id": {"type": "string"}},
-            "required": ["proposal_id"],
-        },
-    },
+    spec.to_schema_dict()
+    for spec in build_default_clinic_tool_registry().list_specs(include_blocked=True)
 ]
 
 
@@ -431,8 +323,6 @@ def detect_live_llm_engine() -> dict[str, Any]:
     }
 
 
-_FAILED_TARGET_TTL_SECONDS = 3600.0
-_FAILED_LLM_TARGETS: dict[tuple[str, str, str], tuple[float, str]] = {}
 _SHARED_LLM_CLIENT: httpx.Client | None = None
 _WARMUP_STATE: dict[str, Any] = {
     "warmed": False,
@@ -450,7 +340,7 @@ _WARMUP_STATE: dict[str, Any] = {
 
 def reset_llm_target_cache() -> None:
     """Clear cached failed LLM targets, ADC cache & warmup state (for tests or manual re-probe)."""
-    _FAILED_LLM_TARGETS.clear()
+    clear_failed_llm_targets()
     reset_adc_cache()
     _WARMUP_STATE.update({
         "warmed": False,
@@ -480,14 +370,8 @@ def resolve_fast_chat_model(engine: dict[str, Any]) -> str:
 
 def get_llm_warmup_state() -> dict[str, Any]:
     """Return current live LLM warmup status and cached skipped endpoints for /api/v1/health."""
-    now = time.time()
-    active_skips = [
-        f"{p}/{r}/{m}"
-        for (p, r, m), (exp, _err) in list(_FAILED_LLM_TARGETS.items())
-        if exp > now
-    ]
     st = dict(_WARMUP_STATE)
-    st["skipped_targets"] = active_skips
+    st["skipped_targets"] = list_failed_llm_targets()
     return st
 
 
@@ -497,18 +381,11 @@ def _get_shared_llm_client() -> httpx.Client:
 
 
 def _is_target_cached_failed(key: tuple[str, str, str]) -> bool:
-    entry = _FAILED_LLM_TARGETS.get(key)
-    if entry is None:
-        return False
-    exp, _ = entry
-    if time.time() >= exp:
-        _FAILED_LLM_TARGETS.pop(key, None)
-        return False
-    return True
+    return is_target_cached_failed(key)
 
 
 def _mark_target_failed(key: tuple[str, str, str], reason: str) -> None:
-    _FAILED_LLM_TARGETS[key] = (time.time() + _FAILED_TARGET_TTL_SECONDS, reason[:180])
+    mark_target_failed(key, reason)
 
 
 @dataclass

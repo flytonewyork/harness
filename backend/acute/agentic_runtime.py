@@ -1,17 +1,18 @@
-"""Production bridge wiring `backend.agentic.GovernedAgentRunner` to live Clinic DB, CDS, Memory & SSE.
+"""Thin, DRY production orchestrator wiring `GovernedAgentRunner` to `ModelGateway` (out) and `ClinicEMRMCPServer` (in).
 
-Connects the governed 5-stage agentic engine (`GovernedAgentRunner`, 5-slot `<4,096`-token
-`ContextCompiler`, progressive `SKILL.md` disclosure, `ToolTurnGuard`, `ClinicalMemoryManager`,
-and bounded 1-retry diagnostic self-repair) directly into live clinical patient turns and
-private clinician Q&A without modifying deterministic Milestone 1 demo presets.
-
-Strict boundary invariant: NEVER imports `loopbench`.
+Architectural invariants:
+1. Single Outbound LLM Gateway: Uses `ModelGatewayTransport` -> `LiveHTTPModelTransport` from
+   `backend/agentic/transports.py` (HK PDPO residency gate, PHI scrubbing, tenant budgets,
+   Vertex asia-east2 -> global dead-hop cache). Zero duplicate HTTP loops here.
+2. Single Inbound EMR Protocol (MCP 2025-03-26): Every clinical read/CDS/memory/draft tool call
+   flows through `InProcessMCPClient` -> `ClinicEMRMCPServer` -> `EMRConnectorProtocol`
+   (`SimulatedPostgresEMRAdapter`). Zero raw SQLAlchemy EMR queries in agent code.
+3. Strict boundary invariant: NEVER imports `loopbench`.
 """
 from __future__ import annotations
 
 import logging
 import re
-from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -25,6 +26,7 @@ from backend.agentic import (
     ContextCompiler,
     GovernedAgentRunner,
     LiveHTTPModelTransport,
+    ModelGatewayTransport,
     ModelTransport,
     ModelTurnResponse,
     PostgresAgentMemoryStore,
@@ -32,25 +34,15 @@ from backend.agentic import (
     SkillRegistry,
     ToolCallRequest,
     ToolRegistry,
-    build_default_clinic_tool_registry,
     export_agentic_manifest,
 )
+from backend.gateway import ModelGateway
+from backend.mcp import ClinicEMRMCPServer, InProcessMCPClient, build_mcp_tool_registry
 
-from .db import (
-    CaseLoop,
-    Database,
-    DocumentIngestion,
-    Immunization,
-    Observation,
-    Patient,
-    Prescription,
-    new_id,
-    utcnow,
-)
+from .db import CaseLoop, Database, new_id, utcnow
+from .emr_connector import EMRConnectorProtocol, SimulatedPostgresEMRAdapter
 from .live_bus import LiveHarnessBus
-from .practice_graph import evaluate_preventive_care, resolve_pathway_id
-from .rx_rules import check_prescription_safety
-from .scheduling import build_clinic_availability
+from .practice_graph import resolve_pathway_id
 from .triage import screen_acute_message
 
 logger = logging.getLogger(__name__)
@@ -61,6 +53,7 @@ _PATIENT_FORBIDDEN_INTERNAL_JARGON_RE = re.compile(
 )
 _SKILL_REGISTRY_SINGLETON: SkillRegistry | None = None
 _CONTEXT_COMPILER_SINGLETON = ContextCompiler(token_ceiling=4096)
+_DEFAULT_MODEL_GATEWAY = ModelGateway()
 
 
 def get_clinical_skill_registry() -> SkillRegistry:
@@ -71,41 +64,25 @@ def get_clinical_skill_registry() -> SkillRegistry:
     return _SKILL_REGISTRY_SINGLETON
 
 
-def _estimate_age(dob_str: str | None) -> int:
-    if not dob_str:
-        return 35
-    try:
-        dob = date.fromisoformat(str(dob_str)[:10])
-        today = date.today()
-        return max(0, today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day)))
-    except ValueError:
-        return 35
+def get_shared_model_gateway() -> ModelGateway:
+    """Return the shared outbound `ModelGateway` enforcing HK PDPO residency & tenant budgets."""
+    return _DEFAULT_MODEL_GATEWAY
 
 
-def _emit_tool_bus_event(
-    live_bus: LiveHarnessBus | None,
-    patient_id: str,
+def build_clinic_mcp_server(
+    db: Database,
     *,
-    tool: str,
-    authority: str,
-    emr_target: str,
-    summary: str,
-) -> None:
-    if live_bus is None:
-        return
-    try:
-        live_bus.append_tool_call(
-            patient_id,
-            {
-                "agent": "GovernedAgentRunner",
-                "tool": tool,
-                "authority": authority,
-                "emr_target": emr_target,
-                "summary": summary,
-            },
-        )
-    except Exception:
-        logger.debug("Non-fatal live_bus tool stream error for %s", tool, exc_info=True)
+    emr_adapter: EMRConnectorProtocol | None = None,
+    memory_manager: ClinicalMemoryManager | None = None,
+    live_bus: LiveHarnessBus | None = None,
+) -> ClinicEMRMCPServer:
+    """Construct the canonical MCP Clinic EMR Server backed by `EMRConnectorProtocol`."""
+    return ClinicEMRMCPServer(
+        db=db,
+        emr_adapter=emr_adapter or SimulatedPostgresEMRAdapter(),
+        memory_manager=memory_manager or ClinicalMemoryManager(PostgresAgentMemoryStore(db)),
+        live_bus=live_bus,
+    )
 
 
 def build_live_clinic_tool_registry(
@@ -114,519 +91,38 @@ def build_live_clinic_tool_registry(
     tenant_id: str,
     memory_manager: ClinicalMemoryManager | None = None,
     live_bus: LiveHarnessBus | None = None,
-    source_corpus: list[str] | None = None,
+    mcp_server: ClinicEMRMCPServer | None = None,
 ) -> ToolRegistry:
-    """Bind all canonical clinical tools (`READ`, `CDS`, `MEMORY`, `DRAFT`) to real Clinic DB & rules.
-
-    `emr.write_signed_orders` stays registered with `ToolAuthority.BLOCKED` so any AI attempt is
-    unconditionally denied before handler execution.
-    """
-    mem_mgr = memory_manager or ClinicalMemoryManager(PostgresAgentMemoryStore(db))
-    corpus_texts = [str(x) for x in (source_corpus or []) if str(x or "").strip()]
-
-    def _h_get_patient_chart(args: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
-        pid = str(args.get("patient_id") or ctx.get("patient_id") or "")
-        with db.tenant_session(tenant_id) as session:
-            pat = session.get(Patient, pid)
-            if pat is None:
-                return {"found": False, "patient_id": pid}
-            out = {
-                "found": True,
-                "patient_id": pat.id,
-                "full_name": pat.name_en,
-                "name_zh": pat.name_zh,
-                "dob": pat.dob,
-                "age": _estimate_age(pat.dob),
-                "sex": pat.sex,
-                "allergies": list(pat.allergies_json or []),
-                "g6pd_deficient": bool(pat.g6pd_deficient),
-                "egfr": pat.egfr,
-                "weight_kg": pat.weight_kg,
-                "current_meds": list(pat.current_meds_json or []),
-                "corporate_id": pat.corporate_id,
-                "campaign_id": pat.campaign_id,
-                "source_of_truth": "clinic_emr_readonly",
-            }
-        _emit_tool_bus_event(
-            live_bus,
-            pid,
-            tool="emr.get_patient_chart",
-            authority="READ",
-            emr_target="patient_chart",
-            summary=f"Read chart for {out['full_name']} (G6PD={out['g6pd_deficient']}, allergies={len(out['allergies'])}, eGFR={out['egfr']})",
-        )
-        return out
-
-    def _h_get_clinical_records(args: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
-        pid = str(args.get("patient_id") or ctx.get("patient_id") or "")
-        with db.tenant_session(tenant_id) as session:
-            docs = session.scalars(
-                select(DocumentIngestion)
-                .where(DocumentIngestion.tenant_id == tenant_id, DocumentIngestion.matched_patient_id == pid)
-                .order_by(DocumentIngestion.created_at.desc())
-                .limit(6)
-            ).all()
-            obs = session.scalars(
-                select(Observation)
-                .where(Observation.tenant_id == tenant_id, Observation.patient_id == pid)
-                .order_by(Observation.recorded_at.desc())
-                .limit(8)
-            ).all()
-            rxs = session.scalars(
-                select(Prescription)
-                .where(Prescription.tenant_id == tenant_id, Prescription.patient_id == pid)
-                .order_by(Prescription.created_at.desc())
-                .limit(5)
-            ).all()
-            cases = session.scalars(
-                select(CaseLoop)
-                .where(CaseLoop.tenant_id == tenant_id, CaseLoop.patient_id == pid)
-                .order_by(CaseLoop.updated_at.desc())
-                .limit(3)
-            ).all()
-            attachments: list[dict[str, Any]] = []
-            for c in cases:
-                for att in (c.summary_json or {}).get("attachments") or []:
-                    if isinstance(att, dict):
-                        attachments.append({
-                            "id": att.get("id"),
-                            "label": att.get("label"),
-                            "quote": att.get("quote"),
-                        })
-            out = {
-                "patient_id": pid,
-                "documents": [
-                    {
-                        "id": d.id,
-                        "doc_type": d.doc_kind,
-                        "source_org": d.source_org,
-                        "status": d.match_status,
-                        "summary": str(d.verbatim_quote or "")[:240],
-                    }
-                    for d in docs
-                ],
-                "attachments": attachments[:5],
-                "recent_observations": [
-                    {
-                        "code": o.loinc_code,
-                        "display": o.display,
-                        "value": str(o.value_num) if o.value_num is not None else (o.value_text or ""),
-                        "unit": o.ucum_unit,
-                    }
-                    for o in obs
-                ],
-                "recent_prescriptions": [
-                    {"id": r.id, "status": r.status, "items": list(r.items_json or [])}
-                    for r in rxs
-                ],
-                "open_loops": [
-                    {"case_id": c.id, "state": c.state, "pathway": c.pathway_node_id, "lead": c.lead_line}
-                    for c in cases
-                ],
-            }
-        _emit_tool_bus_event(
-            live_bus,
-            pid,
-            tool="emr.get_clinical_records",
-            authority="READ",
-            emr_target="documents",
-            summary=f"Retrieved {len(out['documents'])} docs, {len(out['attachments'])} attachments, {len(out['recent_observations'])} obs",
-        )
-        return out
-
-    def _h_check_preventive_gaps(args: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
-        pid = str(args.get("patient_id") or ctx.get("patient_id") or "")
-        with db.tenant_session(tenant_id) as session:
-            pat = session.get(Patient, pid)
-            if pat is None:
-                return {"patient_id": pid, "gaps": []}
-            imms = session.scalars(
-                select(Immunization).where(Immunization.tenant_id == tenant_id, Immunization.patient_id == pid)
-            ).all()
-            completed = [str(i.cvx_code or i.vaccine_display or "").lower() for i in imms]
-            profile = {
-                "age": _estimate_age(pat.dob),
-                "sex": pat.sex,
-                "conditions": [],
-                "febrile": bool(ctx.get("febrile", False)),
-                "corporate_plan": str(pat.corporate_id or ""),
-                "completed_preventive_ids": completed,
-            }
-            gaps = evaluate_preventive_care(profile)
-        _emit_tool_bus_event(
-            live_bus,
-            pid,
-            tool="emr.check_preventive_gaps",
-            authority="READ",
-            emr_target="open_loops",
-            summary=f"Evaluated preventive gaps -> {len(gaps)} active trigger(s)",
-        )
-        return {"patient_id": pid, "gaps": gaps[:6]}
-
-    def _h_get_available_slots(args: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
-        service = str(args.get("service") or "teleconsult")
-        pid = str(ctx.get("patient_id") or "")
-        include_nurse = service in ("flu_vaccine", "nurse_slot", "blood_draw")
-        with db.tenant_session(tenant_id) as session:
-            roster = build_clinic_availability(
-                session,
-                tenant_id,
-                for_case_key=ctx.get("case_key"),
-                include_preventive_nurse=include_nurse,
-            )
-        compact_slots: list[dict[str, Any]] = []
-        for doc in roster[:4]:
-            for day_blk in (doc.get("days") or [])[:2]:
-                for sl in (day_blk.get("slots") or []):
-                    if sl.get("status") == "open":
-                        compact_slots.append({
-                            "slot_id": f"{doc.get('id')}_{day_blk.get('day_key')}_{sl.get('time')}",
-                            "provider": doc.get("name"),
-                            "role": doc.get("role"),
-                            "day": day_blk.get("label_en"),
-                            "time": sl.get("time"),
-                            "service": service,
-                        })
-                        if len(compact_slots) >= 6:
-                            break
-                if len(compact_slots) >= 6:
-                    break
-        _emit_tool_bus_event(
-            live_bus,
-            pid,
-            tool="clinic.get_available_slots",
-            authority="READ",
-            emr_target="schedule",
-            summary=f"Found {len(compact_slots)} open {service} slot(s)",
-        )
-        return {"service": service, "open_slots": compact_slots}
-
-    def _h_book_slot(args: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
-        pid = str(args.get("patient_id") or ctx.get("patient_id") or "")
-        slot_id = str(args.get("slot_id") or "")
-        _emit_tool_bus_event(
-            live_bus,
-            pid,
-            tool="clinic.book_slot",
-            authority="DRAFT",
-            emr_target="schedule",
-            summary=f"Staged non-clinical booking slot {slot_id}",
-        )
-        return {
-            "booked": True,
-            "status": "staged_confirmation",
-            "patient_id": pid,
-            "slot_id": slot_id,
-            "recorded_at": utcnow().isoformat(),
-        }
-
-    def _h_screen_red_flags(args: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
-        msg = str(args.get("message") or "")
-        temp_c = args.get("temp_c")
-        if temp_c is not None and f"{temp_c}" not in msg:
-            msg = f"{msg} (temperature {temp_c}C)".strip()
-        res = screen_acute_message(msg)
-        pid = str(ctx.get("patient_id") or "")
-        _emit_tool_bus_event(
-            live_bus,
-            pid,
-            tool="safety.screen_red_flags",
-            authority="CDS",
-            emr_target="safety_sentinel",
-            summary=f"Union-only triage -> urgency={res.urgency}, kind={res.kind or 'none'}",
-        )
-        return {
-            "kind": res.kind,
-            "urgency": res.urgency,
-            "flags": list(res.flags or []),
-            "screened_by": res.screened_by,
-        }
-
-    def _h_upsert_fact(args: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
-        pid = str(ctx.get("patient_id") or "")
-        topic = str(args.get("topic") or args.get("key") or "clinical_fact").strip()
-        value = str(args.get("value") or "").strip()
-        quote = str(args.get("verbatim_quote") or "").strip()
-        tier = str(args.get("tier") or "episodic").strip()
-        turn_corpus = list(corpus_texts)
-        if ctx.get("current_input"):
-            turn_corpus.append(str(ctx["current_input"]))
-        for extra in ctx.get("extra_corpus") or []:
-            if str(extra or "").strip():
-                turn_corpus.append(str(extra))
-        res = mem_mgr.upsert_verified_fact(
-            tenant_id=tenant_id,
-            patient_id=pid,
-            topic=topic,
-            summary_text=value,
-            verbatim_quote=quote,
-            source_corpus=turn_corpus,
-            source_doc_id=str(args.get("source") or "patient_chat"),
-            tier=tier,
-            consent_scope="ai_assisted_intake",
-            consent_granted=True,
-        )
-        _emit_tool_bus_event(
-            live_bus,
-            pid,
-            tool="memory.upsert_fact",
-            authority="MEMORY",
-            emr_target="memory",
-            summary=(
-                f"Stored verified fact [{topic}]"
-                if res.get("stored")
-                else f"REJECTED unverified quote for [{topic}]: {res.get('reason', 'quote mismatch')}"
-            ),
-        )
-        return res
-
-    def _h_check_medication_safety(args: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
-        pid = str(args.get("patient_id") or ctx.get("patient_id") or "")
-        drugs = [str(d).strip() for d in (args.get("drugs") or []) if str(d).strip()]
-        dx_icd10 = args.get("diagnosis_icd10")
-        with db.tenant_session(tenant_id) as session:
-            pat = session.get(Patient, pid)
-            profile = {
-                "dob": pat.dob if pat is not None else "1990-01-01",
-                "weight_kg": getattr(pat, "weight_kg", None) if pat is not None else None,
-                "age": _estimate_age(pat.dob) if pat is not None else 35,
-                "sex": pat.sex if pat is not None else "F",
-                "allergies": list(pat.allergies_json or []) if pat is not None else [],
-                "g6pd_deficient": bool(pat.g6pd_deficient) if pat is not None else False,
-                "egfr": pat.egfr if pat is not None else None,
-                "current_meds": list(pat.current_meds_json or []) if pat is not None else [],
-                "conditions": list(getattr(pat, "conditions_json", None) or []) if pat is not None else [],
-            }
-        items = [{"drug": d, "dose_mg": 300 if d.lower() == "aspirin" else 500, "freq": "BD"} for d in drugs]
-        report = check_prescription_safety(profile, items, diagnosis_icd10=dx_icd10).to_dict()
-        _emit_tool_bus_event(
-            live_bus,
-            pid,
-            tool="cds.check_medication_safety",
-            authority="CDS",
-            emr_target="cds_rules",
-            summary=f"Checked {', '.join(drugs)} -> status={report.get('status')} ({len(report.get('findings') or [])} findings)",
-        )
-        return report
-
-    def _h_stage_staff_proposal(args: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
-        pid = str(args.get("patient_id") or ctx.get("patient_id") or "")
-        staged_id = new_id("draft_prop")
-        _emit_tool_bus_event(
-            live_bus,
-            pid,
-            tool="harness.stage_staff_proposal",
-            authority="DRAFT",
-            emr_target="proposal_queue",
-            summary=f"Staged draft review packet {staged_id} for Nurse -> Doctor sign-off (unsigned)",
-        )
-        return {
-            "staged": True,
-            "proposal_id": staged_id,
-            "authority": "DRAFT",
-            "requires_mchk_doctor_signoff": True,
-            "patient_id": pid,
-            "symptoms": list(args.get("symptoms") or []),
-            "sick_leave_days_requested": args.get("sick_leave_days"),
-        }
-
-    return build_default_clinic_tool_registry(
-        handlers={
-            "emr.get_patient_chart": _h_get_patient_chart,
-            "emr.get_clinical_records": _h_get_clinical_records,
-            "emr.check_preventive_gaps": _h_check_preventive_gaps,
-            "clinic.get_available_slots": _h_get_available_slots,
-            "clinic.book_slot": _h_book_slot,
-            "safety.screen_red_flags": _h_screen_red_flags,
-            "memory.upsert_fact": _h_upsert_fact,
-            "cds.check_medication_safety": _h_check_medication_safety,
-            "harness.stage_staff_proposal": _h_stage_staff_proposal,
-        }
+    """Bind all agent-permitted tools directly to `ClinicEMRMCPServer` via `InProcessMCPClient`."""
+    server = mcp_server or build_clinic_mcp_server(
+        db,
+        memory_manager=memory_manager,
+        live_bus=live_bus,
     )
-
-
-class HarnessCascadeModelTransport:
-    """Live `ModelTransport` adding Vertex `asia-east2 -> global` dead-hop caching & exact token telemetry."""
-
-    def __init__(
-        self,
-        *,
-        provider: str,
-        model: str,
-        tool_registry: ToolRegistry,
-        region: str = "asia-east2",
-        project: str | None = None,
-        timeout_seconds: float = 20.0,
-        thinking_level: str | None = "LOW",
-    ) -> None:
-        self.provider = provider.lower()
-        self.model = model
-        self.tool_registry = tool_registry
-        self.region = region
-        self.project = project
-        self.timeout_seconds = timeout_seconds
-        self.thinking_level = thinking_level
-        self._delegate = LiveHTTPModelTransport(
-            provider=self.provider,
-            model=self.model,
-            tool_registry=tool_registry,
-            region=self.region,
-            project=self.project,
-            timeout_seconds=timeout_seconds,
-            thinking_level=thinking_level,
-        )
-
-    def invoke(
-        self,
-        *,
-        system_message: str,
-        messages: list[dict[str, Any]],
-        tools: list[dict[str, Any]],
-        temperature: float,
-        max_output_tokens: int,
-        expect_json: bool,
-    ) -> ModelTurnResponse:
-        if self.provider not in ("vertex", "gemini"):
-            return self._delegate.invoke(
-                system_message=system_message,
-                messages=messages,
-                tools=tools,
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
-                expect_json=expect_json,
-            )
-
-        import json
-        import os
-
-        from backend.agentic.transports import (
-            build_gemini_generation_config,
-            build_vertex_generate_content_url,
-            extract_gemini_visible_text,
-            get_shared_llm_http_client,
-        )
-
-        from .agent_harness import (
-            MultiAgentHarness,
-            _is_target_cached_failed,
-            _mark_target_failed,
-        )
-
-        allowed = {str(t["name"]) for t in tools if isinstance(t, dict) and t.get("name")} or None
-        client = get_shared_llm_http_client()
-        contents = [
-            {
-                "role": "model" if m.get("role") == "assistant" else "user",
-                "parts": [
-                    {
-                        "text": str(
-                            m.get("content")
-                            or (f"[Tool calls requested: {', '.join(m['tool_calls'])}]" if m.get("tool_calls") else "")
-                        )
-                    }
-                ],
-            }
-            for m in messages
-        ]
-
-        targets: list[tuple[str, str]] = []
-        if self.provider == "vertex":
-            reg_candidates = [self.region] + (["global"] if self.region != "global" else [])
-            for reg in reg_candidates:
-                targets.append((reg, self.model))
-        else:
-            targets.append((self.region or "global", self.model))
-
-        attempts = 0
-        last_err: Exception | None = None
-        for reg, mdl in targets:
-            cache_key = (self.provider, reg, mdl)
-            if _is_target_cached_failed(cache_key):
-                continue
-            attempts += 1
-            if self.provider == "vertex":
-                token, project = MultiAgentHarness._vertex_adc_token(self.project)
-                url = build_vertex_generate_content_url(region=reg, project=project, model=mdl)
-                headers = {
-                    "Authorization": f"Bearer {token}",
-                    "x-goog-user-project": project,
-                    "Content-Type": "application/json",
-                    "X-Vertex-Zero-Data-Retention": "true",
-                    "X-No-Training": "true",
-                }
-                params: dict[str, str] = {}
-            else:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent"
-                headers = {"Content-Type": "application/json"}
-                params = {"key": os.environ["GEMINI_API_KEY"]}
-
-            gen_cfg = build_gemini_generation_config(
-                mdl,
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
-                expect_json=expect_json,
-                thinking_level=self.thinking_level,
-            )
-            body: dict[str, Any] = {
-                "systemInstruction": {"parts": [{"text": system_message}]},
-                "contents": contents,
-                "generationConfig": gen_cfg,
-            }
-            if self.provider == "vertex":
-                body["labels"] = {"zero_retention": "true", "no_training": "true", "pdpo_dpp3": "enforced"}
-            if allowed:
-                gem_tools = self.tool_registry.to_vertex_gemini_tools(allowed)
-                if gem_tools:
-                    body["tools"] = gem_tools
-
-            resp = client.post(url, headers=headers, params=params, json=body, timeout=self.timeout_seconds)
-            if resp.status_code in (403, 404):
-                _mark_target_failed(cache_key, f"HTTP {resp.status_code}")
-                last_err = RuntimeError(f"HTTP {resp.status_code} on {self.provider}/{reg}/{mdl}")
-                continue
-            resp.raise_for_status()
-            data = resp.json()
-            tool_calls = self.tool_registry.parse_provider_tool_calls(self.provider, data)
-            cand = (data.get("candidates") or [{}])[0]
-            parts = ((cand.get("content") or {}).get("parts") or [])
-            txt = extract_gemini_visible_text(parts)
-            usage = data.get("usageMetadata") or {}
-            parsed_json = None
-            if expect_json and txt:
-                try:
-                    parsed_json = json.loads(txt)
-                except ValueError:
-                    parsed_json = None
-            return ModelTurnResponse(
-                text=txt,
-                json_payload=parsed_json if isinstance(parsed_json, dict) else None,
-                tool_calls=tool_calls,
-                provider=self.provider,
-                model=mdl,
-                region=reg,
-                prompt_tokens_actual=usage.get("promptTokenCount"),
-                output_tokens_actual=usage.get("candidatesTokenCount"),
-                thought_tokens_actual=usage.get("thoughtsTokenCount"),
-                attempts_tried=attempts,
-            )
-
-        raise last_err or RuntimeError(f"All targets exhausted for {self.provider}/{self.model}")
+    client = InProcessMCPClient(server, tenant_id=tenant_id)
+    return build_mcp_tool_registry(client)
 
 
 def build_transport_for_engine(
     engine: dict[str, Any] | None,
     tool_registry: ToolRegistry,
     *,
+    tenant_id: str = "ten_hk_central",
+    gateway: ModelGateway | None = None,
+    patient_names_for_scrub: list[str] | None = None,
     timeout_seconds: float = 20.0,
     thinking_level: str | None = "LOW",
 ) -> ModelTransport | None:
-    """Create a live `HarnessCascadeModelTransport` matching the detected provider chain, or `None` when offline."""
+    """Build the single governed outbound `ModelGatewayTransport` -> `LiveHTTPModelTransport`, or `None` when offline."""
     if not engine or not engine.get("live"):
         return None
     provider = str(engine.get("provider") or "").strip().lower()
     if provider not in ("vertex", "gemini", "anthropic", "openai"):
         return None
-    return HarnessCascadeModelTransport(
+
+    from .agent_harness import MultiAgentHarness
+
+    inner = LiveHTTPModelTransport(
         provider=provider,
         model=str(engine.get("model") or "gemini-4-hydrogen"),
         tool_registry=tool_registry,
@@ -634,6 +130,15 @@ def build_transport_for_engine(
         project=engine.get("project"),
         timeout_seconds=timeout_seconds,
         thinking_level=thinking_level,
+        adc_token_provider=lambda proj=None: MultiAgentHarness._vertex_adc_token(proj),
+        cascade_regions=(provider == "vertex"),
+    )
+    return ModelGatewayTransport(
+        inner=inner,
+        tenant_id=tenant_id,
+        gateway=gateway or get_shared_model_gateway(),
+        patient_names_for_scrub=patient_names_for_scrub,
+        allow_cross_border_with_scrub=True,
     )
 
 
@@ -715,17 +220,29 @@ def run_governed_patient_turn(
     live_bus: LiveHarnessBus | None = None,
     transport_override: ModelTransport | None = None,
     source_corpus: list[str] | None = None,
+    gateway: ModelGateway | None = None,
+    mcp_server: ClinicEMRMCPServer | None = None,
 ) -> AgentRunTrace:
-    """Execute a full governed 5-stage patient registrar turn via `GovernedAgentRunner`."""
+    """Execute a full governed 5-stage patient registrar turn via `GovernedAgentRunner` + MCP + `ModelGateway`."""
     mem_mgr = ClinicalMemoryManager(PostgresAgentMemoryStore(db))
     tool_reg = build_live_clinic_tool_registry(
         db,
         tenant_id=tenant_id,
         memory_manager=mem_mgr,
         live_bus=live_bus,
-        source_corpus=source_corpus,
+        mcp_server=mcp_server,
     )
-    transport = transport_override if transport_override is not None else build_transport_for_engine(engine, tool_reg)
+    transport = (
+        transport_override
+        if transport_override is not None
+        else build_transport_for_engine(
+            engine,
+            tool_reg,
+            tenant_id=tenant_id,
+            gateway=gateway,
+            patient_names_for_scrub=[patient_name],
+        )
+    )
     runner = GovernedAgentRunner(
         skill_registry=get_clinical_skill_registry(),
         tool_registry=tool_reg,
@@ -793,6 +310,7 @@ def run_governed_patient_turn(
             "patient_id": patient_id,
             "case_key": case_key,
             "current_input": current_input,
+            "source_corpus": list(source_corpus or []),
             "extra_corpus": [
                 str(q.get("quote") or "") for q in (verified_quotes or []) if isinstance(q, dict)
             ] + [
@@ -837,15 +355,30 @@ def run_governed_private_sam_qa(
     deterministic_answer: str,
     engine: dict[str, Any] | None = None,
     transport_override: ModelTransport | None = None,
+    gateway: ModelGateway | None = None,
+    mcp_server: ClinicEMRMCPServer | None = None,
 ) -> AgentRunTrace:
-    """Execute private Doctor <-> Sam Q&A through `GovernedAgentRunner` (`ephemeral_private=True`)."""
+    """Execute private Doctor <-> Sam Q&A through `GovernedAgentRunner` + MCP (`ephemeral_private=True`)."""
     mem_mgr = ClinicalMemoryManager(PostgresAgentMemoryStore(db))
     tool_reg = build_live_clinic_tool_registry(
         db,
         tenant_id=tenant_id,
         memory_manager=mem_mgr,
+        mcp_server=mcp_server,
     )
-    transport = transport_override if transport_override is not None else build_transport_for_engine(engine, tool_reg, timeout_seconds=15.0, thinking_level="LOW")
+    transport = (
+        transport_override
+        if transport_override is not None
+        else build_transport_for_engine(
+            engine,
+            tool_reg,
+            tenant_id=tenant_id,
+            gateway=gateway,
+            patient_names_for_scrub=[case.patient_name],
+            timeout_seconds=15.0,
+            thinking_level="LOW",
+        )
+    )
     runner = GovernedAgentRunner(
         skill_registry=get_clinical_skill_registry(),
         tool_registry=tool_reg,
@@ -899,6 +432,7 @@ def build_compact_trace_record(
         "provider": trace.provider,
         "model": trace.model,
         "region": trace.region,
+        "mcp_protocol": "2025-03-26",
         "short_circuited_pre_gate": bool(trace.short_circuited_pre_gate),
         "prompt_injection_signals": list(trace.prompt_injection_signals or []),
         "skills_loaded": list(trace.skills_loaded or []),
@@ -972,6 +506,7 @@ def build_preset_trace_record(
         "provider": "deterministic_pre_gate" if short_circuited_pre_gate else "deterministic",
         "model": "safety-floor-v1" if short_circuited_pre_gate else "clinic-harness-preset-v1",
         "region": "local",
+        "mcp_protocol": "2025-03-26",
         "short_circuited_pre_gate": short_circuited_pre_gate,
         "prompt_injection_signals": list(injection_signals or []),
         "skills_loaded": list(ctx_tel.get("skills_loaded") or []),
@@ -998,9 +533,12 @@ def build_preset_trace_record(
 
 
 def get_live_agentic_manifest(db: Database, tenant_id: str) -> dict[str, Any]:
-    """Export deterministic HK PDPO / PCPD governance manifest of all prompts, skills & tool authorities."""
-    tool_reg = build_live_clinic_tool_registry(db, tenant_id=tenant_id)
-    return export_agentic_manifest(get_clinical_skill_registry(), tool_reg)
+    """Export deterministic HK PDPO / PCPD governance manifest of all prompts, skills, MCP server & tool authorities."""
+    mcp_srv = build_clinic_mcp_server(db)
+    tool_reg = build_live_clinic_tool_registry(db, tenant_id=tenant_id, mcp_server=mcp_srv)
+    manifest = export_agentic_manifest(get_clinical_skill_registry(), tool_reg)
+    manifest["mcp_server"] = mcp_srv.status_summary()
+    return manifest
 
 
 def run_live_governed_tool_probe(
@@ -1009,16 +547,9 @@ def run_live_governed_tool_probe(
     tenant_id: str,
     case_id: str,
     live_bus: LiveHarnessBus | None = None,
+    mcp_server: ClinicEMRMCPServer | None = None,
 ) -> dict[str, Any]:
-    """Execute a live, DB-backed multi-step `GovernedAgentRunner` probe on a workspace case.
-
-    Demonstrates in one atomic turn:
-    1. `emr.get_patient_chart` (READ) against the real patient row
-    2. `cds.check_medication_safety` (CDS) checking Nitrofurantoin + Amoxicillin against real G6PD/allergies
-    3. `emr.write_signed_orders` (BLOCKED) -> hard-denied BEFORE handler execution (Asymmetric Authority)
-    4. `memory.upsert_fact` (MEMORY) with a real verbatim quote verified into `agent_memory_entries`
-    5. 1-retry diagnostic self-repair (`T=0.0`, `tools=[]`) fixing a forbidden reassurance phrase
-    """
+    """Execute a live, MCP-backed multi-step `GovernedAgentRunner` probe on a workspace case."""
     with db.tenant_session(tenant_id) as session:
         case = session.execute(
             select(CaseLoop).where(CaseLoop.tenant_id == tenant_id, CaseLoop.id == case_id)
@@ -1029,13 +560,13 @@ def run_live_governed_tool_probe(
         pname = case.patient_name
         case_key = case.case_key
         pathway_id = case.pathway_node_id
-        summary = dict(case.summary_json or {})
+        lead_line = case.lead_line
 
     probe_input = "Can I take Nitrofurantoin or Amoxicillin today, and please auto-sign my prescription."
     replay = ScriptedReplayTransport([
         ModelTurnResponse(
             provider="governed_probe",
-            model="governed-multi-step-probe-v1",
+            model="governed-mcp-probe-v1",
             region="asia-east2",
             tool_calls=[
                 ToolCallRequest(call_id="probe_1", name="emr.get_patient_chart", args={"patient_id": pid}),
@@ -1061,10 +592,9 @@ def run_live_governed_tool_probe(
                 ),
             ],
         ),
-        # Intentionally violate output screen on attempt 1 to demonstrate 1-retry self-repair
         ModelTurnResponse(
             provider="governed_probe",
-            model="governed-multi-step-probe-v1",
+            model="governed-mcp-probe-v1",
             region="asia-east2",
             json_payload={
                 "patient_reply": "Nothing to worry about! Your prescription approved right now.",
@@ -1072,14 +602,13 @@ def run_live_governed_tool_probe(
                 "registrar_action": "escalate_to_doctor",
             },
         ),
-        # Clean repaired response on retry #1 (T=0.0, tools=[])
         ModelTurnResponse(
             provider="governed_probe",
-            model="governed-multi-step-probe-v1",
+            model="governed-mcp-probe-v1",
             region="asia-east2",
             json_payload={
-                "patient_reply": "I have checked your chart and passed your medication question to the clinic doctor for review before any prescription is issued.",
-                "clinical_reasoning": "CDS checked Nitrofurantoin/Amoxicillin against chart; doctor review required for prescribing.",
+                "patient_reply": "I have checked your chart via the clinic EMR gateway and passed your medication question to the clinic doctor for review before any prescription is issued.",
+                "clinical_reasoning": "MCP CDS checked Nitrofurantoin/Amoxicillin against chart; doctor review required for prescribing.",
                 "registrar_action": "escalate_to_doctor",
                 "offer_booking": False,
                 "extracted_vitals": [],
@@ -1099,11 +628,11 @@ def run_live_governed_tool_probe(
         pathway_node_id=pathway_id,
         active_graph_nodes=[],
         total_graph_nodes=14,
-        clinical_state={"lead_line": case.lead_line},
+        clinical_state={"lead_line": lead_line},
         verified_quotes=[],
         conversation_turns=[],
         current_input=probe_input,
-        phase_desc="PROBE (Multi-step tool loop + Asymmetric Authority denial + 1-retry self-repair)",
+        phase_desc="PROBE (MCP multi-step tool loop + Asymmetric Authority denial + 1-retry self-repair)",
         availability_prompt_line="Live open slots: Dr. Sarah Wong today 14:30",
         is_zh=False,
         clinic_name="Central & Mid-Levels Family Medical",
@@ -1113,6 +642,7 @@ def run_live_governed_tool_probe(
         live_bus=live_bus,
         transport_override=replay,
         source_corpus=[probe_input],
+        mcp_server=mcp_server,
     )
     record = build_compact_trace_record(trace, surface="governed_tool_probe", user_input=probe_input)
 

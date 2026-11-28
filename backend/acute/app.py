@@ -94,9 +94,11 @@ from .live_demo import (
     trigger_post_sign_checkin,
 )
 from .agentic_runtime import (
+    build_clinic_mcp_server,
     get_live_agentic_manifest,
     run_live_governed_tool_probe,
 )
+from .pathway_runner import get_declarative_pathway_runner
 from .db import (
     TENANT_SCOPED_TABLES,
     AgentRun,
@@ -702,6 +704,7 @@ def create_acute_app(
     workflows.register_default_handlers(whatsapp_adapter=wa_adapter)
     limiter = SlidingRateLimiter(max_requests=300, window_seconds=60)
     live_bus = LiveHarnessBus()
+    clinic_mcp_server = build_clinic_mcp_server(database, emr_adapter=emr_adapter, live_bus=live_bus)
     multi_agent = MultiAgentHarness(live_bus)
 
     database.init_schema()
@@ -1536,9 +1539,37 @@ def create_acute_app(
 
     @app.get("/api/v1/workspace/agent-manifest")
     def workspace_agent_manifest(request: Request):
-        """HK PDPO / PCPD governance manifest of all SHA-256 prompts, clinical SKILL.md specs & tool authorities."""
+        """HK PDPO / PCPD governance manifest of all SHA-256 prompts, clinical SKILL.md specs, MCP server & tool authorities."""
         tenant_id = _workspace_tenant(request)
         return get_live_agentic_manifest(database, tenant_id)
+
+    @app.get("/api/v1/workspace/mcp-status")
+    def workspace_mcp_status():
+        """Expose live Clinic EMR MCP Server (`2025-03-26`) metadata, adapter tier, and tool/resource catalog."""
+        return clinic_mcp_server.status_summary()
+
+    @app.post("/mcp/clinic-emr")
+    async def mcp_clinic_emr_jsonrpc(request: Request):
+        """Streamable HTTP JSON-RPC 2.0 MCP endpoint (`2025-03-26`) for the Simulated Clinic EMR.
+
+        Supports `initialize`, `ping`, `tools/list`, `tools/call`, `resources/list`, and `resources/read`
+        with per-tenant HK PDPO scoping and server-side Asymmetric Authority enforcement (`-32003`).
+        """
+        tenant_id = _workspace_tenant(request)
+        actor_role = str(request.headers.get("X-MCP-Actor-Role") or "assistant").strip().lower()
+        try:
+            payload = await request.json()
+        except Exception:
+            return JSONResponse(
+                status_code=400,
+                content={"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Malformed JSON payload."}},
+            )
+        resp = clinic_mcp_server.handle_jsonrpc(
+            payload,
+            tenant_id=tenant_id,
+            actor_role=actor_role,
+        )
+        return JSONResponse(status_code=200, content=resp)
 
     @app.get("/api/v1/workspace/cases/{case_id}/agent-traces")
     def workspace_case_agent_traces(case_id: str, request: Request):
@@ -1557,9 +1588,39 @@ def create_acute_app(
                 "agent_traces": list(raw.get("_agent_run_traces") or []),
             }
 
+    @app.get("/api/v1/workspace/packs")
+    def workspace_declarative_packs():
+        """List all loaded declarative YAML Deployment Packs (packs/*.yaml) with SHA-256 content hashes & # ai-team loop counts."""
+        return {"packs": get_declarative_pathway_runner().list_packs()}
+
+    @app.post("/api/v1/workspace/cases/{case_id}/ai-team-tick")
+    async def workspace_case_ai_team_tick(case_id: str, request: Request):
+        """Deterministically evaluate a declarative # ai-team loop tick (wake doctor vs auto-close quietly vs stay scheduled)."""
+        tenant_id = _workspace_tenant(request)
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(422, "JSON body with loop_id and metrics is required.")
+        loop_id = str(body.get("loop_id") or "").strip()
+        metrics = body.get("metrics")
+        if not loop_id or not isinstance(metrics, dict):
+            raise HTTPException(422, "Provide 'loop_id' (str) and 'metrics' (dict of numeric readings).")
+        try:
+            numeric_metrics = {str(k): float(v) for k, v in metrics.items()}
+            return get_declarative_pathway_runner().evaluate_ai_team_loop_tick(
+                database,
+                tenant_id=tenant_id,
+                case_id=case_id,
+                loop_id=loop_id,
+                metrics=numeric_metrics,
+                live_bus=live_bus,
+            )
+        except ValueError as exc:
+            raise HTTPException(404 if "not found" in str(exc).lower() else 422, str(exc))
+
     @app.post("/api/v1/workspace/cases/{case_id}/governed-tool-probe")
     def workspace_case_governed_tool_probe(case_id: str, request: Request):
-        """Run a live DB-backed multi-step GovernedAgentRunner probe (READ + CDS + BLOCKED SIGNED_WRITE + MEMORY + 1-retry repair)."""
+        """Run a live MCP-backed multi-step GovernedAgentRunner probe (READ + CDS + BLOCKED SIGNED_WRITE + MEMORY + 1-retry repair)."""
         tenant_id = _workspace_tenant(request)
         try:
             return run_live_governed_tool_probe(
@@ -1567,6 +1628,7 @@ def create_acute_app(
                 tenant_id=tenant_id,
                 case_id=case_id,
                 live_bus=live_bus,
+                mcp_server=clinic_mcp_server,
             )
         except ValueError as exc:
             raise HTTPException(404, str(exc))

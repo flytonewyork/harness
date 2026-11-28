@@ -27,7 +27,10 @@ from .db import (
     CaseLoop,
     DocumentIngestion,
     ExecutionTrace,
+    Immunization,
+    Observation,
     Patient,
+    Prescription,
     new_id,
     record_audit,
     utcnow,
@@ -757,6 +760,10 @@ class EMRConnectorProtocol(Protocol):
 
     def read_patient_summary(self, db: Any, tenant_id: str, patient_id: str) -> dict[str, Any] | None: ...
 
+    def read_clinical_records(self, db: Any, tenant_id: str, patient_id: str) -> dict[str, Any]: ...
+
+    def read_immunizations(self, db: Any, tenant_id: str, patient_id: str) -> list[dict[str, Any]]: ...
+
     def write_addendum(
         self,
         session: Session,
@@ -812,10 +819,96 @@ class SimulatedPostgresEMRAdapter:
                     "allergies": list(pat.allergies_json or []),
                     "active_meds": list(pat.current_meds_json or []),
                     "egfr": pat.egfr,
+                    "weight_kg": pat.weight_kg,
+                    "corporate_id": pat.corporate_id,
+                    "campaign_id": pat.campaign_id,
                     "source": "postgres_emr",
                 }
         reg = EMR_PATIENT_REGISTRY.get(patient_id)
         return dict(reg) if reg else None
+
+    def read_clinical_records(self, db: Any, tenant_id: str, patient_id: str) -> dict[str, Any]:
+        with _resolve_session(db, tenant_id) as session:
+            docs = session.scalars(
+                select(DocumentIngestion)
+                .where(DocumentIngestion.tenant_id == tenant_id, DocumentIngestion.matched_patient_id == patient_id)
+                .order_by(DocumentIngestion.created_at.desc())
+                .limit(6)
+            ).all()
+            obs = session.scalars(
+                select(Observation)
+                .where(Observation.tenant_id == tenant_id, Observation.patient_id == patient_id)
+                .order_by(Observation.recorded_at.desc())
+                .limit(8)
+            ).all()
+            rxs = session.scalars(
+                select(Prescription)
+                .where(Prescription.tenant_id == tenant_id, Prescription.patient_id == patient_id)
+                .order_by(Prescription.created_at.desc())
+                .limit(5)
+            ).all()
+            cases = session.scalars(
+                select(CaseLoop)
+                .where(CaseLoop.tenant_id == tenant_id, CaseLoop.patient_id == patient_id)
+                .order_by(CaseLoop.updated_at.desc())
+                .limit(3)
+            ).all()
+            attachments: list[dict[str, Any]] = []
+            for c in cases:
+                for att in (c.summary_json or {}).get("attachments") or []:
+                    if isinstance(att, dict):
+                        attachments.append({
+                            "id": att.get("id"),
+                            "label": att.get("label"),
+                            "quote": att.get("quote"),
+                        })
+            return {
+                "patient_id": patient_id,
+                "documents": [
+                    {
+                        "id": d.id,
+                        "doc_type": d.doc_kind,
+                        "source_org": d.source_org,
+                        "status": d.match_status,
+                        "summary": str(d.verbatim_quote or "")[:240],
+                    }
+                    for d in docs
+                ],
+                "attachments": attachments[:5],
+                "recent_observations": [
+                    {
+                        "code": o.loinc_code,
+                        "display": o.display,
+                        "value": str(o.value_num) if o.value_num is not None else (o.value_text or ""),
+                        "unit": o.ucum_unit,
+                    }
+                    for o in obs
+                ],
+                "recent_prescriptions": [
+                    {"id": r.id, "status": r.status, "items": list(r.items_json or [])}
+                    for r in rxs
+                ],
+                "open_loops": [
+                    {"case_id": c.id, "state": c.state, "pathway": c.pathway_node_id, "lead": c.lead_line}
+                    for c in cases
+                ],
+            }
+
+    def read_immunizations(self, db: Any, tenant_id: str, patient_id: str) -> list[dict[str, Any]]:
+        with _resolve_session(db, tenant_id) as session:
+            rows = session.scalars(
+                select(Immunization).where(Immunization.tenant_id == tenant_id, Immunization.patient_id == patient_id)
+            ).all()
+            return [
+                {
+                    "id": r.id,
+                    "cvx_code": r.cvx_code,
+                    "vaccine_display": r.vaccine_display,
+                    "status": r.status,
+                    "partner_clinic": r.partner_clinic,
+                }
+                for r in rows
+            ]
 
     def write_addendum(
         self,

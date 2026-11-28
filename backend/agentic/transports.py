@@ -22,6 +22,40 @@ _ADC_NEGATIVE_TTL_SECONDS = 30.0
 _ADC_QUOTA_PROJ_CACHE: dict[str, tuple[float, str | None]] = {}
 _SHARED_HTTP_CLIENT: httpx.Client | None = None
 _SHARED_HTTP_LOCK = threading.Lock()
+_FAILED_TARGET_TTL_SECONDS = 3600.0
+_FAILED_LLM_TARGETS: dict[tuple[str, str, str], tuple[float, str]] = {}
+
+
+def is_target_cached_failed(key: tuple[str, str, str]) -> bool:
+    """Return True if a (provider, region, model) hop recently returned 403/404 and is still within TTL."""
+    entry = _FAILED_LLM_TARGETS.get(key)
+    if entry is None:
+        return False
+    exp, _ = entry
+    if time.time() >= exp:
+        _FAILED_LLM_TARGETS.pop(key, None)
+        return False
+    return True
+
+
+def mark_target_failed(key: tuple[str, str, str], reason: str) -> None:
+    """Cache a failed (provider, region, model) hop so subsequent turns skip the dead region with zero latency."""
+    _FAILED_LLM_TARGETS[key] = (time.time() + _FAILED_TARGET_TTL_SECONDS, reason[:180])
+
+
+def clear_failed_llm_targets() -> None:
+    """Clear all cached failed LLM target hops."""
+    _FAILED_LLM_TARGETS.clear()
+
+
+def list_failed_llm_targets() -> list[str]:
+    """Return currently active skipped (provider/region/model) hop descriptors."""
+    now = time.time()
+    return [
+        f"{p}/{r}/{m}"
+        for (p, r, m), (exp, _err) in list(_FAILED_LLM_TARGETS.items())
+        if exp > now
+    ]
 
 
 def reset_adc_cache() -> None:
@@ -309,7 +343,7 @@ def detect_provider_chain() -> list[dict[str, Any]]:
 
 
 class LiveHTTPModelTransport:
-    """Unified httpx transport supporting Vertex AI asia-east2 (Gemini 4 Neon/Hydrogen), Gemini API, Anthropic, and OpenAI."""
+    """Single canonical httpx transport for Vertex AI (asia-east2->global cascade), Gemini API, Anthropic, and OpenAI."""
 
     def __init__(
         self,
@@ -321,6 +355,8 @@ class LiveHTTPModelTransport:
         project: str | None = None,
         timeout_seconds: float = 25.0,
         thinking_level: str | None = None,
+        adc_token_provider: Any | None = None,
+        cascade_regions: bool = True,
     ) -> None:
         self.provider = provider.lower()
         self.model = normalize_gemini_model(model) if self.provider in ("vertex", "gemini") else model
@@ -329,6 +365,8 @@ class LiveHTTPModelTransport:
         self.project = project
         self.timeout_seconds = timeout_seconds
         self.thinking_level = thinking_level
+        self.adc_token_provider = adc_token_provider
+        self.cascade_regions = cascade_regions
 
     def invoke(
         self,
@@ -388,6 +426,16 @@ class LiveHTTPModelTransport:
         if self.model == DEFAULT_GEMINI_REASONING_MODEL:
             candidate_models.append(DEFAULT_GEMINI_FAST_MODEL)
 
+        if self.provider == "vertex" and self.cascade_regions:
+            candidate_regions = [self.region] + (["global"] if self.region != "global" else [])
+        else:
+            candidate_regions = [self.region or "global"]
+
+        targets: list[tuple[str, str]] = []
+        for mdl in candidate_models:
+            for reg in candidate_regions:
+                targets.append((reg, mdl))
+
         contents = [
             {
                 "role": "model" if m.get("role") == "assistant" else "user",
@@ -404,12 +452,22 @@ class LiveHTTPModelTransport:
         ]
 
         last_resp: httpx.Response | None = None
+        last_err: Exception | None = None
         used_model = self.model
-        for mdl in candidate_models:
+        used_region = self.region
+        attempts = 0
+
+        for idx_t, (reg, mdl) in enumerate(targets):
+            cache_key = (self.provider, reg, mdl)
+            if is_target_cached_failed(cache_key) and idx_t < len(targets) - 1:
+                continue
+            attempts += 1
             used_model = mdl
+            used_region = reg
             if self.provider == "vertex":
-                token, project = acquire_vertex_adc_token(self.project)
-                url = build_vertex_generate_content_url(region=self.region, project=project, model=mdl)
+                token_fn = self.adc_token_provider or acquire_vertex_adc_token
+                token, project = token_fn(self.project)
+                url = build_vertex_generate_content_url(region=reg, project=project, model=mdl)
                 headers = {
                     "Authorization": f"Bearer {token}",
                     "x-goog-user-project": project,
@@ -444,12 +502,16 @@ class LiveHTTPModelTransport:
 
             resp = client.post(url, headers=headers, params=params, json=body, timeout=self.timeout_seconds)
             last_resp = resp
-            if resp.status_code in (403, 404) and mdl != candidate_models[-1]:
-                continue
+            if resp.status_code in (403, 404):
+                mark_target_failed(cache_key, f"HTTP {resp.status_code}")
+                last_err = RuntimeError(f"HTTP {resp.status_code} on {self.provider}/{reg}/{mdl}")
+                if idx_t < len(targets) - 1:
+                    continue
             resp.raise_for_status()
             break
 
-        assert last_resp is not None
+        if last_resp is None:
+            raise last_err or RuntimeError(f"No reachable target for {self.provider}/{self.model}")
         data = last_resp.json()
         tool_calls = self.tool_registry.parse_provider_tool_calls(self.provider, data)
         cand = (data.get("candidates") or [{}])[0]
@@ -468,9 +530,11 @@ class LiveHTTPModelTransport:
             tool_calls=tool_calls,
             provider=self.provider,
             model=used_model,
-            region=self.region,
+            region=used_region,
             prompt_tokens_actual=usage.get("promptTokenCount"),
             output_tokens_actual=usage.get("candidatesTokenCount"),
+            thought_tokens_actual=usage.get("thoughtsTokenCount"),
+            attempts_tried=max(1, attempts),
         )
 
     def _invoke_anthropic(
@@ -527,6 +591,7 @@ class LiveHTTPModelTransport:
             region=self.region,
             prompt_tokens_actual=usage.get("input_tokens"),
             output_tokens_actual=usage.get("output_tokens"),
+            attempts_tried=1,
         )
 
     def _invoke_openai(
@@ -582,7 +647,102 @@ class LiveHTTPModelTransport:
             region=self.region,
             prompt_tokens_actual=usage.get("prompt_tokens"),
             output_tokens_actual=usage.get("completion_tokens"),
+            attempts_tried=1,
         )
+
+
+class ModelGatewayTransport:
+    """Single governed outbound LLM gateway wrapper enforcing HK PDPO residency, PHI scrub & tenant budgets."""
+
+    def __init__(
+        self,
+        *,
+        inner: LiveHTTPModelTransport,
+        tenant_id: str,
+        gateway: Any | None = None,
+        patient_names_for_scrub: list[str] | None = None,
+        allow_cross_border_with_scrub: bool = True,
+    ) -> None:
+        self.inner = inner
+        self.tenant_id = tenant_id
+        self.gateway = gateway
+        self.patient_names_for_scrub = list(patient_names_for_scrub or [])
+        self.allow_cross_border_with_scrub = allow_cross_border_with_scrub
+
+    def invoke(
+        self,
+        *,
+        system_message: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        temperature: float,
+        max_output_tokens: int,
+        expect_json: bool,
+    ) -> ModelTurnResponse:
+        from backend.acute.security import PHIScrubber
+        from backend.gateway.gateway import BudgetExceededError, ResidencyViolationError, TenantUsage, _compute_cost_usd
+
+        sys_out = system_message
+        msgs_out = list(messages)
+        phi_scrubbed = False
+
+        if self.gateway is not None:
+            policy = self.gateway.get_tenant_policy(self.tenant_id)
+            usage = self.gateway.get_tenant_usage(self.tenant_id)
+            if usage.total_tokens >= policy.max_tokens or usage.cost_usd >= policy.max_cost_usd:
+                raise BudgetExceededError(
+                    f"Tenant '{self.tenant_id}' exceeded ModelGateway budget ({usage.total_tokens} tok, ${usage.cost_usd:.4f})."
+                )
+            if self.inner.region not in policy.allowed_regions:
+                if not (policy.allow_cross_border_inference or self.allow_cross_border_with_scrub):
+                    raise ResidencyViolationError(
+                        f"Region '{self.inner.region}' blocked by HK PDPO DPP3 policy (allowed={policy.allowed_regions})."
+                    )
+                sys_out, _ = PHIScrubber.scrub(sys_out, extra_names=self.patient_names_for_scrub)
+                cleaned_msgs: list[dict[str, Any]] = []
+                for m in msgs_out:
+                    cm = dict(m)
+                    if isinstance(cm.get("content"), str):
+                        cm["content"], _ = PHIScrubber.scrub(cm["content"], extra_names=self.patient_names_for_scrub)
+                    cleaned_msgs.append(cm)
+                msgs_out = cleaned_msgs
+                phi_scrubbed = True
+
+        resp = self.inner.invoke(
+            system_message=sys_out,
+            messages=msgs_out,
+            tools=tools,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            expect_json=expect_json,
+        )
+
+        if self.gateway is not None:
+            in_tok = int(resp.prompt_tokens_actual or 0)
+            out_tok = int(resp.output_tokens_actual or 0)
+            cost = _compute_cost_usd(resp.model, in_tok, out_tok)
+            with self.gateway._lock:
+                u = self.gateway._usage.setdefault(self.tenant_id, TenantUsage())
+                u.input_tokens += in_tok
+                u.output_tokens += out_tok
+                u.total_tokens += in_tok + out_tok
+                u.cost_usd = round(u.cost_usd + cost, 8)
+                u.requests += 1
+            self.gateway.audit_log.append({
+                "event": "agentic_gateway_dispatch",
+                "tenant_id": self.tenant_id,
+                "provider": resp.provider,
+                "model": resp.model,
+                "region": resp.region,
+                "phi_scrubbed": phi_scrubbed,
+                "input_tokens": in_tok,
+                "output_tokens": out_tok,
+                "thought_tokens": resp.thought_tokens_actual,
+                "attempts_tried": resp.attempts_tried,
+                "cost_usd": cost,
+            })
+
+        return resp
 
 
 class ScriptedReplayTransport:

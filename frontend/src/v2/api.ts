@@ -411,6 +411,15 @@ export const v2Api = {
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/agent-traces`),
   workspaceGovernedToolProbe: (caseId: string) =>
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/governed-tool-probe`, { method: "POST" }),
+  workspaceMcpStatus: () =>
+    req<Record<string, any>>("/api/v1/workspace/mcp-status"),
+  workspacePacks: () =>
+    req<Record<string, any>>("/api/v1/workspace/packs"),
+  workspaceAiTeamTick: (caseId: string, loopId: string, metrics: Record<string, number>) =>
+    req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/ai-team-tick`, {
+      method: "POST",
+      body: JSON.stringify({ loop_id: loopId, metrics }),
+    }),
   workspaceSendLeaflet: (caseId: string, leaflet: Record<string, any>, actorName = "Dr. Sarah Wong") =>
     req<Record<string, any>>(`/api/v1/workspace/cases/${caseId}/send-leaflet`, {
       method: "POST",

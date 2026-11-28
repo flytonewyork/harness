@@ -701,16 +701,21 @@ export function ClinicWorkspaceApp() {
   const sseRefreshTimer = useRef<number | null>(null);
   const sessionEpochRef = useRef<string | null>(null);
 
-  const [demoPack, setDemoPack] = useState<"gp" | "corporate_health">(() => {
-    const p = new URLSearchParams(window.location.search).get("pack") || "";
-    return ["corporate", "corporate_health", "wellness"].includes(p.toLowerCase()) ? "corporate_health" : "gp";
+  const [demoPack, setDemoPack] = useState<"gp" | "corporate_health" | "longevity">(() => {
+    const p = (new URLSearchParams(window.location.search).get("pack") || "").toLowerCase();
+    if (["corporate", "corporate_health", "wellness"].includes(p)) return "corporate_health";
+    if (["longevity", "preventive_longevity", "executive_longevity"].includes(p)) return "longevity";
+    return "gp";
   });
   const isCorporatePack = demoPack === "corporate_health";
+  const isLongevityPack = demoPack === "longevity";
 
   const phoneQrUrl = useMemo(() => {
     const cleanBase = publicBaseUrl.trim().replace(/\/+$/, "") || window.location.origin;
-    return isCorporatePack ? `${cleanBase}/p/chat?pack=corporate_health` : `${cleanBase}/p/chat`;
-  }, [publicBaseUrl, isCorporatePack]);
+    if (isCorporatePack) return `${cleanBase}/p/chat?pack=corporate_health`;
+    if (isLongevityPack) return `${cleanBase}/p/chat?pack=longevity`;
+    return `${cleanBase}/p/chat`;
+  }, [publicBaseUrl, isCorporatePack, isLongevityPack]);
 
   useEffect(() => {
     QRCode.toDataURL(phoneQrUrl, {
@@ -903,6 +908,18 @@ export function ClinicWorkspaceApp() {
       setBanner(
         `GovernedAgentRunner probe complete: ${toolCount} tool calls (incl. BLOCKED signed write), ${retries} diagnostic self-repair retry, SHA-256 #${t?.prompt_fingerprint || "—"}.`,
       );
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const triggerDeclarativeAiTeamTick = async (loopId: string, metrics: Record<string, number>) => {
+    if (!activeCase?.id) return;
+    setBusy(true);
+    try {
+      const res = await v2Api.workspaceAiTeamTick(activeCase.id, loopId, metrics);
+      setBanner(`# ai-team loop (${loopId}) evaluated: ${res.outcome} -> state=${res.new_state}. ${res.message || ""}`);
       await refresh();
     } finally {
       setBusy(false);
@@ -1307,8 +1324,20 @@ export function ClinicWorkspaceApp() {
     <div className="ws-shell">
       <header className="ws-topbar">
         <div className="ws-brand">
-          <span>{isCorporatePack ? "Central Health · Wellness Demo" : "Central Medical"}</span>
-          <span className="ws-pill">{isCorporatePack ? "Harbour Capital · 2026 Flu & Preventive" : "Connected to Clinic EMR (Sole SoT)"}</span>
+          <span>
+            {isCorporatePack
+              ? "Central Health · Wellness Demo"
+              : isLongevityPack
+                ? "Central Longevity · YAML Pack"
+                : "Central Medical"}
+          </span>
+          <span className="ws-pill">
+            {isCorporatePack
+              ? "Harbour Capital · 2026 Flu & Preventive"
+              : isLongevityPack
+                ? "Declarative packs/longevity.yaml · Zero Custom Python"
+                : "Connected to Clinic EMR (Sole SoT)"}
+          </span>
           <span className="ws-pill ws-pill-jade">Practice Graph {graph?.version_tag}</span>
         </div>
         <div className="ws-top-actions">
@@ -1330,6 +1359,25 @@ export function ClinicWorkspaceApp() {
             title="Switch between GP Demo and Central Health Corporate Wellness Demo"
           >
             {isCorporatePack ? "Wellness Demo ✓" : "Central Health Wellness"}
+          </button>
+          <button
+            type="button"
+            className={isLongevityPack ? "ws-btn ws-btn-active" : "ws-btn"}
+            data-testid="workspace-longevity-pack-btn"
+            onClick={() => {
+              const nextPack = isLongevityPack ? "gp" : "longevity";
+              setDemoPack(nextPack);
+              const url = new URL(window.location.href);
+              if (nextPack === "longevity") {
+                url.searchParams.set("pack", "longevity");
+              } else {
+                url.searchParams.delete("pack");
+              }
+              window.history.replaceState({}, "", url.toString());
+            }}
+            title="Load declarative packs/longevity.yaml forward-deployment pack"
+          >
+            {isLongevityPack ? "Longevity YAML ✓" : "Longevity (YAML)"}
           </button>
           {isCorporatePack && (
             <a
@@ -3444,10 +3492,14 @@ export function ClinicWorkspaceApp() {
             </div>
 
             <div className="ws-xray-card">
-              <div className="ws-xray-title">4. Dual-Store Persistence (Sole EMR SoT)</div>
+              <div className="ws-xray-title">4. Dual-Store Persistence &amp; MCP EMR Gateway</div>
               <div>{data.xray?.dual_store?.clinical_sot}</div>
               <div>{data.xray?.dual_store?.agent_memory_store}</div>
               <div className="ws-num">Additive EMR Writebacks: {data.xray?.dual_store?.emr_addenda_log?.length || 0}</div>
+              <div style={{ fontSize: 11.5, color: "var(--ws-ink-2)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                <span className="ws-pill ws-pill-jade" style={{ fontSize: 10.5, padding: "1px 6px" }}>MCP 2025-03-26</span>
+                <span className="ws-num">POST /mcp/clinic-emr</span>
+              </div>
               {data.xray?.emr_bridge && (
                 <div style={{ fontSize: 12, color: "var(--ws-ink-2)" }}>
                   EMR Bridge: {data.xray.emr_bridge.status || data.xray.emr_bridge.mode || "Additive connected"}
@@ -3606,6 +3658,26 @@ export function ClinicWorkspaceApp() {
                   <button type="button" className="ws-btn" disabled={busy} onClick={() => runTick(activeCase.id, "bp_threshold_breach")}>
                     Trigger BP 146/92 Wake
                   </button>
+                )}
+                {activeCase?.case_key === "longevity_apob" && (
+                  <>
+                    <button
+                      type="button"
+                      className="ws-btn"
+                      disabled={busy}
+                      onClick={() => triggerDeclarativeAiTeamTick("day90_apob_retest", { apob: 0.96 })}
+                    >
+                      # ai-team: Day+90 ApoB 0.96 → Wake GP
+                    </button>
+                    <button
+                      type="button"
+                      className="ws-btn"
+                      disabled={busy}
+                      onClick={() => triggerDeclarativeAiTeamTick("day90_apob_retest", { apob: 0.72 })}
+                    >
+                      # ai-team: Day+90 ApoB 0.72 → Auto-Close
+                    </button>
+                  </>
                 )}
                 <a href="/emr?mode=live" target="_blank" rel="noreferrer" className="ws-btn" style={{ textDecoration: "none" }}>
                   Open Live Clinic EMR ↗

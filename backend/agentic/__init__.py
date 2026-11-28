@@ -71,9 +71,14 @@ from .tools import (
 )
 from .transports import (
     LiveHTTPModelTransport,
+    ModelGatewayTransport,
     ScriptedReplayTransport,
     acquire_vertex_adc_token,
+    clear_failed_llm_targets,
     detect_provider_chain,
+    is_target_cached_failed,
+    list_failed_llm_targets,
+    mark_target_failed,
 )
 
 __all__ = [
@@ -130,7 +135,12 @@ __all__ = [
     "build_default_clinic_tool_registry",
     "validate_tool_args",
     "LiveHTTPModelTransport",
+    "ModelGatewayTransport",
     "ScriptedReplayTransport",
     "acquire_vertex_adc_token",
+    "clear_failed_llm_targets",
     "detect_provider_chain",
+    "is_target_cached_failed",
+    "list_failed_llm_targets",
+    "mark_target_failed",
 ]
