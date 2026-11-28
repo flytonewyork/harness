@@ -38,18 +38,44 @@ def load_core_bundle(data_dir: Path = DATA_DIR) -> CoreBundle:
     obs_rules: list[ObservationRule] = []
     pointers: list[PathwayPointer] = []
 
+    seen_ids: dict[str, dict[str, str]] = {
+        "concepts": {},
+        "edges": {},
+        "frames": {},
+        "observation_rules": {},
+        "pointers": {},
+    }
+
+    def _record(section: str, item_id: str, filename: str) -> None:
+        prev = seen_ids[section].get(item_id)
+        if prev is not None:
+            raise ValueError(
+                f"Duplicate {section} id '{item_id}' in '{filename}' (already defined in '{prev}')"
+            )
+        seen_ids[section][item_id] = filename
+
     for yml_path in sorted(core_dir.glob("*.yaml")):
         raw = _load_yaml(yml_path)
         for item in raw.get("concepts") or ():
-            concepts.append(Concept.model_validate(item))
+            c = Concept.model_validate(item)
+            _record("concepts", c.id, yml_path.name)
+            concepts.append(c)
         for item in raw.get("edges") or ():
-            edges.append(ClinicalEdge.model_validate(item))
+            e = ClinicalEdge.model_validate(item)
+            _record("edges", e.id, yml_path.name)
+            edges.append(e)
         for item in raw.get("frames") or ():
-            frames.append(PresentationFrame.model_validate(item))
+            f = PresentationFrame.model_validate(item)
+            _record("frames", f.id, yml_path.name)
+            frames.append(f)
         for item in raw.get("observation_rules") or ():
-            obs_rules.append(ObservationRule.model_validate(item))
+            r = ObservationRule.model_validate(item)
+            _record("observation_rules", r.id, yml_path.name)
+            obs_rules.append(r)
         for item in raw.get("pointers") or ():
-            pointers.append(PathwayPointer.model_validate(item))
+            p = PathwayPointer.model_validate(item)
+            _record("pointers", p.id, yml_path.name)
+            pointers.append(p)
 
     return CoreBundle(
         concepts=tuple(concepts),

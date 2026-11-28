@@ -288,6 +288,7 @@ concepts:
     kind: condition
     wave: W0
     cluster: C03_respiratory
+    parent_ids: ["cond:asthma_chronic"]
     bindings:
       snomed_gps: { code: "195967001", display: "Asthma (disorder)" }
       icpc2: { code: "R96", system: "http://hl7.org/fhir/sid/icpc-2" }
@@ -302,6 +303,7 @@ concepts:
     kind: condition
     wave: W0
     cluster: C03_respiratory
+    parent_ids: ["cond:copd_chronic"]
     bindings:
       snomed_gps: { code: "13645005", display: "Chronic obstructive lung disease (disorder)" }
       icpc2: { code: "R95", system: "http://hl7.org/fhir/sid/icpc-2" }
@@ -906,7 +908,7 @@ concepts:
       rxnorm: { code: "5487", display: "hydrochlorothiazide" }
       atc: { code: "C03AA03", system: "http://www.whocc.no/atc" }
     display: { en: "Hydrochlorothiazide", zh_hk: "氫氯噻嗪" }
-    aliases: { en: ["HCTZ"], zh_hk: ["去水丸"] }
+    aliases: { en: ["HCTZ"], zh_hk: ["氫氯噻嗪"] }
     drug_facet: {}
     provenance: { author: "ontology_pod_stage1", review_status: "draft" }
 
@@ -1057,7 +1059,7 @@ concepts:
     display: { en: "Ibuprofen", zh_hk: "布洛芬" }
     aliases:
       en: ["Brufen", "Nurofen", "Advil"]
-      zh_hk: ["布洛芬", "消炎止痛藥"]
+      zh_hk: ["布洛芬"]
     drug_facet:
       allergy_group_id: "allergy:nsaid"
       max_single_mg: 400

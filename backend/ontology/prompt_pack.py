@@ -109,17 +109,28 @@ def build_context_pack(
     ]
     if fired_edges:
         t0_lines.append("- Active Deterministic Safety Edges:")
-        for fe in fired_edges[:8]:
+        compact_edges = len(fired_edges) > 4
+        max_edges = 5 if compact_edges else 8
+        for fe in fired_edges[:max_edges]:
             e = fe.edge
             urg = f"u{e.urgency_floor}" if e.urgency_floor else "advisory"
+            rat = fe.clinician_rationale
+            if compact_edges and len(rat) > 150:
+                rat = rat[:147].rstrip() + "..."
             t0_lines.append(
-                f"  * [{e.severity.upper()}/{urg}] {e.id} ({fe.matched_source_id} -> {e.target_id}): {fe.clinician_rationale}"
+                f"  * [{e.severity.upper()}/{urg}] {e.id} ({fe.matched_source_id} -> {e.target_id}): {rat}"
             )
             if fe.clinician_action:
-                t0_lines.append(f"    Action: {fe.clinician_action}")
+                act = fe.clinician_action
+                if compact_edges and len(act) > 130:
+                    act = act[:127].rstrip() + "..."
+                t0_lines.append(f"    Action: {act}")
             for nid in (fe.matched_source_id, e.target_id):
                 if nid not in included_nodes and graph.has_concept(nid):
                     included_nodes.append(nid)
+        if len(fired_edges) > max_edges:
+            extra_ids = ", ".join(fe.edge.id for fe in fired_edges[max_edges:max_edges + 6])
+            t0_lines.append(f"  * (+{len(fired_edges) - max_edges} more edges: {extra_ids})")
     tier0 = "\n".join(t0_lines)
     sections.append(tier0)
 
@@ -136,8 +147,30 @@ def build_context_pack(
         truncated = True
         return False
 
-    # --- Tier 1: Murtagh PROMPT + Positive Exclusions ---
-    t1_lines: list[str] = []
+    # --- Tier 1: Critical / Urgent Labs (u3/u4) FIRST so acute lab safety is never starved ---
+    urgent_labs = [ev for ev in eval_labs if ev.urgency >= 3]
+    routine_labs = [ev for ev in eval_labs if ev.urgency < 3]
+
+    def _format_lab_lines(labs_subset: list[Any], *, include_pearls: bool) -> list[str]:
+        out: list[str] = []
+        for ev in labs_subset:
+            out.append(
+                f"- {ev.observation_concept_id}: {ev.display_value:g} {ev.display_ucum} "
+                f"(band={ev.band}, u{ev.urgency}, dir={ev.direction or 'N'})"
+            )
+            if ev.working_problem:
+                out.append(f"  Working problem: {ev.working_problem} | Plan: {ev.plan_template}")
+            if include_pearls:
+                for pearl in ev.pearls[:2]:
+                    out.append(f"  Pearl: {pearl}")
+            for tr in ev.trend_alerts:
+                out.append(f"  Trend: {tr}")
+        return out
+
+    if urgent_labs:
+        _try_append("### Critical / Urgent Observations\n" + "\n".join(_format_lab_lines(urgent_labs, include_pearls=True)))
+
+    # --- Tier 2: Murtagh PROMPT + Positive Exclusions (packed PER-FRAME so primary RFE always fits) ---
     for rid in rfe_ids[:3]:
         frame = graph.get_frame_for_rfe(rid)
         if frame is None:
@@ -145,34 +178,36 @@ def build_context_pack(
         rfe_c = graph.get_concept(rid)
         title = rfe_c.display.resolve(jur, lang) if rfe_c else rid
         mp = frame.murtagh_prompt
-        probs = ", ".join(item.concept_id for item in mp.probability_diagnoses)
-        serious = ", ".join(item.concept_id for item in mp.serious_not_to_be_missed)
-        pitfalls = ", ".join(item.concept_id for item in mp.pitfalls_often_missed[:5])
+        probs = ", ".join(item.concept_id for item in mp.probability_diagnoses[:4])
+        serious = ", ".join(item.concept_id for item in mp.serious_not_to_be_missed[:5])
+        pitfalls = ", ".join(item.concept_id for item in mp.pitfalls_often_missed[:4])
         masqs = ", ".join(f"{m.masquerade}({m.concept_id})" for m in mp.masquerades[:7])
         excls = ", ".join(
             f"{ex.finding_concept_id}[{'M' if ex.mandatory else 'O'}:u{ex.urgency_if_present}]"
             for ex in frame.positive_exclusions
         )
-        t1_lines.append(f"### RFE Frame: {title} ({rid})")
-        t1_lines.append(f"- Probability: {probs}")
-        t1_lines.append(f"- Must-Not-Miss Red Flags: {serious}")
+        f_lines = [
+            f"### RFE Frame: {title} ({rid})",
+            f"- Probability: {probs}",
+            f"- Must-Not-Miss Red Flags: {serious}",
+        ]
         if pitfalls:
-            t1_lines.append(f"- Often-Missed Pitfalls: {pitfalls}")
+            f_lines.append(f"- Often-Missed Pitfalls: {pitfalls}")
         if masqs:
-            t1_lines.append(f"- Masquerades: {masqs}")
-        t1_lines.append(f"- Positive Exclusions (unasked mandatory blocks attest_all_clear): {excls}")
+            f_lines.append(f"- Masquerades: {masqs}")
+        f_lines.append(f"- Positive Exclusions (unasked mandatory blocks attest_all_clear): {excls}")
 
-        for item in (*mp.probability_diagnoses, *mp.serious_not_to_be_missed, *mp.pitfalls_often_missed):
-            if item.concept_id not in included_nodes:
-                included_nodes.append(item.concept_id)
-        for ex in frame.positive_exclusions:
-            if ex.finding_concept_id not in included_nodes:
-                included_nodes.append(ex.finding_concept_id)
-    if t1_lines:
-        _try_append("\n".join(t1_lines))
+        if _try_append("\n".join(f_lines)):
+            for item in (*mp.probability_diagnoses, *mp.serious_not_to_be_missed, *mp.pitfalls_often_missed):
+                if item.concept_id not in included_nodes:
+                    included_nodes.append(item.concept_id)
+            for ex in frame.positive_exclusions:
+                if ex.finding_concept_id not in included_nodes:
+                    included_nodes.append(ex.finding_concept_id)
 
-    # --- Tier 2: Active Medication 1-Hop Subgraph ---
+    # --- Tier 3: Active Medications (1-Hop Ontology; compact mode when >4 active meds) ---
     if resolved_meds:
+        compact_meds = len(resolved_meds) > 4
         t2_lines = ["### Active Medications (1-Hop Ontology)"]
         for mc in resolved_meds:
             df = mc.drug_facet
@@ -190,26 +225,14 @@ def build_context_pack(
                 if df.pregnancy_caution != "none":
                     flags.append(f"PREG={df.pregnancy_caution}")
             line = f"- {mc.id} ({mc.display.resolve(jur, lang)}): {', '.join(flags)}"
-            if df and df.dosing_pearl:
+            if df and df.dosing_pearl and not compact_meds:
                 line += f" | Pearl: {df.dosing_pearl.resolve(jur, lang)}"
             t2_lines.append(line)
         _try_append("\n".join(t2_lines))
 
-    # --- Tier 3: Lab / Vital 1-Hop Subgraph ---
-    if eval_labs:
-        t3_lines = ["### Observations & Epidemiology Pearls"]
-        for ev in eval_labs:
-            t3_lines.append(
-                f"- {ev.observation_concept_id}: {ev.display_value:g} {ev.display_ucum} "
-                f"(band={ev.band}, u{ev.urgency}, dir={ev.direction or 'N'})"
-            )
-            if ev.working_problem:
-                t3_lines.append(f"  Working problem: {ev.working_problem} | Plan: {ev.plan_template}")
-            for pearl in ev.pearls[:3]:
-                t3_lines.append(f"  Pearl: {pearl}")
-            for tr in ev.trend_alerts:
-                t3_lines.append(f"  Trend: {tr}")
-        _try_append("\n".join(t3_lines))
+    # --- Tier 3b: Routine / Significant Labs & Pearls ---
+    if routine_labs:
+        _try_append("### Observations & Epidemiology Pearls\n" + "\n".join(_format_lab_lines(routine_labs, include_pearls=True)))
 
     # --- Tier 4: Closed Canonical ID Allowlist ---
     unique_nodes = tuple(dict.fromkeys(included_nodes))

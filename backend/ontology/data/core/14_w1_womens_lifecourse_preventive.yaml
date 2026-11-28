@@ -1,0 +1,1580 @@
+# Wave 1 Pod D: Women's Health, Paediatrics, Geriatrics, Haematology & Preventive Care
+# Licensing: Tier-1 commercial-safe open spine (SNOMED CT GPS, LOINC, UCUM, WHO INN, FDA UNII,
+# RxNorm SAB=RXNORM, CDC CVX); Tier-2 bare code-only interoperability pointers (ICPC-2, ICD-10, ATC).
+# Zero hardcoded jurisdiction emergency numbers (999/000) and zero banned reassurance claims.
+
+concepts:
+  # =========================================================================
+  # REASONS FOR ENCOUNTER (RFEs) — 5 Core Presentations
+  # =========================================================================
+  - id: rfe:pelvic_pain
+    kind: rfe
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "30473006", display: "Pelvic pain (finding)" }
+      icpc2: { code: "X01", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R10.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Pelvic / lower abdominal pain", zh_hk: "盆腔痛／下腹痛" }
+    aliases:
+      en: ["pelvic pain", "lower abdominal pain", "lower tummy pain", "period cramps", "ovary pain"]
+      zh_hk: ["下腹痛", "盆腔痛", "小腹痛", "經痛", "肚臍對落痛", "谷住痛"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: rfe:vaginal_bleeding
+    kind: rfe
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "301822002", display: "Abnormal vaginal bleeding (finding)" }
+      icpc2: { code: "X06", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N93.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Vaginal bleeding (heavy, intermenstrual, or postmenopausal)", zh_hk: "陰道異常出血（經量過多／非經期／收經後出血）" }
+    aliases:
+      en: ["vaginal bleeding", "heavy periods", "spotting", "bleeding between periods", "bleeding after menopause", "bleeding in pregnancy"]
+      zh_hk: ["陰道出血", "流血", "經量太多", "血崩", "非經期出血", "收經後出血", "停經後見紅", "見紅"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: rfe:missed_period_pregnancy
+    kind: rfe
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      icpc2: { code: "W01", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N91.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Missed period / suspected or confirmed pregnancy", zh_hk: "經期延遲／懷疑或確認懷孕" }
+    aliases:
+      en: ["missed period", "late period", "positive pregnancy test", "pregnant", "amenorrhoea", "morning sickness"]
+      zh_hk: ["冇嚟M", "遲嚟M", "驗孕棒兩條線", "有咗", "懷孕", "大肚", "作悶作嘔"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: rfe:falls_elderly
+    kind: rfe
+    wave: W1
+    cluster: C13_geriatrics
+    bindings:
+      icpc2: { code: "A29", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R29.6", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Falls / unsteadiness in older adults", zh_hk: "長者跌倒／步履不穩" }
+    aliases:
+      en: ["fall", "fell over", "recurrent falls", "unsteady on feet", "losing balance", "off legs"]
+      zh_hk: ["跌親", "跌倒", "成日跌", "行路唔穩", "腳軟", "頭暈跌低"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: rfe:paediatric_fever_unwell
+    kind: rfe
+    wave: W1
+    cluster: C12_paediatrics
+    bindings:
+      icpc2: { code: "A03", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R50.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Febrile or acutely unwell child", zh_hk: "兒童發燒／急性不適" }
+    aliases:
+      en: ["child fever", "baby fever", "unwell child", "toddler hot", "not feeding", "irritable baby"]
+      zh_hk: ["小朋友發燒", "BB發燒", "高燒唔退", "唔肯飲奶", "冇胃口", "喊唔停", "好攰唔郁"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  # =========================================================================
+  # RED-FLAG FINDINGS (6) — openEHR Positive Exclusions & Safety Floor
+  # =========================================================================
+  - id: rf:ectopic_rupture_signs
+    kind: red_flag
+    wave: W1
+    cluster: C08_womens_health
+    display: { en: "Severe unilateral pelvic pain with fainting, dizziness, or shoulder-tip pain in possible pregnancy", zh_hk: "懷疑懷孕伴劇烈單側下腹痛、頭暈昏厥或肩尖痛（疑似宮外孕破裂）" }
+    aliases:
+      en: ["ectopic rupture", "shoulder tip pain", "one-sided pelvic pain fainting", "positive pregnancy test collapse"]
+      zh_hk: ["宮外孕破裂", "單邊劇痛", "肩膊痛", "見紅頭暈", "肚痛暈低"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: rf:postmenopausal_bleeding
+    kind: red_flag
+    wave: W1
+    cluster: C08_womens_health
+    display: { en: "Postmenopausal vaginal bleeding (any bleeding >=12 months after final period)", zh_hk: "收經後陰道出血（停經滿12個月後任何出血或血絲）" }
+    aliases:
+      en: ["postmenopausal bleeding", "PMB", "bleeding after menopause", "spotting after menopause"]
+      zh_hk: ["收經後流血", "停經後見紅", "更年期後陰道出血", "收經後有血絲"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: rf:preeclampsia_signs
+    kind: red_flag
+    wave: W1
+    cluster: C08_womens_health
+    display: { en: "Severe headache, visual disturbance, epigastric/RUQ pain, or sudden facial/hand swelling in pregnancy (>=20 weeks)", zh_hk: "懷孕20週後劇烈頭痛、視力模糊／閃光、上腹痛或突發面部手部水腫（疑似妊娠毒血症）" }
+    aliases:
+      en: ["pre-eclampsia warning signs", "flashing lights pregnant", "severe headache pregnant", "epigastric pain pregnancy", "high BP pregnant"]
+      zh_hk: ["妊娠毒血症徵狀", "孕婦劇烈頭痛", "眼花見閃光", "上腹痛", "孕婦血壓高", "突然腫晒"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: rf:paed_non_blanching_rash_lethargy
+    kind: red_flag
+    wave: W1
+    cluster: C12_paediatrics
+    display: { en: "Non-blanching petechial/purpuric rash, extreme lethargy/floppiness, or inconsolable high-pitched crying in a child", zh_hk: "兒童按壓不退色皮疹（瘀點）、極度嗜睡軟弱無力或持續尖聲哭鬧" }
+    aliases:
+      en: ["non-blanching rash child", "glass test positive", "floppy baby", "hard to wake child", "mottled skin child", "bulging fontanelle"]
+      zh_hk: ["按壓唔退色紅疹", "玻璃杯測試唔退色", "BB軟賴賴", "叫唔醒", "皮膚起花紋", "囟門凸起"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: rf:acute_delirium_fluctuating
+    kind: red_flag
+    wave: W1
+    cluster: C13_geriatrics
+    display: { en: "Acute-onset fluctuating confusion, inattention, agitation, or sudden drowsiness in an older adult", zh_hk: "長者急性發作、起伏不定的意識混亂、注意力渙散、躁動或突然嗜睡（疑似急性譫妄）" }
+    aliases:
+      en: ["acute delirium", "sudden confusion elderly", "fluctuating alertness", "hallucinations acute", "not their usual self"]
+      zh_hk: ["急性譫妄", "突然神志不清", "講胡話", "認唔到人", "時清時懵", "突然好呆滯"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: rf:heavy_bleeding_bruising
+    kind: red_flag
+    wave: W1
+    cluster: C11_haematology_general
+    display: { en: "Unexplained widespread bruising, petechiae, mucosal bleeding (gums/nose), or soaking pads hourly with clots", zh_hk: "無故廣泛瘀傷、針點狀出血斑、牙齦／鼻腔異常出血，或每小時浸透衛生巾伴大血塊" }
+    aliases:
+      en: ["spontaneous bruising", "petechiae", "bleeding gums", "soaking pads hourly", "passing large clots", "haemorrhagic symptoms"]
+      zh_hk: ["無故瘀青", "皮膚出瘀點", "流牙血唔停", "流鼻血唔停", "每小時濕透衛生巾", "大塊血塊"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  # =========================================================================
+  # CONDITIONS (22) — Women's Health, Paediatrics, Geriatrics, Haematology, Oncology
+  # =========================================================================
+  - id: cond:pregnancy_normal
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "77386006", display: "Pregnancy (finding)" }
+      icpc2: { code: "W78", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "Z34.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Antenatal pregnancy (normal)", zh_hk: "正常懷孕／產前護理" }
+    aliases:
+      en: ["pregnancy", "antenatal care", "expecting", "gestation"]
+      zh_hk: ["懷孕", "產前檢查", "大肚", "有喜"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:ectopic_pregnancy
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "34801009", display: "Ectopic pregnancy (disorder)" }
+      icpc2: { code: "W80", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "O00.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Ectopic pregnancy", zh_hk: "子宮外孕／宮外孕" }
+    aliases:
+      en: ["ectopic pregnancy", "tubal pregnancy"]
+      zh_hk: ["宮外孕", "子宮外孕", "輸卵管懷孕"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:preeclampsia
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "398254007", display: "Pre-eclampsia (disorder)" }
+      icpc2: { code: "W81", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "O14.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Pre-eclampsia", zh_hk: "妊娠毒血症／子癇前症" }
+    aliases:
+      en: ["pre-eclampsia", "preeclampsia", "toxaemia of pregnancy", "PET"]
+      zh_hk: ["妊娠毒血症", "子癇前症", "懷孕高血壓蛋白尿"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:heavy_menstrual_bleeding
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "386692008", display: "Menorrhagia (finding)" }
+      icpc2: { code: "X06", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N92.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Heavy menstrual bleeding (menorrhagia)", zh_hk: "月經過多／經血過多" }
+    aliases:
+      en: ["heavy menstrual bleeding", "HMB", "menorrhagia", "heavy periods", "flooding"]
+      zh_hk: ["經量過多", "月經過多", "經血過多", "血崩"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:dysmenorrhoea
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "266599000", display: "Dysmenorrhea (finding)" }
+      icpc2: { code: "X02", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N94.6", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Dysmenorrhoea (primary or secondary)", zh_hk: "經痛／痛經" }
+    aliases:
+      en: ["dysmenorrhoea", "dysmenorrhea", "period pain", "menstrual cramps", "endometriosis pain"]
+      zh_hk: ["經痛", "痛經", "M痛", "嚟M肚痛"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:pcos
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "69878008", display: "Polycystic ovary syndrome (disorder)" }
+      icpc2: { code: "T99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E28.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Polycystic ovary syndrome (PCOS)", zh_hk: "多囊卵巢綜合症 (PCOS)" }
+    aliases:
+      en: ["PCOS", "polycystic ovary syndrome", "polycystic ovarian syndrome"]
+      zh_hk: ["多囊卵巢綜合症", "多囊卵巢", "多囊"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:menopause
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      icpc2: { code: "X11", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N95.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Menopause / perimenopause", zh_hk: "更年期／圍絕經期" }
+    aliases:
+      en: ["menopause", "perimenopause", "hot flushes", "climacteric", "vasomotor symptoms"]
+      zh_hk: ["更年期", "收經", "潮熱", "潮紅出汗", "停經前"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:bacterial_vaginosis
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "419760006", display: "Bacterial vaginosis (disorder)" }
+      icpc2: { code: "X84", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N76.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Bacterial vaginosis (BV)", zh_hk: "細菌性陰道病" }
+    aliases:
+      en: ["bacterial vaginosis", "BV", "gardnerella", "fishy vaginal discharge"]
+      zh_hk: ["細菌性陰道炎", "細菌性陰道病", "白帶異味", "魚腥味分泌物"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:vulvovaginal_candidiasis
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "72605008", display: "Candidal vulvovaginitis (disorder)" }
+      icpc2: { code: "X72", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B37.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Vulvovaginal candidiasis (thrush)", zh_hk: "念珠菌性陰道炎" }
+    aliases:
+      en: ["vulvovaginal candidiasis", "vaginal thrush", "yeast infection", "candida"]
+      zh_hk: ["念珠菌陰道炎", "念珠菌", "豆腐渣分泌物", "陰道痕癢"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:chlamydia_sti
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "240589008", display: "Chlamydia trachomatis infection (disorder)" }
+      icpc2: { code: "X92", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A56.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Chlamydia trachomatis STI / pelvic infection risk", zh_hk: "衣原體性病感染" }
+    aliases:
+      en: ["chlamydia", "chlamydia STI", "chlamydia trachomatis", "PID risk"]
+      zh_hk: ["衣原體", "衣原體感染", "披衣菌", "性病"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:endometrial_cancer
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "254878006", display: "Endometrial carcinoma (disorder)" }
+      icpc2: { code: "X77", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "C54.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Endometrial cancer (uterine corpus malignancy)", zh_hk: "子宮內膜癌" }
+    aliases:
+      en: ["endometrial cancer", "uterine cancer", "womb cancer", "endometrial carcinoma"]
+      zh_hk: ["子宮內膜癌", "子宮體癌"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:croup
+    kind: condition
+    wave: W1
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "71186008", display: "Croup (disorder)" }
+      icpc2: { code: "R77", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J05.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Croup (acute laryngotracheobronchitis)", zh_hk: "哮吼／急性喉氣管支氣管炎" }
+    aliases:
+      en: ["croup", "barking cough", "stridor child", "laryngotracheobronchitis"]
+      zh_hk: ["哮吼", "狗吠咳", "聲沙喘鳴", "喉炎"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:bronchiolitis
+    kind: condition
+    wave: W1
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "5505005", display: "Acute bronchiolitis (disorder)" }
+      icpc2: { code: "R78", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J21.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute bronchiolitis (infants)", zh_hk: "急性毛細支氣管炎" }
+    aliases:
+      en: ["bronchiolitis", "RSV bronchiolitis", "infant wheeze"]
+      zh_hk: ["毛細支氣管炎", "細支氣管炎", "RSV感染"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:febrile_convulsion
+    kind: condition
+    wave: W1
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "41497008", display: "Febrile convulsion (finding)" }
+      icpc2: { code: "N07", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R56.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Febrile convulsion (febrile seizure)", zh_hk: "發燒抽筋／熱性驚厥" }
+    aliases:
+      en: ["febrile convulsion", "febrile seizure", "fever fit"]
+      zh_hk: ["發燒抽筋", "高燒抽搐", "熱性驚厥"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:hfmd
+    kind: condition
+    wave: W1
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "266108008", display: "Enteroviral vesicular stomatitis with exanthem (disorder)" }
+      icpc2: { code: "A76", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B08.4", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Hand, foot and mouth disease (HFMD)", zh_hk: "手足口病" }
+    aliases:
+      en: ["HFMD", "hand foot and mouth disease", "enterovirus", "coxsackie", "EV71"]
+      zh_hk: ["手足口病", "腸病毒", "EV71", "口腔水泡"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:frailty_falls
+    kind: condition
+    wave: W1
+    cluster: C13_geriatrics
+    bindings:
+      icpc2: { code: "A05", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R54", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Frailty and recurrent falls syndrome", zh_hk: "長者衰弱症及反覆跌倒綜合症" }
+    aliases:
+      en: ["frailty", "recurrent falls", "sarcopenia", "postural instability", "geriatric falls"]
+      zh_hk: ["衰弱症", "肌少症", "長者反覆跌倒", "體位性低血壓"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:delirium
+    kind: condition
+    wave: W1
+    cluster: C13_geriatrics
+    bindings:
+      snomed_gps: { code: "2776000", display: "Delirium (disorder)" }
+      icpc2: { code: "P71", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F05", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute delirium (acute confusional state)", zh_hk: "急性譫妄／急性意識混亂" }
+    aliases:
+      en: ["delirium", "acute confusional state", "acute encephalopathy"]
+      zh_hk: ["譫妄", "急性譫妄", "急性神志混亂"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:b12_deficiency
+    kind: condition
+    wave: W1
+    cluster: C11_haematology_general
+    bindings:
+      snomed_gps: { code: "190634004", display: "Cobalamin deficiency (disorder)" }
+      icpc2: { code: "B81", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E53.8", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Vitamin B12 (cobalamin) deficiency", zh_hk: "維他命B12缺乏症" }
+    aliases:
+      en: ["vitamin B12 deficiency", "cobalamin deficiency", "pernicious anaemia", "low B12"]
+      zh_hk: ["維他命B12缺乏", "缺乏B12", "惡性貧血"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:thrombocytopenia
+    kind: condition
+    wave: W1
+    cluster: C11_haematology_general
+    bindings:
+      snomed_gps: { code: "302215000", display: "Thrombocytopenic disorder (disorder)" }
+      icpc2: { code: "B83", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "D69.6", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Thrombocytopenia (low platelets)", zh_hk: "血小板減少症／血小板偏低" }
+    aliases:
+      en: ["thrombocytopenia", "low platelets", "ITP"]
+      zh_hk: ["血小板過低", "血小板減少症", "血小板偏低"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:dengue
+    kind: condition
+    wave: W1
+    cluster: C11_haematology_general
+    bindings:
+      snomed_gps: { code: "38362002", display: "Dengue (disorder)" }
+      icpc2: { code: "A77", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A97.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Dengue fever", zh_hk: "登革熱" }
+    aliases:
+      en: ["dengue", "dengue fever", "dengue haemorrhagic fever", "breakbone fever"]
+      zh_hk: ["登革熱", "斷骨熱", "蚊傳熱病"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:breast_cancer
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "254837009", display: "Malignant neoplasm of breast (disorder)" }
+      icpc2: { code: "X76", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "C50.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Breast cancer", zh_hk: "乳癌" }
+    aliases:
+      en: ["breast cancer", "breast carcinoma", "breast malignancy"]
+      zh_hk: ["乳癌", "乳腺癌"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: cond:cervical_cancer
+    kind: condition
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      snomed_gps: { code: "363354003", display: "Malignant neoplasm of cervix uteri (disorder)" }
+      icpc2: { code: "X75", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "C53.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Cervical cancer", zh_hk: "子宮頸癌" }
+    aliases:
+      en: ["cervical cancer", "cervical carcinoma"]
+      zh_hk: ["子宮頸癌", "宮頸癌"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  # =========================================================================
+  # DRUG CLASSES (4) & ESSENTIAL DRUGS (7)
+  # =========================================================================
+  - id: drug_class:hormonal_contraception
+    kind: drug_class
+    wave: W1
+    cluster: C08_womens_health
+    display: { en: "Hormonal contraceptive", zh_hk: "荷爾蒙避孕藥" }
+    aliases:
+      en: ["birth control pill", "contraceptive pill", "hormonal contraception"]
+      zh_hk: ["避孕丸", "避孕藥", "荷爾蒙避孕藥"]
+    purpose_phrases:
+      en: ["contraception", "birth control", "period regulation"]
+      zh_hk: ["避孕", "調經"]
+    drug_facet:
+      pregnancy_caution: "contraindicated"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: drug_class:antifibrinolytic
+    kind: drug_class
+    wave: W1
+    cluster: C11_haematology_general
+    display: { en: "Antifibrinolytic haemostatic agent", zh_hk: "抗纖溶止血藥" }
+    aliases:
+      en: ["antifibrinolytic", "clotting stabiliser"]
+      zh_hk: ["止血藥", "抗纖溶藥"]
+    purpose_phrases:
+      en: ["heavy periods", "bleeding control"]
+      zh_hk: ["止血", "減少經血"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: drug_class:antifungal
+    kind: drug_class
+    wave: W1
+    cluster: C08_womens_health
+    display: { en: "Systemic azole antifungal", zh_hk: "抗真菌藥（唑類）" }
+    aliases:
+      en: ["antifungal", "azole antifungal", "thrush medicine"]
+      zh_hk: ["抗真菌藥", "念珠菌藥"]
+    drug_facet:
+      short_course: true
+      pregnancy_caution: "caution"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: drug_class:nitroimidazole
+    kind: drug_class
+    wave: W1
+    cluster: C08_womens_health
+    parent_ids: ["drug_class:antibiotic"]
+    display: { en: "Nitroimidazole antimicrobial", zh_hk: "硝基咪唑類抗生素" }
+    aliases:
+      en: ["nitroimidazole", "anaerobic antibiotic"]
+      zh_hk: ["硝基咪唑類抗生素", "厭氧菌抗生素"]
+    drug_facet:
+      short_course: true
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: drug:combined_oral_contraceptive
+    kind: drug
+    wave: W1
+    cluster: C08_womens_health
+    parent_ids: ["drug_class:hormonal_contraception"]
+    bindings:
+      inn: "ethinylestradiol-levonorgestrel"
+      rxnorm: { code: "748878", display: "{21 (ethinyl estradiol 0.03 MG / levonorgestrel 0.15 MG Oral Tablet) / 7 (inert ingredients 1 MG Oral Tablet) } Pack" }
+      atc: { code: "G03AA07", system: "http://www.whocc.no/atc" }
+    display: { en: "Combined oral contraceptive (COC)", zh_hk: "混合荷爾蒙避孕丸 (COC)" }
+    aliases:
+      en: ["COC", "combined pill", "Microgynon", "Levlen", "Yasmin", "Marvelon", "the pill"]
+      zh_hk: ["混合避孕丸", "事前避孕藥", "避孕丸", "優思明", "媽富隆"]
+    drug_facet:
+      pregnancy_caution: "contraindicated"
+      dosing_pearl:
+        en: "Screen UKMEC/WHO MEC contraindications before initiation/renewal: BP, BMI, migraine with aura, VTE history, smoking >=15/day at age >=35y."
+        zh_hk: "處方及續藥前須評估血壓、BMI、先兆偏頭痛、靜脈血栓史及35歲以上吸煙風險。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: drug:levonorgestrel_ec
+    kind: drug
+    wave: W1
+    cluster: C08_womens_health
+    parent_ids: ["drug_class:hormonal_contraception"]
+    bindings:
+      inn: "levonorgestrel"
+      unii: "5W7SIA7YZW"
+      rxnorm: { code: "6373", display: "levonorgestrel" }
+      atc: { code: "G03AD01", system: "http://www.whocc.no/atc" }
+    display: { en: "Levonorgestrel emergency contraception (1.5 mg)", zh_hk: "左炔諾孕酮事後緊急避孕丸 (1.5毫克)" }
+    aliases:
+      en: ["emergency contraception", "morning after pill", "Postinor", "NorLevo", "Plan B", "levonorgestrel EC"]
+      zh_hk: ["事後丸", "緊急避孕丸", "事後避孕藥", "保仕婷"]
+    drug_facet:
+      short_course: true
+      max_single_mg: 1.5
+      dosing_pearl:
+        en: "Most effective within 72h of unprotected sex (may offer up to 96h; consider ulipristal or copper IUD up to 120h or if BMI >26 / weight >70 kg)."
+        zh_hk: "無保護性行為後72小時內盡快服用效果最佳；如體重超過70公斤或逾72小時，宜考慮烏利司他或子宮環。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: drug:tranexamic_acid
+    kind: drug
+    wave: W1
+    cluster: C08_womens_health
+    parent_ids: ["drug_class:antifibrinolytic"]
+    bindings:
+      inn: "tranexamic acid"
+      rxnorm: { code: "10691", display: "tranexamic acid" }
+      atc: { code: "B02AA02", system: "http://www.whocc.no/atc" }
+    display: { en: "Tranexamic acid", zh_hk: "傳明酸／氨甲環酸（止血丸）" }
+    aliases:
+      en: ["tranexamic acid", "TXA", "Cyklokapron", "Transamin", "Lysteda"]
+      zh_hk: ["傳明酸", "氨甲環酸", "止血丸", "經血止血藥"]
+    drug_facet:
+      short_course: true
+      max_single_mg: 1000
+      max_daily_mg: 4000
+      renal_note: "Reduce dose in renal impairment (Cr >120 umol/L); contraindicated in active thromboembolic disease."
+      dosing_pearl:
+        en: "HMB: 1 g PO TDS-QDS from day 1 of heavy bleeding for up to 4 days; avoid in active VTE or severe renal impairment."
+        zh_hk: "月經過多：經期首日起每日3至4次、每次1克，最長連服4天；有活動性血栓病史者禁用。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: drug:fluconazole
+    kind: drug
+    wave: W1
+    cluster: C08_womens_health
+    parent_ids: ["drug_class:antifungal"]
+    bindings:
+      inn: "fluconazole"
+      rxnorm: { code: "4450", display: "fluconazole" }
+      atc: { code: "J02AC01", system: "http://www.whocc.no/atc" }
+    display: { en: "Fluconazole", zh_hk: "氟康唑" }
+    aliases:
+      en: ["fluconazole", "Diflucan", "Canesten oral"]
+      zh_hk: ["氟康唑", "口服念珠菌藥"]
+    drug_facet:
+      short_course: true
+      pregnancy_caution: "contraindicated"
+      renal_note: "Halve maintenance dose if eGFR <50 mL/min (single 150 mg dose requires no adjustment)."
+      dosing_pearl:
+        en: "Uncomplicated VVC: 150 mg PO single dose; avoid oral fluconazole in pregnancy (use topical clotrimazole 7-day course) and check CYP2C9/3A4 & QT interactions."
+        zh_hk: "無併發症念珠菌陰道炎：單次口服150毫克；懷孕期禁用口服氟康唑（改用外用克霉唑），並須核對華法林及QT延長相互作用。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: drug:metronidazole
+    kind: drug
+    wave: W1
+    cluster: C08_womens_health
+    parent_ids: ["drug_class:nitroimidazole"]
+    bindings:
+      inn: "metronidazole"
+      rxnorm: { code: "6922", display: "metronidazole" }
+      atc: { code: "P01AB01", system: "http://www.whocc.no/atc" }
+    display: { en: "Metronidazole", zh_hk: "甲硝唑" }
+    aliases:
+      en: ["metronidazole", "Flagyl", "Metrogyl"]
+      zh_hk: ["甲硝唑", "滅滴靈"]
+    drug_facet:
+      short_course: true
+      dosing_pearl:
+        en: "BV: 400 mg PO BD for 5-7 days (or vaginal gel). Counsel alcohol avoidance during therapy and 48h after (disulfiram-like reaction) and warfarin INR interaction."
+        zh_hk: "細菌性陰道病：每日2次、每次400毫克，連服5至7天；服藥期間及停藥後48小時內切忌飲酒，並須留意與華法林之相互作用。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: drug:cyanocobalamin
+    kind: drug
+    wave: W1
+    cluster: C11_haematology_general
+    parent_ids: ["drug_class:haematinic"]
+    bindings:
+      inn: "cyanocobalamin"
+      rxnorm: { code: "11248", display: "vitamin B12" }
+      atc: { code: "B03BA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Vitamin B12 (cyanocobalamin / hydroxocobalamin)", zh_hk: "維他命B12（氰鈷胺／羥鈷胺）" }
+    aliases:
+      en: ["cyanocobalamin", "hydroxocobalamin", "vitamin B12", "B12 injection", "B12 tablets"]
+      zh_hk: ["維他命B12", "維生素B12", "B12針", "B12丸"]
+    drug_facet:
+      dosing_pearl:
+        en: "Use IM hydroxocobalamin/cyanocobalamin urgently if neurological involvement (paresthesia, ataxia) or malabsorption; high-dose oral 1000 mcg/day suitable for dietary deficiency."
+        zh_hk: "如伴隨神經系統症狀（手腳麻痺、步態不穩）或吸收障礙須優先安排肌肉注射；飲食性缺乏可予高劑量口服每日1000微克。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: drug:cholecalciferol
+    kind: drug
+    wave: W1
+    cluster: C13_geriatrics
+    bindings:
+      inn: "cholecalciferol"
+      rxnorm: { code: "2418", display: "cholecalciferol" }
+      atc: { code: "A11CC05", system: "http://www.whocc.no/atc" }
+    display: { en: "Vitamin D3 (cholecalciferol)", zh_hk: "維他命D3（膽鈣化醇）" }
+    aliases:
+      en: ["cholecalciferol", "colecalciferol", "vitamin D3", "Ostelin", "vitamin D"]
+      zh_hk: ["維他命D", "維他命D3", "維生素D3"]
+    drug_facet:
+      dosing_pearl:
+        en: "Supplement in confirmed deficiency, osteoporosis, or institutionalised/falls-prone older adults (typically 800-2000 IU daily; avoid ultra-high annual bolus doses which increase falls)."
+        zh_hk: "適用於維他命D缺乏、骨質疏鬆或高跌倒風險長者（一般每日800至2000國際單位；避免年度特高劑量單次補充）。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  # =========================================================================
+  # VACCINES (6) — CDC CVX Tier-1 Open Bindings
+  # =========================================================================
+  - id: vaccine:influenza_qiv
+    kind: vaccine
+    wave: W1
+    cluster: C14_preventive
+    bindings:
+      cvx: { code: "150", display: "influenza, injectable, quadrivalent, preservative free" }
+      atc: { code: "J07BB02", system: "http://www.whocc.no/atc" }
+    display: { en: "Seasonal inactivated quadrivalent influenza vaccine (QIV)", zh_hk: "季節性四價滅活流感疫苗" }
+    aliases:
+      en: ["flu shot", "flu vaccine", "influenza vaccine", "QIV", "quadrivalent flu jab"]
+      zh_hk: ["流感針", "流感疫苗", "四價流感針", "季節性流感疫苗"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: vaccine:pneumococcal_23v
+    kind: vaccine
+    wave: W1
+    cluster: C14_preventive
+    bindings:
+      cvx: { code: "33", display: "pneumococcal polysaccharide PPV23" }
+      atc: { code: "J07AL01", system: "http://www.whocc.no/atc" }
+    display: { en: "23-valent pneumococcal polysaccharide vaccine (23vPPV)", zh_hk: "23價肺炎球菌多醣疫苗 (23vPPV)" }
+    aliases:
+      en: ["Pneumovax 23", "23vPPV", "PPV23", "pneumococcal 23", "pneumonia shot"]
+      zh_hk: ["23價肺炎針", "23價肺炎球菌疫苗", "肺炎針"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: vaccine:pcv15
+    kind: vaccine
+    wave: W1
+    cluster: C14_preventive
+    bindings:
+      cvx: { code: "215", display: "Pneumococcal conjugate PCV15, polysaccharide CRM197 conjugate, adjuvant, PF" }
+      atc: { code: "J07AL02", system: "http://www.whocc.no/atc" }
+    display: { en: "15-valent pneumococcal conjugate vaccine (PCV15)", zh_hk: "15價肺炎球菌結合疫苗 (PCV15)" }
+    aliases:
+      en: ["Vaxneuvance", "PCV15", "15-valent pneumococcal"]
+      zh_hk: ["15價肺炎針", "15價肺炎球菌疫苗"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: vaccine:shingrix_rzv
+    kind: vaccine
+    wave: W1
+    cluster: C14_preventive
+    bindings:
+      cvx: { code: "187", display: "zoster vaccine recombinant" }
+      atc: { code: "J07BK03", system: "http://www.whocc.no/atc" }
+    display: { en: "Recombinant zoster (shingles) vaccine (RZV / Shingrix)", zh_hk: "重組帶狀疱疹（生蛇）疫苗 (Shingrix)" }
+    aliases:
+      en: ["Shingrix", "shingles vaccine", "RZV", "herpes zoster vaccine"]
+      zh_hk: ["生蛇針", "蛇針", "帶狀疱疹疫苗", "新一代生蛇疫苗"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: vaccine:hpv9
+    kind: vaccine
+    wave: W1
+    cluster: C14_preventive
+    bindings:
+      cvx: { code: "165", display: "HPV9" }
+      atc: { code: "J07BM03", system: "http://www.whocc.no/atc" }
+    display: { en: "9-valent human papillomavirus vaccine (HPV9)", zh_hk: "九價人類乳頭瘤病毒（子宮頸癌）疫苗 (HPV9)" }
+    aliases:
+      en: ["Gardasil 9", "HPV9", "HPV vaccine", "cervical cancer vaccine"]
+      zh_hk: ["九價HPV針", "子宮頸癌針", "HPV疫苗", "加衛苗9"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: vaccine:tdap
+    kind: vaccine
+    wave: W1
+    cluster: C14_preventive
+    bindings:
+      cvx: { code: "115", display: "Tdap" }
+      atc: { code: "J07AJ52", system: "http://www.whocc.no/atc" }
+    display: { en: "Tetanus, diphtheria, and acellular pertussis vaccine (Tdap / dTpa)", zh_hk: "破傷風、白喉及無細胞型百日咳混合疫苗 (Tdap)" }
+    aliases:
+      en: ["Tdap", "dTpa", "Boostrix", "Adacel", "whooping cough vaccine", "pertussis pregnancy vaccine"]
+      zh_hk: ["百日咳針", "孕婦百日咳疫苗", "破傷風百日咳混合針"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  # =========================================================================
+  # PREVENTIVE SCREENING PROGRAMS (5)
+  # =========================================================================
+  - id: screen:crc_fit
+    kind: screening_program
+    wave: W1
+    cluster: C14_preventive
+    bindings:
+      icpc2: { code: "A98", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "Z12.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Colorectal cancer screening (faecal immunochemical test, FIT / iFOBT)", zh_hk: "大腸癌篩查（大便免疫化學測試／隱血測試）" }
+    aliases:
+      en: ["bowel cancer screening", "FIT test", "iFOBT", "fecal occult blood screening"]
+      zh_hk: ["大腸癌篩查", "大便隱血測試", "驗大便篩查"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: screen:cervical_hpv
+    kind: screening_program
+    wave: W1
+    cluster: C14_preventive
+    bindings:
+      icpc2: { code: "X37", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "Z12.4", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Cervical cancer screening (primary HPV test / Cervical Screening Test)", zh_hk: "子宮頸癌篩查（HPV測試／柏氏抹片）" }
+    aliases:
+      en: ["cervical screening", "CST", "HPV test", "Pap smear", "cervical smear"]
+      zh_hk: ["子宮頸篩查", "子宮頸抹片", "柏氏抹片", "HPV篩查"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: screen:breast_mammogram
+    kind: screening_program
+    wave: W1
+    cluster: C14_preventive
+    bindings:
+      icpc2: { code: "X41", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "Z12.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Breast cancer screening (screening mammography)", zh_hk: "乳癌篩查（乳房X光造影檢查）" }
+    aliases:
+      en: ["mammogram", "breast screening", "BreastScreen", "mammography"]
+      zh_hk: ["乳癌篩查", "乳房造影", "夾胸X光", "乳房X光檢查"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: screen:hbv_adult
+    kind: screening_program
+    wave: W1
+    cluster: C14_preventive
+    bindings:
+      icpc2: { code: "A98", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "Z11.5", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Adult Hepatitis B screening (HBsAg / anti-HBs / anti-HBc)", zh_hk: "成人乙型肝炎篩查（表面抗原及抗體）" }
+    aliases:
+      en: ["hepatitis B screening", "HBV screen", "Hep B blood check"]
+      zh_hk: ["乙肝篩查", "驗乙型肝炎", "乙肝帶菌檢查"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: screen:cvd_risk
+    kind: screening_program
+    wave: W1
+    cluster: C14_preventive
+    bindings:
+      icpc2: { code: "A98", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "Z13.6", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Absolute cardiovascular disease (CVD) risk assessment", zh_hk: "心血管疾病綜合風險評估" }
+    aliases:
+      en: ["heart health check", "CVD risk assessment", "cardiovascular risk score"]
+      zh_hk: ["心血管風險評估", "三高篩查", "心臟健康檢查"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  # =========================================================================
+  # OBSERVATIONS (5) — Verified LOINC + UCUM
+  # =========================================================================
+  - id: obs:wbc
+    kind: observation
+    wave: W1
+    cluster: C11_haematology_general
+    bindings:
+      loinc: { code: "6690-2", display: "Leukocytes [#/volume] in Blood by Automated count" }
+      ucum: "10*9/L"
+    display: { en: "White blood cell count (WBC)", zh_hk: "白血球計數 (WBC)" }
+    aliases:
+      en: ["WBC", "white cell count", "WCC", "leukocytes"]
+      zh_hk: ["白血球", "白血球指數"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: obs:platelets
+    kind: observation
+    wave: W1
+    cluster: C11_haematology_general
+    bindings:
+      loinc: { code: "777-3", display: "Platelets [#/volume] in Blood by Automated count" }
+      ucum: "10*9/L"
+    display: { en: "Platelet count", zh_hk: "血小板計數" }
+    aliases:
+      en: ["platelets", "PLT", "thrombocytes"]
+      zh_hk: ["血小板", "血小板指數"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: obs:folate
+    kind: observation
+    wave: W1
+    cluster: C11_haematology_general
+    bindings:
+      loinc: { code: "14732-2", display: "Folate [Moles/volume] in Serum or Plasma" }
+      ucum: "nmol/L"
+    display: { en: "Serum folate", zh_hk: "血清葉酸" }
+    aliases:
+      en: ["folate", "folic acid level", "serum folate"]
+      zh_hk: ["葉酸", "血清葉酸"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: obs:bhcg_urine
+    kind: observation
+    wave: W1
+    cluster: C08_womens_health
+    bindings:
+      loinc: { code: "2106-3", display: "Choriogonadotropin [Presence] in Urine" }
+      ucum: "{Ordinal}"
+    display: { en: "Urine beta-hCG (qualitative pregnancy test)", zh_hk: "尿液驗孕測試 (Urine β-hCG)" }
+    aliases:
+      en: ["urine hCG", "UPT", "urine pregnancy test", "bhcg urine"]
+      zh_hk: ["驗孕測試", "小便驗孕", "尿液hCG"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: obs:tsat
+    kind: observation
+    wave: W1
+    cluster: C11_haematology_general
+    bindings:
+      loinc: { code: "2502-3", display: "Iron saturation [Mass Fraction] in Serum or Plasma" }
+      ucum: "%"
+    display: { en: "Transferrin saturation (TSAT)", zh_hk: "轉鐵蛋白飽和度 (TSAT)" }
+    aliases:
+      en: ["TSAT", "transferrin saturation", "iron saturation"]
+      zh_hk: ["鐵飽和度", "轉鐵蛋白飽和度"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+# ===========================================================================
+# DETERMINISTIC CLINICAL EDGES (14)
+# ===========================================================================
+edges:
+  - id: edge:ectopic_rupture_emergency
+    source_id: rf:ectopic_rupture_signs
+    relation: RED_FLAG_FOR
+    target_id: cond:ectopic_pregnancy
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Unilateral pelvic pain with syncope, hypotension, or shoulder-tip pain in any reproductive-age woman indicates potential ruptured ectopic pregnancy with intra-abdominal haemorrhage."
+      zh_hk: "育齡女性出現單側下腹劇痛伴暈厥、低血壓或肩尖痛，須高度懷疑子宮外孕破裂及腹腔內出血。"
+    clinician_action_prompt:
+      en: "Immediate emergency transfer to hospital ED/early pregnancy emergency unit; check urine/serum beta-hCG and vital signs without delaying transfer."
+    patient_safety_net:
+      en: "Severe one-sided lower tummy pain, dizziness, fainting, or shoulder-tip pain when pregnancy is possible needs immediate emergency hospital assessment. Call emergency services now."
+      zh_hk: "如可能懷孕並出現單側下腹劇痛、頭暈昏厥或肩尖痛，須立即前往急症室或致電緊急救援服務。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:preeclampsia_obstetric_emergency
+    source_id: rf:preeclampsia_signs
+    relation: RED_FLAG_FOR
+    target_id: cond:preeclampsia
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    when:
+      fact: pregnant
+      op: eq
+      value: true
+    clinician_rationale:
+      en: "Severe headache, visual scotomata/flashes, epigastric/RUQ pain, or sudden oedema in pregnancy (>=20 weeks) signals severe pre-eclampsia / HELLP / imminent eclampsia."
+      zh_hk: "懷孕20週後出現劇烈頭痛、視力異常、上腹痛或突發水腫，屬嚴重妊娠毒血症／HELLP綜合症警號。"
+    clinician_action_prompt:
+      en: "Immediate same-day obstetric emergency referral / ED transfer; check BP (>=140/90 or >=160/110), urine protein/PCR, platelets, ALT, creatinine."
+    patient_safety_net:
+      en: "If you are pregnant and develop a severe headache, flashing lights or blurred vision, upper tummy pain, or sudden swelling of your face or hands, go to emergency hospital care immediately."
+      zh_hk: "懷孕期間如出現劇烈頭痛、視力模糊或閃光、上腹痛，或面部及手部突發水腫，請立即前往急症室或產科急症評估。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:postmenopausal_bleeding_endometrial
+    source_id: rf:postmenopausal_bleeding
+    relation: RED_FLAG_FOR
+    target_id: cond:endometrial_cancer
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Any postmenopausal vaginal bleeding (>=12 months amenorrhoea) carries ~5-10% risk of endometrial carcinoma and requires urgent gynaecological workup."
+      zh_hk: "收經滿12個月後出現任何陰道出血，約有5至10%機會為子宮內膜癌，必須作緊急婦科檢查排除惡性病變。"
+    clinician_action_prompt:
+      en: "Arrange urgent transvaginal pelvic ultrasound (endometrial thickness) and fast-track gynaecology referral for endometrial sampling/hysteroscopy."
+    patient_safety_net:
+      en: "Any bleeding or spotting after menopause should be assessed urgently by a doctor; if bleeding becomes heavy or you feel faint, seek immediate emergency care."
+      zh_hk: "收經後出現任何陰道出血或血絲均須盡快由醫生評估及跟進；如出血量大增或感到頭暈，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:dengue_nsaid_haemorrhage_ci
+    source_id: drug_class:nsaid
+    relation: CONTRAINDICATED_IN
+    target_id: cond:dengue
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Systemic NSAIDs and aspirin are contraindicated in suspected or confirmed dengue fever due to platelet dysfunction, GI haemorrhage, and Reye syndrome risk."
+      zh_hk: "懷疑或確診登革熱時嚴禁使用非類固醇消炎止痛藥 (NSAID) 及阿士匹靈，以免加劇血小板功能障礙及嚴重出血風險。"
+    clinician_action_prompt:
+      en: "Hard-block NSAID/aspirin; use paracetamol within weight/daily limits only; monitor serial CBC (platelets/haematocrit) and dengue warning signs."
+    patient_safety_net:
+      en: "Do not take ibuprofen, aspirin, or anti-inflammatory painkillers while dengue is possible. Seek immediate emergency care for persistent vomiting, severe tummy pain, bleeding gums/nose, or drowsiness."
+      zh_hk: "懷疑登革熱期間切勿服用布洛芬、阿士匹靈或其他消炎止痛藥。如出現持續嘔吐、劇烈腹痛、牙齦或鼻出血，或嗜睡，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:coc_age35_thrombosis_caution
+    source_id: drug:combined_oral_contraceptive
+    relation: RED_FLAG_FOR
+    target_id: cond:pe
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    when:
+      fact: age_years
+      op: ge
+      value: 35
+    clinician_rationale:
+      en: "Oestrogen-containing combined oral contraceptives carry elevated venous thromboembolism (VTE/PE) and arterial thrombosis risk in age >=35y — contraindicated (MEC 4) if smoking >=15/day, migraine with aura, uncontrolled HTN, or prior VTE."
+      zh_hk: "35歲或以上女性服用含雌激素混合避孕丸，靜脈血栓（肺栓塞）及動脈血栓風險上升；如有吸煙、先兆偏頭痛、血壓未受控或血栓史則屬禁忌。"
+    clinician_action_prompt:
+      en: "Verify smoking status, BP, BMI, migraine with aura, and personal/family VTE history before prescribing or renewing COC; discuss progestogen-only or LARC alternatives if MEC 3/4."
+    patient_safety_net:
+      en: "Seek urgent medical care if you develop sudden leg swelling or calf pain, shortness of breath, chest pain, or severe sudden headache while using combined hormonal contraception."
+      zh_hk: "服用混合避孕丸期間如出現單側小腿腫痛、突發氣促、胸痛或劇烈頭痛，請立即求醫評估。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:fluconazole_warfarin_inr_spike
+    source_id: drug:fluconazole
+    relation: INTERACTS_WITH
+    target_id: drug:warfarin
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Fluconazole strongly inhibits CYP2C9 (S-warfarin metabolism), causing major INR spikes and serious bleeding even after a single 150 mg oral dose."
+      zh_hk: "氟康唑強烈抑制 CYP2C9 代謝酵素，即使單次口服150毫克亦可引致華法林 INR 急劇飆升及嚴重出血風險。"
+    clinician_action_prompt:
+      en: "Prefer topical antifungal (e.g. clotrimazole) for VVC in warfarinised patients; if systemic fluconazole unavoidable, alert doctor to reduce warfarin dose and recheck INR in 3-5 days."
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:metronidazole_warfarin_inr_spike
+    source_id: drug:metronidazole
+    relation: INTERACTS_WITH
+    target_id: drug:warfarin
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Metronidazole inhibits CYP2C9 clearance of S-warfarin, markedly elevating INR and major bleeding risk."
+      zh_hk: "甲硝唑抑制 S-華法林代謝，顯著推高 INR 並大幅增加嚴重出血風險。"
+    clinician_action_prompt:
+      en: "Flag prescriber to consider topical/alternative therapy if suitable, or pre-emptively adjust warfarin and order repeat INR within 3-5 days."
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:paed_rash_lethargy_meningitis_sepsis
+    source_id: rf:paed_non_blanching_rash_lethargy
+    relation: RED_FLAG_FOR
+    target_id: cond:meningitis
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Non-blanching petechial/purpuric rash, extreme lethargy/floppiness, or inconsolable high-pitched crying in a febrile child signals potential meningococcal disease, bacterial meningitis, or paediatric sepsis."
+      zh_hk: "發燒兒童出現按壓不退色皮疹、極度嗜睡軟弱無力或持續尖聲哭鬧，為腦膜炎雙球菌感染、細菌性腦膜炎或兒童敗血症極危警號。"
+    clinician_action_prompt:
+      en: "Immediate emergency ambulance transfer to paediatric ED; consider IM/IV benzylpenicillin/ceftriaxone per local guideline only if transfer delayed and clinician on-site."
+    patient_safety_net:
+      en: "If your child has a rash that does not fade when pressed with a clear glass, is unusually floppy or hard to wake, or has fast laboured breathing, seek emergency hospital care immediately."
+      zh_hk: "如小朋友出現以透明玻璃杯按壓後不退色的皮疹、異常軟弱或叫唔醒、或呼吸急促費力，請立即前往急症室或致電緊急救援服務。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:acute_delirium_urgent_workup
+    source_id: rf:acute_delirium_fluctuating
+    relation: RED_FLAG_FOR
+    target_id: cond:delirium
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Acute fluctuating confusion in an older adult is a medical emergency until reversible precipitants are excluded (infection/UTI/pneumonia, anticholinergic/sedative drugs, electrolyte/glycaemic derangement, hypoxia, stroke/subdural)."
+      zh_hk: "長者出現急性起伏性意識混亂屬急症警號，須緊急排查可逆轉誘因（泌尿道或肺部感染、藥物副作用、電解質／血糖異常、缺氧或中風／硬膜下血腫）。"
+    clinician_action_prompt:
+      en: "Arrange urgent same-day medical/ED evaluation: vitals/SpO2/BGL, focused neuro exam, medication reconciliation (anticholinergics/opioids/benzos), CBC, RFT/electrolytes, calcium, urinalysis, and CXR/CT head if indicated."
+    patient_safety_net:
+      en: "Sudden new confusion, drowsiness, or agitation in an older adult needs urgent medical assessment today — go to emergency care immediately if there is fever, weakness on one side, a recent head knock, or trouble breathing."
+      zh_hk: "長者如突然出現意識混亂、異常嗜睡或躁動，必須即日緊急求醫；如伴發燒、單側無力、近期撞傷頭部或呼吸困難，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:heavy_bleeding_bruising_thrombocytopenia
+    source_id: rf:heavy_bleeding_bruising
+    relation: RED_FLAG_FOR
+    target_id: cond:thrombocytopenia
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Unexplained petechiae, mucosal bleeding, or severe acute haemorrhage requires urgent CBC, coagulation profile, and review of anticoagulants/antiplatelets/NSAIDs to exclude severe thrombocytopenia or coagulopathy."
+      zh_hk: "無故瘀點、黏膜出血或大量急性出血，須緊急檢查全血細胞計數及凝血功能，並覆核薄血藥／消炎藥，排除嚴重血小板減少或凝血障礙。"
+    clinician_action_prompt:
+      en: "Order urgent same-day CBC + coagulation screen (PT/INR/APTT); transfer to ED immediately if haemodynamically unstable, active mucosal/CNS bleeding, or platelets <20 x10^9/L."
+    patient_safety_net:
+      en: "Unexplained spreading bruises, pinprick red spots, ongoing gum/nose bleeding, or soaking pads every hour requires urgent medical assessment today; seek emergency care immediately if you feel faint or breathless."
+      zh_hk: "如出現無故擴散的瘀青、針點紅斑、流牙血／鼻血不止或每小時浸透衛生巾，請即日緊急求醫；如感頭暈氣促，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:screen_crc_fit_malignancy
+    source_id: screen:crc_fit
+    relation: PREVENTIVE_SCREEN_FOR
+    target_id: cond:malignancy_occult
+    severity: info
+    urgency_floor: 1
+    clinic_port_family: positive_screen
+    when:
+      fact: age_years
+      op: ge
+      value: 45
+    clinician_rationale:
+      en: "Population bowel cancer screening (biennial FIT/iFOBT) detects asymptomatic colorectal neoplasia early; any positive FIT requires timely diagnostic colonoscopy (never repeat FIT to dismiss a positive screen)."
+      zh_hk: "每兩年大便隱血篩查有助及早發現無徵狀大腸癌或瘜肉；陽性篩查結果必須轉介大腸鏡檢查，切勿單以重驗大便排除。"
+    clinician_action_prompt:
+      en: "Verify jurisdiction eligibility age/interval (HK 50-75y; AU NBCSP 45-74y) and recall/refer promptly if positive FIT."
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:screen_cervical_hpv_cancer
+    source_id: screen:cervical_hpv
+    relation: PREVENTIVE_SCREEN_FOR
+    target_id: cond:cervical_cancer
+    severity: info
+    urgency_floor: 1
+    clinic_port_family: positive_screen
+    when:
+      all:
+        - { fact: sex, op: eq, value: "F" }
+        - { fact: age_years, op: ge, value: 25 }
+        - { fact: age_years, op: le, value: 74 }
+    clinician_rationale:
+      en: "Primary HPV cervical screening identifies high-risk HPV (16/18 and non-16/18) and precancerous CIN lesions; symptomatic bleeding requires diagnostic speculum exam regardless of prior negative screen."
+      zh_hk: "子宮頸癌HPV篩查可及早識別高危型HPV及癌前病變；但如有異常陰道出血徵狀，不論過往篩查是否陰性，均須直接作臨床診斷檢查。"
+    clinician_action_prompt:
+      en: "Check jurisdiction schedule (HK 25-64y; AU 25-74y 5-yearly with self-collection option); track HPV+ results to colposcopy/follow-up."
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:screen_breast_mammogram_cancer
+    source_id: screen:breast_mammogram
+    relation: PREVENTIVE_SCREEN_FOR
+    target_id: cond:breast_cancer
+    severity: info
+    urgency_floor: 1
+    clinic_port_family: positive_screen
+    when:
+      all:
+        - { fact: sex, op: eq, value: "F" }
+        - { fact: age_years, op: ge, value: 44 }
+        - { fact: age_years, op: le, value: 74 }
+    clinician_rationale:
+      en: "Biennial screening mammography reduces breast cancer mortality in eligible asymptomatic women; any palpable breast lump or nipple/skin change requires diagnostic triple assessment rather than routine screening."
+      zh_hk: "定期乳房X光造影篩查有助及早發現無徵狀乳癌；但如觸及乳房硬塊或乳頭皮膚變化，必須作診斷性三聯檢查而非一般篩查。"
+    clinician_action_prompt:
+      en: "Assess personal/family breast cancer risk and offer jurisdiction-aligned screening mammogram (HK risk-based 44-69y; AU BreastScreen 50-74y target, eligible >=40y)."
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: edge:screen_hbv_adult_chronic
+    source_id: screen:hbv_adult
+    relation: PREVENTIVE_SCREEN_FOR
+    target_id: cond:chronic_hbv
+    severity: info
+    urgency_floor: 1
+    clinic_port_family: positive_screen
+    when:
+      fact: age_years
+      op: ge
+      value: 18
+    clinician_rationale:
+      en: "Targeted/universal adult HBsAg + anti-HBs + anti-HBc screening identifies undiagnosed chronic HBV for HCC surveillance and antiviral eligibility, and identifies non-immune adults for vaccination."
+      zh_hk: "成人乙型肝炎篩查有助找出隱性帶菌者以安排定期肝癌監察及抗病毒治療評估，並為無抗體人士安排疫苗接種。"
+    clinician_action_prompt:
+      en: "Order HBsAg, anti-HBs, and anti-HBc (mandatory in HK adults born <=1988, high-prevalence migrants, First Nations AU adults, pregnant women, and prior to immunosuppression)."
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+# ===========================================================================
+# PRESENTATION FRAMES (5) — Murtagh PROMPT + openEHR Positive Exclusions + Safety Netting
+# ===========================================================================
+frames:
+  - id: frame:pelvic_pain
+    rfe_concept_id: rfe:pelvic_pain
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_dysmen, concept_id: cond:dysmenorrhoea, prevalence_note: "Most common cyclic pelvic pain in reproductive-age women" }
+        - { id: p_uti, concept_id: cond:uti, key_discriminators: ["dysuria", "frequency", "suprapubic tenderness"] }
+        - { id: p_bv_candida, concept_id: cond:bacterial_vaginosis, key_discriminators: ["abnormal discharge", "odour/itch"] }
+      serious_not_to_be_missed:
+        - { id: s_ectopic, concept_id: cond:ectopic_pregnancy, key_discriminators: ["reproductive age + missed/abnormal period", "unilateral pain", "syncope/shoulder-tip pain — ALWAYS urine beta-hCG"] }
+        - { id: s_pid_sti, concept_id: cond:chlamydia_sti, key_discriminators: ["cervical motion tenderness", "fever", "mucopurulent discharge", "new partner"] }
+        - { id: s_endometrial, concept_id: cond:endometrial_cancer, key_discriminators: ["postmenopausal", "abnormal bleeding", "pelvic mass"] }
+        - { id: s_sepsis, concept_id: cond:sepsis, key_discriminators: ["high fever", "tachycardia", "rigors", "peritonism"] }
+      pitfalls_often_missed:
+        - { id: o_pcos, concept_id: cond:pcos, key_discriminators: ["oligomenorrhoea", "hyperandrogenism", "ovarian cyst pain"] }
+        - { id: o_cervical, concept_id: cond:cervical_cancer, key_discriminators: ["postcoital bleeding", "deep dyspareunia", "overdue cervical screening"] }
+      masquerades:
+        - { id: mq_uti, tier: primary, masquerade: uti, concept_id: cond:uti, clue_prompt: { en: "Exclude UTI with dipstick/MSU even when pain is described as 'period-like'." } }
+        - { id: mq_depression, tier: primary, masquerade: depression, concept_id: cond:depression, clue_prompt: { en: "Chronic pelvic pain frequently co-exists with depression, anxiety, or trauma history — screen sensitively after organic causes addressed." } }
+        - { id: mq_spine, tier: primary, masquerade: spinal_dysfunction, concept_id: cond:spinal_dysfunction, clue_prompt: { en: "Lumbosacral / pelvic girdle dysfunction can refer pain to the lower abdomen and groin." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore unvoiced concerns about fertility, endometriosis, STI exposure, intimate partner safety, or unintended pregnancy." }
+    positive_exclusions:
+      - id: ex_ectopic_rupture
+        finding_concept_id: rf:ectopic_rupture_signs
+        question: { en: "Could you possibly be pregnant, and are you having severe one-sided lower tummy pain, dizziness, fainting, or shoulder-tip pain?", zh_hk: "請問你有沒有可能懷孕，以及有沒有單側下腹劇痛、頭暈昏厥或肩尖痛？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_syncope
+        finding_concept_id: rf:syncope
+        question: { en: "Have you fainted, collapsed, or felt light-headed when standing?", zh_hk: "請問你有沒有暈倒，或站立時感到嚴重頭暈眼前發黑？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_heavy_bleed
+        finding_concept_id: rf:heavy_bleeding_bruising
+        question: { en: "Are you experiencing very heavy vaginal bleeding (soaking a pad every hour or passing large clots)?", zh_hk: "請問你有沒有大量陰道出血（例如每小時浸透衛生巾或排出大塊血塊）？" }
+        urgency_if_present: 3
+        mandatory: true
+    safety_netting:
+      - id: sn_pelvic_emergency
+        trigger_condition: { en: "Sudden severe or worsening one-sided lower abdominal pain, fainting, dizziness, shoulder-tip pain, high fever, or heavy bleeding", zh_hk: "突發或加劇的單側下腹劇痛、頭暈昏厥、肩尖痛、高燒或大量出血" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "If your lower tummy pain becomes severe or sudden, or if you feel faint, dizzy, feverish, or bleed heavily, seek immediate emergency hospital care."
+          zh_hk: "如下腹痛突然加劇，或出現頭暈昏厥、發高燒或大量出血，請立即前往急症室或致電緊急救援服務。"
+      - id: sn_pelvic_review
+        trigger_condition: { en: "Pain not improving within 48 hours or positive pregnancy test with any pain/spotting", zh_hk: "痛楚於48小時內未見改善，或驗孕呈陽性並伴任何腹痛／見紅" }
+        timeframe_hours: 48
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange same-day doctor review if a pregnancy test is positive with any tummy pain or spotting, or if symptoms do not start settling within 48 hours."
+          zh_hk: "如驗孕呈陽性並伴有任何腹痛或見紅，或痛楚於48小時內未有改善，請安排即日醫生評估。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: frame:vaginal_bleeding
+    rfe_concept_id: rfe:vaginal_bleeding
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_hmb, concept_id: cond:heavy_menstrual_bleeding, prevalence_note: "PALM-COEIN structural/ovulatory causes in reproductive years" }
+        - { id: p_pcos, concept_id: cond:pcos, key_discriminators: ["anovulatory irregular heavy bleeding", "oligomenorrhoea"] }
+        - { id: p_menopause, concept_id: cond:menopause, key_discriminators: ["perimenopausal cycle irregularity", "atrophic vaginitis"] }
+      serious_not_to_be_missed:
+        - { id: s_ectopic, concept_id: cond:ectopic_pregnancy, key_discriminators: ["ANY reproductive-age woman with bleeding — do urine beta-hCG"] }
+        - { id: s_endometrial, concept_id: cond:endometrial_cancer, key_discriminators: ["postmenopausal bleeding", "age >=45y with intermenstrual/persistent HMB", "high BMI / PCOS"] }
+        - { id: s_cervical, concept_id: cond:cervical_cancer, key_discriminators: ["postcoital bleeding", "intermenstrual bleeding", "overdue HPV screening"] }
+        - { id: s_thrombocytopenia, concept_id: cond:thrombocytopenia, key_discriminators: ["bleeding from menarche", "bruising/petechiae", "mucosal bleeding"] }
+      pitfalls_often_missed:
+        - { id: o_chlamydia, concept_id: cond:chlamydia_sti, key_discriminators: ["intermenstrual or postcoital bleeding from cervicitis"] }
+        - { id: o_ida, concept_id: cond:iron_deficiency_anaemia, key_discriminators: ["fatigue/dyspnoea secondary to chronic HMB — check CBC + ferritin"] }
+      masquerades:
+        - { id: mq_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hypothyroidism, clue_prompt: { en: "Hypothyroidism is a classic reversible cause of menorrhagia — check TSH." } }
+        - { id: mq_anaemia, tier: primary, masquerade: anaemia, concept_id: cond:iron_deficiency_anaemia, clue_prompt: { en: "Check Hb and ferritin in all persistent heavy menstrual bleeding." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Review anticoagulants (warfarin/DOAC), missed COC/progestogen pills, copper IUD, or herbal/TCM products." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Ask about fear of gynaecological cancer, impact on work/daily life, desire for future fertility, and contraception needs." }
+    positive_exclusions:
+      - id: ex_ectopic_bleed
+        finding_concept_id: rf:ectopic_rupture_signs
+        question: { en: "Is there any chance you could be pregnant, and do you have one-sided lower tummy pain or dizziness?", zh_hk: "請問你有沒有機會懷孕，或伴隨單側下腹痛或頭暈？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_pmb
+        finding_concept_id: rf:postmenopausal_bleeding
+        question: { en: "Has this bleeding occurred after you have already gone 12 months or more without a period (after menopause)?", zh_hk: "請問今次出血是否發生於已停經／收經滿12個月或以上之後？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_flooding_bruising
+        finding_concept_id: rf:heavy_bleeding_bruising
+        question: { en: "Are you soaking through a pad or tampon every hour, passing large clots, or noticing unexplained bruising or gum bleeding?", zh_hk: "請問你有沒有每小時浸透衛生巾、排出大血塊，或無故出現瘀青／流牙血？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_syncope
+        finding_concept_id: rf:syncope
+        question: { en: "Have you felt faint, dizzy, or short of breath with the bleeding?", zh_hk: "請問出血期間有沒有感到頭暈欲暈或氣促？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_bleed_emergency
+        trigger_condition: { en: "Soaking >=1 pad/hour for >=2 consecutive hours, fainting/dizziness, severe tummy pain, or heavy bleeding in pregnancy", zh_hk: "連續兩小時每小時浸透衛生巾、頭暈昏厥、劇烈腹痛或懷孕期大量出血" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "If you are soaking through a pad every hour, feel faint or breathless, have severe tummy pain, or are pregnant with heavy bleeding, seek emergency hospital care immediately."
+          zh_hk: "如每小時浸透衛生巾、感到頭暈氣促、劇烈腹痛，或懷孕期間大量出血，請立即前往急症室。"
+      - id: sn_bleed_urgent_gp
+        trigger_condition: { en: "Any postmenopausal bleeding, bleeding after sex, or persistent intermenstrual bleeding", zh_hk: "任何收經後出血、性交後出血或持續非經期出血" }
+        timeframe_hours: 72
+        escalation_channel: urgent_clinic_callback
+        patient_instruction:
+          en: "Any bleeding after menopause, after sex, or between periods needs prompt doctor review and assessment — contact the clinic to arrange an urgent appointment."
+          zh_hk: "任何收經後出血、性交後出血或非經期出血均須盡快安排醫生檢查，請聯絡診所預約優先診症。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: frame:missed_period_pregnancy
+    rfe_concept_id: rfe:missed_period_pregnancy
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_preg, concept_id: cond:pregnancy_normal, prevalence_note: "Confirm gestation by LMP + urine/serum beta-hCG; start folic acid & iodine" }
+        - { id: p_pcos, concept_id: cond:pcos, key_discriminators: ["secondary amenorrhoea/oligomenorrhoea", "negative beta-hCG"] }
+        - { id: p_menopause, concept_id: cond:menopause, key_discriminators: ["age >=45y", "vasomotor symptoms", "negative beta-hCG"] }
+      serious_not_to_be_missed:
+        - { id: s_ectopic, concept_id: cond:ectopic_pregnancy, key_discriminators: ["positive beta-hCG + unilateral pain / spotting / prior ectopic / IUD"] }
+        - { id: s_preeclampsia, concept_id: cond:preeclampsia, key_discriminators: ["gestation >=20w", "BP >=140/90", "headache/visual/epigastric symptoms"] }
+        - { id: s_pe, concept_id: cond:pe, key_discriminators: ["hypercoagulable state in pregnancy — unilateral leg swelling / dyspnoea"] }
+      pitfalls_often_missed:
+        - { id: o_teratogen, concept_id: cond:drug_adverse_effect, key_discriminators: ["urgent med reconciliation: stop ACEi/ARB, warfarin, methotrexate, oral fluconazole, valproate, retinoids"] }
+        - { id: o_hbv, concept_id: cond:chronic_hbv, key_discriminators: ["mandatory antenatal HBsAg/HIV/syphilis/rubella/thalassaemia screening"] }
+      masquerades:
+        - { id: mq_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hypothyroidism, clue_prompt: { en: "Hypothyroidism causes amenorrhoea and increases miscarriage/neurodevelopmental risk in pregnancy." } }
+        - { id: mq_anaemia, tier: primary, masquerade: anaemia, concept_id: cond:iron_deficiency_anaemia, clue_prompt: { en: "Screen FBC, ferritin, and thalassaemia carrier status (MCV) early in pregnancy." } }
+        - { id: mq_diabetes, tier: primary, masquerade: diabetes, concept_id: cond:t2dm, clue_prompt: { en: "Screen early for overt/gestational diabetes in high-risk mothers (Asian ancestry, PCOS, BMI, prior GDM)." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Sensitively establish whether the pregnancy is planned/wanted, discuss all options non-judgementally, and screen for intimate partner safety and perinatal mental health." }
+    positive_exclusions:
+      - id: ex_ectopic_preg
+        finding_concept_id: rf:ectopic_rupture_signs
+        question: { en: "Are you having any one-sided lower tummy pain, vaginal spotting/bleeding, dizziness, or shoulder-tip pain?", zh_hk: "請問你有沒有單側下腹痛、陰道見紅、頭暈或肩尖痛？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_preeclampsia
+        finding_concept_id: rf:preeclampsia_signs
+        question: { en: "If you are 20 or more weeks pregnant, have you had a severe headache, flashing lights/blurred vision, upper tummy pain, or sudden swelling of your face or hands?", zh_hk: "如已懷孕20週或以上，請問有沒有劇烈頭痛、視力模糊或閃光、上腹痛，或面部手部突發水腫？" }
+        urgency_if_present: 4
+        mandatory: true
+        when:
+          fact: pregnant
+          op: eq
+          value: true
+      - id: ex_dyspnoea_preg
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Are you having any sudden shortness of breath, chest pain, or swelling/pain in one calf?", zh_hk: "請問你有沒有突發氣促、胸痛，或單側小腿腫痛？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_preg_emergency
+        trigger_condition: { en: "Severe tummy pain, heavy vaginal bleeding, fainting, severe headache/visual changes (>=20w), or sudden shortness of breath", zh_hk: "劇烈腹痛、大量陰道出血、頭暈昏厥、20週後劇烈頭痛／視力異常或突發氣促" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if you experience severe lower tummy pain, heavy bleeding, fainting, sudden breathlessness, or (later in pregnancy) severe headache, vision changes, or reduced baby movements."
+          zh_hk: "如出現劇烈下腹痛、大量出血、頭暈昏厥、突發氣促，或懷孕中後期出現劇烈頭痛、視力異常或胎動明顯減少，請立即前往急症室。"
+      - id: sn_preg_med_review
+        trigger_condition: { en: "Taking regular prescription medicines while newly pregnant or planning pregnancy", zh_hk: "新近懷孕或計劃懷孕期間正服用長期處方藥物" }
+        timeframe_hours: 48
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Contact your doctor promptly to review any regular medications before stopping or continuing them, and arrange early antenatal blood tests and dating review."
+          zh_hk: "如正服用任何長期藥物，請盡快聯絡醫生核對用藥安全（切勿自行停服高危慢性病藥），並安排早期產前檢查。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: frame:falls_elderly
+    rfe_concept_id: rfe:falls_elderly
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_frailty, concept_id: cond:frailty_falls, prevalence_note: "Multifactorial gait/balance impairment, sarcopenia, orthostatic hypotension, home hazards" }
+        - { id: p_drugs, concept_id: cond:drug_adverse_effect, key_discriminators: ["FRIDs: antihypertensives, diuretics, sedatives, anticholinergics, sulfonylurea hypoglycaemia"] }
+        - { id: p_uti, concept_id: cond:uti, key_discriminators: ["acute functional decline or fall as atypical infection presentation"] }
+      serious_not_to_be_missed:
+        - { id: s_delirium, concept_id: cond:delirium, key_discriminators: ["acute fluctuating confusion/drowsiness", "infection/metabolic/drug trigger"] }
+        - { id: s_acs, concept_id: cond:acs, key_discriminators: ["syncopal fall", "silent ischaemia/arrhythmia — ECG mandatory in unexplained fall"] }
+        - { id: s_sepsis, concept_id: cond:sepsis, key_discriminators: ["fall + fever/hypothermia/tachypnoea/hypotension"] }
+        - { id: s_pe, concept_id: cond:pe, key_discriminators: ["sudden collapse + dyspnoea/hypoxia"] }
+      pitfalls_often_missed:
+        - { id: o_anticoag_head, concept_id: cond:drug_adverse_effect, key_discriminators: ["head strike on warfarin/DOAC -> urgent CT head even if initially alert"] }
+        - { id: o_b12, concept_id: cond:b12_deficiency, key_discriminators: ["peripheral neuropathy, proprioceptive ataxia, metformin long-term use"] }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Medication review is mandatory after every fall (diuretics, RAAS, sedatives, sulfonylureas, anticoagulants)." } }
+        - { id: mq_uti, tier: primary, masquerade: uti, concept_id: cond:uti, clue_prompt: { en: "Check for occult infection (UTI, pneumonia) precipitating acute 'off legs' or delirium." } }
+        - { id: mq_neuro, tier: secondary, masquerade: neurological_dilemma, concept_id: cond:neurological_dilemma, clue_prompt: { en: "Screen for Parkinsonism, TIA/stroke, peripheral neuropathy, or normal-pressure hydrocephalus." } }
+        - { id: mq_anaemia, tier: primary, masquerade: anaemia, concept_id: cond:anaemia, clue_prompt: { en: "Check FBC, B12, electrolytes (hyponatraemia), glucose, and postural BP." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore fear of losing independence or residential care placement, caregiver burnout, and home environmental hazards." }
+    positive_exclusions:
+      - id: ex_delirium_fall
+        finding_concept_id: rf:acute_delirium_fluctuating
+        question: { en: "Has the person developed sudden new confusion, unusual drowsiness, or fluctuating alertness?", zh_hk: "請問長者有否突然出現意識混亂、異常嗜睡或神智時清時懵？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_syncope_fall
+        finding_concept_id: rf:syncope
+        question: { en: "Did they lose consciousness, black out, hit their head (especially if taking blood thinners), or have chest pain/palpitations before falling?", zh_hk: "請問跌倒前有否失去知覺、眼前一黑、胸痛心悸，或跌倒時撞傷頭部（尤其正服用薄血藥）？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_bleeding_fall
+        finding_concept_id: rf:heavy_bleeding_bruising
+        question: { en: "Are they taking blood thinners (warfarin/DOAC) with significant bruising, bleeding, or inability to bear weight on a hip/leg?", zh_hk: "請問長者有否服用薄血藥並出現明顯瘀傷出血，或跌倒後無法站立／髖部劇痛？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_fall_emergency
+        trigger_condition: { en: "Head injury (especially on blood thinners), loss of consciousness, new confusion/drowsiness, chest pain, focal weakness, or inability to walk/hip pain", zh_hk: "撞傷頭部（尤其正服薄血藥）、失去知覺、新發意識混亂或嗜睡、胸痛、單側無力或無法行走／髖部劇痛" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if there was a head knock (especially while taking blood thinners), loss of consciousness, new confusion or drowsiness, severe hip/limb pain, or weakness on one side."
+          zh_hk: "如跌倒時撞傷頭部（尤其正服用薄血藥）、曾經昏迷、出現新發意識混亂或嗜睡、髖部／肢體劇痛無法站立，或單側無力，請立即前往急症室。"
+      - id: sn_fall_review
+        trigger_condition: { en: "Any fall in an older adult without emergency red flags", zh_hk: "長者跌倒後暫無即時急症警號，但須排查原因及預防再跌" }
+        timeframe_hours: 48
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange a prompt doctor review within 48 hours to check blood pressure, medications, balance, and bone health so future falls can be prevented."
+          zh_hk: "請於48小時內安排醫生覆診，檢查血壓、檢視藥物、評估平衡力及骨骼健康，減低再次跌倒風險。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: frame:paediatric_fever_unwell
+    rfe_concept_id: rfe:paediatric_fever_unwell
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_urti, concept_id: cond:urti, prevalence_note: "Most common cause of acute paediatric fever" }
+        - { id: p_hfmd, concept_id: cond:hfmd, key_discriminators: ["mouth ulcers", "vesicles on palms/soles/buttocks", "poor oral intake", "watch EV71 neuro signs"] }
+        - { id: p_croup, concept_id: cond:croup, key_discriminators: ["barking cough", "inspiratory stridor", "worse at night"] }
+        - { id: p_bronchiolitis, concept_id: cond:bronchiolitis, key_discriminators: ["infant <12m", "coryza -> wheeze/crackles/tachypnoea", "feeding difficulty"] }
+      serious_not_to_be_missed:
+        - { id: s_meningitis, concept_id: cond:meningitis, key_discriminators: ["non-blanching rash", "lethargy/floppiness", "bulging fontanelle", "stiff neck/photophobia"] }
+        - { id: s_sepsis, concept_id: cond:sepsis, key_discriminators: ["infant <3m with T>=38.0 C", "mottled/pale/cyanotic", "cap refill >3s", "persistent tachycardia"] }
+        - { id: s_cap, concept_id: cond:cap, key_discriminators: ["tachypnoea", "grunting", "chest recessions", "SpO2 <94%"] }
+        - { id: s_febrile_conv, concept_id: cond:febrile_convulsion, key_discriminators: ["seizure >5 min or focal/recurrent within 24h -> complex, urgent hospital"] }
+        - { id: s_dengue, concept_id: cond:dengue, key_discriminators: ["travel/local cluster", "thrombocytopenia", "NO NSAIDs"] }
+      pitfalls_often_missed:
+        - { id: o_uti_paed, concept_id: cond:uti, key_discriminators: ["unexplained fever without source in infant/child -> clean-catch urine microscopy/culture"] }
+        - { id: o_flu_paed, concept_id: cond:influenza, key_discriminators: ["high abrupt fever", "myalgia", "encephalopathy watch"] }
+      masquerades:
+        - { id: mq_uti, tier: primary, masquerade: uti, concept_id: cond:uti, clue_prompt: { en: "UTI is the most commonly missed serious bacterial infection in a febrile child without a clear source." } }
+        - { id: mq_baffling_viral, tier: secondary, masquerade: baffling_viral, concept_id: cond:hfmd, clue_prompt: { en: "In HK/East Asia HFMD outbreaks (EV71), screen for myoclonic jerks, persistent vomiting, lethargy, and tachycardia (brainstem encephalitis warning)." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Address parental fear of fever brain damage ('fever phobia'), verify exact weight-based paracetamol dosing, and check childcare/school exclusion needs." }
+    positive_exclusions:
+      - id: ex_paed_rash_lethargy
+        finding_concept_id: rf:paed_non_blanching_rash_lethargy
+        question: { en: "Does your child have a rash that does not fade when pressed with a clear glass, seem unusually floppy/drowsy/hard to wake, or cry inconsolably?", zh_hk: "請問小朋友有沒有以玻璃杯按壓不退色的皮疹、異常軟弱嗜睡叫唔醒，或持續無法安撫地哭鬧？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_paed_breathing
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Is your child breathing very fast, working hard to breathe (ribs sucking in or grunting), having noisy breathing at rest (stridor), or turning pale/blue?", zh_hk: "請問小朋友有沒有呼吸非常急促、肋骨凹陷或發出呻吟聲、靜止時呼吸有喘鳴聲，或面色／嘴唇發白發紫？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_paed_meningism
+        finding_concept_id: rf:stiff_neck_meningism
+        question: { en: "Does your child have a stiff neck, sensitivity to bright light, a seizure/fit, or is this a baby under 3 months old with a temperature of 38.0 C or higher?", zh_hk: "請問小朋友有沒有頸部僵硬、畏光、抽筋，或屬於三個月以下嬰兒發燒達攝氏38度或以上？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_paed_emergency
+        trigger_condition: { en: "Infant <3 months with fever >=38.0 C, non-blanching rash, difficulty breathing/stridor at rest, extreme drowsiness/floppiness, seizure, or signs of dehydration (no wet nappies >8-12h)", zh_hk: "三個月以下嬰兒發燒達38度或以上、按壓不退色皮疹、呼吸困難或靜止時喘鳴、極度嗜睡軟弱、抽筋，或嚴重脫水（8至12小時無濕尿片）" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if your child is under 3 months with a fever of 38.0 C or higher, has a non-blanching rash, struggles to breathe, has a seizure, is floppy or hard to wake, or cannot keep fluids down."
+          zh_hk: "如屬三個月以下嬰兒發燒達38度或以上，或小朋友出現按壓不退色皮疹、呼吸困難、抽筋、異常軟弱叫唔醒或完全無法進食飲水，請立即前往急症室。"
+      - id: sn_paed_review
+        trigger_condition: { en: "Fever persisting >48 hours, worsening irritability, reduced fluid intake (<50% usual), or parental concern that the child is getting worse", zh_hk: "發燒持續超過48小時、精神轉差、飲水／飲奶量少於平日一半，或家長覺得病情惡化" }
+        timeframe_hours: 48
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange same-day doctor review if fever persists beyond 48 hours, your child is drinking less than half their usual fluids, or you feel they are worsening — trust your instincts as a parent."
+          zh_hk: "如發燒持續超過48小時、飲奶或飲水量少於平日一半，或你察覺小朋友精神轉差，請即日安排醫生覆診。"
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+# ===========================================================================
+# OBSERVATION RULES (5) — LOINC + UCUM + Reference Intervals + Bands + Templates
+# ===========================================================================
+observation_rules:
+  - id: obs_rule:wbc
+    observation_concept_id: obs:wbc
+    canonical_ucum: "10*9/L"
+    display_ucum: "10*9/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 4.0, high: 11.0, priority: 0 }
+      - { id: ri_pregnancy, low: 5.5, high: 15.0, priority: 10, when: { fact: pregnant, op: eq, value: true }, source_note: "Physiological neutrophilia in pregnancy" }
+    severity_bands:
+      significant: { lt: 3.0, gt: 15.0 }
+      urgent: { lt: 1.5, gt: 30.0 }
+      critical: { lt: 1.0, gt: 50.0 }
+    direction_templates:
+      L:
+        working_problem: { en: "leukopenia / neutropenia risk", zh_hk: "白血球偏低／嗜中性白血球減少風險" }
+        plan_template:
+          en: "Check differential (absolute neutrophil count — ANC <1.0 or febrile neutropenia is an emergency); review culprit drugs (methotrexate, carbimazole, clozapine, viral suppression)."
+        relevant_med_class_ids: ["drug_class:dmard"]
+      H:
+        working_problem: { en: "leukocytosis", zh_hk: "白血球偏高" }
+        plan_template:
+          en: "Inspect differential and blood film; evaluate acute bacterial infection, systemic steroids, smoking, pregnancy, or haematological malignancy if >30 x10^9/L or blasts present."
+        relevant_med_class_ids: ["drug_class:oral_corticosteroid"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: obs_rule:platelets
+    observation_concept_id: obs:platelets
+    canonical_ucum: "10*9/L"
+    display_ucum: "10*9/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 150.0, high: 450.0, priority: 0 }
+    severity_bands:
+      significant: { lt: 100.0, gt: 600.0 }
+      urgent: { lt: 50.0, gt: 1000.0 }
+      critical: { lt: 20.0, gt: 1500.0 }
+    trend_rules:
+      - id: tr_plt_rapid_drop
+        direction: drop
+        delta_pct: 50.0
+        window_days: 14
+        urgency_floor: 3
+        clinician_rationale:
+          en: "Platelet count dropped >=50% within 14 days — urgently exclude dengue haemorrhagic phase, HIT, ITP, HELLP (if pregnant), or marrow suppression."
+    direction_templates:
+      L:
+        working_problem: { en: "thrombocytopenia", zh_hk: "血小板減少" }
+        plan_template:
+          en: "Exclude EDTA pseudothrombocytopenia (blood film + citrate tube); check bleeding red flags, pregnancy/HELLP, dengue, liver disease, B12/folate, and review anticoagulants/NSAIDs; urgent ED if <20 x10^9/L or active bleeding."
+        relevant_med_class_ids: ["drug_class:anticoagulant", "drug_class:nsaid", "drug_class:dmard"]
+      H:
+        working_problem: { en: "thrombocytosis", zh_hk: "血小板偏高" }
+        plan_template:
+          en: "Check ferritin/CRP (reactive iron deficiency or inflammation is most common); if persistent >450-600 x10^9/L without reactive cause, evaluate myeloproliferative neoplasm (JAK2) and occult malignancy."
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: obs_rule:folate
+    observation_concept_id: obs:folate
+    canonical_ucum: "nmol/L"
+    display_ucum: "nmol/L"
+    reference_intervals:
+      - { id: ri_default, low: 7.0, high: null, priority: 0 }
+    severity_bands:
+      significant: { lt: 7.0 }
+      urgent: { lt: 4.5 }
+    direction_templates:
+      L:
+        working_problem: { en: "folate deficiency", zh_hk: "葉酸缺乏" }
+        plan_template:
+          en: "ALWAYS check serum Vitamin B12 before starting folic acid monotherapy (prevents subacute combined degeneration); assess diet, alcohol, coeliac/malabsorption, pregnancy, and methotrexate."
+        relevant_med_class_ids: ["drug_class:dmard", "drug_class:haematinic"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: obs_rule:bhcg_urine
+    observation_concept_id: obs:bhcg_urine
+    canonical_ucum: "{Ordinal}"
+    display_ucum: "{Ordinal}"
+    reference_intervals: []
+    severity_bands:
+      significant: { ge: 1.0 }
+    direction_templates:
+      positive:
+        working_problem: { en: "positive urine pregnancy test (beta-hCG)", zh_hk: "尿液驗孕測試呈陽性" }
+        plan_template:
+          en: "Confirm LMP/gestation; immediately exclude ectopic red flags (pain/bleeding/syncope -> urgent quantitative serum beta-hCG + TVUS); reconcile teratogenic medicines (ACEi/ARB, warfarin, methotrexate, fluconazole) and start folic acid."
+        relevant_med_class_ids: ["drug_class:raas_agent", "drug_class:anticoagulant", "drug_class:dmard", "drug_class:antifungal", "drug_class:hormonal_contraception"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: obs_rule:tsat
+    observation_concept_id: obs:tsat
+    canonical_ucum: "%"
+    display_ucum: "%"
+    reference_intervals:
+      - { id: ri_default, low: 20.0, high: 45.0, priority: 0 }
+    severity_bands:
+      significant: { lt: 16.0, gt: 45.0 }
+      urgent: { gt: 60.0 }
+    direction_templates:
+      L:
+        working_problem: { en: "low transferrin saturation (iron deficiency)", zh_hk: "轉鐵蛋白飽和度偏低（缺鐵）" }
+        plan_template:
+          en: "TSAT <20% supports true or functional iron deficiency even when ferritin is 30-100 ug/L with raised CRP; investigate source of blood loss or malabsorption."
+        relevant_med_class_ids: ["drug_class:anticoagulant", "drug_class:nsaid", "drug_class:haematinic"]
+      H:
+        working_problem: { en: "elevated transferrin saturation (iron overload screen)", zh_hk: "轉鐵蛋白飽和度偏高（鐵質負荷過多篩查）" }
+        plan_template:
+          en: "Repeat fasting morning TSAT + ferritin; if persistently >45% with elevated ferritin, evaluate hereditary haemochromatosis (HFE genotyping), thalassaemia/dyserythropoiesis, or liver disease."
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+# ===========================================================================
+# PATHWAY POINTERS (3) — Static Ontology -> Temporal Pathways Boundary
+# Strict Asymmetric Authority: autonomy_ceiling <= L1_propose_only
+# ===========================================================================
+pointers:
+  - id: ptr:preventive_screening_recall
+    trigger_concepts:
+      - "screen:crc_fit"
+      - "screen:cervical_hpv"
+      - "screen:breast_mammogram"
+      - "screen:hbv_adult"
+      - "screen:cvd_risk"
+    trigger_edges:
+      - "edge:screen_crc_fit_malignancy"
+      - "edge:screen_cervical_hpv_cancer"
+      - "edge:screen_breast_mammogram_cancer"
+      - "edge:screen_hbv_adult_chronic"
+    target_kind: engine_family
+    target_ref: "positive_screen"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "attest_all_clear"]
+    required_context_slots: ["age_years", "sex", "birth_year", "ethnicity", "jurisdiction"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: ptr:obstetric_gynae_red_flag
+    trigger_concepts:
+      - "rfe:pelvic_pain"
+      - "rfe:vaginal_bleeding"
+      - "rfe:missed_period_pregnancy"
+      - "rf:ectopic_rupture_signs"
+      - "rf:preeclampsia_signs"
+      - "rf:postmenopausal_bleeding"
+    trigger_edges:
+      - "edge:ectopic_rupture_emergency"
+      - "edge:preeclampsia_obstetric_emergency"
+      - "edge:postmenopausal_bleeding_endometrial"
+    trigger_observations:
+      - "obs_rule:bhcg_urine"
+    target_kind: protocol_yaml
+    target_ref: "protocols/obstetric_gynae_escalation_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "sex", "pregnant", "postmenopausal", "on_meds"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }
+
+  - id: ptr:paediatric_geriatric_red_flag
+    trigger_concepts:
+      - "rfe:paediatric_fever_unwell"
+      - "rfe:falls_elderly"
+      - "rf:paed_non_blanching_rash_lethargy"
+      - "rf:acute_delirium_fluctuating"
+    trigger_edges:
+      - "edge:paed_rash_lethargy_meningitis_sepsis"
+      - "edge:acute_delirium_urgent_workup"
+      - "edge:dengue_nsaid_haemorrhage_ci"
+      - "edge:heavy_bleeding_bruising_thrombocytopenia"
+    trigger_observations:
+      - "obs_rule:wbc"
+      - "obs_rule:platelets"
+    target_kind: protocol_yaml
+    target_ref: "protocols/lifecourse_acute_escalation_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "age_months", "obs_values", "on_meds"]
+    provenance: { author: "ontology_pod_w1_d", review_status: "draft" }

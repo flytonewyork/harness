@@ -190,10 +190,14 @@ def evaluate_observation(
         ref_low, ref_high = best_ri.low, best_ri.high
 
     direction: str | None = None
-    if ref_high is not None and canonical_val > ref_high:
-        direction = "H"
-    elif ref_low is not None and canonical_val < ref_low:
-        direction = "L"
+    if canonical_unit in ("{Ordinal}", "{presence}"):
+        if canonical_val >= 1.0:
+            direction = "positive"
+    else:
+        if ref_high is not None and canonical_val > ref_high:
+            direction = "H"
+        elif ref_low is not None and canonical_val < ref_low:
+            direction = "L"
 
     # Evaluate nested severity bands (strictly highest wins)
     urgency = 0

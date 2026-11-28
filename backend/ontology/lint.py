@@ -151,6 +151,65 @@ def lint_ontology(graph: OntologyGraph, *, strict_prod: bool = False) -> list[Li
             elif ag.kind != "allergy_group":
                 err("GRAPH-003", cid, f"allergy_group_id '{ag.id}' has kind='{ag.kind}', expected 'allergy_group'")
 
+    # TERM-006: Duplicate normalized alias across distinct kind='drug' concepts (prevents silent mis-resolution)
+    from .graph import _norm_term
+    from .schema import AllOf, AnyOf, FactCondition, Not
+
+    drug_alias_owners: dict[str, list[str]] = {}
+    for cid, c in graph.concepts.items():
+        if c.kind != "drug":
+            continue
+        terms = [c.display.en] + ([c.display.zh_hk] if c.display.zh_hk else []) + list(c.aliases.all_terms())
+        for t in terms:
+            nt = _norm_term(t)
+            if not nt:
+                continue
+            drug_alias_owners.setdefault(nt, [])
+            if cid not in drug_alias_owners[nt]:
+                drug_alias_owners[nt].append(cid)
+    for alias, owners in sorted(drug_alias_owners.items()):
+        if len(owners) > 1:
+            err(
+                "TERM-006",
+                ",".join(sorted(owners)),
+                f"Ambiguous drug alias '{alias}' shared across multiple drugs (move lay class terms to drug_class.purpose_phrases)",
+            )
+
+    # CLIN-002: Collection facts (has_concept, on_med, allergy_group) MUST NOT use scalar eq/ne
+    collection_facts = {"has_concept", "on_med", "allergy_group"}
+
+    def _lint_pred(pred: object, target: str) -> None:
+        if pred is None:
+            return
+        if isinstance(pred, AllOf):
+            for sub in pred.all:
+                _lint_pred(sub, target)
+        elif isinstance(pred, AnyOf):
+            for sub in pred.any:
+                _lint_pred(sub, target)
+        elif isinstance(pred, Not):
+            _lint_pred(pred.not_, target)
+        elif isinstance(pred, FactCondition):
+            if pred.fact in collection_facts and pred.op in ("eq", "ne"):
+                err(
+                    "CLIN-002",
+                    target,
+                    f"Collection fact '{pred.fact}' uses scalar op '{pred.op}'; use 'is_a' or 'in' instead",
+                )
+
+    for eid, e in graph.edges.items():
+        _lint_pred(e.when, eid)
+    for fid, f in graph.frames.items():
+        for ex in f.positive_exclusions:
+            _lint_pred(ex.when, f"{fid}.{ex.id}")
+    for rid, r in graph.observation_rules.items():
+        for ri in r.reference_intervals:
+            _lint_pred(ri.when, f"{rid}.{ri.id}")
+        for tr in r.trend_rules:
+            _lint_pred(tr.when, f"{rid}.{tr.id}")
+    for pid, p in graph.pointers.items():
+        _lint_pred(p.when, pid)
+
     # 2. GRAPH-* closed-world references & Kahn DAG cycle detection
     indegree: dict[str, int] = {cid: 0 for cid in graph.concepts}
     children: dict[str, list[str]] = {cid: [] for cid in graph.concepts}

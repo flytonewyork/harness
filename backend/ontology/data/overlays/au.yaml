@@ -1,6 +1,6 @@
 # Australia Jurisdiction Overlay (Minimal Toggle Diff over Shared Universal Core)
 # Authorities: RACGP Curriculum 7th Ed & Red Book 10th Ed (2024/25), Therapeutic Guidelines (eTG),
-# Australian Medicines Handbook (AMH), TGA SUSMP Poisons Standard, PBS / MBS.
+# Australian Medicines Handbook (AMH), TGA SUSMP Poisons Standard, PBS / MBS / NIP 2026.
 
 overlay_id: "jurisdiction:au"
 layer: "jurisdiction"
@@ -32,9 +32,9 @@ defaults:
     obs:haemoglobin: "g/L"
 
 concept_patches:
+  # --- Wave 0 Core Schedules & AU Pearls ---
   drug:allopurinol:
-    drug_facet:
-      schedule: "AU_SUSMP_S4"
+    drug_facet: { schedule: "AU_SUSMP_S4" }
     aliases:
       en: { $add: ["Progout", "Allosig"] }
     bindings:
@@ -57,12 +57,10 @@ concept_patches:
   drug:oseltamivir:
     drug_facet:
       schedule: "AU_SUSMP_S4"
-      dosing_pearl:
-        en: "AU: S4 Prescription Only (private script; not PBS general benefit)."
+      dosing_pearl: { en: "AU: S4 Prescription Only (private script; not PBS general benefit)." }
 
   drug:ibuprofen:
-    drug_facet:
-      schedule: "AU_SUSMP_S2"
+    drug_facet: { schedule: "AU_SUSMP_S2" }
 
   drug:salbutamol:
     drug_facet:
@@ -79,8 +77,138 @@ concept_patches:
   drug:empagliflozin:
     drug_facet:
       schedule: "AU_SUSMP_S4"
+      dosing_pearl: { en: "AU PBS: Authority Required (Streamlined) for T2DM/CKD/HF criteria." }
+
+  # --- Wave 1 Pod A: Cardiometabolic & Renal AU Deltas ---
+  drug:aspirin:
+    drug_facet:
+      schedule: "AU_SUSMP_S2"
       dosing_pearl:
-        en: "AU PBS: Authority Required (Streamlined) for T2DM/CKD/HF criteria."
+        en: "AU SUSMP S2 OTC for low-dose 100 mg (Cartia/Astrix); RACGP Red Book 10th Ed advises against routine primary prevention aspirin in adults >=70y."
+
+  drug:semaglutide:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU PBS: Ozempic is Authority Required (Streamlined) strictly for T2DM meeting PBS criteria (NOT PBS-subsidised for weight loss; Wegovy is private script)."
+
+  drug:levothyroxine:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU AMH: Oroxine/Eutroxsig require refrigeration (<8 C) and are NOT bioequivalent interchangeable with Eltroxin — keep brand consistent."
+    aliases:
+      en: { $add: ["Oroxine", "Eutroxsig"] }
+
+  drug:nitrofurantoin:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU eTG Antibiotic: First-line option for acute uncomplicated female cystitis (100 mg QID x5d) alongside trimethoprim; avoid if eGFR <45 or G6PD deficient."
+
+  drug:trimethoprim:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU eTG Antibiotic: First-line for acute uncomplicated female cystitis (300 mg nocte x3d); avoid in first trimester of pregnancy."
+
+  drug:furosemide:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+    aliases:
+      en: { $add: ["frusemide", "Lasix"] }
+
+  # --- Wave 1 Pod B: Resp, ENT & GI AU Deltas ---
+  drug:amoxicillin:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU eTG Antibiotic: First-line mild adult CAP (1 g TDS); in Aboriginal & Torres Strait Islander patients with sore throat/skin sores, low threshold for GAS antibiotics to prevent ARF/RHD."
+
+  drug:doxycycline:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU eTG Antibiotic: First-line oral CAP option (atypicals or non-severe penicillin allergy); contraindicated in pregnancy & age <8y."
+
+  drug:budesonide_formoterol:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "Australian Asthma Handbook v3.0 (Sep 2025): Low-dose budesonide-formoterol anti-inflammatory reliever (AIR/MART) preferred at Steps 1-2 for adults & adolescents >=12y."
+
+  drug:mometasone_nasal:
+    drug_facet: { schedule: "AU_SUSMP_S2" }
+
+  drug:cetirizine:
+    drug_facet: { schedule: "AU_SUSMP_S2" }
+
+  drug:loratadine:
+    drug_facet: { schedule: "AU_SUSMP_S2" }
+
+  # --- Wave 1 Pod C: Neuro, Psych & Controlled Drugs AU Deltas ---
+  drug:carbamazepine:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU eTG / AMH: Screen HLA-B*15:02 prior to carbamazepine specifically in patients of Han Chinese, Thai, Southeast Asian, or Korean ancestry."
+
+  drug:lorazepam:
+    drug_facet: { schedule: "AU_SUSMP_S4", telehealth_blocked: true }
+  drug:diazepam:
+    drug_facet: { schedule: "AU_SUSMP_S4", telehealth_blocked: true }
+  drug:zolpidem:
+    drug_facet: { schedule: "AU_SUSMP_S4", telehealth_blocked: true }
+  drug:zopiclone:
+    drug_facet: { schedule: "AU_SUSMP_S4", telehealth_blocked: true }
+  drug:tramadol:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      telehealth_blocked: true
+      dosing_pearl:
+        en: "AU SUSMP S4 (monitored in state RTPM e.g. SafeScript/QScript alongside S8 opioids & benzodiazepines)."
+
+  drug:adrenaline_autoinjector:
+    drug_facet:
+      schedule: "AU_SUSMP_S3"
+      dosing_pearl: { en: "AU SUSMP S3 (Pharmacist Only OTC EpiPen/Anapen) & PBS General Benefit for anaphylaxis." }
+
+  # --- Wave 1 Pod D: Women's, Vaccines & Screening AU Deltas ---
+  drug:levonorgestrel_ec:
+    drug_facet:
+      schedule: "AU_SUSMP_S3"
+      dosing_pearl: { en: "AU SUSMP S3 Pharmacist Only OTC emergency contraception." }
+
+  vaccine:influenza_qiv:
+    display:
+      en_au: "Seasonal Influenza Vaccine (AU NIP free >=65y, First Nations >=6m, pregnant, 6m-<5y, high-risk)"
+
+  vaccine:pcv15:
+    display:
+      en_au: "Pneumococcal Conjugate Vaccine (AU NIP Jul 2026: free 21vPCV Capvaxive >=65y & First Nations >=25y)"
+
+  vaccine:shingrix_rzv:
+    display:
+      en_au: "Recombinant Zoster Vaccine Shingrix (AU NIP free 2-dose >=65y, First Nations >=50y, immunocompromised >=18y)"
+
+  screen:crc_fit:
+    display:
+      en_au: "AU National Bowel Cancer Screening Program (NBCSP free biennial iFOBT 50-74y; opt-in 45-49y since Jul 2024)"
+
+  screen:cervical_hpv:
+    display:
+      en_au: "AU National Cervical Screening Program (25-74y primary HPV CST q5y with universal self-collection)"
+
+  screen:breast_mammogram:
+    display:
+      en_au: "BreastScreen Australia (free universal biennial mammogram ages 50-74; 40-49 & 75+ eligible)"
+
+  screen:hbv_adult:
+    display:
+      en_au: "AU Targeted Hepatitis B Screening (migrants from endemic regions, First Nations adults, high-risk contacts)"
+
+  screen:cvd_risk:
+    display:
+      en_au: "2023 AusCVDRisk 5-yr Assessment (45-79y general; 35-79y DM; 30-79y First Nations; MBS Heart Health Check 699)"
 
 observation_patches:
   obs_rule:ferritin:
@@ -107,8 +235,43 @@ observation_patches:
           clinician_pearl:
             en: "AU RACGP Red Book 10th Ed: Use 2023 AusCVDRisk from age 35-79y in T2DM (30-79y First Nations); register on NDSS and consider MBS GPCCMP/CDM."
 
+  obs_rule:ldl:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_auscvdrisk_lipids
+          clinician_pearl:
+            en: "AU 2023 AusCVDRisk: Assess 5-yr CVD risk from 45-79y (35-79y DM; 30-79y First Nations); high risk >=10% warrants lipid & BP therapy."
+
+  obs_rule:psa:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_racgp_psa_sdm
+          clinician_pearl:
+            en: "AU RACGP Red Book 10th Ed / NHMRC-PCFA: Offer informed shared decision-making for men 50-69y (never unconsented routine PSA); repeat elevated PSA in 1-3 months after excluding UTI."
+
+  obs_rule:fit_stool:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_nbcsp_fit
+          clinician_pearl:
+            en: "AU NBCSP (expanded Jul 2024): Free biennial iFOBT 50-74y (opt-in 45-49y); positive iFOBT requires diagnostic colonoscopy — never repeat iFOBT."
+
+  obs_rule:anti_hcv:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_gp_daa
+          clinician_pearl:
+            en: "AU ASHM / PBS: GPs can directly prescribe PBS-subsidised pan-genotypic DAAs for non-cirrhotic chronic HCV (APRI <1.0) after confirming HCV RNA + HBsAg."
+
+  obs_rule:h_pylori_stool_ag:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_etg_hpylori
+          clinician_pearl:
+            en: "AU eTG GI: First-line H. pylori eradication is PPI + amoxicillin + clarithromycin (substitute metronidazole if penicillin-allergic); confirm eradication >=4w post-therapy off PPI >=2w."
+
 provenance:
-  author: "ontology_pod_stage1"
+  author: "ontology_pod_stage2"
   review_status: "draft"
   jurisdiction_scope: "AU"
-  notes: "Minimal Australia toggle overlay over shared universal primary care core."
+  notes: "Wave 0 + Wave 1 Australia minimal toggle overlay over shared universal core."

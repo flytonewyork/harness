@@ -46,10 +46,13 @@ def test_linter_clean_for_hk_au_and_clinic():
         issues = lint_ontology(graph, strict_prod=False)
         errors = [i for i in issues if i.severity == "ERROR"]
         assert errors == [], f"Unexpected lint errors for {jur}/{clinic}: {errors}"
-        assert len(graph.concepts) >= 100
-        assert len(graph.edges) >= 25
-        assert len(graph.frames) == 4
-        assert len(graph.observation_rules) >= 12
+        assert len(graph.concepts) >= 390
+        assert len(graph.edges) >= 100
+        rfe_ids = {cid for cid, c in graph.concepts.items() if c.kind == "rfe"}
+        frame_rfe_ids = {f.rfe_concept_id for f in graph.frames.values()}
+        assert len(rfe_ids) == 30
+        assert frame_rfe_ids == rfe_ids  # 100% RFE-to-Murtagh-Frame bijection
+        assert len(graph.observation_rules) >= 35
 
 
 def test_math_check_digits_catch_corrupted_codes():
@@ -367,6 +370,148 @@ def test_safety_kernel_threshold_parity():
         assert g.evaluate_observation("obs:temperature", THRESHOLDS.temp_emergency_gte).urgency == 4
         assert g.evaluate_observation("obs:temperature", THRESHOLDS.temp_hypothermia_lte).urgency == 4
         assert g.evaluate_observation("obs:temperature", THRESHOLDS.temp_urgent_gte).urgency == 3
-        # SBP < 90 or >= 180 -> critical u4
+        # SBP < 90 or >= 180 -> critical u4; DBP >= 110 -> critical u4; HR >= 130 -> critical u4
         assert g.evaluate_observation("obs:systolic_bp", THRESHOLDS.sbp_emergency_lt - 1.0).urgency == 4
         assert g.evaluate_observation("obs:systolic_bp", THRESHOLDS.sbp_hypertensive_gte).urgency == 4
+        assert g.evaluate_observation("obs:diastolic_bp", THRESHOLDS.dbp_hypertensive_gte).urgency == 4
+        assert g.evaluate_observation("obs:heart_rate", THRESHOLDS.hr_emergency_gte).urgency == 4
+        # Glucose < 4.0 mmol/L -> critical u4 (matching THRESHOLDS.glucose_emergency_lt)
+        assert g.evaluate_observation("obs:fasting_glucose", THRESHOLDS.glucose_emergency_lt - 0.5).urgency == 4
+
+
+# ---------------------------------------------------------------------------
+# 8. Wave 1 Adversarial Verification Scenarios (Stage 3 Critic Suite)
+# ---------------------------------------------------------------------------
+def test_w1_carbimazole_agranulocytosis_and_beta_blocker_chronic_asthma_predicates():
+    hk = get_ontology("HK")
+
+    # P0-1: Carbimazole + fever OR sore throat MUST fire critical u4 agranulocytosis workup
+    for rfe in ("rfe:fever", "rfe:sore_throat"):
+        fired = hk.evaluate_patient_edges(active_concept_ids=[rfe], active_med_names=["carbimazole"])
+        assert any(
+            f.edge.id == "edge:carbimazole_agranulocytosis_cbc" and f.edge.urgency_floor == 4
+            for f in fired
+        ), f"Carbimazole agranulocytosis failed to fire on {rfe}"
+
+    # P0-3: Beta-blocker contraindicated in BOTH chronic asthma AND acute asthma exacerbation via IS_A
+    assert hk.is_a("cond:asthma_exacerbation", "cond:asthma_chronic")
+    for cond in ("cond:asthma_chronic", "cond:asthma_exacerbation"):
+        fired = hk.evaluate_patient_edges(active_concept_ids=[cond], active_med_names=["propranolol"])
+        assert any(
+            f.edge.id == "edge:beta_blocker_asthma_bronchospasm" and f.edge.severity == "hard_block"
+            for f in fired
+        ), f"Beta-blocker asthma hard_block failed on {cond}"
+
+
+def test_w1_cross_pod_ddis_clopidogrel_trimethoprim_snri_zdrug():
+    hk = get_ontology("HK")
+
+    # Pod A x Pod B: Clopidogrel + omeprazole fires CYP2C19 DDI; pantoprazole does NOT
+    clo_ome = hk.evaluate_patient_edges(active_med_names=["clopidogrel", "omeprazole"])
+    clo_pan = hk.evaluate_patient_edges(active_med_names=["clopidogrel", "pantoprazole"])
+    assert any(f.edge.id == "edge:clopidogrel_omeprazole_cyp2c19" for f in clo_ome)
+    assert not any("cyp2c19" in f.edge.id for f in clo_pan)
+
+    # Trimethoprim cross-pod high-consequence interactions (warfarin, spironolactone, MTX, pregnancy)
+    tmp_multi = hk.evaluate_patient_edges(
+        active_med_names=["trimethoprim", "warfarin", "spironolactone", "methotrexate"],
+        facts={"pregnant": True},
+    )
+    tmp_ids = {f.edge.id for f in tmp_multi}
+    assert {
+        "edge:trimethoprim_warfarin_inr_spike",
+        "edge:trimethoprim_spironolactone_hyperkalaemia",
+        "edge:trimethoprim_methotrexate_pancytopenia",
+        "edge:trimethoprim_pregnancy_t1_ci",
+        "edge:methotrexate_pregnancy_ci",
+        "edge:warfarin_pregnancy_ci",
+    }.issubset(tmp_ids)
+
+    # SNRI + tramadol (serotonin toxicity) and Z-drug + opioid (respiratory depression)
+    snri = hk.evaluate_patient_edges(active_med_names=["venlafaxine", "tramadol", "ibuprofen"])
+    snri_ids = {f.edge.id for f in snri}
+    assert "edge:snri_tramadol_serotonin" in snri_ids
+    assert "edge:snri_nsaid_gi_bleed" in snri_ids
+
+    zdrug = hk.evaluate_patient_edges(active_med_names=["zolpidem", "codeine"])
+    assert any(f.edge.id == "edge:z_drug_opioid_respiratory_depression" and f.edge.severity == "hard_block" for f in zdrug)
+
+
+def test_w1_ordinal_observations_and_fit_negative_vs_positive_gate():
+    hk = get_ontology("HK")
+
+    # Negative FIT (0.0) -> normal u0, MUST NOT fire urgent colonoscopy
+    fit_neg = hk.evaluate_observation("obs:fit_stool", 0.0)
+    assert fit_neg.band == "normal" and fit_neg.urgency == 0 and fit_neg.direction is None
+    neg_edges = hk.evaluate_patient_edges(
+        active_concept_ids=["obs:fit_stool"],
+        facts={"obs_values": {"obs:fit_stool": 0.0}},
+    )
+    assert not any(f.edge.id == "edge:fit_positive_urgent_colonoscopy" for f in neg_edges)
+
+    # Positive FIT (1.0) -> urgent u3, direction="positive", fires colonoscopy workup
+    fit_pos = hk.evaluate_observation("obs:fit_stool", 1.0)
+    assert fit_pos.direction == "positive" and fit_pos.urgency == 3 and fit_pos.working_problem is not None
+    pos_edges = hk.evaluate_patient_edges(
+        active_concept_ids=["obs:fit_stool"],
+        facts={"obs_values": {"obs:fit_stool": 1.0}},
+    )
+    assert any(f.edge.id == "edge:fit_positive_urgent_colonoscopy" for f in pos_edges)
+
+    # Other {Ordinal} rules emit positive direction & working problem
+    for obs_id in ("obs:bhcg_urine", "obs:h_pylori_stool_ag", "obs:anti_hcv"):
+        ev = hk.evaluate_observation(obs_id, 1.0)
+        assert ev.direction == "positive" and ev.urgency >= 2 and ev.working_problem is not None
+
+
+def test_w1_hk_vs_au_toggles_pgx_screening_and_schedules():
+    hk = get_ontology("HK")
+    au = get_ontology("AU")
+
+    # Carbamazepine HLA-B*15:02: HK mandatory hard_block regardless of ethnicity; AU ancestry-gated
+    hk_cbz = hk.evaluate_patient_edges(active_med_names=["carbamazepine"], facts={"ethnicity": "european"})
+    au_cbz_euro = au.evaluate_patient_edges(active_med_names=["carbamazepine"], facts={"ethnicity": "european"})
+    au_cbz_han = au.evaluate_patient_edges(active_med_names=["carbamazepine"], facts={"ethnicity": "han_chinese"})
+    assert any(f.edge.id == "edge:carbamazepine_pgx_hla_b_1502" and f.edge.severity == "hard_block" for f in hk_cbz)
+    assert not any(f.edge.id == "edge:carbamazepine_pgx_hla_b_1502" for f in au_cbz_euro)
+    assert any(f.edge.id == "edge:carbamazepine_pgx_hla_b_1502" for f in au_cbz_han)
+
+    # Schedule & screening toggles
+    assert hk.get_concept("drug:levonorgestrel_ec").drug_facet.schedule == "HK_CAP138_PART_I_SCH3_RX"
+    assert au.get_concept("drug:levonorgestrel_ec").drug_facet.schedule == "AU_SUSMP_S3"
+    assert "50-75" in hk.get_concept("screen:crc_fit").display.resolve("HK", "en")
+    assert "45-49" in au.get_concept("screen:crc_fit").display.resolve("AU", "en")
+    assert hk.edges["edge:oral_steroid_hbv_reactivation"].severity == "hard_block"
+    assert au.edges["edge:oral_steroid_hbv_reactivation"].severity == "critical"
+
+
+def test_w1_complex_multimorbid_context_pack_retains_safety_labs_and_primary_frame():
+    for jur, expected_num, forbidden_num in (("HK", "999", "000"), ("AU", "000", "999")):
+        g = get_ontology(jur)
+        pack = build_context_pack(
+            g,
+            patient_context={"sex": "M", "age_years": 72, "egfr_ml_min": 26},
+            rfe_ids=["rfe:fatigue", "rfe:dyspnoea", "rfe:ankle_oedema"],
+            med_names=[
+                "warfarin", "perindopril", "spironolactone", "ibuprofen",
+                "metformin", "empagliflozin", "clopidogrel", "omeprazole",
+            ],
+            lab_results=[
+                {"concept_id": "obs:haemoglobin", "value": 8.2 if jur == "HK" else 82.0, "ucum": "g/dL" if jur == "HK" else "g/L"},
+                {"concept_id": "obs:potassium", "value": 6.2, "ucum": "mmol/L"},
+                {"concept_id": "obs:egfr", "value": 26.0, "ucum": "mL/min/{1.73_m2}"},
+                {"concept_id": "obs:fasting_glucose", "value": 3.4, "ucum": "mmol/L"},
+            ],
+            max_tokens=1500,
+        )
+        import re
+
+        assert pack.token_estimate <= 1500
+        assert pack.audience == "clinician_only"
+        assert expected_num in pack.text
+        assert re.search(rf"\b{forbidden_num}\b", pack.text) is None
+        # Critical/urgent labs AND primary RFE Murtagh frame MUST survive multimorbid packing
+        assert "obs:potassium" in pack.text
+        assert "obs:fasting_glucose" in pack.text
+        assert "### RFE Frame:" in pack.text
+        assert "edge:anticoagulant_nsaid_bleed" in pack.text

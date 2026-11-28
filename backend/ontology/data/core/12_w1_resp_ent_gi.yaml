@@ -1,0 +1,1961 @@
+# Wave 1 Pod B: Respiratory, ENT, Gastroenterology & Hepatology Core Knowledge Pack
+# Licensing: Tier-1 commercial-safe open operational spine (SNOMED CT GPS, LOINC, UCUM,
+# WHO INN, RxNorm SAB=RXNORM); Tier-2 bare code-only interoperability pointers (ICPC-2,
+# ICD-10, ATC — zero redistributed rubric tables).
+# Strict Asymmetric Authority: clinician_only differentials/rationales; bilingual en + zh_hk
+# on all concepts, aliases, and patient-facing text; zero hardcoded 999/000 or banned claims.
+
+concepts:
+  # =========================================================================
+  # REASONS FOR ENCOUNTER (RFEs) — 7 Core Respiratory / ENT / GI Presentations
+  # =========================================================================
+  - id: rfe:sore_throat
+    kind: rfe
+    wave: W1
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "162397003", display: "Pain in throat (finding)" }
+      icpc2: { code: "R21", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R07.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Sore throat / pain on swallowing", zh_hk: "喉嚨痛／吞嚥痛" }
+    aliases:
+      en: ["sore throat", "throat pain", "odynophagia", "painful swallowing", "scratchy throat", "tonsillitis"]
+      zh_hk: ["喉嚨痛", "吞口水痛", "喉嚨發炎", "扁桃腺發炎", "喉嚨乾痛", "聲沙喉嚨痛"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: rfe:ear_pain
+    kind: rfe
+    wave: W1
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "16001004", display: "Otalgia (finding)" }
+      icpc2: { code: "H01", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H92.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Ear pain / ear discharge / blocked ear", zh_hk: "耳痛／流耳水／耳塞" }
+    aliases:
+      en: ["ear pain", "earache", "otalgia", "blocked ear", "ear discharge", "swimmer's ear", "muffled hearing"]
+      zh_hk: ["耳痛", "耳仔痛", "耳塞", "流耳水", "耳鳴耳塞", "聽唔清", "入水耳痛"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: rfe:abdominal_pain
+    kind: rfe
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "21522001", display: "Abdominal pain (finding)" }
+      icpc2: { code: "D01", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R10.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Abdominal pain", zh_hk: "腹痛／肚痛" }
+    aliases:
+      en: ["abdominal pain", "stomach pain", "tummy ache", "belly pain", "cramps", "right lower quadrant pain", "RUQ pain"]
+      zh_hk: ["肚痛", "腹痛", "絞肚痛", "右下腹痛", "右上腹痛", "個肚好痛", "肚臍痛"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: rfe:dyspepsia_epigastric
+    kind: rfe
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "162031009", display: "Indigestion (finding)" }
+      icpc2: { code: "D02", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K30", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Dyspepsia / epigastric pain / heartburn", zh_hk: "胃痛／消化不良／火燒心" }
+    aliases:
+      en: ["dyspepsia", "epigastric pain", "indigestion", "heartburn", "acid reflux", "upper stomach pain", "bloating after meals"]
+      zh_hk: ["胃痛", "胃氣脹", "消化不良", "火燒心", "胃酸倒流", "頂胃", "胃灼熱", "上腹痛"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: rfe:diarrhoea
+    kind: rfe
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "62315008", display: "Diarrhea (finding)" }
+      icpc2: { code: "D11", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R19.7", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Diarrhoea / loose watery stools", zh_hk: "腹瀉／肚瀉" }
+    aliases:
+      en: ["diarrhoea", "diarrhea", "loose stools", "watery stools", "the runs", "stomach bug", "gastro"]
+      zh_hk: ["肚瀉", "腹瀉", "屙爛屎", "屙水", "腸胃炎", "食錯嘢肚瀉", "一日屙幾次"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: rfe:constipation
+    kind: rfe
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "14760008", display: "Constipation (finding)" }
+      icpc2: { code: "D12", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K59.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Constipation / difficulty passing stools", zh_hk: "便秘／排便困難" }
+    aliases:
+      en: ["constipation", "hard stools", "straining to poo", "not opening bowels", "backed up", "infrequent bowel movements"]
+      zh_hk: ["便秘", "大便硬", "屙唔出", "幾日冇大便", "排便困難", "谷大便"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: rfe:rectal_bleeding
+    kind: rfe
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "12063002", display: "Rectal hemorrhage (disorder)" }
+      icpc2: { code: "D16", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K62.5", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Rectal bleeding / blood in stool", zh_hk: "大便帶血／直腸出血" }
+    aliases:
+      en: ["rectal bleeding", "blood in stool", "blood on toilet paper", "haematochezia", "bright red blood per rectum", "bleeding piles"]
+      zh_hk: ["大便有血", "屙血", "直腸出血", "抹紙有血", "鮮血大便", "痔瘡流血", "便血"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  # =========================================================================
+  # RED-FLAG FINDINGS (6) — openEHR Positive Exclusions & Safety Floor
+  # =========================================================================
+  - id: rf:stridor_airway
+    kind: red_flag
+    wave: W1
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "70407001", display: "Stridor (finding)" }
+    display: { en: "Stridor, drooling, muffled voice, trismus, or upper airway compromise", zh_hk: "喘鳴、流口水、含糊聲、張口困難或上呼吸道受阻徵象" }
+    aliases:
+      en: ["stridor", "drooling", "unable to swallow saliva", "hot potato voice", "trismus", "airway swelling", "epiglottitis signs"]
+      zh_hk: ["喘鳴", "吸氣有怪聲", "吞唔到口水", "流口水", "張唔開口", "唞唔到氣", "喉嚨腫塞"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: rf:dysphagia_progressive
+    kind: red_flag
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "40739000", display: "Dysphagia (finding)" }
+    display: { en: "Progressive dysphagia (food sticking) or persistent odynophagia", zh_hk: "進行性吞嚥困難（食物鯁住）或持續吞嚥痛" }
+    aliases:
+      en: ["dysphagia", "food sticking", "difficulty swallowing solids", "progressive swallowing difficulty", "persistent odynophagia"]
+      zh_hk: ["吞嚥困難", "食嘢鯁住", "吞飯落唔去", "愈來愈難吞", "吞嚥劇痛"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: rf:unilateral_ome_neck_lump
+    kind: red_flag
+    wave: W1
+    cluster: C03_ent
+    display: { en: "Unilateral adult middle-ear effusion, blood-stained nasal discharge, or painless persistent neck lump", zh_hk: "成人單側中耳積水／耳塞、鼻涕／痰帶血絲或持續無痛頸部硬塊" }
+    aliases:
+      en: ["unilateral blocked ear", "unilateral OME", "blood-stained nasal discharge", "epistaxis posterior", "painless neck lump", "cervical lymphadenopathy", "NPC red flag"]
+      zh_hk: ["單邊耳塞", "單側中耳積水", "鼻涕帶血", "倒吸鼻涕有血絲", "頸部無痛硬塊", "頸側生粒嘢", "鼻咽癌警號"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: rf:peritonism_rigid_abdomen
+    kind: red_flag
+    wave: W1
+    cluster: C04_gastrointestinal
+    display: { en: "Rigid board-like abdomen, guarding, rebound tenderness, or severe sudden abdominal pain (peritonism)", zh_hk: "腹部僵硬如板、腹肌防衛、反跳痛或突發劇烈腹痛（腹膜炎徵象）" }
+    aliases:
+      en: ["rigid abdomen", "board-like abdomen", "guarding", "rebound tenderness", "peritonism", "acute surgical abdomen", "pain worse on coughing or moving"]
+      zh_hk: ["肚硬如板", "腹膜炎徵象", "一按即劇痛", "放手反彈痛", "郁一郁都劇痛", "突發劇烈腹痛"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: rf:bloody_diarrhoea_fever
+    kind: red_flag
+    wave: W1
+    cluster: C04_gastrointestinal
+    display: { en: "Bloody diarrhoea with high fever or severe abdominal cramps (invasive dysentery)", zh_hk: "血便腹瀉伴高燒或劇烈腹絞痛（侵襲性腸炎／痢疾警號）" }
+    aliases:
+      en: ["bloody diarrhoea", "bloody diarrhea", "dysentery", "blood and mucus in diarrhoea", "diarrhoea with high fever"]
+      zh_hk: ["屙血水", "血便肚瀉", "大便帶血及黏液", "發高燒肚瀉", "痢疾徵狀"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: rf:jaundice
+    kind: red_flag
+    wave: W1
+    cluster: C04_hepatology
+    bindings:
+      snomed_gps: { code: "18165001", display: "Jaundice (finding)" }
+    display: { en: "Jaundice (yellow eyes/skin), dark tea-coloured urine, or pale clay stools", zh_hk: "黃疸（眼白或皮膚發黃）、茶色小便或灰白大便" }
+    aliases:
+      en: ["jaundice", "yellow eyes", "yellow skin", "scleral icterus", "dark tea urine", "pale stools", "painless jaundice"]
+      zh_hk: ["黃疸", "眼白發黃", "皮膚變黃", "面黃眼黃", "茶色小便", "灰白色大便", "無痛性黃疸"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  # =========================================================================
+  # CONDITIONS (22) — Respiratory, ENT, GI & Hepatology
+  # =========================================================================
+  - id: cond:acute_pharyngitis
+    kind: condition
+    wave: W1
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "363746003", display: "Acute pharyngitis (disorder)" }
+      icpc2: { code: "R74", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J02.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute pharyngitis / tonsillitis", zh_hk: "急性咽喉炎／扁桃腺炎" }
+    aliases:
+      en: ["pharyngitis", "acute tonsillitis", "strep throat", "viral pharyngitis"]
+      zh_hk: ["咽喉炎", "急性喉嚨發炎", "扁桃腺炎", "化膿性扁桃腺炎"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:otitis_media
+    kind: condition
+    wave: W1
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "65363002", display: "Otitis media (disorder)" }
+      icpc2: { code: "H71", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H66.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Otitis media (acute or with effusion)", zh_hk: "中耳炎／中耳積水" }
+    aliases:
+      en: ["acute otitis media", "AOM", "otitis media with effusion", "OME", "glue ear", "middle ear infection"]
+      zh_hk: ["中耳炎", "急性中耳炎", "中耳積水", "耳仔發炎"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:otitis_externa
+    kind: condition
+    wave: W1
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "3135009", display: "Otitis externa (disorder)" }
+      icpc2: { code: "H70", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "H60.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Otitis externa", zh_hk: "外耳道炎／游泳耳" }
+    aliases:
+      en: ["otitis externa", "swimmer's ear", "outer ear infection", "ear canal infection"]
+      zh_hk: ["外耳道炎", "外耳炎", "游泳耳", "耳道發炎"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:rhinosinusitis
+    kind: condition
+    wave: W1
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "36971009", display: "Sinusitis (disorder)" }
+      icpc2: { code: "R75", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J01.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute / chronic rhinosinusitis", zh_hk: "鼻竇炎" }
+    aliases:
+      en: ["sinusitis", "rhinosinusitis", "acute bacterial rhinosinusitis", "sinus infection", "facial pressure"]
+      zh_hk: ["鼻竇炎", "急性鼻竇炎", "慢性鼻竇炎", "鼻竇發炎"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:allergic_rhinitis
+    kind: condition
+    wave: W1
+    cluster: C03_ent
+    bindings:
+      snomed_gps: { code: "61582004", display: "Allergic rhinitis (disorder)" }
+      icpc2: { code: "R97", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J30.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Allergic rhinitis", zh_hk: "過敏性鼻炎／鼻敏感" }
+    aliases:
+      en: ["allergic rhinitis", "hay fever", "perennial rhinitis", "nasal allergy"]
+      zh_hk: ["鼻敏感", "過敏性鼻炎", "花粉症", "朝早打乞嗤流鼻水"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:npc
+    kind: condition
+    wave: W1
+    cluster: C03_ent
+    parent_ids: ["cond:malignancy_occult"]
+    bindings:
+      snomed_gps: { code: "363392002", display: "Malignant neoplasm of nasopharynx (disorder)" }
+      icpc2: { code: "R85", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "C11.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Nasopharyngeal carcinoma (NPC)", zh_hk: "鼻咽癌" }
+    aliases:
+      en: ["nasopharyngeal carcinoma", "NPC", "nasopharyngeal cancer", "Cantonese cancer"]
+      zh_hk: ["鼻咽癌", "廣東瘤", "鼻咽惡性腫瘤"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:acute_bronchitis
+    kind: condition
+    wave: W1
+    cluster: C03_respiratory
+    bindings:
+      snomed_gps: { code: "10509002", display: "Acute bronchitis (disorder)" }
+      icpc2: { code: "R78", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J20.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute bronchitis", zh_hk: "急性支氣管炎" }
+    aliases:
+      en: ["acute bronchitis", "chest cold", "viral bronchitis", "bronchial infection"]
+      zh_hk: ["急性支氣管炎", "支氣管炎", "氣管發炎"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:asthma_chronic
+    kind: condition
+    wave: W1
+    cluster: C03_respiratory
+    bindings:
+      snomed_gps: { code: "195967001", display: "Asthma (disorder)" }
+      icpc2: { code: "R96", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J45.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Chronic asthma", zh_hk: "慢性哮喘" }
+    aliases:
+      en: ["asthma", "chronic asthma", "bronchial asthma", "wheezy asthma"]
+      zh_hk: ["哮喘", "慢性哮喘", "氣管敏感哮喘"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:copd_chronic
+    kind: condition
+    wave: W1
+    cluster: C03_respiratory
+    bindings:
+      snomed_gps: { code: "13645005", display: "Chronic obstructive lung disease (disorder)" }
+      icpc2: { code: "R95", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J44.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Chronic obstructive pulmonary disease (COPD)", zh_hk: "慢性阻塞性肺病" }
+    aliases:
+      en: ["COPD", "chronic obstructive pulmonary disease", "emphysema", "chronic bronchitis", "COAD"]
+      zh_hk: ["慢性阻塞性肺病", "慢阻肺", "肺氣腫", "慢性支氣管炎"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:peptic_ulcer
+    kind: condition
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "13200003", display: "Peptic ulcer (disorder)" }
+      icpc2: { code: "D86", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K27.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Peptic ulcer disease (gastric / duodenal ulcer)", zh_hk: "消化性潰瘍（胃潰瘍／十二指腸潰瘍）" }
+    aliases:
+      en: ["peptic ulcer", "PUD", "gastric ulcer", "duodenal ulcer", "stomach ulcer"]
+      zh_hk: ["胃潰瘍", "十二指腸潰瘍", "消化性潰瘍", "生胃瘡"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:h_pylori_gastritis
+    kind: condition
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "4556007", display: "Gastritis (disorder)" }
+      icpc2: { code: "D87", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K29.7", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Helicobacter pylori gastritis", zh_hk: "幽門螺旋桿菌胃炎" }
+    aliases:
+      en: ["H. pylori gastritis", "Helicobacter pylori infection", "gastritis", "H pylori"]
+      zh_hk: ["幽門螺旋菌", "幽門螺旋桿菌胃炎", "胃炎", "胃菌"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:gastroenteritis
+    kind: condition
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "25374005", display: "Gastroenteritis (disorder)" }
+      icpc2: { code: "D73", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A09", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute infectious gastroenteritis", zh_hk: "急性腸胃炎" }
+    aliases:
+      en: ["gastroenteritis", "viral gastro", "food poisoning", "infectious diarrhoea", "stomach flu"]
+      zh_hk: ["腸胃炎", "急性腸胃炎", "食物中毒", "諾如病毒腸胃炎", "上吐下瀉"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:ibs
+    kind: condition
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "10743008", display: "Irritable bowel syndrome (disorder)" }
+      icpc2: { code: "D93", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K58.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Irritable bowel syndrome (IBS)", zh_hk: "腸易激綜合症／腸敏感" }
+    aliases:
+      en: ["IBS", "irritable bowel syndrome", "spastic colon", "functional bowel disorder"]
+      zh_hk: ["腸易激綜合症", "腸敏感", "腸胃敏感", "緊張就肚痛肚瀉"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:ibd
+    kind: condition
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "24526004", display: "Inflammatory bowel disease (disorder)" }
+      icpc2: { code: "D94", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K52.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Inflammatory bowel disease (Ulcerative colitis / Crohn's disease)", zh_hk: "發炎性腸病（潰瘍性結腸炎／克隆氏症）" }
+    aliases:
+      en: ["IBD", "inflammatory bowel disease", "ulcerative colitis", "Crohn's disease", "colitis"]
+      zh_hk: ["發炎性腸病", "潰瘍性結腸炎", "克隆氏症", "慢性腸炎"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:biliary_colic
+    kind: condition
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      icpc2: { code: "D98", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K80.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Biliary colic / symptomatic cholelithiasis", zh_hk: "膽絞痛／膽石症" }
+    aliases:
+      en: ["biliary colic", "gallstones", "cholelithiasis", "gallbladder attack", "cholecystitis"]
+      zh_hk: ["膽石", "膽結石", "膽絞痛", "膽囊炎", "食完油膩右上腹痛"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:appendicitis
+    kind: condition
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "74400008", display: "Appendicitis (disorder)" }
+      icpc2: { code: "D88", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K35.8", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute appendicitis", zh_hk: "急性闌尾炎／盲腸炎" }
+    aliases:
+      en: ["appendicitis", "acute appendicitis", "appendix inflammation"]
+      zh_hk: ["盲腸炎", "急性盲腸炎", "闌尾炎", "急性闌尾炎"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:diverticulitis
+    kind: condition
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "307496006", display: "Diverticulitis (disorder)" }
+      icpc2: { code: "D92", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K57.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute diverticulitis", zh_hk: "急性憩室炎" }
+    aliases:
+      en: ["diverticulitis", "diverticular disease", "left iliac fossa pain fever"]
+      zh_hk: ["憩室炎", "大腸憩室炎", "左下腹發炎痛"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:haemorrhoids
+    kind: condition
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      snomed_gps: { code: "70153002", display: "Hemorrhoids (disorder)" }
+      icpc2: { code: "K96", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K64.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Haemorrhoids", zh_hk: "痔瘡" }
+    aliases:
+      en: ["haemorrhoids", "hemorrhoids", "piles", "bleeding haemorrhoids", "perianal lump"]
+      zh_hk: ["痔瘡", "內痔", "外痔", "痔瘡出血", "生痔瘡"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:colorectal_cancer
+    kind: condition
+    wave: W1
+    cluster: C04_gastrointestinal
+    parent_ids: ["cond:malignancy_occult"]
+    bindings:
+      snomed_gps: { code: "363406005", display: "Malignant tumor of colon (disorder)" }
+      icpc2: { code: "D75", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "C18.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Colorectal carcinoma", zh_hk: "大腸癌／結直腸癌" }
+    aliases:
+      en: ["colorectal cancer", "bowel cancer", "colon cancer", "rectal cancer", "CRC"]
+      zh_hk: ["大腸癌", "結直腸癌", "腸癌", "直腸癌"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:masld
+    kind: condition
+    wave: W1
+    cluster: C04_hepatology
+    bindings:
+      snomed_gps: { code: "197321007", display: "Steatosis of liver (disorder)" }
+      icpc2: { code: "D97", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K76.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Metabolic dysfunction-associated steatotic liver disease (MASLD / fatty liver)", zh_hk: "代謝相關脂肪性肝病／脂肪肝" }
+    aliases:
+      en: ["MASLD", "NAFLD", "fatty liver", "hepatic steatosis", "MASH", "NASH"]
+      zh_hk: ["脂肪肝", "非酒精性脂肪肝", "代謝相關脂肪肝"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:chronic_hcv
+    kind: condition
+    wave: W1
+    cluster: C04_hepatology
+    bindings:
+      snomed_gps: { code: "128302006", display: "Chronic hepatitis C (disorder)" }
+      icpc2: { code: "D72", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B18.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Chronic hepatitis C infection", zh_hk: "慢性丙型肝炎" }
+    aliases:
+      en: ["hepatitis C", "chronic HCV", "Hep C"]
+      zh_hk: ["丙型肝炎", "丙肝", "慢性丙肝"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: cond:cirrhosis
+    kind: condition
+    wave: W1
+    cluster: C04_hepatology
+    bindings:
+      snomed_gps: { code: "19943007", display: "Cirrhosis of liver (disorder)" }
+      icpc2: { code: "D97", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K74.6", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Hepatic cirrhosis", zh_hk: "肝硬化" }
+    aliases:
+      en: ["cirrhosis", "liver cirrhosis", "chronic liver disease", "decompensated cirrhosis", "portal hypertension"]
+      zh_hk: ["肝硬化", "慢性肝病", "肝纖維化末期", "肝腹水"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  # =========================================================================
+  # PROCEDURE (1) — ENT Nasoendoscopy (pairs with proc:bidirectional_endoscopy)
+  # =========================================================================
+  - id: proc:ent_nasoendoscopy
+    kind: procedure
+    wave: W1
+    cluster: C03_ent
+    display: { en: "Flexible nasoendoscopy (ENT nasopharyngeal evaluation)", zh_hk: "鼻咽內窺鏡檢查（耳鼻喉科鼻咽評估）" }
+    aliases:
+      en: ["nasoendoscopy", "flexible nasopharyngoscopy", "ENT scope", "nasopharyngeal scope"]
+      zh_hk: ["鼻咽鏡", "鼻咽內窺鏡", "耳鼻喉科照鼻咽"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  # =========================================================================
+  # DRUG CLASSES (10)
+  # =========================================================================
+  - id: drug_class:ppi
+    kind: drug_class
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      atc: { code: "A02BC", system: "http://www.whocc.no/atc" }
+    display: { en: "Proton pump inhibitor (PPI)", zh_hk: "質子泵抑制劑（胃藥）" }
+    aliases:
+      en: ["PPI", "proton pump inhibitor", "acid suppressor"]
+      zh_hk: ["質子泵抑制劑", "抑酸胃藥", "特效胃藥"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug_class:antihistamine
+    kind: drug_class
+    wave: W1
+    cluster: C03_ent
+    bindings:
+      atc: { code: "R06A", system: "http://www.whocc.no/atc" }
+    display: { en: "Systemic H1 antihistamine", zh_hk: "抗組織胺（抗敏感藥）" }
+    aliases:
+      en: ["antihistamine", "allergy tablet", "non-drowsy antihistamine"]
+      zh_hk: ["抗組織胺", "抗敏藥", "鼻敏感藥", "止痕藥"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug_class:ics_laba
+    kind: drug_class
+    wave: W1
+    cluster: C03_respiratory
+    bindings:
+      atc: { code: "R03AK", system: "http://www.whocc.no/atc" }
+    display: { en: "Inhaled corticosteroid + LABA combination (ICS-LABA)", zh_hk: "吸入式類固醇及長效支氣管擴張劑複方" }
+    aliases:
+      en: ["ICS-LABA", "combination preventer inhaler", "MART inhaler", "anti-inflammatory reliever"]
+      zh_hk: ["複方哮喘吸入器", "混合吸入劑", "長效氣管藥"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug_class:lama
+    kind: drug_class
+    wave: W1
+    cluster: C03_respiratory
+    bindings:
+      atc: { code: "R03BB", system: "http://www.whocc.no/atc" }
+    display: { en: "Long-acting muscarinic antagonist inhaler (LAMA)", zh_hk: "長效抗膽鹼支氣管擴張劑" }
+    aliases:
+      en: ["LAMA", "long-acting anticholinergic inhaler", "COPD maintenance inhaler"]
+      zh_hk: ["長效抗膽鹼吸入劑", "慢阻肺長效吸入器"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug_class:intranasal_steroid
+    kind: drug_class
+    wave: W1
+    cluster: C03_ent
+    bindings:
+      atc: { code: "R01AD", system: "http://www.whocc.no/atc" }
+    display: { en: "Intranasal corticosteroid spray", zh_hk: "類固醇噴鼻劑" }
+    aliases:
+      en: ["intranasal steroid", "steroid nasal spray", "INCS"]
+      zh_hk: ["類固醇噴鼻劑", "鼻敏感噴鼻水"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug_class:antiemetic
+    kind: drug_class
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      atc: { code: "A04A", system: "http://www.whocc.no/atc" }
+    display: { en: "Antiemetic", zh_hk: "止嘔藥" }
+    aliases:
+      en: ["antiemetic", "anti-nausea medicine", "anti-vomiting medicine"]
+      zh_hk: ["止嘔藥", "止作悶藥"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug_class:laxative
+    kind: drug_class
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      atc: { code: "A06A", system: "http://www.whocc.no/atc" }
+    display: { en: "Osmotic / bulk laxative", zh_hk: "滲透性通便藥／瀉藥" }
+    aliases:
+      en: ["laxative", "stool softener", "osmotic laxative"]
+      zh_hk: ["通便藥", "軟便藥", "瀉藥"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug_class:antidiarrhoeal
+    kind: drug_class
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      atc: { code: "A07DA", system: "http://www.whocc.no/atc" }
+    display: { en: "Antimotility antidiarrhoeal", zh_hk: "止瀉藥（減慢腸蠕動）" }
+    aliases:
+      en: ["antidiarrhoeal", "antidiarrheal", "antimotility agent"]
+      zh_hk: ["止瀉藥", "止肚瀉藥"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug_class:tetracycline_antibiotic
+    kind: drug_class
+    wave: W1
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:antibiotic"]
+    bindings:
+      atc: { code: "J01AA", system: "http://www.whocc.no/atc" }
+    display: { en: "Tetracycline antibiotic", zh_hk: "四環素類抗生素" }
+    aliases:
+      en: ["tetracycline", "tetracycline antibiotic"]
+      zh_hk: ["四環素類抗生素", "四環素"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug_class:antispasmodic
+    kind: drug_class
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      atc: { code: "A03BB", system: "http://www.whocc.no/atc" }
+    display: { en: "Anticholinergic GI antispasmodic", zh_hk: "腸胃解痙藥" }
+    aliases:
+      en: ["antispasmodic", "cramp relief medicine", "smooth muscle relaxant"]
+      zh_hk: ["解痙藥", "止絞肚痛藥", "腸抽筋藥"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  # =========================================================================
+  # DRUGS (17) — Core Respiratory, ENT & GI Formulary
+  # =========================================================================
+  - id: drug:omeprazole
+    kind: drug
+    wave: W1
+    cluster: C04_gastrointestinal
+    parent_ids: ["drug_class:ppi"]
+    bindings:
+      inn: "omeprazole"
+      rxnorm: { code: "7646", display: "omeprazole" }
+      atc: { code: "A02BC01", system: "http://www.whocc.no/atc" }
+    display: { en: "Omeprazole", zh_hk: "奧美拉唑" }
+    aliases:
+      en: ["Losec", "Prilosec", "omeprazole"]
+      zh_hk: ["奧美拉唑", "洛賽克", "胃藥"]
+    drug_facet:
+      max_daily_mg: 80
+      dosing_pearl:
+        en: "Take 30-60 min before breakfast; CYP2C19 inhibitor (avoid with clopidogrel — prefer pantoprazole); withhold >=2 weeks before H. pylori stool Ag/UBT."
+        zh_hk: "早餐前30至60分鐘服用；具 CYP2C19 抑制作用（與氯吡格雷同服應改用泮托拉唑）；驗幽門螺旋菌前須停藥至少2星期。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:esomeprazole
+    kind: drug
+    wave: W1
+    cluster: C04_gastrointestinal
+    parent_ids: ["drug_class:ppi"]
+    bindings:
+      inn: "esomeprazole"
+      rxnorm: { code: "283742", display: "esomeprazole" }
+      atc: { code: "A02BC05", system: "http://www.whocc.no/atc" }
+    display: { en: "Esomeprazole", zh_hk: "埃索美拉唑" }
+    aliases:
+      en: ["Nexium", "esomeprazole"]
+      zh_hk: ["埃索美拉唑", "耐信", "特效胃藥"]
+    drug_facet:
+      max_daily_mg: 80
+      dosing_pearl:
+        en: "Step down to lowest effective dose or on-demand after 4-8 weeks unless Barrett's, severe oesophagitis, or high-risk NSAID gastroprotection; avoid with clopidogrel."
+        zh_hk: "療程4至8星期後應評估減量或按需要服用（巴雷特食道或高風險保護除外）；避免與氯吡格雷同服。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:pantoprazole
+    kind: drug
+    wave: W1
+    cluster: C04_gastrointestinal
+    parent_ids: ["drug_class:ppi"]
+    bindings:
+      inn: "pantoprazole"
+      rxnorm: { code: "40790", display: "pantoprazole" }
+      atc: { code: "A02BC02", system: "http://www.whocc.no/atc" }
+    display: { en: "Pantoprazole", zh_hk: "泮托拉唑" }
+    aliases:
+      en: ["Somac", "Controloc", "Pantoloc", "pantoprazole"]
+      zh_hk: ["泮托拉唑", "潘妥洛克"]
+    drug_facet:
+      max_daily_mg: 80
+      dosing_pearl:
+        en: "Minimal CYP2C19 inhibition — preferred PPI when concurrent clopidogrel is required; review long-term need (hypomagnesaemia, B12, fracture, C. difficile risk)."
+        zh_hk: "對 CYP2C19 影響最少，需要與氯吡格雷同服時首選；長期使用須定期評估必要性。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:cetirizine
+    kind: drug
+    wave: W1
+    cluster: C03_ent
+    parent_ids: ["drug_class:antihistamine"]
+    bindings:
+      inn: "cetirizine"
+      rxnorm: { code: "20610", display: "cetirizine" }
+      atc: { code: "R06AE07", system: "http://www.whocc.no/atc" }
+    display: { en: "Cetirizine", zh_hk: "西替利嗪" }
+    aliases:
+      en: ["Zyrtec", "Zilarex", "cetirizine"]
+      zh_hk: ["西替利嗪", "仙特明", "抗敏感丸"]
+    drug_facet:
+      max_single_mg: 10
+      max_daily_mg: 10
+      renal_note: "Reduce to 5 mg daily if eGFR 10-49 mL/min; avoid if eGFR <10."
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:loratadine
+    kind: drug
+    wave: W1
+    cluster: C03_ent
+    parent_ids: ["drug_class:antihistamine"]
+    bindings:
+      inn: "loratadine"
+      rxnorm: { code: "28889", display: "loratadine" }
+      atc: { code: "R06AX13", system: "http://www.whocc.no/atc" }
+    display: { en: "Loratadine", zh_hk: "氯雷他定" }
+    aliases:
+      en: ["Claratyne", "Claritin", "loratadine"]
+      zh_hk: ["氯雷他定", "佳力天", "唔眼瞓抗敏藥"]
+    drug_facet:
+      max_single_mg: 10
+      max_daily_mg: 10
+      dosing_pearl:
+        en: "Second-generation non-sedating antihistamine; reduce to alternate days in severe hepatic impairment."
+        zh_hk: "第二代非嗜睡抗組織胺；嚴重肝功能受損時改為隔日服用。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:budesonide_formoterol
+    kind: drug
+    wave: W1
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:ics_laba"]
+    bindings:
+      inn: "budesonide-formoterol"
+      atc: { code: "R03AK07", system: "http://www.whocc.no/atc" }
+    display: { en: "Budesonide + formoterol inhaler", zh_hk: "布地奈德／福莫特羅吸入劑" }
+    aliases:
+      en: ["Symbicort", "Symbicort Turbuhaler", "Symbicort Rapihaler", "DuoResp", "budesonide formoterol"]
+      zh_hk: ["信必可", "布地奈德福莫特羅", "紅白哮喘吸入器"]
+    drug_facet:
+      no_gap: true
+      dosing_pearl:
+        en: "Anti-inflammatory reliever (AIR) / MART backbone for adult & adolescent asthma (GINA Track 1); rinse mouth after inhalation to prevent oral candidiasis."
+        zh_hk: "成人及青少年哮喘抗炎緩解／維持治療 (MART) 首選；吸入後須漱口以防口腔念珠菌感染。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:tiotropium
+    kind: drug
+    wave: W1
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:lama"]
+    bindings:
+      inn: "tiotropium bromide"
+      rxnorm: { code: "274766", display: "tiotropium" }
+      atc: { code: "R03BB04", system: "http://www.whocc.no/atc" }
+    display: { en: "Tiotropium inhaler", zh_hk: "噻托溴銨吸入劑" }
+    aliases:
+      en: ["Spiriva", "Spiriva Respimat", "Spiriva HandiHaler", "tiotropium"]
+      zh_hk: ["思力華", "噻托溴銨", "慢阻肺吸入器"]
+    drug_facet:
+      no_gap: true
+      dosing_pearl:
+        en: "Once-daily maintenance LAMA for COPD (NOT for acute bronchospasm relief); caution in narrow-angle glaucoma and urinary retention; warn patient NEVER to swallow HandiHaler capsules."
+        zh_hk: "每日一次慢阻肺維持治療（非急性氣喘急救用）；青光眼或排尿困難者慎用；切勿吞服吸入膠囊。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:mometasone_nasal
+    kind: drug
+    wave: W1
+    cluster: C03_ent
+    parent_ids: ["drug_class:intranasal_steroid"]
+    bindings:
+      inn: "mometasone"
+      rxnorm: { code: "108118", display: "mometasone" }
+      atc: { code: "R01AD09", system: "http://www.whocc.no/atc" }
+    display: { en: "Mometasone furoate nasal spray", zh_hk: "莫米松鼻噴霧劑" }
+    aliases:
+      en: ["Nasonex", "Azona", "mometasone nasal spray"]
+      zh_hk: ["內舒拿", "莫米松噴鼻劑", "鼻敏感噴鼻藥"]
+    drug_facet:
+      dosing_pearl:
+        en: "First-line for moderate-severe allergic rhinitis & chronic rhinosinusitis; aim nozzle laterally away from nasal septum to prevent epistaxis; full benefit takes 1-2 weeks."
+        zh_hk: "中至重度鼻敏感及慢性鼻竇炎首選；噴咀應斜向外側避開鼻中隔以防流鼻血，需連續使用1至2星期見效。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:ondansetron
+    kind: drug
+    wave: W1
+    cluster: C04_gastrointestinal
+    parent_ids: ["drug_class:antiemetic"]
+    bindings:
+      inn: "ondansetron"
+      rxnorm: { code: "26225", display: "ondansetron" }
+      atc: { code: "A04AA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Ondansetron", zh_hk: "昂丹司瓊（止嘔口溶片）" }
+    aliases:
+      en: ["Zofran", "Ondaz", "ondansetron wafer", "ondansetron"]
+      zh_hk: ["昂丹司瓊", "樞復寧", "舌下止嘔片"]
+    drug_facet:
+      short_course: true
+      max_single_mg: 8
+      max_daily_mg: 24
+      pregnancy_caution: "caution"
+      dosing_pearl:
+        en: "Prolongs QT interval (caution with macrolides/electrolyte disturbance); avoid routine first-trimester pregnancy use unless second-line hyperemesis; can cause constipation."
+        zh_hk: "可延長心電圖 QT 間期（與大環內酯類或電解質異常時慎用）；懷孕初期非一線止嘔藥。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:metoclopramide
+    kind: drug
+    wave: W1
+    cluster: C04_gastrointestinal
+    parent_ids: ["drug_class:antiemetic"]
+    bindings:
+      inn: "metoclopramide"
+      rxnorm: { code: "6915", display: "metoclopramide" }
+      atc: { code: "A03FA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Metoclopramide", zh_hk: "甲氧氯普胺（止嘔丸）" }
+    aliases:
+      en: ["Maxolon", "Pramin", "metoclopramide"]
+      zh_hk: ["甲氧氯普胺", "胃復安", "止嘔丸"]
+    drug_facet:
+      short_course: true
+      max_single_mg: 10
+      max_daily_mg: 30
+      pediatric_min_age_years: 18
+      dosing_pearl:
+        en: "Limit to max 5 days (max 30 mg/day) due to tardive dyskinesia / acute dystonia risk; AVOID in age <20y (high dystonic reaction risk) and Parkinson's disease / bowel obstruction."
+        zh_hk: "最多連續使用5日（每日上限30毫克）以減低錐體外系副作用；20歲以下、柏金遜症及腸阻塞患者應避免使用。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:macrogol
+    kind: drug
+    wave: W1
+    cluster: C04_gastrointestinal
+    parent_ids: ["drug_class:laxative"]
+    bindings:
+      inn: "macrogol"
+      atc: { code: "A06AD15", system: "http://www.whocc.no/atc" }
+    display: { en: "Macrogol 3350 / 4000 (polyethylene glycol)", zh_hk: "聚乙二醇通便粉（宏高／魔瀉）" }
+    aliases:
+      en: ["Movicol", "Osmolax", "Forlax", "PEG 3350", "polyethylene glycol", "macrogol"]
+      zh_hk: ["聚乙二醇", "魔瀉", "通便粉", "軟便粉"]
+    drug_facet:
+      dosing_pearl:
+        en: "First-line osmotic laxative for chronic adult & paediatric constipation; exclude bowel obstruction before initiating; dissolve each sachet in 125 mL water."
+        zh_hk: "成人及兒童慢性便秘一線滲透性通便藥；使用前須排除腸阻塞；每包須溶於約125毫升開水飲用。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:lactulose
+    kind: drug
+    wave: W1
+    cluster: C04_gastrointestinal
+    parent_ids: ["drug_class:laxative"]
+    bindings:
+      inn: "lactulose"
+      rxnorm: { code: "6218", display: "lactulose" }
+      atc: { code: "A06AD11", system: "http://www.whocc.no/atc" }
+    display: { en: "Lactulose", zh_hk: "乳果糖（杜密克）" }
+    aliases:
+      en: ["Duphalac", "Actilax", "lactulose"]
+      zh_hk: ["乳果糖", "杜密克", "通便糖漿"]
+    drug_facet:
+      dosing_pearl:
+        en: "Osmotic laxative and hepatic encephalopathy therapy (titrate to 2-3 soft stools/day in cirrhosis); can cause flatulence/bloating; safe in pregnancy."
+        zh_hk: "滲透性通便藥及肝性腦病治療用藥（肝硬化患者調整至每日2至3次軟便）；孕婦適用。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:loperamide
+    kind: drug
+    wave: W1
+    cluster: C04_gastrointestinal
+    parent_ids: ["drug_class:antidiarrhoeal"]
+    bindings:
+      inn: "loperamide"
+      rxnorm: { code: "6468", display: "loperamide" }
+      atc: { code: "A07DA03", system: "http://www.whocc.no/atc" }
+    display: { en: "Loperamide", zh_hk: "洛哌丁胺（止瀉丸）" }
+    aliases:
+      en: ["Imodium", "Gastro-Stop", "loperamide"]
+      zh_hk: ["洛哌丁胺", "易蒙停", "特效止瀉丸"]
+    drug_facet:
+      short_course: true
+      max_daily_mg: 16
+      pediatric_min_age_years: 12
+      dosing_pearl:
+        en: "CONTRAINDICATED in bloody diarrhoea, high fever, suspected C. difficile / invasive dysentery, or acute severe ulcerative colitis (toxic megacolon risk)."
+        zh_hk: "血便腹瀉、高燒、懷疑侵襲性腸炎／艱難梭菌感染或急性重症結腸炎患者嚴禁使用（有中毒性巨結腸風險）。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:amoxicillin
+    kind: drug
+    wave: W1
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:beta_lactam_antibiotic"]
+    bindings:
+      inn: "amoxicillin"
+      rxnorm: { code: "723", display: "amoxicillin" }
+      atc: { code: "J01CA04", system: "http://www.whocc.no/atc" }
+    display: { en: "Amoxicillin", zh_hk: "阿莫西林" }
+    aliases:
+      en: ["Amoxil", "Alphamox", "amoxycillin", "amoxicillin"]
+      zh_hk: ["阿莫西林", "盤尼西林類抗生素"]
+    drug_facet:
+      short_course: true
+      allergy_group_id: "allergy:penicillin"
+      max_daily_mg: 3000
+      dosing_pearl:
+        en: "Verify penicillin allergy before prescribing; avoid in suspected infectious mononucleosis (EBV) due to maculopapular rash."
+        zh_hk: "處方前必須核實青黴素（盤尼西林）過敏史；懷疑傳染性單核球增多症（EBV）時避免使用以免引起皮疹。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:doxycycline
+    kind: drug
+    wave: W1
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:tetracycline_antibiotic"]
+    bindings:
+      inn: "doxycycline"
+      rxnorm: { code: "3640", display: "doxycycline" }
+      atc: { code: "J01AA02", system: "http://www.whocc.no/atc" }
+    display: { en: "Doxycycline", zh_hk: "多西環素（強力黴素）" }
+    aliases:
+      en: ["Doryx", "Vibramycin", "Doxy", "doxycycline"]
+      zh_hk: ["多西環素", "強力黴素", "四環素抗生素"]
+    drug_facet:
+      short_course: true
+      max_daily_mg: 200
+      pediatric_min_age_years: 8
+      pregnancy_caution: "contraindicated"
+      dosing_pearl:
+        en: "CONTRAINDICATED in pregnancy and children <8y (permanent tooth discolouration/bone effects). Take upright with full glass of water >=30 min before lying down (oesophagitis risk) and use sun protection."
+        zh_hk: "孕婦及8歲以下兒童禁用（可致恆齒永久變色）。須配足量清水坐立服用，服藥後30分鐘內切勿躺臥以防食道潰瘍，並注意防曬。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:azithromycin
+    kind: drug
+    wave: W1
+    cluster: C03_respiratory
+    parent_ids: ["drug_class:macrolide_antibiotic"]
+    bindings:
+      inn: "azithromycin"
+      rxnorm: { code: "18631", display: "azithromycin" }
+      atc: { code: "J01FA10", system: "http://www.whocc.no/atc" }
+    display: { en: "Azithromycin", zh_hk: "阿奇黴素" }
+    aliases:
+      en: ["Zithromax", "Z-Pak", "azithromycin"]
+      zh_hk: ["阿奇黴素", "希舒美", "大環內酯抗生素"]
+    drug_facet:
+      short_course: true
+      max_single_mg: 1000
+      dosing_pearl:
+        en: "Prolongs QT interval (check baseline QTc, hypokalaemia, and co-prescribed QT-prolonging drugs); lower CYP3A4 inhibition than clarithromycin but still check warfarin/digoxin."
+        zh_hk: "可延長 QT 間期（須注意低血鉀及同服其他延長 QT 藥物）；對 CYP3A4 抑制較克拉黴素低，但與華法林同服仍須監察 INR。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: drug:hyoscine_butylbromide
+    kind: drug
+    wave: W1
+    cluster: C04_gastrointestinal
+    parent_ids: ["drug_class:antispasmodic"]
+    bindings:
+      inn: "hyoscine butylbromide"
+      atc: { code: "A03BB01", system: "http://www.whocc.no/atc" }
+    display: { en: "Hyoscine butylbromide", zh_hk: "丁溴東莨菪鹼（腸胃抽筋藥）" }
+    aliases:
+      en: ["Buscopan", "hyoscine butylbromide", "scopolamine butylbromide"]
+      zh_hk: ["丁溴東莨菪鹼", "補斯可伴", "止絞痛藥"]
+    drug_facet:
+      short_course: true
+      max_single_mg: 20
+      max_daily_mg: 80
+      dosing_pearl:
+        en: "Short-term smooth-muscle antispasmodic for IBS/biliary cramps; contraindicated in narrow-angle glaucoma, myasthenia gravis, megacolon, and mechanical GI obstruction; avoid masking surgical abdomen."
+        zh_hk: "短期舒緩腸胃或膽道痙攣痛；青光眼、重症肌無力及機械性腸阻塞禁忌；切勿在未排除急腹症前掩蓋痛楚。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  # =========================================================================
+  # OBSERVATIONS (7) — Hepatology & GI Investigations
+  # =========================================================================
+  - id: obs:ast
+    kind: observation
+    wave: W1
+    cluster: C04_hepatology
+    bindings:
+      loinc: { code: "1920-8", display: "Aspartate aminotransferase [Enzymatic activity/volume] in Serum or Plasma" }
+      ucum: "U/L"
+    display: { en: "Aspartate aminotransferase (AST)", zh_hk: "天門冬氨酸轉氨酶 (AST)" }
+    aliases:
+      en: ["AST", "SGOT", "aspartate transaminase"]
+      zh_hk: ["AST", "穀草轉氨酶", "肝酵素AST"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs:alp
+    kind: observation
+    wave: W1
+    cluster: C04_hepatology
+    bindings:
+      loinc: { code: "6768-6", display: "Alkaline phosphatase [Enzymatic activity/volume] in Serum or Plasma" }
+      ucum: "U/L"
+    display: { en: "Alkaline phosphatase (ALP)", zh_hk: "鹼性磷酸酶 (ALP)" }
+    aliases:
+      en: ["ALP", "alk phos", "alkaline phosphatase"]
+      zh_hk: ["ALP", "鹼性磷酸酶", "膽道酵素"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs:bilirubin
+    kind: observation
+    wave: W1
+    cluster: C04_hepatology
+    bindings:
+      loinc: { code: "14631-6", display: "Bilirubin.total [Moles/volume] in Serum or Plasma" }
+      ucum: "umol/L"
+    display: { en: "Serum total bilirubin", zh_hk: "血清總膽紅素" }
+    aliases:
+      en: ["bilirubin", "total bilirubin", "TBil", "serum bilirubin"]
+      zh_hk: ["膽紅素", "總膽紅素", "黃疸指數"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs:albumin
+    kind: observation
+    wave: W1
+    cluster: C04_hepatology
+    bindings:
+      loinc: { code: "1751-7", display: "Albumin [Mass/volume] in Serum or Plasma" }
+      ucum: "g/L"
+    display: { en: "Serum albumin", zh_hk: "血清白蛋白" }
+    aliases:
+      en: ["albumin", "serum albumin", "Alb"]
+      zh_hk: ["白蛋白", "血清白蛋白"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs:fit_stool
+    kind: observation
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      loinc: { code: "29771-3", display: "Hemoglobin.gastrointestinal.lower [Presence] in Stool by Immunoassay" }
+      ucum: "{Ordinal}"
+    display: { en: "Faecal immunochemical test (FIT / iFOBT)", zh_hk: "大便隱血免疫化學測試 (FIT)" }
+    aliases:
+      en: ["FIT", "iFOBT", "FOBT", "faecal occult blood", "stool occult blood"]
+      zh_hk: ["大便隱血測試", "大便隱血", "FIT測試"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs:h_pylori_stool_ag
+    kind: observation
+    wave: W1
+    cluster: C04_gastrointestinal
+    bindings:
+      loinc: { code: "17780-8", display: "Helicobacter pylori Ag [Presence] in Stool by Immunoassay" }
+      ucum: "{Ordinal}"
+    display: { en: "Helicobacter pylori stool antigen", zh_hk: "幽門螺旋桿菌大便抗原測試" }
+    aliases:
+      en: ["H. pylori stool antigen", "HpSA", "stool H pylori test"]
+      zh_hk: ["幽門螺旋菌大便測試", "大便幽門螺旋菌抗原"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs:anti_hcv
+    kind: observation
+    wave: W1
+    cluster: C04_hepatology
+    bindings:
+      loinc: { code: "16128-1", display: "Hepatitis C virus Ab [Presence] in Serum" }
+      ucum: "{Ordinal}"
+    display: { en: "Hepatitis C virus antibody (Anti-HCV)", zh_hk: "丙型肝炎抗體 (Anti-HCV)" }
+    aliases:
+      en: ["anti-HCV", "HCV antibody", "hepatitis C serology", "Hep C antibody"]
+      zh_hk: ["丙肝抗體", "丙型肝炎抗體測試"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+# ===========================================================================
+# DETERMINISTIC CLINICAL EDGES (13)
+# ===========================================================================
+edges:
+  - id: edge:stridor_airway_emergency
+    source_id: rf:stridor_airway
+    relation: RED_FLAG_FOR
+    target_id: cond:acute_pharyngitis
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Stridor, drooling, muffled voice, or trismus indicates impending upper airway obstruction (acute epiglottitis, retropharyngeal abscess, or severe peritonsillar abscess) — immediate airway emergency."
+      zh_hk: "喘鳴、流口水、含糊聲或張口困難代表上呼吸道阻塞風險（急性會厭炎、咽後膿腫或嚴重扁桃腺周圍膿腫），屬即時呼吸道急症。"
+    clinician_action_prompt:
+      en: "Immediate emergency ambulance transfer to hospital ED with airway support; do NOT agitate patient or force tongue-depressor pharyngeal examination."
+      zh_hk: "立即安排救護車送往急症室處理氣道；切勿強行以壓舌板檢查咽喉以免刺激誘發氣道痙攣。"
+    patient_safety_net:
+      en: "Noisy breathing when breathing in, drooling, inability to swallow saliva, or severe throat swelling is a medical emergency. Call emergency services immediately."
+      zh_hk: "如出現吸氣喘鳴、不斷流口水、無法吞嚥口水或喉嚨嚴重腫脹呼吸困難，屬緊急狀況，請立即致電緊急救援服務前往急症室。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:peritonism_surgical_emergency
+    source_id: rf:peritonism_rigid_abdomen
+    relation: RED_FLAG_FOR
+    target_id: cond:appendicitis
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Rigid abdomen, involuntary guarding, or rebound tenderness (peritonism) indicates acute surgical abdomen (perforated peptic ulcer, ruptured appendicitis, perforated diverticulitis, mesenteric ischaemia, or ruptured AAA)."
+      zh_hk: "腹部僵硬、腹肌防衛或反跳痛（腹膜炎徵象）提示急性外科急腹症（胃穿孔、急性闌尾炎破裂、憩室穿孔、腸缺血或腹主動脈瘤破裂）。"
+    clinician_action_prompt:
+      en: "Immediate emergency hospital transfer for surgical assessment; keep nil by mouth (NBM), check haemodynamics, and avoid prescribing outpatient antispasmodics/NSAIDs."
+      zh_hk: "立即安排送往急症室作外科緊急評估；叮囑禁食禁水，評估血壓脈搏，切勿處方門診止痛解痙藥掩蓋病情。"
+    patient_safety_net:
+      en: "Sudden severe abdominal pain, a hard tender tummy, pain worsened by coughing or movement, or feeling faint needs immediate emergency hospital care. Do not eat or drink and seek emergency help now."
+      zh_hk: "如出現突發劇烈腹痛、腹部發硬壓痛、咳嗽或移動時痛楚加劇，或感到頭暈冒冷汗，請切勿進食飲水並立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:dyspepsia_alarm_dysphagia_ogd
+    source_id: rf:dysphagia_progressive
+    relation: TRIGGERS_WORKUP
+    target_id: proc:bidirectional_endoscopy
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Progressive dysphagia (food sticking) or persistent odynophagia is a mandatory upper GI ALARM symptom requiring urgent OGD regardless of age to exclude oesophageal/gastric carcinoma or stricture."
+      zh_hk: "進行性吞嚥困難（食物鯁住感）或持續吞嚥痛屬上消化道重大警號，不論年齡均須緊急安排胃鏡 (OGD) 排除食道癌、胃癌或食道狹窄。"
+    clinician_action_prompt:
+      en: "Refer urgently for upper GI endoscopy (OGD) — do NOT delay endoscopy for an empiric PPI trial; order baseline FBC and ferritin."
+      zh_hk: "立即轉介緊急胃鏡檢查 (OGD)，切勿先試服胃藥而延誤內窺鏡檢查；同步檢查全血計數及鐵蛋白。"
+    patient_safety_net:
+      en: "Difficulty swallowing food or feeling food sticking needs urgent doctor assessment and camera testing; seek immediate emergency care if you cannot swallow liquids or vomit blood."
+      zh_hk: "如出現吞嚥困難或食物鯁住感，必須盡快由醫生評估及安排內窺鏡檢查；若連飲水亦困難或出現吐血，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:dyspepsia_alarm_age50_weightloss_ogd
+    source_id: rfe:dyspepsia_epigastric
+    relation: TRIGGERS_WORKUP
+    target_id: proc:bidirectional_endoscopy
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    when:
+      any:
+        - { fact: has_concept, op: is_a, value: "rf:gi_bleeding" }
+        - { fact: has_concept, op: is_a, value: "rf:dysphagia_progressive" }
+        - all:
+            - { fact: age_years, op: ge, value: 50 }
+            - { fact: has_concept, op: is_a, value: "rf:unintentional_weight_loss" }
+    clinician_rationale:
+      en: "Dyspepsia with ALARM features (GI bleeding, dysphagia, or age >=50y with unintentional weight loss / new-onset persistent symptoms) requires urgent OGD to exclude upper GI malignancy or complicated peptic ulcer."
+      zh_hk: "胃痛／消化不良伴隨警號徵狀（消化道出血、吞嚥困難，或50歲或以上伴體重異常下降）須緊急安排胃鏡檢查排除上消化道惡性腫瘤或併發性潰瘍。"
+    clinician_action_prompt:
+      en: "Arrange urgent OGD referral and FBC/ferritin/LFT; avoid masking symptoms with prolonged empiric PPI before endoscopy."
+      zh_hk: "安排緊急胃鏡轉介並檢查全血計數、鐵蛋白及肝功能；避免在未照胃鏡前長期盲目服用質子泵抑制劑掩蓋徵狀。"
+    patient_safety_net:
+      en: "Indigestion with weight loss, trouble swallowing, vomiting blood, or black tarry stools needs urgent medical evaluation. Go to emergency care immediately for vomiting blood, black stools, or faintness."
+      zh_hk: "胃痛或消化不良如伴隨體重下降、吞嚥困難、吐血或黑便，須緊急求醫跟進；如出現吐血、黑便或頭暈，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:fit_positive_urgent_colonoscopy
+    source_id: obs:fit_stool
+    relation: TRIGGERS_WORKUP
+    target_id: proc:bidirectional_endoscopy
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: positive_screen
+    when:
+      fact: obs_value
+      concept_id: "obs:fit_stool"
+      op: ge
+      value: 1
+    clinician_rationale:
+      en: "A positive faecal immunochemical test (FIT / iFOBT) carries significant risk of colorectal carcinoma or advanced adenoma and requires timely diagnostic colonoscopy — NEVER repeat FIT to refute a positive test."
+      zh_hk: "大便隱血測試 (FIT) 呈陽性具顯著大腸癌或高危瘜肉風險，必須安排診斷性大腸鏡檢查，切勿重做隱血測試企圖推翻陽性結果。"
+    clinician_action_prompt:
+      en: "Refer urgently for diagnostic colonoscopy; check FBC/ferritin and review anticoagulant/antiplatelet peri-procedural holding instructions."
+      zh_hk: "盡快轉介大腸鏡檢查；檢查血紅素及鐵蛋白，並覆核薄血藥於檢查前的停藥指引。"
+    patient_safety_net:
+      en: "A positive stool blood test requires follow-up with your doctor for a colonoscopy. Seek urgent care sooner if you notice heavy rectal bleeding, severe tummy pain, or dizziness."
+      zh_hk: "大便隱血測試呈陽性必須由醫生跟進安排大腸鏡檢查；期間如出現大量便血、劇烈腹痛或頭暈，請立即求醫。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:bloody_diarrhoea_loperamide_block
+    source_id: drug:loperamide
+    relation: CONTRAINDICATED_IN
+    target_id: rf:bloody_diarrhoea_fever
+    severity: hard_block
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Antimotility agents (loperamide) are contraindicated in bloody diarrhoea with fever / suspected invasive dysentery (Campylobacter, Salmonella, Shigella, STEC, C. difficile) due to risk of toxic megacolon, prolonged bacteraemia, and HUS."
+      zh_hk: "血便腹瀉伴發燒或懷疑侵襲性腸炎／痢疾時嚴禁使用止瀉藥（洛哌丁胺），以免誘發中毒性巨結腸、延長病原體停留或增加溶血性尿毒症風險。"
+    clinician_action_prompt:
+      en: "Hard-block loperamide; prioritise oral/IV rehydration, stool MCS + C. difficile toxin (if recent antibiotics), and assess severity for hospital referral or targeted antimicrobials."
+      zh_hk: "禁止處方洛哌丁胺；重點評估脫水程度及補液、安排大便細菌培養／艱難梭菌毒素檢測，並評估是否需要入院或針對性抗生素。"
+    patient_safety_net:
+      en: "Do NOT take over-the-counter stop-diarrhoea tablets (such as loperamide) if you have blood in your diarrhoea or a high fever. Seek urgent medical review today."
+      zh_hk: "如腹瀉帶血或伴隨高燒，切勿自行服用止瀉藥（如洛哌丁胺），並請於今日盡快求醫評估。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:unilateral_ome_neck_lump_npc_red_flag
+    source_id: rf:unilateral_ome_neck_lump
+    relation: RED_FLAG_FOR
+    target_id: cond:npc
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Unilateral adult middle-ear effusion (Eustachian tube obstruction), blood-stained post-nasal discharge/epistaxis, or a painless persistent cervical lymph node is a classic red flag for nasopharyngeal carcinoma (NPC) — especially high-incidence in Southern Chinese / East Asian ancestry."
+      zh_hk: "成人單側中耳積水／耳塞、倒吸鼻涕帶血絲或頸部無痛硬塊為鼻咽癌典型警號（華南及港人發病率顯著偏高），必須高度警覺。"
+    clinician_action_prompt:
+      en: "Arrange urgent ENT referral for flexible nasoendoscopy (and plasma EBV DNA / EBV VCA-IgA per local protocol); do NOT treat empirically with repeated decongestants/antibiotics without nasopharyngeal visualisation."
+      zh_hk: "立即轉介耳鼻喉科進行鼻咽內窺鏡檢查（按本地指引可配合血漿 EBV DNA 檢測），切勿僅以通鼻塞藥或抗生素拖延。"
+    patient_safety_net:
+      en: "A one-sided blocked ear, blood-streaked nasal mucus, or a painless neck lump that persists needs urgent specialist ear-nose-throat camera assessment."
+      zh_hk: "如出現持續單側耳塞、鼻涕或痰中帶血絲，或頸部有無痛硬塊，必須盡快由醫生安排耳鼻喉科鼻咽內窺鏡檢查。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:unilateral_ome_npc_nasoendoscopy
+    source_id: rf:unilateral_ome_neck_lump
+    relation: TRIGGERS_WORKUP
+    target_id: proc:ent_nasoendoscopy
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Direct flexible nasoendoscopy is the gold-standard diagnostic test to visualise the fossa of Rosenmuller and biopsy suspicious nasopharyngeal lesions."
+      zh_hk: "軟式鼻咽內窺鏡檢查為評估羅森穆勒窩及確診鼻咽癌的黃金標準檢查。"
+    clinician_action_prompt:
+      en: "Initiate urgent ENT nasoendoscopy referral and document cranial nerve screen (CN III, IV, V, VI diplopia/facial numbness)."
+      zh_hk: "轉介緊急耳鼻喉科鼻咽內窺鏡檢查，並記錄腦神經檢查（複視、面部麻木等）。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:doxycycline_pregnancy_paed_ci
+    source_id: drug:doxycycline
+    relation: CONTRAINDICATED_IN
+    target_id: cond:cap
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: pregnant, op: eq, value: true }
+        - { fact: age_years, op: lt, value: 8 }
+    clinician_rationale:
+      en: "Doxycycline (tetracycline class) is contraindicated in pregnancy (maternal hepatotoxicity / fetal dental and skeletal deposition) and children aged <8 years (permanent enamel hypoplasia and tooth discolouration)."
+      zh_hk: "多西環素（四環素類）禁用於孕婦及8歲以下兒童，以免引致胎兒／幼童恆齒永久變色、牙釉質發育不全及骨骼沉積。"
+    clinician_action_prompt:
+      en: "Hard-block doxycycline; select pregnancy/paediatric-safe alternative (e.g. amoxicillin or macrolide per local antibiotic guideline and allergy profile)."
+      zh_hk: "禁止處方多西環素；請按過敏史及本地指引改選孕婦／兒童適用之抗生素（如阿莫西林或大環內酯類）。"
+    patient_safety_net:
+      en: "Doxycycline should not be used during pregnancy or in children under 8 years old. Inform your doctor or pharmacist immediately if you might be pregnant before taking this medicine."
+      zh_hk: "多西環素不適用於懷孕婦女及8歲以下兒童；服藥前如懷疑懷孕，請立即通知醫生或藥劑師。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:oral_steroid_hbv_reactivation
+    source_id: drug_class:oral_corticosteroid
+    relation: INTERACTS_WITH
+    target_id: cond:chronic_hbv
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Moderate-to-high-dose or prolonged systemic corticosteroids (>=10-20 mg/day prednisolone for >=2-4 weeks) carry substantial risk of potentially fatal Hepatitis B virus (HBV) reactivation and fulminant hepatic failure in HBsAg-positive patients."
+      zh_hk: "中至高劑量或持續使用口服類固醇（如每日 >=10-20 毫克潑尼松龍連續2至4星期）可引致慢性乙型肝炎病毒再活躍，甚至致命性急性肝衰竭。"
+    clinician_action_prompt:
+      en: "Verify HBsAg, anti-HBc, HBV DNA, and baseline ALT before sustained oral corticosteroid therapy; initiate/coordinate antiviral prophylaxis (entecavir or tenofovir) and serial ALT/HBV DNA monitoring."
+      zh_hk: "處方持續口服類固醇前須核實 HBsAg、anti-HBc、HBV DNA 及基線 ALT，並協調預防性抗病毒藥（恩替卡韋／替諾福韋）及密切監測肝功能。"
+    patient_safety_net:
+      en: "If you carry Hepatitis B and are prescribed steroid tablets, tell your doctor before starting and seek urgent review if you develop yellow eyes, dark urine, severe fatigue, or nausea."
+      zh_hk: "如你是乙型肝炎帶菌者並獲處方口服類固醇，服藥前務必通知醫生；如出現眼白發黃、茶色小便、極度疲倦或作嘔，請立即求醫。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:azithromycin_qt_caution
+    source_id: drug:azithromycin
+    relation: INTERACTS_WITH
+    target_id: drug:ondansetron
+    bidirectional: true
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Concurrent azithromycin and ondansetron produce additive QTc prolongation and increase risk of Torsades de Pointes, particularly in older adults, bradycardia, hypokalaemia, or structural heart disease."
+      zh_hk: "阿奇黴素與昂丹司瓊同服具疊加心電圖 QT 間期延長效應，增加尖端扭轉型室性心動過速風險，長者或低血鉀患者風險更高。"
+    clinician_action_prompt:
+      en: "Check baseline QTc and serum potassium/magnesium; avoid combination where alternatives exist (e.g. non-QT-prolonging antibiotic or antiemetic) or monitor ECG."
+      zh_hk: "檢視基線心電圖 QTc 及血鉀／血鎂水平；盡量改用不延長 QT 間期的替代藥物，或安排心電圖監察。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:clarithromycin_cyp3a4_qt_caution
+    source_id: drug:clarithromycin
+    relation: INTERACTS_WITH
+    target_id: drug:warfarin
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Clarithromycin is a potent CYP3A4 and P-gp inhibitor (and QT-prolonging macrolide) that markedly elevates warfarin exposure and INR, causing major bleeding risk (and interacts with DOACs, statins, colchicine, and CCBs)."
+      zh_hk: "克拉黴素強烈抑制 CYP3A4 及 P-gp（同時具 QT 延長風險），可顯著推高華法林血藥濃度及 INR，大幅增加嚴重出血風險。"
+    clinician_action_prompt:
+      en: "Prefer non-interacting antibiotic where clinically appropriate; if clarithromycin unavoidable, proactively adjust warfarin and check INR within 3-5 days."
+      zh_hk: "在臨床許可下改用無相互作用之抗生素；如必須使用克拉黴素，須預先調整華法林劑量並於3至5日內覆檢 INR。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: edge:jaundice_urgent_biliary_liver_workup
+    source_id: rf:jaundice
+    relation: RED_FLAG_FOR
+    target_id: cond:cirrhosis
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "New-onset jaundice signals acute biliary obstruction / hepatobiliary-pancreatic malignancy (especially painless jaundice), ascending cholangitis (emergency if fever + RUQ pain / Charcot triad), acute viral/drug hepatitis, or decompensated cirrhosis."
+      zh_hk: "新發黃疸提示膽道阻塞／肝膽胰惡性腫瘤（特別是無痛性黃疸）、急性膽管炎（伴發燒及右上腹痛屬急症）、急性病毒或藥物性肝炎，或失代償性肝硬化。"
+    clinician_action_prompt:
+      en: "Immediate ED transfer if fever/rigors/confusion/hypotension (ascending cholangitis or acute liver failure); otherwise urgent same-day LFT (AST/ALT/ALP/GGT/direct bilirubin), INR, CBC, viral hepatitis serology, and abdominal ultrasound."
+      zh_hk: "如伴發燒發冷、意識混亂或低血壓須立即送往急症室（急性膽管炎或急性肝衰竭）；否則安排即日肝功能、凝血 INR、全血計數、病毒性肝炎檢測及腹部超聲波。"
+    patient_safety_net:
+      en: "Yellowing of the whites of your eyes or skin, dark tea-coloured urine, or pale stools needs urgent medical assessment today. Go to emergency care immediately if you also have fever, chills, severe tummy pain, or drowsiness."
+      zh_hk: "如發現眼白或皮膚發黃、茶色小便或灰白大便，請即日緊急求醫；如同時發燒發冷、劇烈腹痛或嗜睡，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+# ===========================================================================
+# PRESENTATION FRAMES (7) — Murtagh PROMPT + openEHR Positive Exclusions + Safety Netting
+# ===========================================================================
+frames:
+  - id: frame:sore_throat
+    rfe_concept_id: rfe:sore_throat
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_urti, concept_id: cond:urti, prevalence_note: "Viral URTI accounts for ~80% of adult sore throats" }
+        - { id: p_pharyngitis, concept_id: cond:acute_pharyngitis, key_discriminators: ["FeverPAIN / Centor score for Group A Strep"] }
+        - { id: p_flu, concept_id: cond:influenza, key_discriminators: ["abrupt fever", "myalgia", "cough"] }
+      serious_not_to_be_missed:
+        - { id: s_airway_sepsis, concept_id: cond:sepsis, key_discriminators: ["epiglottitis / retropharyngeal or peritonsillar abscess: stridor, drooling, trismus, uvular deviation"] }
+        - { id: s_npc, concept_id: cond:npc, key_discriminators: ["unilateral ear fullness, blood-stained nasal discharge, neck lump"] }
+        - { id: s_malignancy, concept_id: cond:malignancy_occult, key_discriminators: ["persistent unilateral throat pain / hoarseness >3 weeks in smoker/drinker"] }
+        - { id: s_hiv, concept_id: cond:hiv, key_discriminators: ["acute seroconversion: fever, rash, generalised lymphadenopathy"] }
+      pitfalls_often_missed:
+        - { id: o_drug_agran, concept_id: cond:drug_adverse_effect, key_discriminators: ["agranulocytosis on carbimazole, methotrexate, or clozapine — urgent CBC!"] }
+        - { id: o_gord, concept_id: cond:gord, key_discriminators: ["laryngopharyngeal reflux / morning throat clearing"] }
+        - { id: o_allergic_rhinitis, concept_id: cond:allergic_rhinitis, key_discriminators: ["post-nasal drip causing chronic throat irritation"] }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Screen immunosuppressants/antithyroid drugs (carbimazole, methotrexate) for neutropenic sore throat.", zh_hk: "排查免疫抑制劑或甲狀腺藥（如卡比馬唑、甲氨蝶呤）引致白血球缺乏性咽喉感染。" } }
+        - { id: mq_malignancy, tier: primary, masquerade: malignancy, concept_id: cond:npc, clue_prompt: { en: "Consider NPC or head-and-neck malignancy if unilateral throat/ear symptoms or neck lump persist.", zh_hk: "若持續單側咽喉／耳部不適或頸部硬塊，須排除鼻咽癌或頭頸部腫瘤。" } }
+        - { id: mq_hiv, tier: secondary, masquerade: hiv, concept_id: cond:hiv, clue_prompt: { en: "Consider acute HIV seroconversion in severe pharyngitis with maculopapular rash and risk exposure.", zh_hk: "嚴重咽喉炎伴皮疹及高危暴露史時，須考慮急性愛滋病病毒血清轉換期。" } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore expectation for antibiotics, voice/work demands, or fear of throat cancer.", zh_hk: "了解病人對抗生素的期望、工作用聲需求，或對咽喉癌／鼻咽癌的憂慮。" }
+    positive_exclusions:
+      - id: ex_stridor
+        finding_concept_id: rf:stridor_airway
+        question: { en: "Are you having noisy breathing, drooling, difficulty opening your mouth, or trouble swallowing your own saliva?", zh_hk: "請問你有沒有吸氣發出怪聲、流口水、張口困難或連吞自己口水都困難？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_dyspnoea
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Are you experiencing any shortness of breath or feeling your throat closing up?", zh_hk: "請問你有沒有氣促或感到喉嚨腫塞唞唔到氣？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_dysphagia
+        finding_concept_id: rf:dysphagia_progressive
+        question: { en: "Has food been getting stuck when you swallow, or has swallowing been getting steadily harder?", zh_hk: "請問近期有沒有吞嚥食物鯁住或愈來愈難吞的情況？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_npc_neck
+        finding_concept_id: rf:unilateral_ome_neck_lump
+        question: { en: "Have you noticed a painless lump in your neck, a blocked ear on one side, or blood-streaked mucus?", zh_hk: "請問你有沒有發現頸部無痛硬塊、單側耳塞，或鼻涕痰中帶血絲？" }
+        urgency_if_present: 3
+        mandatory: true
+    safety_netting:
+      - id: sn_airway_emergency
+        trigger_condition: { en: "Stridor, drooling, inability to swallow fluids, muffled voice, or trouble breathing", zh_hk: "吸氣喘鳴、流口水、無法飲水、聲音含糊或呼吸困難" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "If you develop noisy breathing, drooling, inability to swallow fluids, or difficulty breathing, seek immediate emergency hospital care."
+          zh_hk: "如出現吸氣喘鳴、流口水、無法吞嚥飲水或呼吸困難，請立即前往急症室或尋求緊急醫療協助。"
+      - id: sn_persistent_throat
+        trigger_condition: { en: "High fever, worsening one-sided throat pain, or sore throat not improving after 5-7 days", zh_hk: "持續高燒、單側喉嚨痛加劇，或症狀持續5至7日未見好轉" }
+        timeframe_hours: 120
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange prompt doctor review if your pain becomes severe on one side, fever persists, or symptoms do not improve within 5 to 7 days."
+          zh_hk: "如單側喉痛加劇、高燒不退或症狀於5至7日內未見改善，請盡快聯絡診所安排醫生覆診。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: frame:ear_pain
+    rfe_concept_id: rfe:ear_pain
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_aom, concept_id: cond:otitis_media, key_discriminators: ["bulging erythematous tympanic membrane", "often post-URTI"] }
+        - { id: p_oe, concept_id: cond:otitis_externa, key_discriminators: ["tragal tenderness", "oedematous canal", "swimming/cotton-bud history"] }
+        - { id: p_urti, concept_id: cond:urti, key_discriminators: ["bilateral Eustachian tube dysfunction"] }
+      serious_not_to_be_missed:
+        - { id: s_npc, concept_id: cond:npc, key_discriminators: ["unilateral adult middle-ear effusion / blocked ear — mandatory nasoendoscopy"] }
+        - { id: s_sepsis_mastoid, concept_id: cond:sepsis, key_discriminators: ["acute mastoiditis (post-auricular swelling/protruding pinna) or malignant otitis externa in diabetes/elderly"] }
+        - { id: s_meningitis, concept_id: cond:meningitis, key_discriminators: ["intracranial complication: severe headache, neck stiffness, confusion"] }
+      pitfalls_often_missed:
+        - { id: o_pharyngitis_ref, concept_id: cond:acute_pharyngitis, key_discriminators: ["referred otalgia from tonsil, pharynx, TMJ, or dental source with normal tympanic membrane"] }
+        - { id: o_rhinosinusitis, concept_id: cond:rhinosinusitis }
+        - { id: o_malignancy_ref, concept_id: cond:malignancy_occult, key_discriminators: ["referred otalgia from hypopharyngeal/laryngeal carcinoma in smoker/drinker"] }
+      masquerades:
+        - { id: mq_npc, tier: primary, masquerade: malignancy, concept_id: cond:npc, clue_prompt: { en: "Adult unilateral OME / blocked ear is NPC until excluded by ENT nasoendoscopy.", zh_hk: "成人單側中耳積水或耳塞在未經耳鼻喉科鼻咽鏡排除前，必須高度懷疑鼻咽癌。" } }
+        - { id: mq_diabetes, tier: primary, masquerade: diabetes, concept_id: cond:t2dm, clue_prompt: { en: "Severe relentless otitis externa with deep nocturnal pain in older/diabetic patients -> exclude malignant (necrotising) otitis externa.", zh_hk: "糖尿病或長者出現劇烈夜間耳痛及頑固外耳炎，須排除惡性壞死性外耳道炎。" } }
+      patient_hidden_agenda_prompts:
+        - { en: "Check recent flying/swimming, cotton-bud trauma, hearing loss anxiety, or family history of NPC.", zh_hk: "查詢近期有否乘搭飛機／游泳、用棉花棒挖耳，以及對聽力受損或鼻咽癌家族史的憂慮。" }
+    positive_exclusions:
+      - id: ex_unilateral_npc
+        finding_concept_id: rf:unilateral_ome_neck_lump
+        question: { en: "Is the blocked ear on one side only, or do you have any blood-stained nasal mucus or a lump in your neck?", zh_hk: "請問是否只有單邊耳塞／聽力模糊，或者有鼻涕帶血絲及頸部硬塊？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_meningism
+        finding_concept_id: rf:stiff_neck_meningism
+        question: { en: "Do you have a severe headache, stiff neck, or tenderness/swelling behind the ear?", zh_hk: "請問你有沒有劇烈頭痛、頸部僵硬，或耳背紅腫壓痛？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_confusion
+        finding_concept_id: rf:confusion
+        question: { en: "Have you experienced any confusion, unusual drowsiness, or weakness on one side of your face?", zh_hk: "請問你有沒有意識混亂、異常嗜睡或面部單側無力／歪斜？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_ear_emergency
+        trigger_condition: { en: "Swelling/redness behind the ear, facial droop, severe headache, stiff neck, or high fever", zh_hk: "耳背紅腫、面癱歪斜、劇烈頭痛、頸部僵硬或高燒" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if you develop swelling behind the ear, facial weakness, severe headache, stiff neck, or confusion."
+          zh_hk: "如出現耳背紅腫壓痛、面部無力歪斜、劇烈頭痛、頸梗或意識混亂，請立即前往急症室。"
+      - id: sn_unilateral_ear_followup
+        trigger_condition: { en: "Unilateral blocked ear or hearing loss persisting >2 weeks, or ear pain not settling after 48 hours", zh_hk: "單側耳塞或聽力下降持續超過2星期，或耳痛持續48小時未見改善" }
+        timeframe_hours: 48
+        escalation_channel: urgent_clinic_callback
+        patient_instruction:
+          en: "Contact the clinic for doctor review if ear pain does not settle within 48 hours, or urgently if a one-sided blocked ear persists."
+          zh_hk: "如耳痛於48小時內未見改善，或出現持續單側耳塞，請盡快聯絡診所安排醫生評估。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: frame:abdominal_pain
+    rfe_concept_id: rfe:abdominal_pain
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_gastro, concept_id: cond:gastroenteritis, key_discriminators: ["acute cramping with nausea/vomiting/diarrhoea"] }
+        - { id: p_ibs, concept_id: cond:ibs, key_discriminators: ["chronic pain related to defecation and stool form change"] }
+        - { id: p_biliary, concept_id: cond:biliary_colic, key_discriminators: ["post-prandial RUQ/epigastric colic radiating to right scapula"] }
+        - { id: p_pud, concept_id: cond:peptic_ulcer, key_discriminators: ["gnawing epigastric pain, NSAID/H. pylori risk"] }
+        - { id: p_uti, concept_id: cond:uti, key_discriminators: ["suprapubic/flank pain with dysuria or frequency"] }
+      serious_not_to_be_missed:
+        - { id: s_appendicitis, concept_id: cond:appendicitis, key_discriminators: ["periumbilical migrating to RIF, anorexia, fever, guarding"] }
+        - { id: s_aaa, concept_id: cond:aortic_dissection, key_discriminators: ["sudden severe abdominal/back pain with hypotension/syncope in older smoker"] }
+        - { id: s_acs, concept_id: cond:acs, key_discriminators: ["inferior MI presenting as epigastric pain/nausea/diaphoresis"] }
+        - { id: s_diverticulitis, concept_id: cond:diverticulitis, key_discriminators: ["LIF tenderness + fever +/- raised CRP/WBC"] }
+        - { id: s_crc, concept_id: cond:colorectal_cancer, key_discriminators: ["new persistent abdominal pain + bowel habit change / IDA / weight loss"] }
+        - { id: s_sepsis, concept_id: cond:sepsis, key_discriminators: ["ascending cholangitis (Charcot triad) or perforated viscus peritonitis"] }
+      pitfalls_often_missed:
+        - { id: o_dka, concept_id: cond:t2dm, key_discriminators: ["DKA / euglycaemic DKA on SGLT2 inhibitor presenting with abdominal pain + vomiting"] }
+        - { id: o_coeliac, concept_id: cond:coeliac_disease, key_discriminators: ["chronic bloating, diarrhoea, iron deficiency"] }
+        - { id: o_ibd, concept_id: cond:ibd }
+        - { id: o_drug, concept_id: cond:drug_adverse_effect, key_discriminators: ["NSAID gastropathy, opioid constipation, metformin cramps"] }
+      masquerades:
+        - { id: mq_diabetes, tier: primary, masquerade: diabetes, concept_id: cond:t2dm, clue_prompt: { en: "Check capillary glucose AND ketones (especially if on SGLT2 inhibitor — euglycaemic DKA).", zh_hk: "檢測血糖及血酮（特別是正服用 SGLT2 抑制劑患者，須排除正常血糖酮酸中毒）。" } }
+        - { id: mq_uti, tier: primary, masquerade: uti, concept_id: cond:uti, clue_prompt: { en: "Dipstick urine in lower abdominal/flank pain and in all reproductive-age women perform urine beta-hCG to exclude ectopic pregnancy.", zh_hk: "下腹或腰側痛應驗小便；所有育齡女性必須驗孕以排除子宮外孕。" } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Screen NSAIDs, aspirin, anticoagulants, opioids, and TCM herbs.", zh_hk: "核實有否服用消炎止痛藥、阿士匹靈、薄血藥、鴉片類止痛藥或中草藥。" } }
+        - { id: mq_malignancy, tier: secondary, masquerade: malignancy, concept_id: cond:colorectal_cancer, clue_prompt: { en: "Consider GI/hepatobiliary malignancy in new persistent abdominal pain in age >=50y.", zh_hk: "50歲或以上新發持續腹痛須考慮消化道或肝膽胰腫瘤。" } }
+      patient_hidden_agenda_prompts:
+        - { en: "Ask about possible pregnancy (reproductive-age female), stress/somatisation, or fear of cancer/gallstones.", zh_hk: "詢問育齡女性懷孕可能，以及近期生活壓力或對癌症／膽石的憂慮。" }
+    positive_exclusions:
+      - id: ex_peritonism
+        finding_concept_id: rf:peritonism_rigid_abdomen
+        question: { en: "Is your abdomen hard or rigid, or does the pain sharply worsen when you cough, move, or press on it?", zh_hk: "請問你的腹部是否發硬，或咳嗽、走動及輕按時會引起劇痛？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_gi_bleed
+        finding_concept_id: rf:gi_bleeding
+        question: { en: "Have you vomited blood, passed black tarry stools, or had rectal bleeding?", zh_hk: "請問你有沒有吐血、排出黑色焦油狀大便或大便帶血？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_syncope
+        finding_concept_id: rf:syncope
+        question: { en: "Have you fainted, felt lightheaded on standing, or broken out in a cold sweat?", zh_hk: "請問你有沒有暈厥、企起身頭暈或冒冷汗？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_jaundice
+        finding_concept_id: rf:jaundice
+        question: { en: "Have you noticed yellowing of your eyes or skin, dark tea-coloured urine, or pale stools?", zh_hk: "請問你有沒有發現眼白或皮膚發黃、茶色小便或灰白大便？" }
+        urgency_if_present: 3
+        mandatory: true
+    safety_netting:
+      - id: sn_abdo_emergency
+        trigger_condition: { en: "Severe or rapidly worsening abdominal pain, rigid tummy, fainting, persistent vomiting, high fever, or bleeding", zh_hk: "劇烈或迅速惡化的腹痛、腹部發硬、頭暈昏厥、持續嘔吐、高燒或吐血便血" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if your abdominal pain becomes severe or spreads, your tummy feels hard, you vomit blood or pass black stools, or you feel faint."
+          zh_hk: "如腹痛變得劇烈或擴散、腹部發硬、吐血或排黑便、持續嘔吐或感到頭暈，請立即前往急症室。"
+      - id: sn_abdo_review
+        trigger_condition: { en: "Abdominal pain persisting beyond 24-48 hours or localising to the lower right side", zh_hk: "腹痛持續超過24至48小時，或痛楚轉移至右下腹" }
+        timeframe_hours: 24
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange same-day doctor assessment if abdominal pain worsens, moves to the lower right side, or has not improved within 24 to 48 hours."
+          zh_hk: "如腹痛加劇、轉移至右下腹，或於24至48小時內未見好轉，請即日安排醫生面診評估。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: frame:dyspepsia_epigastric
+    rfe_concept_id: rfe:dyspepsia_epigastric
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_gord, concept_id: cond:gord, key_discriminators: ["retrosternal burning worse lying flat / after meals"] }
+        - { id: p_hpylori, concept_id: cond:h_pylori_gastritis, key_discriminators: ["epigastric burning/fullness; non-invasive test-and-treat if <50y and NO ALARM features"] }
+        - { id: p_pud, concept_id: cond:peptic_ulcer, key_discriminators: ["nocturnal/hunger pain relieved by food or antacids; NSAID/aspirin use"] }
+      serious_not_to_be_missed:
+        - { id: s_acs, concept_id: cond:acs, key_discriminators: ["exertional epigastric discomfort, diaphoresis, cardiac risk factors — ECG!"] }
+        - { id: s_upper_gi_ca, concept_id: cond:malignancy_occult, key_discriminators: ["gastric/oesophageal cancer: dysphagia, weight loss, persistent vomiting, IDA, age >=50y new onset"] }
+        - { id: s_biliary, concept_id: cond:biliary_colic, key_discriminators: ["episodic severe post-prandial epigastric/RUQ colic"] }
+        - { id: s_cirrhosis, concept_id: cond:cirrhosis, key_discriminators: ["portal hypertension / variceal bleed risk in chronic liver disease"] }
+      pitfalls_often_missed:
+        - { id: o_drug_nsaid, concept_id: cond:drug_adverse_effect, key_discriminators: ["NSAIDs, aspirin, corticosteroids, oral iron, doxycycline, bisphosphonates"] }
+        - { id: o_ida, concept_id: cond:iron_deficiency_anaemia, key_discriminators: ["occult upper GI blood loss"] }
+        - { id: o_coeliac, concept_id: cond:coeliac_disease }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Review OTC NSAIDs, aspirin, steroids, iron, and bisphosphonates.", zh_hk: "覆核有否服用成藥消炎止痛藥、阿士匹靈、類固醇、鐵丸或雙磷酸鹽。" } }
+        - { id: mq_malignancy, tier: primary, masquerade: malignancy, concept_id: cond:malignancy_occult, clue_prompt: { en: "Screen all ALARM features (dysphagia, GI bleed, weight loss, IDA, persistent vomiting, age >=50y new onset) -> urgent OGD.", zh_hk: "必須篩查上消化道警號（吞嚥困難、出血、暴瘦、缺鐵貧血、持續嘔吐、50歲以上新發症狀）並安排緊急胃鏡。" } }
+        - { id: mq_anaemia, tier: secondary, masquerade: anaemia, concept_id: cond:iron_deficiency_anaemia, clue_prompt: { en: "Check FBC + ferritin in persistent dyspepsia.", zh_hk: "持續胃痛或消化不良應檢查全血計數及鐵蛋白。" } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore fear of stomach cancer (common in East Asia), meal timing/caffeine/alcohol stress, or OTC antacid overuse.", zh_hk: "了解病人是否擔心胃癌、飲食作息及咖啡／酒精習慣，或長期自行購買胃藥情況。" }
+    positive_exclusions:
+      - id: ex_cardiac_epigastric
+        finding_concept_id: rf:chest_pain_cardiac
+        question: { en: "Does the discomfort feel heavy or tight in your chest, worsen with walking/exertion, or spread to your arm, jaw, or back?", zh_hk: "請問痛楚是否呈心口翳悶壓迫感、行路活動時加劇，或放射至手臂、下巴或背部？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_gi_bleed
+        finding_concept_id: rf:gi_bleeding
+        question: { en: "Have you vomited blood or dark coffee-ground material, or passed black tarry stools?", zh_hk: "請問你有沒有吐血、嘔出咖啡渣樣物，或排出黑色焦油狀大便？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_dysphagia
+        finding_concept_id: rf:dysphagia_progressive
+        question: { en: "Do you have difficulty swallowing or a sensation of food sticking in your chest or throat?", zh_hk: "請問你有沒有吞嚥困難或食物鯁在胸口／喉嚨的感覺？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_weight_loss
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Have you lost weight unintentionally or experienced persistent vomiting or early fullness?", zh_hk: "請問近期有沒有體重無故下降、持續嘔吐或食少少就覺得好飽？" }
+        urgency_if_present: 3
+        mandatory: true
+    safety_netting:
+      - id: sn_dyspepsia_emergency
+        trigger_condition: { en: "Chest tightness/sweating/shortness of breath, vomiting blood, black tarry stools, or sudden severe upper abdominal pain", zh_hk: "胸口壓痛冒冷汗、氣促、吐血、黑便或突發劇烈上腹痛" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency care if you develop chest tightness, sweating, shortness of breath, vomiting blood, black tarry stools, or sudden severe upper tummy pain."
+          zh_hk: "如出現胸口壓迫感、冒冷汗、氣促、吐血、黑便或突發劇烈上腹痛，請立即前往急症室。"
+      - id: sn_dyspepsia_alarm
+        trigger_condition: { en: "Trouble swallowing, unintended weight loss, or symptoms persisting despite 4 weeks of treatment", zh_hk: "吞嚥困難、體重下降，或治療4星期後症狀持續" }
+        timeframe_hours: 168
+        escalation_channel: urgent_clinic_callback
+        patient_instruction:
+          en: "Arrange prompt doctor review if you develop difficulty swallowing, unintended weight loss, or indigestion that does not settle."
+          zh_hk: "如出現吞嚥困難、體重無故下降或胃部不適持續未癒，請盡快聯絡診所安排醫生覆診評估。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: frame:diarrhoea
+    rfe_concept_id: rfe:diarrhoea
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_gastro, concept_id: cond:gastroenteritis, key_discriminators: ["acute watery diarrhoea <14d, sick contacts/food exposure"] }
+        - { id: p_ibs, concept_id: cond:ibs, key_discriminators: ["chronic intermittent diarrhoea without nocturnal symptoms or bleeding"] }
+        - { id: p_drug, concept_id: cond:drug_adverse_effect, key_discriminators: ["recent antibiotics, metformin, PPI, magnesium, colchicine"] }
+      serious_not_to_be_missed:
+        - { id: s_sepsis, concept_id: cond:sepsis, key_discriminators: ["invasive bacterial dysentery, severe dehydration/AKI, C. difficile colitis"] }
+        - { id: s_ibd, concept_id: cond:ibd, key_discriminators: ["blood/mucus, nocturnal diarrhoea, weight loss, raised faecal calprotectin"] }
+        - { id: s_crc, concept_id: cond:colorectal_cancer, key_discriminators: ["persistent new loose stools >=3-4 weeks in age >=45-50y"] }
+        - { id: s_diverticulitis, concept_id: cond:diverticulitis }
+      pitfalls_often_missed:
+        - { id: o_coeliac, concept_id: cond:coeliac_disease, key_discriminators: ["chronic loose pale stools, bloating, IDA — keep on gluten diet before anti-tTG IgA"] }
+        - { id: o_ckd_aki, concept_id: cond:ckd, key_discriminators: ["SADMANS sick-day hold (SGLT2i, ACEi/ARB, diuretics, metformin, NSAIDs) during dehydrating diarrhoea"] }
+        - { id: o_t2dm_edka, concept_id: cond:t2dm, key_discriminators: ["euglycaemic DKA if SGLT2i continued during acute gastro"] }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Check antibiotic exposure in past 8 weeks (C. difficile) and sick-day medication holds (SGLT2i, metformin, RAAS, NSAIDs).", zh_hk: "查問過去8星期有否服用抗生素（排除艱難梭菌感染），並檢視須於急性脫水時暫停的藥物（SGLT2i、二甲雙胍、血壓藥、消炎藥）。" } }
+        - { id: mq_malignancy, tier: primary, masquerade: malignancy, concept_id: cond:colorectal_cancer, clue_prompt: { en: "Exclude colorectal carcinoma in persistent diarrhoea >3-4 weeks, especially age >=50y or with rectal bleeding/IDA.", zh_hk: "腹瀉持續超過3至4星期（尤其50歲或以上或伴便血／缺鐵貧血）須排除大腸癌。" } }
+        - { id: mq_ckd, tier: secondary, masquerade: ckd, concept_id: cond:ckd, clue_prompt: { en: "Assess dehydration and acute kidney injury risk in elderly or CKD patients.", zh_hk: "長者及慢性腎病患者腹瀉時須評估脫水及急性腎損傷風險。" } }
+      patient_hidden_agenda_prompts:
+        - { en: "Check recent travel, seafood/raw food intake, food-handler occupation (notifiable clearance), and diabetes/BP medications.", zh_hk: "查問近期外遊、進食生冷食物史、是否從事飲食業，以及有否服用糖尿／血壓藥物。" }
+    positive_exclusions:
+      - id: ex_bloody_fever
+        finding_concept_id: rf:bloody_diarrhoea_fever
+        question: { en: "Is there blood or mucus in your diarrhoea, or do you have a high fever or severe cramps?", zh_hk: "請問腹瀉時有沒有帶血或黏液，或者伴隨高燒及劇烈腹絞痛？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_peritonism
+        finding_concept_id: rf:peritonism_rigid_abdomen
+        question: { en: "Is your abdomen very painful, swollen, or hard to the touch?", zh_hk: "請問你的腹部是否劇烈疼痛、明顯脹起或按下去發硬？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_syncope
+        finding_concept_id: rf:syncope
+        question: { en: "Are you feeling dizzy on standing, unable to keep fluids down, or passing very little dark urine?", zh_hk: "請問你有沒有企起身頭暈、飲水即嘔，或小便量極少呈深色？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_weight_loss
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Has diarrhoea lasted more than 2 weeks or been accompanied by unintended weight loss?", zh_hk: "請問腹瀉是否持續超過2星期，或伴隨體重無故下降？" }
+        urgency_if_present: 3
+        mandatory: true
+    safety_netting:
+      - id: sn_diarrhoea_emergency
+        trigger_condition: { en: "Severe dehydration (dizziness, confusion, minimal urine), unable to keep fluids down, severe abdominal pain, or heavy rectal bleeding", zh_hk: "嚴重脫水（頭暈、意識模糊、極少小便）、無法進水、劇烈腹痛或大量便血" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency care if you feel faint or confused, cannot keep fluids down, pass little or no urine, or develop severe tummy pain or heavy bleeding."
+          zh_hk: "如出現頭暈昏厥、意識模糊、無法飲水、幾乎無小便、劇烈腹痛或大量便血，請立即前往急症室。"
+      - id: sn_diarrhoea_review
+        trigger_condition: { en: "Blood/mucus in stool, high fever, or watery diarrhoea lasting beyond 72 hours (or 24 hours in frail elderly)", zh_hk: "大便帶血或黏液、高燒，或腹瀉持續超過72小時（體弱長者超過24小時）" }
+        timeframe_hours: 72
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Avoid anti-diarrhoea tablets if you have blood in your stool or high fever, focus on oral rehydration fluids, and arrange doctor review if symptoms persist beyond 72 hours (or sooner if frail or on diabetes/kidney medicines)."
+          zh_hk: "如伴隨血便或高燒切勿自行服食止瀉藥，應注意補充水份及電解質；如腹瀉持續超過72小時（長者或糖尿／腎病患者應更早），請聯絡診所安排醫生覆診。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: frame:constipation
+    rfe_concept_id: rfe:constipation
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_ibs, concept_id: cond:ibs, key_discriminators: ["IBS-C: chronic constipation with crampy relief after defecation"] }
+        - { id: p_drug, concept_id: cond:drug_adverse_effect, key_discriminators: ["opioids, oral iron, calcium, anticholinergics, CCBs, ondansetron"] }
+        - { id: p_haemorrhoids, concept_id: cond:haemorrhoids, key_discriminators: ["straining / anal fissure pain causing stool withholding"] }
+      serious_not_to_be_missed:
+        - { id: s_crc, concept_id: cond:colorectal_cancer, key_discriminators: ["new-onset persistent constipation / alternating bowel habit in age >=50y"] }
+        - { id: s_obstruction, concept_id: cond:malignancy_occult, key_discriminators: ["mechanical bowel obstruction: obstipation, progressive distension, bilious/faeculent vomiting"] }
+        - { id: s_diverticulitis, concept_id: cond:diverticulitis }
+      pitfalls_often_missed:
+        - { id: o_hypothyroid, concept_id: cond:hypothyroidism, key_discriminators: ["fatigue, cold intolerance, weight gain, raised TSH"] }
+        - { id: o_ida, concept_id: cond:iron_deficiency_anaemia, key_discriminators: ["check FBC/ferritin in new adult constipation"] }
+        - { id: o_depression, concept_id: cond:depression }
+      masquerades:
+        - { id: mq_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hypothyroidism, clue_prompt: { en: "Check TSH (and serum calcium) in unexplained chronic constipation.", zh_hk: "無故慢性便秘應檢查甲狀腺素 (TSH) 及血鈣水平。" } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Audit opioids, iron supplements, antacids, anticholinergics, and calcium channel blockers.", zh_hk: "覆核鴉片類止痛藥、鐵丸、胃藥、抗膽鹼藥及鈣離子阻斷劑。" } }
+        - { id: mq_malignancy, tier: primary, masquerade: malignancy, concept_id: cond:colorectal_cancer, clue_prompt: { en: "New persistent change in bowel habit >=4 weeks in age >=45-50y warrants colonoscopy evaluation.", zh_hk: "45至50歲以上新發持續排便習慣改變超過4星期，須評估大腸鏡檢查。" } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore laxative dependence, fibre/fluid intake, pelvic floor dysfunction, or fear of bowel cancer.", zh_hk: "了解有否長期依賴瀉藥、膳食纖維及飲水習慣，或對大腸癌的擔憂。" }
+    positive_exclusions:
+      - id: ex_obstruction
+        finding_concept_id: rf:peritonism_rigid_abdomen
+        question: { en: "Do you have severe tummy pain, marked swelling/bloating, persistent vomiting, or inability to pass gas?", zh_hk: "請問你有沒有劇烈腹痛、腹部明顯脹大、持續嘔吐或完全放唔出屁？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_gi_bleed
+        finding_concept_id: rf:gi_bleeding
+        question: { en: "Have you noticed any blood in your stools or black tarry bowel motions?", zh_hk: "請問你有沒有發現大便帶血或排出黑色焦油狀大便？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_weight_loss
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Have you had unexplained weight loss or a new change in bowel habit lasting more than 4 weeks?", zh_hk: "請問近期有沒有體重無故下降，或排便習慣新近改變持續超過4星期？" }
+        urgency_if_present: 3
+        mandatory: true
+    safety_netting:
+      - id: sn_obstruction_emergency
+        trigger_condition: { en: "Severe abdominal pain, persistent vomiting, inability to pass gas, or progressive abdominal swelling", zh_hk: "劇烈腹痛、持續嘔吐、完全無法排氣或腹部持續脹大" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "If you develop severe tummy pain, persistent vomiting, a very swollen belly, or cannot pass wind, seek immediate emergency hospital care."
+          zh_hk: "如出現劇烈腹痛、持續嘔吐、腹部嚴重脹大或完全無法排氣，請立即前往急症室。"
+      - id: sn_constipation_change
+        trigger_condition: { en: "New constipation lasting >4 weeks, blood in stool, or unexplained weight loss", zh_hk: "新發便秘持續超過4星期、大便帶血或體重無故下降" }
+        timeframe_hours: 168
+        escalation_channel: urgent_clinic_callback
+        patient_instruction:
+          en: "Arrange prompt doctor review if you notice blood in your stool, unintended weight loss, or a new persistent change in bowel habits."
+          zh_hk: "如出現大便帶血、體重無故下降或新發持續排便習慣改變，請盡快聯絡診所安排醫生評估。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: frame:rectal_bleeding
+    rfe_concept_id: rfe:rectal_bleeding
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_haemorrhoids, concept_id: cond:haemorrhoids, key_discriminators: ["painless bright red blood on paper/dripping into pan — NEVER assume benign in age >=45-50y without assessment"] }
+        - { id: p_diverticulitis, concept_id: cond:diverticulitis, key_discriminators: ["painless brisk diverticular bleed or painful LIF inflammation"] }
+        - { id: p_gastro, concept_id: cond:gastroenteritis, key_discriminators: ["acute invasive bloody diarrhoea with fever"] }
+      serious_not_to_be_missed:
+        - { id: s_crc, concept_id: cond:colorectal_cancer, key_discriminators: ["dark red blood mixed with stool, change in bowel habit, tenesmus, IDA, weight loss"] }
+        - { id: s_ibd, concept_id: cond:ibd, key_discriminators: ["bloody diarrhoea with mucus, urgency, younger adult onset"] }
+        - { id: s_upper_gi, concept_id: cond:peptic_ulcer, key_discriminators: ["brisk upper GI bleed presenting as maroon stools + haemodynamic instability"] }
+        - { id: s_ida, concept_id: cond:iron_deficiency_anaemia }
+      pitfalls_often_missed:
+        - { id: o_anticoag, concept_id: cond:drug_adverse_effect, key_discriminators: ["warfarin/DOAC/NSAID often unmasks an underlying colorectal neoplasm — still investigate!"] }
+        - { id: o_cirrhosis, concept_id: cond:cirrhosis, key_discriminators: ["anorectal varices or coagulopathy"] }
+      masquerades:
+        - { id: mq_malignancy, tier: primary, masquerade: malignancy, concept_id: cond:colorectal_cancer, clue_prompt: { en: "Never attribute rectal bleeding solely to haemorrhoids without examining and assessing colonoscopy threshold (age >=45-50y, dark/mixed blood, bowel habit change, family history, or IDA).", zh_hk: "切勿在未經檢查及評估大腸鏡指徵前將便血單純歸咎於痔瘡（特別是45至50歲以上、暗紅混便血、排便習慣改變或貧血）。" } }
+        - { id: mq_anaemia, tier: primary, masquerade: anaemia, concept_id: cond:iron_deficiency_anaemia, clue_prompt: { en: "Order FBC + ferritin + coagulation screen if on anticoagulants.", zh_hk: "應檢測全血計數及鐵蛋白；如正服薄血藥須加檢凝血功能。" } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Check warfarin, DOACs, antiplatelets, and NSAIDs.", zh_hk: "核實有否服用華法林、新型薄血藥、抗血小板藥或消炎止痛藥。" } }
+      patient_hidden_agenda_prompts:
+        - { en: "Address embarrassment about rectal examination/colonoscopy and explore family history of bowel cancer or polyps.", zh_hk: "體諒病人對肛門檢查或大腸鏡的尷尬與顧慮，並查詢大腸癌或大腸瘜肉家族史。" }
+    positive_exclusions:
+      - id: ex_massive_gi_bleed
+        finding_concept_id: rf:gi_bleeding
+        question: { en: "Are you passing large amounts of blood, blood clots, or black tarry stools?", zh_hk: "請問你是否排出大量鮮血、血塊，或黑色焦油狀大便？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_syncope
+        finding_concept_id: rf:syncope
+        question: { en: "Are you feeling dizzy, faint, short of breath, or having a racing heartbeat?", zh_hk: "請問你有沒有頭暈、作暈、氣促或心跳加速？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_bloody_diarrhoea
+        finding_concept_id: rf:bloody_diarrhoea_fever
+        question: { en: "Is the bleeding accompanied by frequent watery diarrhoea, mucus, or high fever?", zh_hk: "請問便血時有否伴隨頻繁肚瀉、黏液或高燒？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_weight_loss
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Have you experienced unintended weight loss or a persistent change in your bowel habits?", zh_hk: "請問近期有沒有體重無故下降，或排便習慣持續改變？" }
+        urgency_if_present: 3
+        mandatory: true
+    safety_netting:
+      - id: sn_pr_bleed_emergency
+        trigger_condition: { en: "Large volume rectal bleeding, passing clots, black tarry stools, dizziness, fainting, or severe abdominal pain", zh_hk: "大量便血、排出血塊、黑色焦油狀大便、頭暈昏厥或劇烈腹痛" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if you pass large amounts of blood or clots, black tarry stools, feel dizzy or faint, or have severe tummy pain."
+          zh_hk: "如出現大量便血或血塊、黑便、頭暈昏厥或劇烈腹痛，請立即前往急症室。"
+      - id: sn_pr_bleed_urgent_review
+        trigger_condition: { en: "Any unexplained, dark/mixed, or recurrent rectal bleeding", zh_hk: "任何不明原因、暗紅混便或反覆出現的大便帶血" }
+        timeframe_hours: 48
+        escalation_channel: urgent_clinic_callback
+        patient_instruction:
+          en: "Any unexplained or recurring blood in your stool should be assessed promptly by a doctor to determine whether a bowel camera test (colonoscopy) is needed."
+          zh_hk: "任何不明原因或反覆大便帶血均應盡快由醫生檢查，以評估是否需要安排大腸鏡檢查。"
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+# ===========================================================================
+# OBSERVATION RULES (7) — Hepatology & GI Diagnostics
+# ===========================================================================
+observation_rules:
+  - id: obs_rule:ast
+    observation_concept_id: obs:ast
+    canonical_ucum: "U/L"
+    display_ucum: "U/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 10.0, high: 40.0, priority: 0 }
+      - { id: ri_adult_female, low: 10.0, high: 35.0, priority: 10, when: { fact: sex, op: eq, value: "F" } }
+    severity_bands:
+      significant: { gt: 80.0 }
+      urgent: { gt: 200.0 }
+      critical: { gt: 500.0 }
+    trend_rules:
+      - id: tr_ast_acute_rise
+        direction: rise
+        delta_abs: 100.0
+        window_days: 30
+        urgency_floor: 3
+        clinician_rationale:
+          en: "Rapid AST rise >=100 U/L within 30 days — urgently exclude drug-induced liver injury (DILI), acute viral hepatitis / HBV flare, ischaemic hepatitis, or rhabdomyolysis."
+          zh_hk: "30日內 AST 急升 >=100 U/L，須緊急排除藥物性肝損傷、急性病毒性肝炎／乙肝發作、缺血性肝炎或橫紋肌溶解症。"
+    direction_templates:
+      H:
+        working_problem: { en: "raised AST (hepatocellular or muscle injury)", zh_hk: "AST 偏高（肝細胞或肌肉損傷）" }
+        plan_template:
+          en: "Compare with ALT (AST:ALT >2 suggests alcoholic liver disease or advanced cirrhosis; isolated AST rise -> check CK for muscle source); screen HBsAg, anti-HCV, alcohol, MASLD/FIB-4, and culprit drugs/TCM herbs; check INR/bilirubin if >200 U/L."
+          zh_hk: "對照 ALT（AST:ALT >2 提示酒精性肝病或肝硬化；單獨 AST 升高須驗 CK 排除肌肉損傷）；排查乙肝、丙肝、酒精、脂肪肝及藥物／中草藥；如 >200 U/L 須加檢 INR 及膽紅素。"
+        relevant_med_class_ids: ["drug_class:statin", "drug_class:dmard", "drug_class:analgesic_non_opioid"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs_rule:alp
+    observation_concept_id: obs:alp
+    canonical_ucum: "U/L"
+    display_ucum: "U/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 30.0, high: 120.0, priority: 0 }
+    severity_bands:
+      significant: { gt: 180.0 }
+      urgent: { gt: 360.0 }
+      critical: { gt: 600.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "raised alkaline phosphatase (cholestatic vs bone source)", zh_hk: "鹼性磷酸酶 (ALP) 偏高（膽道淤積或骨骼來源）" }
+        plan_template:
+          en: "Check GGT and bilirubin to confirm hepatobiliary vs bone origin (physiological elevation in pregnancy and growing children); if hepatobiliary, arrange abdominal ultrasound to exclude biliary obstruction/mass and review cholestatic drugs (e.g. amoxicillin-clavulanate)."
+          zh_hk: "配合 GGT 及膽紅素區分肝膽或骨骼來源（孕婦及發育期兒童可呈生理性偏高）；如屬肝膽來源須安排腹部超聲波排除膽道阻塞或腫瘤，並檢視可致膽汁淤積之藥物（如阿莫西林克拉維酸）。"
+        relevant_med_class_ids: ["drug_class:beta_lactam_antibiotic", "drug_class:macrolide_antibiotic"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs_rule:bilirubin
+    observation_concept_id: obs:bilirubin
+    canonical_ucum: "umol/L"
+    display_ucum: "umol/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 2.0, high: 21.0, priority: 0 }
+    severity_bands:
+      significant: { gt: 35.0 }
+      urgent: { gt: 85.0 }
+      critical: { gt: 170.0 }
+    trend_rules:
+      - id: tr_bili_acute_rise
+        direction: rise
+        delta_abs: 35.0
+        window_days: 14
+        urgency_floor: 3
+        clinician_rationale:
+          en: "Rapid bilirubin rise >=35 umol/L within 14 days — urgently assess for biliary obstruction, ascending cholangitis, acute hepatitis/DILI, or haemolysis."
+          zh_hk: "14日內膽紅素急升 >=35 umol/L，須緊急評估膽道阻塞、急性膽管炎、急性肝炎／藥物肝損傷或溶血。"
+    direction_templates:
+      H:
+        working_problem: { en: "hyperbilirubinaemia / jaundice workup", zh_hk: "高膽紅素血症／黃疸評估" }
+        plan_template:
+          en: "Fractionate direct vs indirect bilirubin and inspect ALT/ALP/GGT/INR/CBC; isolated mild unconjugated rise with normal LFT/Hb favours Gilbert syndrome; conjugated rise requires urgent liver ultrasound (and immediate ED if fever/RUQ pain/Charcot triad)."
+          zh_hk: "區分直接及間接膽紅素並對照肝酵素、INR 及全血計數；若其餘指標正常且以輕度間接膽紅素偏高為主多屬吉伯特氏症候群；直接膽紅素升高須緊急安排腹部超聲波（如伴發燒及右上腹痛須即赴急症室）。"
+        relevant_med_class_ids: ["drug_class:beta_lactam_antibiotic", "drug_class:statin", "drug_class:dmard"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs_rule:albumin
+    observation_concept_id: obs:albumin
+    canonical_ucum: "g/L"
+    display_ucum: "g/L"
+    unit_conversions:
+      - { from_ucum: "g/dL", factor: 10.0, offset: 0.0 }
+    reference_intervals:
+      - { id: ri_adult_default, low: 35.0, high: 50.0, priority: 0 }
+    severity_bands:
+      significant: { lt: 30.0 }
+      urgent: { lt: 25.0 }
+      critical: { lt: 20.0 }
+    direction_templates:
+      L:
+        working_problem: { en: "hypoalbuminaemia", zh_hk: "低白蛋白血症" }
+        plan_template:
+          en: "Evaluate impaired hepatic synthesis (cirrhosis — check INR, bilirubin, platelets), urinary protein loss (uACR for nephrotic syndrome), GI protein loss (IBD/coeliac), malnutrition, or chronic inflammation/malignancy."
+          zh_hk: "評估肝臟合成功能受損（肝硬化：覆檢 INR、膽紅素、血小板）、腎病綜合症蛋白尿 (uACR)、腸道蛋白流失（發炎性腸病／乳糜瀉）、營養不良或慢性炎症／腫瘤。"
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs_rule:fit_stool
+    observation_concept_id: obs:fit_stool
+    canonical_ucum: "{Ordinal}"
+    display_ucum: "{Ordinal}"
+    reference_intervals: []
+    severity_bands:
+      urgent: { ge: 1.0 }
+    direction_templates:
+      positive:
+        working_problem: { en: "positive faecal immunochemical test (FIT / iFOBT)", zh_hk: "大便隱血測試 (FIT) 呈陽性" }
+        plan_template:
+          en: "Arrange timely diagnostic colonoscopy (NEVER repeat FIT to confirm/refute a positive result and NEVER attribute solely to haemorrhoids); check FBC/ferritin and review anticoagulant/NSAID status."
+          zh_hk: "安排診斷性大腸鏡檢查（切勿重做 FIT 測試以推翻陽性結果，亦切勿單純歸因於痔瘡）；覆檢全血計數、鐵蛋白及薄血藥／消炎藥使用情況。"
+        relevant_med_class_ids: ["drug_class:anticoagulant", "drug_class:nsaid"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs_rule:h_pylori_stool_ag
+    observation_concept_id: obs:h_pylori_stool_ag
+    canonical_ucum: "{Ordinal}"
+    display_ucum: "{Ordinal}"
+    reference_intervals: []
+    severity_bands:
+      significant: { ge: 1.0 }
+    direction_templates:
+      positive:
+        working_problem: { en: "Helicobacter pylori infection (stool antigen positive)", zh_hk: "幽門螺旋桿菌感染（大便抗原陽性）" }
+        plan_template:
+          en: "Screen ALARM symptoms first (if present -> urgent OGD before eradication); confirm penicillin/macrolide allergy and local clarithromycin resistance before prescribing eradication regimen; confirm eradication >=4 weeks post-therapy (off PPI >=2 weeks, off antibiotics/bismuth >=4 weeks)."
+          zh_hk: "先排除上消化道警號（如有須先照胃鏡）；處方滅菌療程前核實青黴素／大環內酯過敏史及本地耐藥情況；完成療程後至少4星期（停 PPI >=2星期、停抗生素 >=4星期）作覆檢確認清除。"
+        relevant_med_class_ids: ["drug_class:ppi", "drug_class:beta_lactam_antibiotic", "drug_class:macrolide_antibiotic"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: obs_rule:anti_hcv
+    observation_concept_id: obs:anti_hcv
+    canonical_ucum: "{Ordinal}"
+    display_ucum: "{Ordinal}"
+    reference_intervals: []
+    severity_bands:
+      significant: { ge: 1.0 }
+    direction_templates:
+      positive:
+        working_problem: { en: "reactive Hepatitis C antibody (Anti-HCV positive)", zh_hk: "丙型肝炎抗體呈陽性" }
+        plan_template:
+          en: "Order reflex quantitative HCV RNA PCR (antibody alone cannot distinguish active viraemia from cleared infection); check LFT, FBC, INR, HBsAg, HIV, and non-invasive fibrosis score (FIB-4/APRI); arrange curative pan-genotypic DAA therapy if HCV RNA positive."
+          zh_hk: "必須加驗定量丙肝病毒核酸 (HCV RNA PCR) 以區分活躍感染或已清除舊感染；同步檢視肝功能、血小板、INR、乙肝、HIV 及肝纖維化指數 (FIB-4/APRI)；如 RNA 陽性須安排泛基因型直接抗病毒藥物根治治療。"
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+# ===========================================================================
+# PATHWAY POINTERS (3) — Static Ontology -> Temporal Pathways Boundary
+# Strict Asymmetric Authority: autonomy_ceiling <= L1_propose_only
+# ===========================================================================
+pointers:
+  - id: ptr:ent_airway_and_npc_escalation
+    trigger_concepts:
+      - "rfe:sore_throat"
+      - "rfe:ear_pain"
+      - "rf:stridor_airway"
+      - "rf:unilateral_ome_neck_lump"
+      - "cond:npc"
+    trigger_edges:
+      - "edge:stridor_airway_emergency"
+      - "edge:unilateral_ome_neck_lump_npc_red_flag"
+      - "edge:unilateral_ome_npc_nasoendoscopy"
+    target_kind: protocol_yaml
+    target_ref: "protocols/ent_airway_npc_escalation_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "ethnicity", "duration_hours", "allergies", "on_meds"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: ptr:acute_gi_surgical_and_endoscopy_pathway
+    trigger_concepts:
+      - "rfe:abdominal_pain"
+      - "rfe:dyspepsia_epigastric"
+      - "rfe:diarrhoea"
+      - "rfe:constipation"
+      - "rfe:rectal_bleeding"
+      - "rf:peritonism_rigid_abdomen"
+      - "rf:dysphagia_progressive"
+      - "rf:bloody_diarrhoea_fever"
+    trigger_edges:
+      - "edge:peritonism_surgical_emergency"
+      - "edge:dyspepsia_alarm_dysphagia_ogd"
+      - "edge:dyspepsia_alarm_age50_weightloss_ogd"
+      - "edge:fit_positive_urgent_colonoscopy"
+      - "edge:bloody_diarrhoea_loperamide_block"
+    trigger_observations:
+      - "obs_rule:fit_stool"
+      - "obs_rule:h_pylori_stool_ag"
+    target_kind: protocol_yaml
+    target_ref: "protocols/gi_red_flag_endoscopy_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "sex", "pregnant", "on_meds", "obs_values"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }
+
+  - id: ptr:hepatology_and_respiratory_med_safety
+    trigger_concepts:
+      - "rf:jaundice"
+      - "cond:cirrhosis"
+      - "cond:chronic_hcv"
+      - "cond:asthma_chronic"
+      - "cond:copd_chronic"
+    trigger_edges:
+      - "edge:oral_steroid_hbv_reactivation"
+      - "edge:jaundice_urgent_biliary_liver_workup"
+      - "edge:doxycycline_pregnancy_paed_ci"
+      - "edge:azithromycin_qt_caution"
+      - "edge:clarithromycin_cyp3a4_qt_caution"
+    trigger_observations:
+      - "obs_rule:ast"
+      - "obs_rule:alp"
+      - "obs_rule:bilirubin"
+      - "obs_rule:albumin"
+      - "obs_rule:anti_hcv"
+    target_kind: journey_module
+    target_ref: "backend.journeys.hepatology_resp_safety"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "pregnant", "on_meds", "obs_values", "ethnicity"]
+    provenance: { author: "ontology_pod_w1_b", review_status: "draft" }

@@ -1,0 +1,1893 @@
+# Wave 1 Pod A: Cardiometabolic, Endocrine & Renal-Urology Primary Care Core
+# Licensing: Tier-1 commercial-safe open spine (SNOMED CT GPS, LOINC, UCUM, WHO INN, FDA UNII,
+# RxNorm SAB=RXNORM); Tier-2 bare code-only interoperability pointers (ICPC-2, ICD-10, ATC).
+# Zero hardcoded jurisdiction emergency numbers (999/000) and zero banned reassurance claims.
+
+concepts:
+  # =========================================================================
+  # REASONS FOR ENCOUNTER (RFEs) — 5 Core Cardiometabolic & Renal Presentations
+  # =========================================================================
+  - id: rfe:palpitations
+    kind: rfe
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "80313002", display: "Palpitations (finding)" }
+      icpc2: { code: "K04", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R00.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Palpitations / racing or irregular heartbeat", zh_hk: "心悸／心跳過快或心跳不規律" }
+    aliases:
+      en: ["palpitations", "heart racing", "fluttering heart", "skipped beats", "pounding heart", "fast pulse", "irregular heartbeat"]
+      zh_hk: ["心悸", "心跳好快", "心跳加速", "心跳唔規律", "心跳漏拍", "心口卜卜跳", "個心離一離"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: rfe:ankle_oedema
+    kind: rfe
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "267038008", display: "Edema (finding)" }
+      icpc2: { code: "K07", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R60.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Ankle or leg swelling (peripheral oedema)", zh_hk: "足踝或下肢水腫／腳腫" }
+    aliases:
+      en: ["ankle swelling", "swollen ankles", "swollen legs", "leg oedema", "pitting oedema", "fluid retention", "puffy feet"]
+      zh_hk: ["腳腫", "足踝腫", "小腿水腫", "雙腳水腫", "水腫", "按落去凹咗"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: rfe:dysuria_frequency
+    kind: rfe
+    wave: W1
+    cluster: C07_renal
+    bindings:
+      snomed_gps: { code: "49650001", display: "Dysuria (finding)" }
+      icpc2: { code: "U01", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R30.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Painful urination / urinary frequency or urgency (LUTS/UTI symptoms)", zh_hk: "排尿赤痛／尿頻／尿急" }
+    aliases:
+      en: ["dysuria", "burning when peeing", "painful urination", "urinary frequency", "urinary urgency", "stinging urine", "need to pee constantly"]
+      zh_hk: ["屙尿痛", "小便赤痛", "小便灼熱", "尿頻", "尿急", "成日急尿", "屙極都唔清"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: rfe:haematuria
+    kind: rfe
+    wave: W1
+    cluster: C07_renal
+    bindings:
+      snomed_gps: { code: "34436003", display: "Blood in urine (finding)" }
+      icpc2: { code: "U06", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R31", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Blood in urine (haematuria)", zh_hk: "血尿／小便帶血" }
+    aliases:
+      en: ["haematuria", "hematuria", "blood in urine", "red urine", "pink urine", "tea-coloured urine", "blood clots in urine"]
+      zh_hk: ["血尿", "小便有血", "屙血尿", "小便變紅", "茶色尿", "尿液帶血絲"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: rfe:polyuria_polydipsia
+    kind: rfe
+    wave: W1
+    cluster: C02_endocrine
+    bindings:
+      snomed_gps: { code: "28442001", display: "Polyuria (finding)" }
+      icpc2: { code: "T01", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R35", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Excessive urination and excessive thirst (polyuria / polydipsia)", zh_hk: "多尿及口渴多飲" }
+    aliases:
+      en: ["polyuria", "polydipsia", "excessive thirst", "always thirsty", "passing lots of urine", "peeing all night", "nocturia"]
+      zh_hk: ["多尿", "成日口渴", "狂飲水", "夜尿多", "小便量好大", "口乾飲極水都唔解渴"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  # =========================================================================
+  # RED-FLAG FINDINGS (4) — openEHR Positive Exclusions & Safety Floor
+  # =========================================================================
+  - id: rf:unilateral_calf_swelling
+    kind: red_flag
+    wave: W1
+    cluster: C01_cardiovascular
+    display: { en: "Acute unilateral calf or leg swelling, pain, warmth, or redness (suspected DVT)", zh_hk: "急性單側小腿或下肢腫脹、疼痛、發熱或發紅（疑似深層靜脈血栓）" }
+    aliases:
+      en: ["unilateral calf swelling", "one leg swollen", "swollen painful calf", "red hot calf", "suspected DVT"]
+      zh_hk: ["單邊小腿腫", "一隻腳腫痛", "單側下肢紅腫發熱", "深層靜脈血栓警號"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: rf:painless_frank_haematuria
+    kind: red_flag
+    wave: W1
+    cluster: C07_renal
+    display: { en: "Painless visible (frank/macroscopic) haematuria or blood clots in urine", zh_hk: "無痛肉眼可見血尿或尿液帶血塊" }
+    aliases:
+      en: ["painless haematuria", "painless frank haematuria", "visible blood in urine without pain", "gross haematuria", "blood clots in pee"]
+      zh_hk: ["無痛血尿", "肉眼血尿", "小便鮮紅唔痛", "屙血塊", "無痛屙血尿"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: rf:flank_pain_fever
+    kind: red_flag
+    wave: W1
+    cluster: C07_renal
+    display: { en: "Flank or loin pain with fever, chills/rigors, or vomiting (suspected pyelonephritis / urosepsis)", zh_hk: "腰側／腎區痛伴發燒、發冷打震或嘔吐（疑似急性腎盂腎炎／尿源性敗血症）" }
+    aliases:
+      en: ["flank pain with fever", "loin pain and rigors", "kidney pain with high fever", "costovertebral tenderness fever", "urosepsis signs"]
+      zh_hk: ["腰痛發燒", "腰側痛發冷", "腎位痛兼高燒", "發燒打冷震兼小便痛"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: rf:orthopnoea_pnd
+    kind: red_flag
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "62744007", display: "Orthopnea (finding)" }
+    display: { en: "Orthopnoea (breathless lying flat), paroxysmal nocturnal dyspnoea, or pink frothy sputum", zh_hk: "端坐呼吸（平躺氣促）、夜間陣發性呼吸困難或粉紅色泡沫痰" }
+    aliases:
+      en: ["orthopnoea", "orthopnea", "breathless lying flat", "needs extra pillows to breathe", "waking up gasping at night", "PND", "pink frothy sputum"]
+      zh_hk: ["訓低就唞唔到氣", "要墊高幾個枕頭先訓到", "半夜氣促驚醒", "端坐呼吸", "粉紅色泡沫痰"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  # =========================================================================
+  # CONDITIONS (18) — Cardiometabolic, Endocrine & Renal-Urology
+  # =========================================================================
+  - id: cond:atrial_fibrillation
+    kind: condition
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "49436004", display: "Atrial fibrillation (disorder)" }
+      icpc2: { code: "K78", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I48.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Atrial fibrillation (AF)", zh_hk: "心房顫動（房顫）" }
+    aliases:
+      en: ["atrial fibrillation", "AF", "AFib", "NVAF", "paroxysmal AF", "irregularly irregular pulse"]
+      zh_hk: ["房顫", "心房顫動", "心房纖顫"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:heart_failure
+    kind: condition
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "84114007", display: "Heart failure (disorder)" }
+      icpc2: { code: "K77", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I50.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Heart failure (HFrEF / HFpEF)", zh_hk: "心臟衰竭（心衰）" }
+    aliases:
+      en: ["heart failure", "CHF", "CCF", "HFrEF", "HFpEF", "congestive cardiac failure", "acute pulmonary oedema"]
+      zh_hk: ["心臟衰竭", "心衰", "心臟積水", "肺積水"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:stable_ihd
+    kind: condition
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "53741008", display: "Coronary arteriosclerosis (disorder)" }
+      icpc2: { code: "K74", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I25.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Stable ischaemic heart disease / chronic coronary syndrome", zh_hk: "穩定型缺血性心臟病／冠心病" }
+    aliases:
+      en: ["stable IHD", "coronary artery disease", "CAD", "stable angina", "chronic coronary syndrome", "post-PCI stent"]
+      zh_hk: ["冠心病", "缺血性心臟病", "穩定型心絞痛", "通波仔後覆診"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:dvt
+    kind: condition
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "128053003", display: "Deep venous thrombosis (disorder)" }
+      icpc2: { code: "K94", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I82.4", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Deep vein thrombosis (DVT)", zh_hk: "深層靜脈血栓 (DVT)" }
+    aliases:
+      en: ["deep vein thrombosis", "DVT", "lower limb VTE", "leg clot", "venous thrombosis"]
+      zh_hk: ["深層靜脈血栓", "靜脈血栓", "腳部血塊", "經濟艙綜合症"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:t1dm
+    kind: condition
+    wave: W1
+    cluster: C02_endocrine
+    bindings:
+      snomed_gps: { code: "46635009", display: "Diabetes mellitus type 1 (disorder)" }
+      icpc2: { code: "T89", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E10", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Type 1 diabetes mellitus (T1DM)", zh_hk: "一型糖尿病" }
+    aliases:
+      en: ["type 1 diabetes", "T1DM", "IDDM", "autoimmune diabetes", "LADA"]
+      zh_hk: ["一型糖尿病", "一型糖尿", "胰島素依賴型糖尿病"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:prediabetes
+    kind: condition
+    wave: W1
+    cluster: C02_endocrine
+    bindings:
+      snomed_gps: { code: "714628002", display: "Prediabetes (finding)" }
+      icpc2: { code: "A91", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R73.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Prediabetes (impaired fasting glucose / impaired glucose tolerance)", zh_hk: "糖尿病前期（空腹血糖受損／糖耐量受損）" }
+    aliases:
+      en: ["prediabetes", "IFG", "IGT", "borderline diabetes", "impaired fasting glucose", "impaired glucose tolerance"]
+      zh_hk: ["糖尿病前期", "血糖偏高", "血糖踩界", "空腹血糖受損"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:hyperthyroidism
+    kind: condition
+    wave: W1
+    cluster: C02_endocrine
+    bindings:
+      snomed_gps: { code: "34486009", display: "Hyperthyroidism (disorder)" }
+      icpc2: { code: "T85", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E05.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Hyperthyroidism / thyrotoxicosis", zh_hk: "甲狀腺功能亢進症（甲亢）" }
+    aliases:
+      en: ["hyperthyroidism", "thyrotoxicosis", "overactive thyroid", "Graves disease", "toxic nodular goitre"]
+      zh_hk: ["甲亢", "甲狀腺亢進", "甲狀腺過高", "大頸泡"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:obesity
+    kind: condition
+    wave: W1
+    cluster: C02_endocrine
+    bindings:
+      snomed_gps: { code: "414916001", display: "Obesity (disorder)" }
+      icpc2: { code: "T82", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E66.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Obesity / excess adiposity", zh_hk: "肥胖症／體重過重" }
+    aliases:
+      en: ["obesity", "high BMI", "central obesity", "metabolic syndrome", "weight management"]
+      zh_hk: ["肥胖", "肥胖症", "中央肥胖", "體重超標", "體重管理"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:pyelonephritis
+    kind: condition
+    wave: W1
+    cluster: C07_renal
+    bindings:
+      snomed_gps: { code: "45816000", display: "Pyelonephritis (disorder)" }
+      icpc2: { code: "U70", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N10", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute pyelonephritis (upper urinary tract infection)", zh_hk: "急性腎盂腎炎（上尿道感染）" }
+    aliases:
+      en: ["pyelonephritis", "kidney infection", "upper UTI", "urosepsis"]
+      zh_hk: ["腎盂腎炎", "急性腎盂腎炎", "腎臟發炎", "上尿道感染"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:renal_colic
+    kind: condition
+    wave: W1
+    cluster: C07_renal
+    bindings:
+      snomed_gps: { code: "7093002", display: "Renal colic (finding)" }
+      icpc2: { code: "U95", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N23", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Renal colic / urolithiasis (kidney or ureteric stone)", zh_hk: "腎絞痛／泌尿道結石（腎石）" }
+    aliases:
+      en: ["renal colic", "kidney stone", "ureteric stone", "urolithiasis", "nephrolithiasis"]
+      zh_hk: ["腎石", "腎結石", "輸尿管結石", "腎絞痛", "生腎石"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:bph
+    kind: condition
+    wave: W1
+    cluster: C07_renal
+    bindings:
+      snomed_gps: { code: "266569009", display: "Benign prostatic hyperplasia (disorder)" }
+      icpc2: { code: "Y85", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N40", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Benign prostatic hyperplasia (BPH)", zh_hk: "良性前列腺增生（前列腺肥大）" }
+    aliases:
+      en: ["BPH", "benign prostatic hyperplasia", "enlarged prostate", "prostatism", "male LUTS"]
+      zh_hk: ["前列腺增生", "前列腺肥大", "良性前列腺增生", "小便唔順"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:erectile_dysfunction
+    kind: condition
+    wave: W1
+    cluster: C07_renal
+    bindings:
+      snomed_gps: { code: "860914002", display: "Erectile dysfunction (disorder)" }
+      icpc2: { code: "Y07", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N52.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Erectile dysfunction (ED)", zh_hk: "勃起功能障礙" }
+    aliases:
+      en: ["erectile dysfunction", "ED", "impotence", "difficulty getting erections"]
+      zh_hk: ["勃起功能障礙", "陽痿", "不舉"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:hypertensive_emergency
+    kind: condition
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "706882009", display: "Hypertensive emergency (disorder)" }
+      icpc2: { code: "K87", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I16.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Hypertensive emergency (severe BP with acute target-organ damage)", zh_hk: "高血壓急症（嚴重高血壓伴急性靶器官損傷）" }
+    aliases:
+      en: ["hypertensive emergency", "hypertensive crisis", "malignant hypertension", "hypertensive encephalopathy"]
+      zh_hk: ["高血壓急症", "高血壓危象", "惡性高血壓", "血壓爆錶"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:secondary_hypertension
+    kind: condition
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "31992008", display: "Secondary hypertension (disorder)" }
+      icpc2: { code: "K87", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I15.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Secondary hypertension (e.g. primary aldosteronism, renal artery stenosis, phaeochromocytoma)", zh_hk: "繼發性高血壓（如原發性醛固酮增多症、腎動脈狹窄、嗜鉻細胞瘤）" }
+    aliases:
+      en: ["secondary hypertension", "primary aldosteronism", "Conn syndrome", "renal artery stenosis", "phaeochromocytoma", "resistant hypertension"]
+      zh_hk: ["繼發性高血壓", "頑固性高血壓", "原發性醛固酮增多症", "腎性高血壓"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:urologic_malignancy
+    kind: condition
+    wave: W1
+    cluster: C07_renal
+    bindings:
+      snomed_gps: { code: "399326009", display: "Malignant tumor of urinary bladder (disorder)" }
+      icpc2: { code: "U76", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "C67.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Urologic malignancy (bladder, renal cell, or prostate cancer)", zh_hk: "泌尿系統惡性腫瘤（膀胱癌／腎癌／前列腺癌）" }
+    aliases:
+      en: ["urologic malignancy", "bladder cancer", "renal cell carcinoma", "prostate cancer", "urothelial carcinoma"]
+      zh_hk: ["膀胱癌", "腎癌", "前列腺癌", "泌尿道腫瘤"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:dka
+    kind: condition
+    wave: W1
+    cluster: C02_endocrine
+    bindings:
+      snomed_gps: { code: "420422005", display: "Ketoacidosis in diabetes mellitus (disorder)" }
+      icpc2: { code: "T99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E10.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Diabetic ketoacidosis (DKA) / hyperosmolar hyperglycaemic state (HHS)", zh_hk: "糖尿病酮症酸中毒 (DKA)／高滲透壓高血糖狀態" }
+    aliases:
+      en: ["DKA", "diabetic ketoacidosis", "euglycaemic DKA", "eDKA", "HHS", "ketones high"]
+      zh_hk: ["酮症酸中毒", "糖尿病酮酸中毒", "糖尿酮症", "高血糖危象"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:orthostatic_hypotension
+    kind: condition
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      snomed_gps: { code: "28651003", display: "Orthostatic hypotension (disorder)" }
+      icpc2: { code: "K88", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "I95.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Orthostatic (postural) hypotension", zh_hk: "姿勢性低血壓／體位性低血壓" }
+    aliases:
+      en: ["orthostatic hypotension", "postural hypotension", "postural drop", "dizzy on standing"]
+      zh_hk: ["姿勢性低血壓", "體位性低血壓", "企起身頭暈眼前一黑"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: cond:hypoglycaemia
+    kind: condition
+    wave: W1
+    cluster: C02_endocrine
+    bindings:
+      snomed_gps: { code: "302866003", display: "Hypoglycemia (disorder)" }
+      icpc2: { code: "T87", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "E16.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Hypoglycaemia (blood glucose <4.0 mmol/L)", zh_hk: "低血糖（血糖低於 4.0 mmol/L）" }
+    aliases:
+      en: ["hypoglycaemia", "hypoglycemia", "hypo", "low blood sugar", "shaky sweaty diabetic"]
+      zh_hk: ["低血糖", "血糖過低", "血糖低", "糖尿發冷汗手震"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  # =========================================================================
+  # DRUG CLASSES (9) — Cardiometabolic, Endocrine & Urology
+  # =========================================================================
+  - id: drug_class:ccb
+    kind: drug_class
+    wave: W1
+    cluster: C01_cardiovascular
+    display: { en: "Calcium channel blocker (CCB)", zh_hk: "鈣離子通道阻滯劑（降血壓藥）" }
+    purpose_phrases:
+      en: ["blood pressure", "hypertension", "angina"]
+      zh_hk: ["血壓", "血壓藥", "降血壓丸"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug_class:beta_blocker
+    kind: drug_class
+    wave: W1
+    cluster: C01_cardiovascular
+    display: { en: "Beta-adrenoceptor antagonist (beta-blocker)", zh_hk: "乙型受體阻滯劑（β受體阻斷藥）" }
+    purpose_phrases:
+      en: ["heart rate", "blood pressure", "palpitations", "heart failure"]
+      zh_hk: ["心跳藥", "減慢心跳", "血壓藥", "心臟藥"]
+    drug_facet:
+      no_gap: true
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug_class:antiplatelet
+    kind: drug_class
+    wave: W1
+    cluster: C01_cardiovascular
+    display: { en: "Antiplatelet agent", zh_hk: "抗血小板藥（薄血藥）" }
+    purpose_phrases:
+      en: ["blood thinner", "heart protection", "stent", "stroke prevention"]
+      zh_hk: ["薄血藥", "通血管藥", "防血栓"]
+    drug_facet:
+      bleedy: true
+      no_gap: true
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug_class:dpp4_inhibitor
+    kind: drug_class
+    wave: W1
+    cluster: C02_endocrine
+    display: { en: "DPP-4 inhibitor (gliptin)", zh_hk: "DPP-4 抑制劑（降糖藥）" }
+    purpose_phrases:
+      en: ["diabetes", "blood sugar"]
+      zh_hk: ["糖尿藥", "降糖藥"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug_class:glp1_ra
+    kind: drug_class
+    wave: W1
+    cluster: C02_endocrine
+    display: { en: "GLP-1 receptor agonist", zh_hk: "GLP-1 受體激動劑（腸泌素降糖針／藥）" }
+    purpose_phrases:
+      en: ["diabetes injection", "weight management", "blood sugar"]
+      zh_hk: ["糖尿針", "腸泌素針", "減重針"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug_class:insulin
+    kind: drug_class
+    wave: W1
+    cluster: C02_endocrine
+    display: { en: "Insulin (basal / prandial)", zh_hk: "胰島素" }
+    purpose_phrases:
+      en: ["insulin", "diabetes injection", "blood sugar"]
+      zh_hk: ["胰島素", "糖尿針", "打胰島素"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug_class:thyroid_hormone
+    kind: drug_class
+    wave: W1
+    cluster: C02_endocrine
+    display: { en: "Thyroid hormone replacement", zh_hk: "甲狀腺素補充劑" }
+    purpose_phrases:
+      en: ["thyroid", "underactive thyroid"]
+      zh_hk: ["甲狀腺藥", "甲減藥"]
+    drug_facet:
+      no_gap: true
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug_class:antithyroid
+    kind: drug_class
+    wave: W1
+    cluster: C02_endocrine
+    display: { en: "Antithyroid agent (thioamide)", zh_hk: "抗甲狀腺藥（甲亢藥）" }
+    purpose_phrases:
+      en: ["overactive thyroid", "hyperthyroidism"]
+      zh_hk: ["甲亢藥", "甲狀腺亢進藥"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug_class:alpha_blocker
+    kind: drug_class
+    wave: W1
+    cluster: C07_renal
+    display: { en: "Alpha-1 adrenoceptor blocker (uroselective / vascular)", zh_hk: "甲型受體阻滯劑（前列腺／血壓藥）" }
+    purpose_phrases:
+      en: ["prostate", "waterworks", "urinary flow"]
+      zh_hk: ["前列腺藥", "排尿藥"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  # =========================================================================
+  # ESSENTIAL DRUGS (23) — Cardiometabolic, Endocrine & Renal-Urology
+  # =========================================================================
+  - id: drug:amlodipine
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:ccb"]
+    bindings:
+      inn: "amlodipine"
+      rxnorm: { code: "17767", display: "amlodipine" }
+      atc: { code: "C08CA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Amlodipine", zh_hk: "氨氯地平" }
+    aliases:
+      en: ["Norvasc", "amlodipine besylate"]
+      zh_hk: ["氨氯地平", "脈優", "降壓丸"]
+    drug_facet:
+      max_daily_mg: 10.0
+      dosing_pearl:
+        en: "Common cause of dose-dependent bilateral pitting ankle oedema (vasodilatory, not heart failure); avoid treating CCB oedema with loop diuretics — consider dose reduction or ACEi/ARB pairing."
+        zh_hk: "常見引致劑量相關的雙側足踝水腫，屬血管擴張副作用，切勿單以去水丸處理，可考慮減量或改配 ACEi/ARB。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:nifedipine
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:ccb"]
+    bindings:
+      inn: "nifedipine"
+      rxnorm: { code: "7417", display: "nifedipine" }
+      atc: { code: "C08CA05", system: "http://www.whocc.no/atc" }
+    display: { en: "Nifedipine (modified-release)", zh_hk: "硝苯地平（緩釋劑）" }
+    aliases:
+      en: ["Adalat", "Adalat OROS", "nifedipine CR", "nifedipine SR"]
+      zh_hk: ["硝苯地平", "拜新同", "血壓丸"]
+    drug_facet:
+      max_daily_mg: 90.0
+      dosing_pearl:
+        en: "Use modified-release formulations only for chronic hypertension (avoid immediate-release sublingual nifedipine due to precipitous hypotension/ischaemia); brand/release-profile consistent; pregnancy-compatible option."
+        zh_hk: "慢性高血壓僅應使用緩釋劑（避免即釋舌下含服引致血壓驟降）；懷孕期高血壓可用選項之一。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:bisoprolol
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:beta_blocker"]
+    bindings:
+      inn: "bisoprolol"
+      rxnorm: { code: "19484", display: "bisoprolol" }
+      atc: { code: "C07AB07", system: "http://www.whocc.no/atc" }
+    display: { en: "Bisoprolol", zh_hk: "比索洛爾" }
+    aliases:
+      en: ["Concor", "Bicor", "bisoprolol fumarate"]
+      zh_hk: ["比索洛爾", "康忻"]
+    drug_facet:
+      no_gap: true
+      max_daily_mg: 10.0
+      dosing_pearl:
+        en: "Cardioselective beta-1 blocker for HFrEF, AF rate control, and IHD; start low (1.25 mg in HFrEF) and uptitrate gradually; never stop abruptly (rebound tachycardia/angina)."
+        zh_hk: "心臟選擇性乙型受體阻滯劑，用於心衰、房顫心率控制及冠心病；切勿突然停藥以免反彈性心動過速或心絞痛。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:metoprolol
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:beta_blocker"]
+    bindings:
+      inn: "metoprolol"
+      rxnorm: { code: "6918", display: "metoprolol" }
+      atc: { code: "C07AB02", system: "http://www.whocc.no/atc" }
+    display: { en: "Metoprolol (tartrate / succinate CR)", zh_hk: "美托洛爾" }
+    aliases:
+      en: ["Betaloc", "Betaloc ZOK", "Toprol", "Minax", "metoprolol succinate"]
+      zh_hk: ["美托洛爾", "倍他樂克", "減慢心跳藥"]
+    drug_facet:
+      no_gap: true
+      max_daily_mg: 200.0
+      dosing_pearl:
+        en: "Distinguish immediate-release tartrate (BD) from controlled-release succinate (OD — proven mortality benefit in HFrEF); do not stop abruptly."
+        zh_hk: "須區分速釋酒石酸鹽（每日兩次）與緩釋琥珀酸鹽（每日一次，具心衰實證）；切勿突然停服。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:propranolol
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:beta_blocker"]
+    bindings:
+      inn: "propranolol"
+      rxnorm: { code: "8787", display: "propranolol" }
+      atc: { code: "C07AA05", system: "http://www.whocc.no/atc" }
+    display: { en: "Propranolol", zh_hk: "普萘洛爾" }
+    aliases:
+      en: ["Inderal", "Deralin", "propranolol hydrochloride"]
+      zh_hk: ["普萘洛爾", "心得安", "甲亢心跳藥"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      dosing_pearl:
+        en: "Non-selective beta-blocker (thyrotoxicosis symptom relief, essential tremor, migraine prophylaxis, portal HTN); strictly contraindicated in asthma and may mask hypoglycaemia symptoms."
+        zh_hk: "非選擇性乙型受體阻滯劑（用於甲亢心悸、震顫、偏頭痛預防）；哮喘患者嚴禁使用，且可能掩蓋低血糖徵狀。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:aspirin
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:antiplatelet"]
+    bindings:
+      inn: "acetylsalicylic acid"
+      rxnorm: { code: "1191", display: "aspirin" }
+      atc: { code: "B01AC06", system: "http://www.whocc.no/atc" }
+    display: { en: "Aspirin (low-dose antiplatelet)", zh_hk: "阿士匹靈（低劑量抗血小板）" }
+    aliases:
+      en: ["Cartia", "Astrix", "Cardiprin", "ASA", "low-dose aspirin", "baby aspirin"]
+      zh_hk: ["阿士匹靈", "亞士匹靈", "低劑量阿士匹靈", "護心薄血丸"]
+    drug_facet:
+      bleedy: true
+      no_gap: true
+      allergy_group_id: "allergy:nsaid"
+      dosing_pearl:
+        en: "Secondary CVD prevention (75-100 mg daily); avoid routine primary prevention in older adults >=70y without established ASCVD due to bleeding risk; contraindicated in children <16y (Reye syndrome) and dengue."
+        zh_hk: "主要用於心血管病二級預防（每日75至100毫克）；16歲以下兒童（雷伊氏綜合症風險）及登革熱患者禁用。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:clopidogrel
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:antiplatelet"]
+    bindings:
+      inn: "clopidogrel"
+      rxnorm: { code: "32968", display: "clopidogrel" }
+      atc: { code: "B01AC04", system: "http://www.whocc.no/atc" }
+    display: { en: "Clopidogrel", zh_hk: "氯吡格雷" }
+    aliases:
+      en: ["Plavix", "Iscover", "clopidogrel bisulfate"]
+      zh_hk: ["氯吡格雷", "波立維", "抗血小板薄血藥"]
+    drug_facet:
+      high_risk: true
+      bleedy: true
+      no_gap: true
+      max_daily_mg: 75.0
+      dosing_pearl:
+        en: "Prodrug requiring CYP2C19 activation (common loss-of-function alleles in East Asian populations); avoid omeprazole/esomeprazole co-prescription (prefer pantoprazole/famotidine for GI protection); never interrupt early post-PCI stent."
+        zh_hk: "需經 CYP2C19 酵素活化，應避免同服奧美拉唑／埃索美拉唑（護胃藥宜選泮托拉唑）；通波仔支架術後切勿擅自停藥。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:sitagliptin
+    kind: drug
+    wave: W1
+    cluster: C02_endocrine
+    parent_ids: ["drug_class:dpp4_inhibitor"]
+    bindings:
+      inn: "sitagliptin"
+      rxnorm: { code: "593411", display: "sitagliptin" }
+      atc: { code: "A10BH01", system: "http://www.whocc.no/atc" }
+    display: { en: "Sitagliptin", zh_hk: "西格列汀" }
+    aliases:
+      en: ["Januvia", "Janumet"]
+      zh_hk: ["西格列汀", "捷諾維"]
+    drug_facet:
+      max_daily_mg: 100.0
+      renal_note: "100 mg OD if eGFR >=45; 50 mg OD if eGFR 30-44; 25 mg OD if eGFR <30."
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:linagliptin
+    kind: drug
+    wave: W1
+    cluster: C02_endocrine
+    parent_ids: ["drug_class:dpp4_inhibitor"]
+    bindings:
+      inn: "linagliptin"
+      rxnorm: { code: "1100699", display: "linagliptin" }
+      atc: { code: "A10BH05", system: "http://www.whocc.no/atc" }
+    display: { en: "Linagliptin", zh_hk: "利格列汀" }
+    aliases:
+      en: ["Trajenta", "Trajentamet"]
+      zh_hk: ["利格列汀", "糖漸平"]
+    drug_facet:
+      max_daily_mg: 5.0
+      renal_note: "Primarily biliary excretion — 5 mg OD with no renal dose adjustment required across all CKD stages."
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:semaglutide
+    kind: drug
+    wave: W1
+    cluster: C02_endocrine
+    parent_ids: ["drug_class:glp1_ra"]
+    bindings:
+      inn: "semaglutide"
+      rxnorm: { code: "1991302", display: "semaglutide" }
+      atc: { code: "A10BJ06", system: "http://www.whocc.no/atc" }
+    display: { en: "Semaglutide", zh_hk: "司美格魯肽" }
+    aliases:
+      en: ["Ozempic", "Wegovy", "Rybelsus", "weekly diabetes pen"]
+      zh_hk: ["司美格魯肽", "諾和泰", "瘦瘦筆", "每週糖尿針"]
+    drug_facet:
+      pregnancy_caution: "contraindicated"
+      dosing_pearl:
+        en: "Gradual titration minimises GI side effects; stop >=2 months before planned pregnancy; evaluate severe persistent abdominal pain (pancreatitis/gallbladder) and peri-procedural aspiration risk."
+        zh_hk: "須按醫生指示逐步加量以減少腸胃不適；計劃懷孕前至少2個月停藥；如出現持續劇烈腹痛須盡快求醫排除胰臟炎或膽囊問題。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:insulin_glargine
+    kind: drug
+    wave: W1
+    cluster: C02_endocrine
+    parent_ids: ["drug_class:insulin"]
+    bindings:
+      inn: "insulin glargine"
+      rxnorm: { code: "274783", display: "insulin glargine" }
+      atc: { code: "A10AE04", system: "http://www.whocc.no/atc" }
+    display: { en: "Insulin glargine (long-acting basal insulin)", zh_hk: "甘精胰島素（長效基礎胰島素）" }
+    aliases:
+      en: ["Lantus", "Toujeo", "Optisulin", "Semglee", "basal insulin"]
+      zh_hk: ["甘精胰島素", "長效胰島素", "蘭德仕", "基礎糖尿針"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      dosing_pearl:
+        en: "Always verify concentration (100 units/mL vs 300 units/mL — not interchangeable unit-for-unit without dose review); never omit basal insulin entirely in T1DM during sick days (DKA risk)."
+        zh_hk: "處方及核對時必須確認濃度（100單位/毫升與300單位/毫升不可隨意互換）；一型糖尿病患病期間切勿完全停打基礎胰島素，以免誘發酮症酸中毒。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:levothyroxine
+    kind: drug
+    wave: W1
+    cluster: C02_endocrine
+    parent_ids: ["drug_class:thyroid_hormone"]
+    bindings:
+      inn: "levothyroxine sodium"
+      rxnorm: { code: "10582", display: "levothyroxine" }
+      atc: { code: "H03AA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Levothyroxine (thyroxine)", zh_hk: "左甲狀腺素" }
+    aliases:
+      en: ["thyroxine", "Eltroxin", "Eutroxsig", "Oroxine", "Synthroid", "T4"]
+      zh_hk: ["左甲狀腺素", "甲狀腺素", "甲減丸"]
+    drug_facet:
+      no_gap: true
+      dosing_pearl:
+        en: "Take on empty stomach 30-60 min before breakfast; separate by >=4 hours from iron, calcium, and antacids; start low (12.5-25 mcg) in elderly/IHD; increase dose ~25-30% promptly upon confirmed pregnancy."
+        zh_hk: "宜於早餐前30至60分鐘空腹服用，與鐵丸、鈣片及胃藥相隔至少4小時；長者或冠心病患者須低劑量起步；確認懷孕後應盡快覆檢TSH及調整劑量。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:carbimazole
+    kind: drug
+    wave: W1
+    cluster: C02_endocrine
+    parent_ids: ["drug_class:antithyroid"]
+    bindings:
+      inn: "carbimazole"
+      atc: { code: "H03BB01", system: "http://www.whocc.no/atc" }
+    display: { en: "Carbimazole", zh_hk: "卡比馬唑" }
+    aliases:
+      en: ["Neo-Mercazole", "carbimazole tablet", "methimazole prodrug"]
+      zh_hk: ["卡比馬唑", "甲亢丸", "抗甲狀腺藥"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      pregnancy_caution: "caution"
+      dosing_pearl:
+        en: "Mandatory patient counselling on agranulocytosis warning: if fever, sore throat, or mouth ulcers occur, STOP carbimazole and obtain urgent same-day CBC/ANC. In T1 pregnancy, discuss switching to propylthiouracil (PTU) with specialist due to embryopathy risk."
+        zh_hk: "必須提醒患者粒細胞缺乏症警號：如出現發燒、喉嚨痛或口腔潰瘍，須立即暫停卡比馬唑並即日抽血驗全血球計數；早孕期須諮詢醫生評估換藥。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:tamsulosin
+    kind: drug
+    wave: W1
+    cluster: C07_renal
+    parent_ids: ["drug_class:alpha_blocker"]
+    bindings:
+      inn: "tamsulosin"
+      rxnorm: { code: "77492", display: "tamsulosin" }
+      atc: { code: "G04CA02", system: "http://www.whocc.no/atc" }
+    display: { en: "Tamsulosin", zh_hk: "坦索羅辛" }
+    aliases:
+      en: ["Harnal", "Harnal OCAS", "Flomaxtra", "tamsulosin MR"]
+      zh_hk: ["坦索羅辛", "哈樂", "前列腺丸"]
+    drug_facet:
+      max_daily_mg: 0.4
+      dosing_pearl:
+        en: "Uroselective alpha-1A blocker for BPH LUTS; warn about orthostatic dizziness (take after meal/evening) and intraoperative floppy iris syndrome (IFIS) — notify ophthalmologist before cataract surgery."
+        zh_hk: "用於改善前列腺增生排尿徵狀；留意姿勢性頭暈，且進行白內障手術前必須告知眼科醫生曾服用此藥（術中虹膜鬆弛綜合症風險）。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:furosemide
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:diuretic"]
+    bindings:
+      inn: "furosemide"
+      rxnorm: { code: "4603", display: "furosemide" }
+      atc: { code: "C03CA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Furosemide (frusemide)", zh_hk: "呋塞米（去水丸）" }
+    aliases:
+      en: ["frusemide", "Lasix", "Uremide", "loop diuretic"]
+      zh_hk: ["呋塞米", "速尿"]
+    drug_facet:
+      high_risk: true
+      dosing_pearl:
+        en: "Loop diuretic for fluid overload / heart failure; causes hypokalaemia, hyponatraemia, dehydration, and gout flares; monitor weight and RFT/electrolytes; hold or review during acute vomiting/diarrhoea."
+        zh_hk: "強力利尿劑用於心衰及水腫；可致低血鉀、脫水及誘發痛風，須定期監測體重及腎功能／電解質。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:spironolactone
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:diuretic"]
+    bindings:
+      inn: "spironolactone"
+      rxnorm: { code: "9997", display: "spironolactone" }
+      atc: { code: "C03DA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Spironolactone", zh_hk: "螺內酯" }
+    aliases:
+      en: ["Aldactone", "Spiractin", "MRA", "potassium-sparing diuretic"]
+      zh_hk: ["螺內酯", "安體舒通", "保鉀去水丸"]
+    drug_facet:
+      high_risk: true
+      pregnancy_caution: "contraindicated"
+      renal_note: "Avoid initiation if K+ >5.0 mmol/L or eGFR <30; check K+ and Cr at 1 week, 4 weeks, and after any dose increase."
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:indapamide
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:diuretic"]
+    bindings:
+      inn: "indapamide"
+      rxnorm: { code: "5764", display: "indapamide" }
+      atc: { code: "C03BA11", system: "http://www.whocc.no/atc" }
+    display: { en: "Indapamide", zh_hk: "吲達帕胺" }
+    aliases:
+      en: ["Natrilix", "Natrilix SR", "indapamide SR", "thiazide-like diuretic"]
+      zh_hk: ["吲達帕胺", "納催離", "血壓去水丸"]
+    drug_facet:
+      max_daily_mg: 2.5
+      dosing_pearl:
+        en: "Thiazide-like diuretic for hypertension; monitor Na+ and K+ (significant hyponatraemia risk in older adults, especially thin elderly women)."
+        zh_hk: "噻嗪類利尿劑用於高血壓；長者服用須特別留意低血鈉及低血鉀風險。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:rivaroxaban
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    parent_ids: ["drug_class:doac"]
+    bindings:
+      inn: "rivaroxaban"
+      rxnorm: { code: "1114195", display: "rivaroxaban" }
+      atc: { code: "B01AF01", system: "http://www.whocc.no/atc" }
+    display: { en: "Rivaroxaban", zh_hk: "利伐沙班" }
+    aliases:
+      en: ["Xarelto", "DOAC", "NOAC"]
+      zh_hk: ["利伐沙班", "拜瑞妥", "新一代薄血丸"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      bleedy: true
+      pregnancy_caution: "contraindicated"
+      renal_note: "NVAF: 20 mg OD with food if CrCl >=50; reduce to 15 mg OD with food if CrCl 15-49; avoid if CrCl <15."
+      dosing_pearl:
+        en: "15 mg and 20 mg doses MUST be taken with food for adequate bioavailability; check CrCl/eGFR at least annually."
+        zh_hk: "15毫克及20毫克劑量必須隨餐服用以確保吸收；每年至少覆檢腎功能一次。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:dapagliflozin
+    kind: drug
+    wave: W1
+    cluster: C02_endocrine
+    parent_ids: ["drug_class:sglt2_inhibitor"]
+    bindings:
+      inn: "dapagliflozin"
+      rxnorm: { code: "1488564", display: "dapagliflozin" }
+      atc: { code: "A10BK01", system: "http://www.whocc.no/atc" }
+    display: { en: "Dapagliflozin", zh_hk: "達格列淨" }
+    aliases:
+      en: ["Forxiga", "Xigduo", "SGLT2i"]
+      zh_hk: ["達格列淨", "福適佳", "排糖藥"]
+    drug_facet:
+      max_daily_mg: 10.0
+      renal_note: "Cardiorenal protection (CKD/HF) initiation down to eGFR >=25; hold during acute dehydrating illness or >=3 days before surgery (eDKA risk)."
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:nitrofurantoin
+    kind: drug
+    wave: W1
+    cluster: C07_renal
+    parent_ids: ["drug_class:antibiotic"]
+    bindings:
+      inn: "nitrofurantoin"
+      rxnorm: { code: "7454", display: "nitrofurantoin" }
+      atc: { code: "J01XE01", system: "http://www.whocc.no/atc" }
+    display: { en: "Nitrofurantoin", zh_hk: "呋喃妥因" }
+    aliases:
+      en: ["Macrodantin", "Macrobid", "Furadantin", "nitrofurantoin macrocrystals"]
+      zh_hk: ["呋喃妥因"]
+    drug_facet:
+      short_course: true
+      g6pd_risk: true
+      pregnancy_caution: "avoid_t3"
+      renal_note: "CONTRAINDICATED if eGFR <45 mL/min/1.73m2 (inadequate urinary levels + neuropathy/pulmonary toxicity); lower UTI/cystitis ONLY — never use for pyelonephritis."
+      dosing_pearl:
+        en: "Uncomplicated lower UTI only (take with food); avoid in G6PD deficiency, eGFR <45, and term pregnancy (>=38 weeks / labour due to neonatal haemolysis)."
+        zh_hk: "僅適用於單純下尿道感染（膀胱炎），不可用於腎盂腎炎；蠶豆症 (G6PD)、eGFR <45 及足月臨產孕婦禁用。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:trimethoprim
+    kind: drug
+    wave: W1
+    cluster: C07_renal
+    parent_ids: ["drug_class:antibiotic"]
+    bindings:
+      inn: "trimethoprim"
+      rxnorm: { code: "10829", display: "trimethoprim" }
+      atc: { code: "J01EA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Trimethoprim", zh_hk: "甲氧苄啶" }
+    aliases:
+      en: ["Alprim", "Triprim", "TMP"]
+      zh_hk: ["甲氧苄啶"]
+    drug_facet:
+      short_course: true
+      pregnancy_caution: "caution"
+      renal_note: "Reduce dose if eGFR 15-30; avoid if eGFR <15; causes hyperkalaemia (especially with ACEi/ARB/spironolactone) and pseudo-rise in creatinine."
+      dosing_pearl:
+        en: "Avoid in first trimester of pregnancy (folate antagonist) and check local E. coli resistance antibiogram; beware hyperkalaemia with RAAS/spironolactone and warfarin/methotrexate interactions."
+        zh_hk: "懷孕首三個月應避免使用（葉酸拮抗）；與降壓藥 ACEi/ARB 或螺內酯合用須留意高血鉀風險，並留意地區抗藥性指引。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:digoxin
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      inn: "digoxin"
+      rxnorm: { code: "3407", display: "digoxin" }
+      atc: { code: "C01AA05", system: "http://www.whocc.no/atc" }
+    display: { en: "Digoxin", zh_hk: "地高辛" }
+    aliases:
+      en: ["Lanoxin", "Sigmaxin", "cardiac glycoside"]
+      zh_hk: ["地高辛", "強心藥"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      renal_note: "Renally cleared narrow-therapeutic-index drug; reduce maintenance dose (e.g. 62.5 mcg OD) in elderly or CKD; hypokalaemia precipitates toxicity even at normal serum digoxin."
+      dosing_pearl:
+        en: "Screen for toxicity signs (anorexia, nausea, visual colour halos, confusion, bradycardia); interacts strongly with amiodarone, clarithromycin, verapamil, and potassium-wasting diuretics."
+        zh_hk: "治療窗窄，腎功能退化或低血鉀極易引致中毒（食慾不振、噁心、視覺異常、心搏過緩），須定期監測腎功能及血鉀。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: drug:amiodarone
+    kind: drug
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      inn: "amiodarone"
+      rxnorm: { code: "703", display: "amiodarone" }
+      atc: { code: "C01BD01", system: "http://www.whocc.no/atc" }
+    display: { en: "Amiodarone", zh_hk: "胺碘酮" }
+    aliases:
+      en: ["Cordarone", "Cordarone X", "Aratac", "class III antiarrhythmic"]
+      zh_hk: ["胺碘酮", "心律藥", "抗心律不正藥"]
+    drug_facet:
+      high_risk: true
+      no_gap: true
+      pregnancy_caution: "contraindicated"
+      dosing_pearl:
+        en: "Multi-organ toxicity surveillance required (TSH/FT4 & LFT every 6 months, baseline/symptom CXR & spirometry for pulmonary fibrosis, ECG QTc, ophthalmic/photosensitivity); strong CYP/P-gp inhibitor (doubles warfarin/digoxin levels)."
+        zh_hk: "高風險心律藥，須定期監測甲狀腺功能 (TSH) 及肝功能 (LFT)，留意肺纖維化、光敏感及與華法林／地高辛的嚴重藥物相互作用。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  # =========================================================================
+  # OBSERVATIONS (8) — Verified LOINC (ISO/IEC 7064 Mod-10) + VALID_UCUM
+  # =========================================================================
+  - id: obs:fasting_glucose
+    kind: observation
+    wave: W1
+    cluster: C02_endocrine
+    bindings:
+      loinc: { code: "14771-0", display: "Glucose [Moles/volume] in Serum or Plasma --fasting" }
+      ucum: "mmol/L"
+    display: { en: "Fasting plasma glucose", zh_hk: "空腹血糖" }
+    aliases:
+      en: ["fasting glucose", "FPG", "FBG", "fasting blood sugar", "BGL"]
+      zh_hk: ["空腹血糖", "血糖"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs:ldl
+    kind: observation
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      loinc: { code: "39469-2", display: "Cholesterol in LDL [Moles/volume] in Serum or Plasma by calculation" }
+      ucum: "mmol/L"
+    display: { en: "LDL cholesterol (LDL-C)", zh_hk: "低密度脂蛋白膽固醇（壞膽固醇）" }
+    aliases:
+      en: ["LDL", "LDL-C", "LDL cholesterol", "bad cholesterol"]
+      zh_hk: ["壞膽固醇", "低密度膽固醇", "LDL"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs:triglycerides
+    kind: observation
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      loinc: { code: "14927-8", display: "Triglyceride [Moles/volume] in Serum or Plasma" }
+      ucum: "mmol/L"
+    display: { en: "Serum triglycerides", zh_hk: "三酸甘油酯" }
+    aliases:
+      en: ["triglycerides", "TG", "Trigs"]
+      zh_hk: ["三酸甘油酯", "甘油三酯", "血脂"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs:uacr
+    kind: observation
+    wave: W1
+    cluster: C07_renal
+    bindings:
+      loinc: { code: "32294-1", display: "Albumin/Creatinine [Ratio] in Urine" }
+      ucum: "mg/mmol{creat}"
+    display: { en: "Urine albumin-to-creatinine ratio (uACR)", zh_hk: "尿液白蛋白與肌酸酐比值 (uACR)" }
+    aliases:
+      en: ["uACR", "urine ACR", "microalbuminuria", "albuminuria", "urine albumin creatinine ratio"]
+      zh_hk: ["尿蛋白比值", "尿白蛋白肌酸酐比值", "微蛋白尿", "蛋白尿"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs:free_t4
+    kind: observation
+    wave: W1
+    cluster: C02_endocrine
+    bindings:
+      loinc: { code: "14920-3", display: "Thyroxine (T4) free [Moles/volume] in Serum or Plasma" }
+      ucum: "pmol/L"
+    display: { en: "Free thyroxine (Free T4)", zh_hk: "游離甲狀腺素 (Free T4)" }
+    aliases:
+      en: ["Free T4", "FT4", "free thyroxine"]
+      zh_hk: ["游離T4", "游離甲狀腺素", "甲狀腺素"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs:psa
+    kind: observation
+    wave: W1
+    cluster: C07_renal
+    bindings:
+      loinc: { code: "2857-1", display: "Prostate specific Ag [Mass/volume] in Serum or Plasma" }
+      ucum: "ug/L"
+    display: { en: "Prostate-specific antigen (PSA)", zh_hk: "前列腺特異抗原 (PSA)" }
+    aliases:
+      en: ["PSA", "total PSA", "prostate specific antigen"]
+      zh_hk: ["前列腺指數", "前列腺特異抗原", "PSA"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs:heart_rate
+    kind: observation
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      loinc: { code: "8867-4", display: "Heart rate" }
+      ucum: "/min"
+    display: { en: "Heart rate / pulse rate", zh_hk: "心率／脈搏" }
+    aliases:
+      en: ["heart rate", "HR", "pulse", "pulse rate", "bpm"]
+      zh_hk: ["心率", "心跳", "脈搏"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs:diastolic_bp
+    kind: observation
+    wave: W1
+    cluster: C01_cardiovascular
+    bindings:
+      loinc: { code: "8462-4", display: "Diastolic blood pressure" }
+      ucum: "mm[Hg]"
+    display: { en: "Diastolic blood pressure", zh_hk: "舒張壓（下壓）" }
+    aliases:
+      en: ["diastolic BP", "DBP", "bottom blood pressure number"]
+      zh_hk: ["舒張壓", "下壓", "血壓下壓"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+# ===========================================================================
+# DETERMINISTIC CLINICAL EDGES (16) — Cardiometabolic, Endocrine & Renal Safety
+# ===========================================================================
+edges:
+  - id: edge:carbimazole_agranulocytosis_cbc
+    source_id: drug:carbimazole
+    relation: TRIGGERS_WORKUP
+    target_id: panel:cbc
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    when:
+      any:
+        - { fact: has_concept, op: is_a, value: "rfe:fever" }
+        - { fact: has_concept, op: is_a, value: "rfe:sore_throat" }
+        - { fact: has_concept, op: is_a, value: "cond:sepsis" }
+    clinician_rationale:
+      en: "Carbimazole can cause sudden idiosyncratic agranulocytosis (0.1-0.5%, highest in first 3 months): fever, sore throat, or mouth ulcers require immediate drug cessation and urgent same-day CBC with neutrophil count (ANC)."
+      zh_hk: "卡比馬唑可引致突發性粒細胞缺乏症（首三個月風險最高）；患者如出現發燒、喉嚨痛或口腔潰瘍，必須即時停藥並即日抽血驗全血細胞計數及嗜中性白血球。"
+    clinician_action_prompt:
+      en: "Instruct patient to STOP carbimazole immediately and arrange urgent same-day CBC/ANC (or immediate hospital ED transfer if febrile/unwell for empiric neutropenic sepsis management)."
+    patient_safety_net:
+      en: "While taking carbimazole, if you develop a fever, sore throat, mouth ulcers, or unexplained bruising, stop the tablets straight away and seek urgent same-day medical care for an urgent blood test."
+      zh_hk: "服用卡比馬唑期間如出現發燒、喉嚨痛、口腔潰瘍或無故瘀傷，請立即暫停服藥，並於即日前往求醫或急症室抽血檢查白血球。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:nitrofurantoin_renal_ci
+    source_id: drug:nitrofurantoin
+    relation: CONTRAINDICATED_IN
+    target_id: cond:ckd
+    severity: hard_block
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    when:
+      fact: egfr_ml_min
+      op: lt
+      value: 45
+    clinician_rationale:
+      en: "Nitrofurantoin is contraindicated when eGFR <45 mL/min/1.73m2 due to subtherapeutic urinary concentrations (high treatment failure) and systemic accumulation risking peripheral neuropathy and pulmonary toxicity."
+      zh_hk: "當 eGFR 低於 45 mL/min/1.73m2 時禁用呋喃妥因，因尿液藥物濃度不足易致治療失敗，且藥物蓄積可引致周邊神經病變及肺毒性。"
+    clinician_action_prompt:
+      en: "Hard-block nitrofurantoin; select renally appropriate UTI antibiotic guided by local antibiogram/MSU culture (e.g. fosfomycin, cefalexin, or renally adjusted alternative)."
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:nitrofurantoin_g6pd_ci
+    source_id: drug:nitrofurantoin
+    relation: CONTRAINDICATED_IN
+    target_id: pgx:g6pd_deficiency
+    severity: hard_block
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    when:
+      fact: g6pd_deficient
+      op: eq
+      value: true
+    clinician_rationale:
+      en: "Nitrofurantoin is an oxidative agent contraindicated in G6PD deficiency due to risk of acute intravascular haemolytic anaemia."
+      zh_hk: "呋喃妥因屬氧化性藥物，葡萄糖六磷酸去氫酶缺乏症（蠶豆症）患者禁用，以免誘發急性溶血性貧血。"
+    clinician_action_prompt:
+      en: "Hard-block nitrofurantoin in G6PD-deficient patients; choose G6PD-safe UTI antibiotic (e.g. cefalexin, amoxicillin-clavulanate, or fosfomycin per susceptibility)."
+    patient_safety_net:
+      en: "If you have G6PD deficiency and accidentally took nitrofurantoin, seek urgent medical assessment for dark tea-coloured urine, yellowing of eyes/skin, pallor, or unusual fatigue."
+      zh_hk: "如患有蠶豆症而不慎服用呋喃妥因，並出現茶色小便、眼白或皮膚發黃、面色蒼白或異常疲倦，請立即求醫評估。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:spironolactone_raas_hyperkalaemia
+    source_id: drug:spironolactone
+    relation: INTERACTS_WITH
+    target_id: drug_class:raas_agent
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Co-prescribing spironolactone with an ACE inhibitor or ARB causes additive potassium retention with high risk of life-threatening hyperkalaemia and AKI, especially in CKD, diabetes, older adults, or concurrent NSAID/trimethoprim use."
+      zh_hk: "螺內酯與 ACEi/ARB 降血壓藥合用會顯著增加嚴重高血鉀及急性腎損傷風險（尤其長者、慢性腎病或合用消炎止痛藥時）。"
+    clinician_action_prompt:
+      en: "Verify baseline K+ (<=5.0 mmol/L) and eGFR (>=30); order mandatory RFT/K+ recheck at 7-14 days after start or titration and avoid potassium supplements/NSAIDs."
+    patient_safety_net:
+      en: "Avoid potassium-containing salt substitutes and over-the-counter anti-inflammatory painkillers while on these medicines; seek urgent care if you develop severe muscle weakness, chest pain, or palpitations."
+      zh_hk: "服藥期間請避免食用含鉀代鹽及自行購買消炎止痛藥；如出現嚴重肌肉無力、胸痛或心悸，請立即求醫。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:beta_blocker_asthma_bronchospasm
+    source_id: drug_class:beta_blocker
+    relation: CONTRAINDICATED_IN
+    target_id: cond:asthma_chronic
+    severity: hard_block
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Beta-blockers (especially non-selective agents like propranolol) block beta-2 airway receptors and can precipitate severe or refractory bronchospasm in asthma; avoid completely during asthma exacerbation and avoid non-selective agents in all asthma."
+      zh_hk: "乙型受體阻滯劑（尤其非選擇性的普萘洛爾）可誘發嚴重支氣管痙攣及哮喘惡化，哮喘發作期間嚴禁處方，所有哮喘患者均忌用非選擇性製劑。"
+    clinician_action_prompt:
+      en: "Hard-block non-selective beta-blockers in asthma; if rate control or HFrEF therapy is essential in stable asthma, discuss cardioselective beta-1 agent under specialist supervision or use alternative (e.g. CCB/diltiazem where appropriate)."
+    patient_safety_net:
+      en: "If you have asthma and notice new wheezing, chest tightness, or worsening shortness of breath after starting a heart or blood pressure medicine, seek urgent medical review (or emergency care if breathing is severely difficult)."
+      zh_hk: "哮喘患者如在開始服用心臟或血壓藥後出現喘鳴、胸悶或氣促加劇，請盡快聯絡醫生評估；如嚴重呼吸困難請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:anticoagulant_antiplatelet_bleed
+    source_id: drug_class:anticoagulant
+    relation: INTERACTS_WITH
+    target_id: drug_class:antiplatelet
+    bidirectional: true
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Combining an oral anticoagulant (warfarin or DOAC) with an antiplatelet (aspirin or clopidogrel) approximately doubles major GI and intracranial haemorrhage risk without benefit in stable CAD >12 months post-ACS/PCI."
+      zh_hk: "同時服用口服抗凝血藥（華法林／新一代薄血丸）及抗血小板藥（阿士匹靈／氯吡格雷）會大幅增加消化道及顱內嚴重出血風險，須核實是否有明確心臟科限期適應症。"
+    clinician_action_prompt:
+      en: "Audit indication and stop-date of dual/triple antithrombotic therapy (confirm cardiology PCI/ACS timeline); add PPI gastroprotection (avoid omeprazole with clopidogrel) and monitor Hb/bleeding symptoms."
+    patient_safety_net:
+      en: "Taking more than one blood-thinning medicine increases bleeding risk. Do not stop either tablet without doctor advice, and seek immediate emergency care for black tarry stools, vomiting blood, red/clotted urine, severe headache, or uncontrolled bleeding."
+      zh_hk: "同時服用多於一種薄血藥會增加出血風險，切勿自行停藥；如出現黑便、吐血、血尿、劇烈頭痛或出血不止，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:digoxin_monitored_by_rft
+    source_id: drug:digoxin
+    relation: MONITORED_BY
+    target_id: panel:rft
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 14
+      repeat_interval_days: 180
+      grace_days: 14
+      applies_on: both
+    clinician_rationale:
+      en: "Digoxin is predominantly renally eliminated and hypokalaemia/hypomagnesaemia markedly sensitises the myocardium to digoxin toxicity; monitor RFT (Cr, eGFR, K+) at initiation and at least every 6 months (earlier after diuretic/renal changes)."
+      zh_hk: "地高辛主要經腎臟排泄，腎功能下降或低血鉀極易引致地高辛中毒，須於起藥後兩週及至少每六個月監測腎功能及血鉀。"
+    clinician_action_prompt:
+      en: "Order RFT/K+ (plus serum digoxin level >=6h post-dose if toxicity, bradycardia, visual disturbance, nausea, or eGFR drop suspected)."
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:amiodarone_monitored_by_lft
+    source_id: drug:amiodarone
+    relation: MONITORED_BY
+    target_id: panel:lft
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 90
+      repeat_interval_days: 180
+      grace_days: 14
+      applies_on: both
+    clinician_rationale:
+      en: "Amiodarone causes asymptomatic transaminitis and rare severe hepatotoxicity; monitor LFTs at baseline, 3 months, and every 6 months on maintenance."
+      zh_hk: "胺碘酮具肝毒性風險，須於基線、服藥後3個月及每6個月定期覆檢肝功能 (LFT)。"
+    clinician_action_prompt:
+      en: "Order/review LFT (ALT/AST); escalate to prescribing cardiologist if ALT >2-3x ULN or symptomatic hepatitis."
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:amiodarone_monitored_by_tsh
+    source_id: drug:amiodarone
+    relation: MONITORED_BY
+    target_id: obs:tsh
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 90
+      repeat_interval_days: 180
+      grace_days: 14
+      applies_on: both
+    clinician_rationale:
+      en: "Amiodarone's high iodine load induces hypothyroidism or thyrotoxicosis (AIT) in up to 15-20% of patients; check TSH (and FT4 if abnormal) at baseline, 3 months, every 6 months, and up to 12 months after cessation."
+      zh_hk: "胺碘酮含高量碘質，容易誘發甲狀腺功能減退或亢進，須於基線、3個月及每6個月定期覆檢 TSH（異常時加驗 Free T4）。"
+    clinician_action_prompt:
+      en: "Order TSH (+ Free T4 if suppressed/elevated); do not abruptly stop amiodarone without cardiology input."
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:levothyroxine_monitored_by_tsh
+    source_id: drug:levothyroxine
+    relation: MONITORED_BY
+    target_id: obs:tsh
+    severity: moderate
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 42
+      repeat_interval_days: 365
+      grace_days: 14
+      applies_on: both
+    clinician_rationale:
+      en: "Levothyroxine is essential no-gap therapy requiring TSH recheck 6-8 weeks after initiation or dose/brand adjustment, then annually once euthyroid (and every 4 weeks in early pregnancy) to avoid under-replacement or over-replacement AF/osteoporosis risk."
+      zh_hk: "左甲狀腺素屬不可無故中斷的長期藥物，須於起藥或調藥後6至8週及穩定後每年覆檢 TSH（懷孕初期每4週覆檢），以防劑量不足或過量引致房顫及骨質疏鬆。"
+    clinician_action_prompt:
+      en: "Verify adherence, fasting administration (separated from iron/calcium/PPIs), and order TSH (plus FT4 if dose-titrating or symptomatic)."
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:insulin_hypoglycaemia_risk
+    source_id: drug_class:insulin
+    relation: EXPLAINS_OR_CAUSES
+    target_id: cond:hypoglycaemia
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Insulin is a high-risk medication causing severe or nocturnal hypoglycaemia (<4.0 mmol/L), particularly after missed meals, alcohol, exercise, dosing mix-ups, or falling eGFR; recurrent hypos impair awareness and driving safety."
+      zh_hk: "胰島素屬高危藥物，容易引致嚴重或夜間低血糖（<4.0 mmol/L），特別於漏餐、運動、飲酒或腎功能衰退時；反覆低血糖會減低警覺性並影響駕駛安全。"
+    clinician_action_prompt:
+      en: "Review glucose log/CGM, injection technique/sites, hypo frequency, driving fitness, and glucagon rescue plan; reduce dose promptly if recurrent <4.0 mmol/L (never omit basal insulin completely in T1DM)."
+    patient_safety_net:
+      en: "If your blood glucose drops below 4.0 mmol/L or you feel shaky, sweaty, dizzy, or confused, take fast-acting sugar straight away and recheck in 15 minutes. Seek emergency help immediately if someone becomes drowsy, confused, or cannot swallow safely."
+      zh_hk: "如血糖低於 4.0 mmol/L 或出現手震、冒冷汗、頭暈心慌，請立即進食速效糖分並於15分鐘後覆測；如出現意識混亂、嗜睡或無法安全吞嚥，請立即致電緊急救援。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:sulfonylurea_hypoglycaemia_risk
+    source_id: drug_class:sulfonylurea
+    relation: EXPLAINS_OR_CAUSES
+    target_id: cond:hypoglycaemia
+    severity: high
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Sulfonylureas (e.g. gliclazide) cause prolonged, recurrent hypoglycaemia—especially in older adults >=75y, CKD (eGFR <45), irregular oral intake, or when combined with insulin/SGLT2i."
+      zh_hk: "磺胺尿素類降糖藥（如格列齊特）可引致持久及反覆低血糖，長者、慢性腎病或進食不規律人士風險尤高。"
+    clinician_action_prompt:
+      en: "Review HbA1c target (de-intensify in frail older adults), check recent eGFR, and consider switching to lower-hypo-risk agent (DPP-4i/SGLT2i/GLP-1RA) if hypoglycaemia occurs."
+    patient_safety_net:
+      en: "Take sulfonylurea tablets with meals and check blood sugar if you feel sweaty, shaky, hungry, or dizzy. Because low blood sugar from these tablets can return, seek urgent medical review after any severe episode."
+      zh_hk: "請隨餐服用降糖藥；如出現冒冷汗、手震、頭暈或異常飢餓請即測血糖並補充糖分。因此類藥物引致的低血糖可能反覆出現，嚴重低血糖後請盡快就醫評估。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:painless_haematuria_urologic_malignancy
+    source_id: rf:painless_frank_haematuria
+    relation: RED_FLAG_FOR
+    target_id: cond:urologic_malignancy
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Painless visible (macroscopic) haematuria carries a ~15-20% risk of urologic malignancy (bladder urothelial or renal cell carcinoma) — even a single self-resolving episode or in anticoagulated patients requires full urgent urology evaluation."
+      zh_hk: "無痛肉眼血尿約有15至20%機會為泌尿系統惡性腫瘤（膀胱癌或腎癌），即使僅出現一次或正服用薄血藥，均須安排緊急泌尿科檢查（膀胱鏡及影像檢查）。"
+    clinician_action_prompt:
+      en: "Arrange urgent urology referral (flexible cystoscopy + upper-tract CT urogram/ultrasound), MSU culture, RFT/eGFR, CBC, and coagulation profile; never attribute frank haematuria solely to anticoagulants."
+    patient_safety_net:
+      en: "Visible blood in your urine without pain needs prompt medical investigation even if it stops on its own. Seek immediate emergency care if you pass large blood clots, cannot pass urine, or feel faint."
+      zh_hk: "無痛肉眼血尿即使自行停止亦必須盡快由醫生安排專科檢查；如排出大塊血塊、無法排尿（尿瀦留）或頭暈虛弱，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:unilateral_calf_swelling_dvt_pe
+    source_id: rf:unilateral_calf_swelling
+    relation: RED_FLAG_FOR
+    target_id: cond:dvt
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Acute unilateral calf/leg swelling, pain, warmth, or erythema indicates suspected deep vein thrombosis (DVT) with immediate risk of potentially fatal pulmonary embolism (PE)."
+      zh_hk: "急性單側小腿或下肢腫脹、疼痛、發熱或發紅，須高度懷疑深層靜脈血栓 (DVT)，並有引發致命肺栓塞 (PE) 之風險。"
+    clinician_action_prompt:
+      en: "Same-day clinical assessment: calculate Wells DVT score, arrange urgent venous duplex Doppler ultrasound (or D-dimer if Wells unlikely), and screen immediately for PE symptoms (dyspnoea, pleuritic chest pain, haemoptysis, tachycardia)."
+    patient_safety_net:
+      en: "Swelling, pain, warmth, or redness in one calf or leg needs urgent same-day medical assessment. Seek immediate emergency hospital care if you also develop sudden shortness of breath, chest pain, coughing up blood, or fainting."
+      zh_hk: "單側小腿或下肢突然腫脹、疼痛、發熱或發紅須於即日緊急求醫；如同時出現突發氣促、胸痛、咳血或暈厥，請立即前往急症室或致電緊急救援服務。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:flank_pain_fever_pyelonephritis
+    source_id: rf:flank_pain_fever
+    relation: RED_FLAG_FOR
+    target_id: cond:pyelonephritis
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Flank/loin pain with fever, rigors, or vomiting indicates acute pyelonephritis and risks urosepsis or obstructed infected calculus (a surgical/urological emergency requiring urgent decompression)."
+      zh_hk: "腰側／腎區痛伴發燒、發冷打震或嘔吐，高度提示急性腎盂腎炎，須即時評估尿源性敗血症或結石梗阻合併感染（泌尿科急症）。"
+    clinician_action_prompt:
+      en: "Urgent same-day face-to-face or ED evaluation (check vitals/sepsis screen, MSU culture, RFT, CBC/CRP); transfer immediately to ED if haemodynamic instability, vomiting/unable to tolerate oral fluids, pregnancy, diabetes, or suspected obstructing stone. NEVER prescribe nitrofurantoin."
+    patient_safety_net:
+      en: "Back or side pain with fever, shivering, vomiting, or feeling very unwell requires immediate urgent medical or emergency hospital care."
+      zh_hk: "如出現腰側背痛伴發燒、打冷震、嘔吐或極度不適，請立即前往急症室或接受緊急醫療評估。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: edge:orthopnoea_pnd_heart_failure
+    source_id: rf:orthopnoea_pnd
+    relation: RED_FLAG_FOR
+    target_id: cond:heart_failure
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Orthopnoea, paroxysmal nocturnal dyspnoea, or rapidly worsening peripheral oedema/weight gain signals acute decompensated heart failure and impending acute pulmonary oedema."
+      zh_hk: "端坐呼吸、夜間陣發性呼吸困難或短期內水腫及體重急升，屬急性失代償心臟衰竭及肺水腫警號。"
+    clinician_action_prompt:
+      en: "Arrange urgent same-day assessment (SpO2, RR, HR, BP, JVP, lung auscultation, ECG, BNP/NT-proBNP, CXR, RFT); immediate emergency transfer if SpO2 <94%, dyspnoea at rest, chest pain, or pink frothy sputum."
+    patient_safety_net:
+      en: "If you become breathless when lying flat, wake up gasping for air, cough up pink frothy sputum, or have chest pain or severe breathlessness at rest, seek emergency hospital care immediately."
+      zh_hk: "如平躺時氣促加劇、半夜喘氣驚醒、咳出粉紅色泡沫痰，或靜止時嚴重氣促／胸痛，請立即前往急症室或致電緊急救援服務。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+# ===========================================================================
+# PRESENTATION FRAMES (5) — Murtagh PROMPT + openEHR Positive Exclusions + Safety Netting
+# ===========================================================================
+frames:
+  - id: frame:palpitations
+    rfe_concept_id: rfe:palpitations
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_af, concept_id: cond:atrial_fibrillation, prevalence_note: "Most common sustained clinically significant arrhythmia in primary care; check CHA2DS2-VA stroke risk" }
+        - { id: p_anxiety, concept_id: cond:gad, key_discriminators: ["gradual onset sinus tachycardia", "stress/caffeine/sleep deprivation", "normal 12-lead ECG"] }
+        - { id: p_drugs_stim, concept_id: cond:drug_adverse_effect, key_discriminators: ["caffeine, decongestants/pseudoephedrine, salbutamol, levothyroxine over-replacement, alcohol ('holiday heart')"] }
+      serious_not_to_be_missed:
+        - { id: s_acs, concept_id: cond:acs, key_discriminators: ["palpitations + chest pain/pressure, diaphoresis, ventricular arrhythmia risk"] }
+        - { id: s_pe, concept_id: cond:pe, key_discriminators: ["sudden unexplained sinus tachycardia + dyspnoea/pleuritic pain/calf swelling"] }
+        - { id: s_hf, concept_id: cond:heart_failure, key_discriminators: ["fast AF precipitating acute decompensation, orthopnoea, ankle oedema"] }
+        - { id: s_sepsis, concept_id: cond:sepsis, key_discriminators: ["fever + persistent tachycardia >=130/min + hypotension"] }
+      pitfalls_often_missed:
+        - { id: o_hyperthyroid, concept_id: cond:hyperthyroidism, key_discriminators: ["weight loss, heat intolerance, tremor, lid lag — ALWAYS check TSH"] }
+        - { id: o_anaemia, concept_id: cond:anaemia, key_discriminators: ["exertional dyspnoea, pallor, fatigue — check CBC & ferritin"] }
+        - { id: o_hypoglycaemia, concept_id: cond:hypoglycaemia, key_discriminators: ["adrenergic palpitations + sweating/tremor on insulin or sulfonylurea"] }
+      masquerades:
+        - { id: mq_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hyperthyroidism, clue_prompt: { en: "Check TSH (+/- Free T4) in every new presentation of palpitations or AF." } }
+        - { id: mq_anaemia, tier: primary, masquerade: anaemia, concept_id: cond:anaemia, clue_prompt: { en: "Check FBC and electrolytes (K+/Mg2+) — anaemia and hypokalaemia are common reversible triggers." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Audit OTC cold/flu decongestants, caffeine/energy drinks, alcohol, beta-2 agonists, and thyroid hormone dose." } }
+        - { id: mq_depression, tier: primary, masquerade: depression, concept_id: cond:depression, clue_prompt: { en: "Screen for panic disorder, generalised anxiety, and sleep deprivation after excluding cardiac arrhythmia." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore fear of sudden cardiac death or stroke, smartwatch/wearable ECG alerts, and impact on exercise or work." }
+    positive_exclusions:
+      - id: ex_palp_chest_pain
+        finding_concept_id: rf:chest_pain_cardiac
+        question: { en: "Are your palpitations accompanied by any chest pain, pressure, tightness, or pain spreading to your arm, jaw, or back?", zh_hk: "請問心跳快或不規律時，有沒有同時出現胸痛、心口翳悶壓迫感，或痛楚伸延至手臂、下巴或背部？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_palp_syncope
+        finding_concept_id: rf:syncope
+        question: { en: "Have you fainted, blacked out, or felt close to passing out during the palpitations?", zh_hk: "請問心跳異常期間，有沒有試過暈倒、眼前一黑或差點昏厥？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_palp_dyspnoea
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Are you experiencing shortness of breath at rest, difficulty speaking full sentences, or severe dizziness?", zh_hk: "請問你有沒有在靜止時感到氣促、講唔到完整句子或嚴重頭暈？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_palp_emergency
+        trigger_condition: { en: "Palpitations with chest pain, fainting/near-fainting, severe shortness of breath, or sustained very rapid heart rate (>=130/min at rest)", zh_hk: "心悸伴胸痛、暈厥／差點暈倒、嚴重氣促，或靜止時持續極速心跳（每分鐘130次或以上）" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if your racing or irregular heartbeat occurs with chest pain, fainting, severe dizziness, shortness of breath, or does not settle and stays very fast at rest."
+          zh_hk: "如心跳加速或不規律伴隨胸痛、暈倒、嚴重頭暈、氣促，或靜止時持續極速跳動未能緩和，請立即前往急症室或致電緊急救援服務。"
+      - id: sn_palp_gp_ecg
+        trigger_condition: { en: "Recurrent episodes, irregular pulse, or wearable alert without emergency red flags", zh_hk: "反覆心悸、脈搏不規律或智能手錶提示心律異常（暫無急症警號）" }
+        timeframe_hours: 48
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange a prompt doctor appointment for a resting 12-lead ECG and blood tests (thyroid, blood count, electrolytes), and note how long episodes last and any triggers."
+          zh_hk: "請盡快預約醫生進行靜息心電圖及抽血檢查（甲狀腺、全血球及電解質），並記錄發作時間及誘因。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: frame:ankle_oedema
+    rfe_concept_id: rfe:ankle_oedema
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_hf, concept_id: cond:heart_failure, key_discriminators: ["bilateral pitting oedema + exertional dyspnoea, orthopnoea, raised JVP, basal crackles"] }
+        - { id: p_ccb_drug, concept_id: cond:drug_adverse_effect, key_discriminators: ["dose-dependent bilateral oedema after starting/increasing amlodipine/nifedipine, NSAIDs, steroids, pioglitazone"] }
+        - { id: p_ckd, concept_id: cond:ckd, key_discriminators: ["frothy urine/nephrotic albuminuria, hypertension, raised creatinine/low eGFR"] }
+      serious_not_to_be_missed:
+        - { id: s_dvt, concept_id: cond:dvt, key_discriminators: ["UNILATERAL calf/leg swelling, warmth, tenderness, recent immobility/flight/surgery/cancer"] }
+        - { id: s_pe, concept_id: cond:pe, key_discriminators: ["leg swelling + acute dyspnoea/pleuritic chest pain/hypoxia"] }
+        - { id: s_decompensated_hf, concept_id: cond:heart_failure, key_discriminators: ["rapid weight gain >=2 kg in 2-3 days, orthopnoea, PND, hypoxia"] }
+        - { id: s_cellulitis, concept_id: cond:cellulitis, key_discriminators: ["unilateral hot spreading erythema + tenderness + fever"] }
+      pitfalls_often_missed:
+        - { id: o_hypothyroid, concept_id: cond:hypothyroidism, key_discriminators: ["non-pitting pretibial/generalised myxoedema + fatigue/cold intolerance"] }
+        - { id: o_pelvic_mass, concept_id: cond:malignancy_occult, key_discriminators: ["new asymmetric/bilateral venous compression oedema from pelvic/abdominal mass"] }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Always check medication list first: dihydropyridine CCBs (amlodipine/nifedipine), NSAIDs, corticosteroids, and pregabalin/gabapentin." } }
+        - { id: mq_ckd, tier: primary, masquerade: ckd, concept_id: cond:ckd, clue_prompt: { en: "Check RFT/eGFR, serum albumin, and urine ACR to exclude nephrotic syndrome or CKD fluid overload." } }
+        - { id: mq_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hypothyroidism, clue_prompt: { en: "Check TSH if oedema is non-pitting or accompanied by fatigue and weight gain." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Ask about recent long-haul flights, new blood pressure pills or painkillers, dietary salt intake, and whether the swelling is affecting mobility or shoes." }
+    positive_exclusions:
+      - id: ex_oedema_unilateral_dvt
+        finding_concept_id: rf:unilateral_calf_swelling
+        question: { en: "Is the swelling mainly in ONE leg or calf, or is one calf painful, tender, warm, or red?", zh_hk: "請問水腫是否主要集中於單邊小腿或一隻腳，或者單側小腿出現疼痛、壓痛、發熱或發紅？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_oedema_orthopnoea
+        finding_concept_id: rf:orthopnoea_pnd
+        question: { en: "Do you get short of breath when lying flat, need extra pillows to sleep, or wake up at night gasping for air?", zh_hk: "請問你平躺時會否氣促、需要墊高幾個枕頭才能入睡，或半夜喘氣驚醒？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_oedema_dyspnoea_chest
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Are you having sudden shortness of breath at rest, chest pain, or coughing up blood or pink frothy sputum?", zh_hk: "請問你有沒有靜止時突發氣促、胸痛、咳血或咳出粉紅色泡沫痰？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_oedema_emergency
+        trigger_condition: { en: "Sudden shortness of breath, chest pain, coughing blood/pink frothy sputum, severe breathlessness lying flat, or fainting", zh_hk: "突發氣促、胸痛、咳血或粉紅色泡沫痰、平躺嚴重氣促或暈厥" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if leg or ankle swelling is accompanied by sudden shortness of breath, chest pain, difficulty breathing when lying flat, coughing up blood, or fainting."
+          zh_hk: "如腳腫伴隨突發氣促、胸痛、平躺嚴重呼吸困難、咳血或暈倒，請立即前往急症室或致電緊急救援服務。"
+      - id: sn_oedema_same_day_dvt
+        trigger_condition: { en: "One-sided painful/red/warm calf swelling or rapid weight gain (>=2 kg over 2-3 days) in heart/kidney disease", zh_hk: "單側小腿紅腫熱痛，或心臟／腎病患者短期內體重急升（2至3日內增加2公斤或以上）" }
+        timeframe_hours: 24
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange same-day medical assessment if only one leg is swollen, painful, warm, or red, or if you have heart/kidney disease and your weight rises rapidly over a few days."
+          zh_hk: "如僅單側下肢腫痛發熱，或心臟／腎病患者數日內體重急升、水腫迅速惡化，請安排即日醫生評估。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: frame:dysuria_frequency
+    rfe_concept_id: rfe:dysuria_frequency
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_uti, concept_id: cond:uti, prevalence_note: "Uncomplicated acute cystitis (~80% in non-pregnant women); verify dipstick/MSU if atypical, recurrent, male, or pregnant" }
+        - { id: p_bph, concept_id: cond:bph, key_discriminators: ["older male", "hesitancy, weak stream, nocturia, incomplete emptying"] }
+        - { id: p_sti, concept_id: cond:chlamydia_sti, key_discriminators: ["young sexually active adult", "dysuria + urethral/vaginal discharge", "sterile pyuria"] }
+      serious_not_to_be_missed:
+        - { id: s_pyelonephritis, concept_id: cond:pyelonephritis, key_discriminators: ["fever >=38.0 C, rigors, flank/loin pain, nausea/vomiting"] }
+        - { id: s_sepsis, concept_id: cond:sepsis, key_discriminators: ["urosepsis in elderly/diabetic/catheterised host: confusion, hypotension, tachypnoea"] }
+        - { id: s_urologic_ca, concept_id: cond:urologic_malignancy, key_discriminators: ["persistent irritative LUTS / painless haematuria / smoking history"] }
+        - { id: s_cauda_equina, concept_id: cond:cauda_equina, key_discriminators: ["acute urinary retention or overflow incontinence + back pain + saddle numbness"] }
+      pitfalls_often_missed:
+        - { id: o_renal_colic, concept_id: cond:renal_colic, key_discriminators: ["distal ureteric stone causing frequency/urgency + colicky loin-to-groin pain + microscopic haematuria"] }
+        - { id: o_pregnancy_uti, concept_id: cond:pregnancy_normal, key_discriminators: ["UTI in pregnancy ALWAYS requires MSU culture and pregnancy-safe antibiotic (avoid trimethoprim T1 and nitrofurantoin at term)"] }
+        - { id: o_sglt2_candida, concept_id: cond:vulvovaginal_candidiasis, key_discriminators: ["external dysuria/vulvovaginal itch in SGLT2 inhibitor user"] }
+      masquerades:
+        - { id: mq_diabetes, tier: primary, masquerade: diabetes, concept_id: cond:t2dm, clue_prompt: { en: "Recurrent UTIs or frequency/nocturia can be the first sign of undiagnosed diabetes mellitus — check urine/blood glucose." } }
+        - { id: mq_malignancy, tier: secondary, masquerade: malignancy, concept_id: cond:urologic_malignancy, clue_prompt: { en: "Persistent 'recurrent UTI' with negative cultures or persistent haematuria in adults >=45y requires cystoscopy." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Check SGLT2 inhibitors (glycosuria/genital mycotic infections), diuretics, and anticholinergics (urinary retention)." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Ask sensitively about STI exposure, pregnancy possibility, recurrent self-medication with leftover antibiotics, and G6PD status before choosing UTI antimicrobials." }
+    positive_exclusions:
+      - id: ex_dysuria_flank_fever
+        finding_concept_id: rf:flank_pain_fever
+        question: { en: "Do you have fever, chills/shivering, pain in your lower back or side (flank), or nausea and vomiting?", zh_hk: "請問你有沒有發燒、發冷打震、腰側／腎區痛，或噁心嘔吐？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_dysuria_frank_blood
+        finding_concept_id: rf:painless_frank_haematuria
+        question: { en: "Are you passing visible red blood or blood clots in your urine, or having difficulty passing urine at all?", zh_hk: "請問小便有沒有明顯鮮血或血塊，或出現完全無法排尿的情況？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_dysuria_confusion
+        finding_concept_id: rf:confusion
+        question: { en: "Has there been any new confusion, drowsiness, extreme weakness, or fainting (especially in an older adult)?", zh_hk: "請問有沒有新出現的意識混亂、嗜睡、極度虛弱或頭暈昏厥（尤其長者）？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_dysuria_emergency
+        trigger_condition: { en: "High fever/rigors, worsening flank/back pain, inability to keep fluids down, inability to pass urine, or new confusion/dizziness", zh_hk: "高燒發冷打震、腰側劇痛加劇、無法進食飲水、無法排尿，或出現意識混亂／頭暈虛弱" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if you develop fever or shivering, back or side pain, vomiting, inability to pass urine, confusion, or feel faint."
+          zh_hk: "如出現發燒打冷震、腰側或背痛、持續嘔吐、無法排尿、意識混亂或頭暈虛弱，請立即前往急症室。"
+      - id: sn_dysuria_review
+        trigger_condition: { en: "Symptoms not improving after 48 hours of treatment, pregnancy, male UTI, or recurrent episodes", zh_hk: "接受治療48小時後徵狀未見改善、懷孕期尿道炎、男性尿道炎或反覆復發" }
+        timeframe_hours: 48
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Contact your doctor for prompt review and urine culture follow-up if symptoms do not start improving within 48 hours, or if you are pregnant or notice blood in your urine."
+          zh_hk: "如徵狀於48小時內未見改善，或屬懷孕期間或小便帶血，請盡快聯絡醫生覆診及跟進尿液細菌培養報告。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: frame:haematuria
+    rfe_concept_id: rfe:haematuria
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_uti_haem, concept_id: cond:uti, key_discriminators: ["haemorrhagic cystitis with acute dysuria/frequency; MUST recheck urine after clearance to confirm resolution"] }
+        - { id: p_stone, concept_id: cond:renal_colic, key_discriminators: ["colicky loin-to-groin pain", "restless patient", "prior stone history"] }
+        - { id: p_bph_bleed, concept_id: cond:bph, key_discriminators: ["diagnosis of exclusion in older men ONLY after urologic malignancy excluded"] }
+      serious_not_to_be_missed:
+        - { id: s_urologic_ca, concept_id: cond:urologic_malignancy, key_discriminators: ["painless visible haematuria, age >=45y, smoking/occupational exposure, clots — urgent cystoscopy + imaging"] }
+        - { id: s_pyelonephritis, concept_id: cond:pyelonephritis, key_discriminators: ["fever, rigors, loin tenderness"] }
+        - { id: s_ckd_gn, concept_id: cond:ckd, key_discriminators: ["glomerulonephritis: tea-coloured urine, proteinuria/uACR++, hypertension, oedema, raised creatinine, dysmorphic RBCs"] }
+      pitfalls_often_missed:
+        - { id: o_anticoag_trap, concept_id: cond:drug_adverse_effect, key_discriminators: ["anticoagulants/antiplatelets UNMASK occult urologic malignancy — NEVER dismiss haematuria as 'just from warfarin/DOAC'; also check INR"] }
+        - { id: o_pseudo_haem, concept_id: cond:heavy_menstrual_bleeding, key_discriminators: ["menstrual/postmenopausal vaginal contamination — verify with microscopy"] }
+      masquerades:
+        - { id: mq_malignancy, tier: secondary, masquerade: malignancy, concept_id: cond:urologic_malignancy, clue_prompt: { en: "Any painless visible haematuria requires fast-track urology referral (cystoscopy + upper-tract imaging) regardless of anticoagulant status." } }
+        - { id: mq_ckd, tier: primary, masquerade: ckd, concept_id: cond:ckd, clue_prompt: { en: "Check BP, RFT/eGFR, and uACR to detect IgA nephropathy or acute glomerulonephritis (common in East Asian young adults)." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Check INR if on warfarin, review DOACs/antiplatelets/NSAIDs, and exclude benign discolouration (rifampicin, beetroot) by urine microscopy." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Directly acknowledge fear of cancer and explain the structured workup (urine microscopy/culture, kidney function, imaging, and urology review) clearly." }
+    positive_exclusions:
+      - id: ex_haem_painless_frank
+        finding_concept_id: rf:painless_frank_haematuria
+        question: { en: "Can you visibly see red/pink blood or blood clots in your urine without burning or pain?", zh_hk: "請問你是否肉眼可見小便呈鮮紅、粉紅色或帶有血塊，而且排尿時並不痛楚？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_haem_flank_fever
+        finding_concept_id: rf:flank_pain_fever
+        question: { en: "Do you have fever, chills, severe flank/loin pain, or vomiting?", zh_hk: "請問你有沒有同時發燒、發冷、劇烈腰側痛或嘔吐？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_haem_syncope
+        finding_concept_id: rf:syncope
+        question: { en: "Have you felt faint, dizzy, very weak, or been unable to pass urine because of clots?", zh_hk: "請問你有沒有感到頭暈昏厥、極度虛弱，或因血塊阻塞而無法排尿？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_haem_emergency
+        trigger_condition: { en: "Heavy bleeding with clots, inability to pass urine (clot retention), severe flank pain with fever, or dizziness/fainting", zh_hk: "大量血尿伴血塊、無法排尿（血塊尿瀦留）、劇烈腰痛伴發燒，或頭暈昏厥" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if you pass large blood clots, cannot pass urine, develop fever with severe side/back pain, or feel faint or light-headed."
+          zh_hk: "如排出大塊血塊、無法排尿、發燒伴劇烈腰側痛，或感到頭暈眼前發黑，請立即前往急症室。"
+      - id: sn_haem_urgent_workup
+        trigger_condition: { en: "Any visible blood in urine (even a single episode that stops) or persistent blood on urine tests", zh_hk: "任何肉眼血尿（即使只出現一次並自行停止）或覆檢持續發現隱血" }
+        timeframe_hours: 72
+        escalation_channel: urgent_clinic_callback
+        patient_instruction:
+          en: "Even if visible blood in your urine clears up on its own, arrange a prompt doctor appointment for urine, blood, and scan/urology assessment — do not ignore a single episode."
+          zh_hk: "即使肉眼血尿自行消退，亦請務必盡快預約醫生進行尿液、抽血及影像／泌尿科檢查，切勿忽視單次血尿。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: frame:polyuria_polydipsia
+    rfe_concept_id: rfe:polyuria_polydipsia
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_t2dm, concept_id: cond:t2dm, prevalence_note: "Most common cause of new osmotic polyuria/polydipsia in adults (check POC glucose, HbA1c, fasting glucose)" }
+        - { id: p_t1dm, concept_id: cond:t1dm, key_discriminators: ["child/young adult (or LADA in older adult)", "rapid weight loss, fatigue, ketonuria/ketonaemia — NEVER delay same-day blood glucose + ketones"] }
+        - { id: p_diuretic_sglt2, concept_id: cond:drug_adverse_effect, key_discriminators: ["recent start of loop/thiazide diuretic, SGLT2 inhibitor, or lithium (nephrogenic diabetes insipidus)"] }
+      serious_not_to_be_missed:
+        - { id: s_dka, concept_id: cond:dka, key_discriminators: ["abdominal pain, nausea/vomiting, Kussmaul deep rapid breathing, drowsiness, blood ketones >=1.5-3.0 mmol/L (note: eDKA on SGLT2i can occur with glucose <11 mmol/L!)"] }
+        - { id: s_hypercalcaemia, concept_id: cond:malignancy_occult, key_discriminators: ["hypercalcaemia (malignancy / primary hyperparathyroidism) causing polyuria, constipation, bone pain, confusion — check serum calcium"] }
+        - { id: s_ckd, concept_id: cond:ckd, key_discriminators: ["impaired concentrating ability, nocturia, anaemia, hypertension"] }
+      pitfalls_often_missed:
+        - { id: o_prediabetes, concept_id: cond:prediabetes, key_discriminators: ["subtle nocturia/fatigue with borderline fasting glucose 6.1-6.9 or HbA1c 6.0-6.4%"] }
+        - { id: o_lithium_di, concept_id: cond:drug_adverse_effect, key_discriminators: ["lithium-induced nephrogenic diabetes insipidus — check Na+, serum/urine osmolality, lithium level"] }
+      masquerades:
+        - { id: mq_diabetes, tier: primary, masquerade: diabetes, concept_id: cond:t2dm, clue_prompt: { en: "Perform immediate point-of-care capillary glucose AND blood/urine ketones in anyone presenting with polyuria, polydipsia, and weight loss." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Review diuretics, SGLT2 inhibitors, oral corticosteroids (steroid-induced hyperglycaemia), and lithium." } }
+        - { id: mq_malignancy, tier: secondary, masquerade: malignancy, concept_id: cond:malignancy_occult, clue_prompt: { en: "Check corrected calcium + PTH if glucose is normal (hypercalcaemia of malignancy or hyperparathyroidism)." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore fear of needing insulin injections, family history of diabetes complications, or concerns about unintended weight loss." }
+    positive_exclusions:
+      - id: ex_poly_confusion_dka
+        finding_concept_id: rf:confusion
+        question: { en: "Are you feeling drowsy, confused, nauseous/vomiting, or having tummy pain or deep fast breathing?", zh_hk: "請問你有沒有感到嗜睡、意識混亂、噁心嘔吐、腹痛或呼吸又深又急？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_poly_weight_loss
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Have you lost weight rapidly without trying over the past few weeks?", zh_hk: "請問你近幾星期有沒有在沒有刻意減肥的情況下體重急劇下降？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_poly_dyspnoea
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Are you experiencing fast laboured breathing, extreme weakness, or feeling faint?", zh_hk: "請問你有沒有呼吸急促費力、極度乏力或頭暈欲暈？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_poly_dka_emergency
+        trigger_condition: { en: "Vomiting, tummy pain, fast deep breathing, fruity breath, drowsiness/confusion, or very high blood glucose (>=15 mmol/L) with ketones", zh_hk: "嘔吐、腹痛、呼吸急促深長、口氣帶果香味、嗜睡／意識混亂，或血糖極高（>=15 mmol/L）伴酮體升高" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if excessive thirst and urination are accompanied by vomiting, tummy pain, fast deep breathing, drowsiness, confusion, or high ketones."
+          zh_hk: "如多尿口渴伴隨嘔吐、腹痛、呼吸急促深長、嗜睡、意識混亂或酮體偏高，請立即前往急症室或致電緊急救援服務。"
+      - id: sn_poly_same_day
+        trigger_condition: { en: "Rapid weight loss with extreme thirst/urination (especially in children or young adults) to exclude new Type 1 diabetes", zh_hk: "極度口渴多尿伴體重急降（尤其兒童或年輕人），須即日排除新發一型糖尿病" }
+        timeframe_hours: 24
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange same-day medical assessment for a finger-prick blood glucose and ketone test, especially if a child or young adult has new extreme thirst, frequent urination, and weight loss."
+          zh_hk: "如出現突發極度口渴、多尿及體重下降（尤其兒童或年輕人），請安排即日由醫生檢測血糖及酮體。"
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+# ===========================================================================
+# OBSERVATION RULES (8) — LOINC + UCUM + Intervals + Bands + Templates
+# Critical thresholds strictly aligned with backend/safety/kernel.py:THRESHOLDS
+# ===========================================================================
+observation_rules:
+  - id: obs_rule:fasting_glucose
+    observation_concept_id: obs:fasting_glucose
+    canonical_ucum: "mmol/L"
+    display_ucum: "mmol/L"
+    reference_intervals:
+      - { id: ri_adult_fasting, low: 3.9, high: 5.5, priority: 0, source_note: "Normal fasting plasma glucose <5.6 mmol/L (ADA/WHO); IFG 5.6-6.9 or 6.1-6.9; DM >=7.0" }
+    severity_bands:
+      significant: { ge: 7.0 }
+      urgent: { ge: 11.1 }
+      critical: { lt: 4.0, ge: 15.0 }
+    direction_templates:
+      L:
+        working_problem: { en: "hypoglycaemia (<4.0 mmol/L — '4 is the floor')", zh_hk: "低血糖（<4.0 mmol/L）" }
+        plan_template:
+          en: "Treat immediately if <4.0 mmol/L with fast-acting carbohydrate (emergency escalation if <3.0 mmol/L or neuroglycopenia); review insulin/sulfonylurea dosing, renal function, meals, and alcohol."
+        relevant_med_class_ids: ["drug_class:insulin", "drug_class:sulfonylurea"]
+      H:
+        working_problem: { en: "hyperglycaemia / diabetes range fasting glucose", zh_hk: "空腹高血糖／糖尿病範圍" }
+        plan_template:
+          en: "If >=15.0 mmol/L or symptomatic, check blood/urine ketones immediately to exclude DKA/HHS; otherwise confirm diabetes with repeat FPG/HbA1c or OGTT and review glycaemic regimen."
+        relevant_med_class_ids: ["drug_class:biguanide", "drug_class:sglt2_inhibitor", "drug_class:dpp4_inhibitor", "drug_class:glp1_ra", "drug_class:insulin", "drug_class:sulfonylurea"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs_rule:ldl
+    observation_concept_id: obs:ldl
+    canonical_ucum: "mmol/L"
+    display_ucum: "mmol/L"
+    reference_intervals:
+      - { id: ri_general_adult, low: null, high: 3.0, priority: 0, source_note: "Individualise target by absolute CVD risk (<1.4-1.8 mmol/L secondary prevention/very high risk; <2.6 high risk)" }
+    severity_bands:
+      significant: { ge: 4.1 }
+      urgent: { ge: 4.9 }
+    direction_templates:
+      H:
+        working_problem: { en: "elevated LDL cholesterol / hyperlipidaemia", zh_hk: "低密度脂蛋白膽固醇偏高（高血脂）" }
+        plan_template:
+          en: "Calculate absolute CVD risk, exclude secondary causes (hypothyroidism, nephrotic syndrome, cholestasis), and if LDL >=4.9 mmol/L evaluate Familial Hypercholesterolaemia (Dutch Lipid Clinic Network score); review statin intensity and adherence."
+        relevant_med_class_ids: ["drug_class:statin"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs_rule:triglycerides
+    observation_concept_id: obs:triglycerides
+    canonical_ucum: "mmol/L"
+    display_ucum: "mmol/L"
+    reference_intervals:
+      - { id: ri_fasting_adult, low: null, high: 1.7, priority: 0 }
+    severity_bands:
+      significant: { ge: 2.3 }
+      urgent: { ge: 5.6 }
+      critical: { ge: 10.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "hypertriglyceridaemia", zh_hk: "三酸甘油酯過高" }
+        plan_template:
+          en: "Confirm fasting status; screen alcohol, poorly controlled T2DM/HbA1c, obesity/MASLD, hypothyroidism, and culprit drugs (oral oestrogen, steroids); if >=10.0 mmol/L URGENT acute pancreatitis prevention (strict low-fat diet, zero alcohol, fibrate/specialist review)."
+        relevant_med_class_ids: ["drug_class:statin", "drug_class:hormonal_contraception", "drug_class:oral_corticosteroid"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs_rule:uacr
+    observation_concept_id: obs:uacr
+    canonical_ucum: "mg/mmol{creat}"
+    display_ucum: "mg/mmol{creat}"
+    reference_intervals:
+      - { id: ri_kdigo_a1, low: null, high: 2.9, priority: 0, source_note: "KDIGO A1 <3.0; A2 moderately increased 3.0-30; A3 severely increased >30 mg/mmol" }
+    severity_bands:
+      significant: { ge: 3.0 }
+      urgent: { ge: 30.0 }
+      critical: { ge: 220.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "albuminuria (KDIGO A2/A3 kidney injury marker)", zh_hk: "蛋白尿／白蛋白尿（腎臟受損指標）" }
+        plan_template:
+          en: "Exclude transient causes (UTI, fever, heavy exercise, menstruation) and confirm persistence with 2 of 3 early-morning uACR samples over 3 months; optimise BP, ACEi/ARB, and SGLT2i; if >=30 (especially >=220 nephrotic range) or haematuria present, arrange nephrology review."
+        relevant_med_class_ids: ["drug_class:raas_agent", "drug_class:sglt2_inhibitor", "drug_class:nsaid"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs_rule:free_t4
+    observation_concept_id: obs:free_t4
+    canonical_ucum: "pmol/L"
+    display_ucum: "pmol/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 11.0, high: 22.0, priority: 0, source_note: "Typical adult SI interval (verify local laboratory assay range alongside TSH)" }
+    severity_bands:
+      significant: { lt: 10.0, gt: 24.0 }
+      urgent: { lt: 7.0, gt: 40.0 }
+      critical: { lt: 5.0, gt: 60.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "elevated Free T4 (thyrotoxicosis / over-replacement)", zh_hk: "游離甲狀腺素偏高（甲亢或劑量過高）" }
+        plan_template:
+          en: "Correlate with TSH (suppressed in primary hyperthyroidism) and screen thyroid storm red flags (fever, HR >=130, AF, agitation/confusion); order TRAb/TPO antibodies and check levothyroxine or amiodarone use."
+        relevant_med_class_ids: ["drug_class:thyroid_hormone", "drug_class:antithyroid", "drug_class:beta_blocker"]
+      L:
+        working_problem: { en: "low Free T4 (overt hypothyroidism / over-suppression)", zh_hk: "游離甲狀腺素偏低（甲減）" }
+        plan_template:
+          en: "Correlate with TSH (high in primary hypothyroidism; low/normal suggests central pituitary cause or non-thyroidal illness); assess levothyroxine adherence or carbimazole over-treatment; screen myxoedema coma if severe drowsiness/hypothermia."
+        relevant_med_class_ids: ["drug_class:thyroid_hormone", "drug_class:antithyroid"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs_rule:psa
+    observation_concept_id: obs:psa
+    canonical_ucum: "ug/L"
+    display_ucum: "ug/L"
+    reference_intervals:
+      - { id: ri_male_default, low: null, high: 3.0, priority: 0, source_note: "Age-adjusted upper limits vary by guideline (commonly >3.0 ug/L triggers repeat/evaluation in 50-69y)" }
+      - { id: ri_male_70plus, low: null, high: 5.0, priority: 10, when: { fact: age_years, op: ge, value: 70 }, source_note: "Higher age-adjusted threshold in men >=70y; individualise by life expectancy" }
+    severity_bands:
+      significant: { gt: 3.0 }
+      urgent: { gt: 10.0 }
+      critical: { gt: 20.0 }
+    trend_rules:
+      - id: tr_psa_rapid_rise
+        direction: rise
+        delta_abs: 0.75
+        window_days: 365
+        urgency_floor: 2
+        clinician_rationale:
+          en: "PSA velocity >=0.75 ug/L/year or doubling — exclude UTI/prostatitis and arrange urology assessment (multiparametric MRI / biopsy decision)."
+    direction_templates:
+      H:
+        working_problem: { en: "raised prostate-specific antigen (PSA)", zh_hk: "前列腺特異抗原 (PSA) 偏高" }
+        plan_template:
+          en: "Exclude transient confounders (active UTI, acute prostatitis, urinary retention, catheterisation, ejaculation/vigorous cycling within 48h); repeat PSA (+ free/total ratio) in 1-3 months if mild, or arrange prompt urology/mpMRI referral if persistently elevated, abnormal DRE, >10 ug/L, or bony pain."
+        relevant_med_class_ids: ["drug_class:alpha_blocker"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs_rule:heart_rate
+    observation_concept_id: obs:heart_rate
+    canonical_ucum: "/min"
+    display_ucum: "/min"
+    reference_intervals:
+      - { id: ri_adult_resting, low: 60.0, high: 100.0, priority: 0 }
+    severity_bands:
+      significant: { lt: 50.0, ge: 100.0 }
+      urgent: { lt: 45.0, ge: 115.0 }
+      critical: { lt: 40.0, ge: 130.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "tachycardia (critical >=130/min)", zh_hk: "心動過速（危急 >=130次/分）" }
+        plan_template:
+          en: "Immediate 12-lead ECG and haemodynamic/sepsis/PE/thyrotoxicosis assessment; HR >=130/min triggers emergency floor (matches safety kernel THRESHOLDS.hr_emergency_gte)."
+        relevant_med_class_ids: ["drug_class:beta_blocker", "drug_class:saba_bronchodilator", "drug_class:thyroid_hormone"]
+      L:
+        working_problem: { en: "bradycardia (critical <40/min)", zh_hk: "心搏過緩（危急 <40次/分）" }
+        plan_template:
+          en: "Assess symptoms (syncope, hypotension, chest pain, confusion) and perform urgent 12-lead ECG to exclude high-grade AV block; review beta-blockers, digoxin, amiodarone, rate-limiting CCBs, and hyperkalaemia."
+        relevant_med_class_ids: ["drug_class:beta_blocker"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: obs_rule:diastolic_bp
+    observation_concept_id: obs:diastolic_bp
+    canonical_ucum: "mm[Hg]"
+    display_ucum: "mm[Hg]"
+    reference_intervals:
+      - { id: ri_adult, low: 60.0, high: 89.0, priority: 0 }
+    severity_bands:
+      significant: { ge: 90.0 }
+      urgent: { ge: 100.0 }
+      critical: { ge: 110.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "elevated diastolic BP / hypertensive crisis (>=110 mmHg)", zh_hk: "舒張壓偏高／高血壓危象（>=110 mmHg）" }
+        plan_template:
+          en: "Repeat BP after 5 min rest; if DBP >=110 mmHg (matches safety kernel THRESHOLDS.dbp_hypertensive_gte) immediately screen for acute target-organ damage (chest pain, dyspnoea, focal neuro deficit, severe headache/visual change, AKI) to exclude hypertensive emergency; otherwise arrange prompt titration/ABPM."
+        relevant_med_class_ids: ["drug_class:raas_agent", "drug_class:ccb", "drug_class:diuretic", "drug_class:beta_blocker"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+# ===========================================================================
+# PATHWAY POINTERS (3) — Cardiometabolic Chronic Loops & Acute Escalations
+# Strict Asymmetric Authority: autonomy_ceiling <= L1_propose_only
+# ===========================================================================
+pointers:
+  - id: ptr:cardiometabolic_chronic_loop
+    trigger_concepts:
+      - "cond:atrial_fibrillation"
+      - "cond:heart_failure"
+      - "cond:stable_ihd"
+      - "cond:t1dm"
+      - "cond:prediabetes"
+      - "cond:hyperthyroidism"
+      - "cond:obesity"
+      - "cond:bph"
+    trigger_observations:
+      - "obs_rule:fasting_glucose"
+      - "obs_rule:ldl"
+      - "obs_rule:triglycerides"
+      - "obs_rule:uacr"
+      - "obs_rule:free_t4"
+      - "obs_rule:psa"
+    target_kind: engine_family
+    target_ref: "planned_review"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "attest_all_clear"]
+    required_context_slots: ["age_years", "sex", "egfr_ml_min", "obs_values", "on_meds", "jurisdiction"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: ptr:cardiometabolic_drug_safety_loop
+    trigger_edges:
+      - "edge:carbimazole_agranulocytosis_cbc"
+      - "edge:nitrofurantoin_renal_ci"
+      - "edge:nitrofurantoin_g6pd_ci"
+      - "edge:spironolactone_raas_hyperkalaemia"
+      - "edge:beta_blocker_asthma_bronchospasm"
+      - "edge:anticoagulant_antiplatelet_bleed"
+      - "edge:digoxin_monitored_by_rft"
+      - "edge:amiodarone_monitored_by_lft"
+      - "edge:amiodarone_monitored_by_tsh"
+      - "edge:levothyroxine_monitored_by_tsh"
+      - "edge:insulin_hypoglycaemia_risk"
+      - "edge:sulfonylurea_hypoglycaemia_risk"
+    target_kind: journey_module
+    target_ref: "backend.journeys.medication"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["on_meds", "egfr_ml_min", "g6pd_deficient", "pregnant", "obs_values"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }
+
+  - id: ptr:acute_cardiorenal_urology_dvt_escalation
+    trigger_concepts:
+      - "rfe:palpitations"
+      - "rfe:ankle_oedema"
+      - "rfe:dysuria_frequency"
+      - "rfe:haematuria"
+      - "rfe:polyuria_polydipsia"
+      - "rf:unilateral_calf_swelling"
+      - "rf:painless_frank_haematuria"
+      - "rf:flank_pain_fever"
+      - "rf:orthopnoea_pnd"
+      - "cond:hypertensive_emergency"
+      - "cond:dka"
+    trigger_edges:
+      - "edge:painless_haematuria_urologic_malignancy"
+      - "edge:unilateral_calf_swelling_dvt_pe"
+      - "edge:flank_pain_fever_pyelonephritis"
+      - "edge:orthopnoea_pnd_heart_failure"
+    trigger_observations:
+      - "obs_rule:heart_rate"
+      - "obs_rule:diastolic_bp"
+    target_kind: protocol_yaml
+    target_ref: "protocols/cardiorenal_urology_dvt_escalation_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "sex", "pregnant", "egfr_ml_min", "obs_values", "on_meds"]
+    provenance: { author: "ontology_pod_w1_a", review_status: "draft" }

@@ -36,6 +36,7 @@ defaults:
     obs:haemoglobin: "g/dL"
 
 concept_patches:
+  # --- Wave 0 Core Schedules & HK Pearls ---
   drug:allopurinol:
     drug_facet:
       schedule: "HK_CAP138_PART_I_SCH3_RX"
@@ -57,22 +58,123 @@ concept_patches:
         en: "HK CHP IMPACT 6th Ed (2025): First-line outpatient CAP agent (with macrolide/doxycycline if atypical suspected) due to local H. influenzae beta-lactamase & macrolide-resistant S. pneumoniae."
 
   drug:oseltamivir:
-    drug_facet:
-      schedule: "HK_CAP138_PART_I_SCH3_RX"
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
 
   drug:ibuprofen:
-    drug_facet:
-      schedule: "HK_CAP138_PART_I_POISON"
+    drug_facet: { schedule: "HK_CAP138_PART_I_POISON" }
 
   drug:salbutamol:
-    drug_facet:
-      schedule: "HK_CAP138_PART_I_SCH3_RX"
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
 
   drug:warfarin:
-    drug_facet:
-      schedule: "HK_CAP138_PART_I_SCH3_RX"
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
     aliases:
       zh_hk: { $add: ["華法林", "薄血丸"] }
+
+  # --- Wave 1 Pod A: Cardiometabolic & Renal HK Deltas ---
+  drug:clopidogrel:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK East Asian CYP2C19 loss-of-function prevalence (~50-60%): avoid omeprazole/esomeprazole co-use (prefer pantoprazole); verify HA cardiology DAPT duration."
+        zh_hk: "香港華人 CYP2C19 弱代謝基因常見，避免同服奧美拉唑／埃索美拉唑，宜選泮托拉唑並核實雙抗血小板療程。"
+
+  drug:semaglutide:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx only: verify registered supply and Asian BMI >=27.5 with comorbidity threshold."
+
+  drug:nitrofurantoin:
+    drug_facet:
+      schedule: "HK_CAP137_ANTIBIOTIC"
+      dosing_pearl:
+        en: "HK CHP IMPACT 6th Ed (2025): First-line empiric female cystitis (100 mg MR BD x5d) PROVIDED eGFR >=45 and G6PD deficiency excluded (~4.5% HK males)."
+        zh_hk: "香港衞生防護中心 IMPACT 2025 指引：單純女性膀胱炎一線口服藥，處方前必須確認 eGFR >=45 及排除蠶豆症 (G6PD)。"
+
+  drug:trimethoprim:
+    drug_facet:
+      schedule: "HK_CAP137_ANTIBIOTIC"
+      dosing_pearl:
+        en: "HK CHP IMPACT 6th Ed (2025): High local community E. coli resistance (~30%+) — NOT recommended as empiric first-line UTI therapy in HK unless MSU-guided."
+
+  drug:aspirin:
+    drug_facet: { schedule: "HK_CAP138_PART_I_POISON" }
+
+  # --- Wave 1 Pod B: Resp, ENT & GI HK Deltas ---
+  drug:amoxicillin:
+    drug_facet:
+      schedule: "HK_CAP137_ANTIBIOTIC"
+      dosing_pearl:
+        en: "HK CHP IMPACT 6th Ed (2025): Verify penicillin allergy; note local H. influenzae beta-lactamase rates for outpatient CAP."
+
+  drug:doxycycline:
+    drug_facet:
+      schedule: "HK_CAP137_ANTIBIOTIC"
+      dosing_pearl:
+        en: "HK CHP IMPACT 6th Ed (2025): Preferred oral atypical/CAP adjunct in HK adults due to high local Mycoplasma macrolide resistance; CI in pregnancy & age <8y."
+
+  drug:azithromycin:
+    drug_facet:
+      schedule: "HK_CAP137_ANTIBIOTIC"
+      dosing_pearl:
+        en: "HK CHP IMPACT 6th Ed (2025): High local macrolide resistance in S. pneumoniae and Mycoplasma — avoid empiric CAP monotherapy."
+
+  drug:budesonide_formoterol:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK HA / GINA Track 1: Low-dose ICS-formoterol MART preferred for adolescent/adult asthma."
+
+  # --- Wave 1 Pod C: Neuro, Psych & Controlled Drugs HK Deltas ---
+  drug:carbamazepine:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK HA/HKCFP mandatory PGx: Screen HLA-B*15:02 prior to initiating carbamazepine in HK patients (high Han Chinese SJS/TEN risk)."
+
+  drug:lorazepam:
+    drug_facet: { schedule: "HK_CAP134_DANGEROUS_DRUG", telehealth_blocked: true }
+  drug:diazepam:
+    drug_facet: { schedule: "HK_CAP134_DANGEROUS_DRUG", telehealth_blocked: true }
+  drug:zolpidem:
+    drug_facet: { schedule: "HK_CAP134_DANGEROUS_DRUG", telehealth_blocked: true }
+  drug:zopiclone:
+    drug_facet: { schedule: "HK_CAP134_DANGEROUS_DRUG", telehealth_blocked: true }
+  drug:tramadol:
+    drug_facet: { schedule: "HK_CAP134_DANGEROUS_DRUG", telehealth_blocked: true }
+
+  # --- Wave 1 Pod D: Women's, Vaccines & Screening HK Deltas ---
+  drug:levonorgestrel_ec:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+
+  vaccine:influenza_qiv:
+    display:
+      en_hk: "Seasonal Influenza Vaccine (HK VSS subsidised >=50y, pregnant, 6m-<18y, high-risk)"
+
+  vaccine:pcv15:
+    display:
+      en_hk: "15-valent Pneumococcal Conjugate Vaccine (HK GVP/VSS >=65y high-risk -> 23vPPV 1y later)"
+
+  vaccine:shingrix_rzv:
+    display:
+      en_hk: "Recombinant Zoster Vaccine Shingrix (HK: self-financed >=50y)"
+
+  screen:crc_fit:
+    display:
+      en_hk: "HK DH Colorectal Cancer Screening Programme (subsidised biennial FIT ages 50-75)"
+
+  screen:cervical_hpv:
+    display:
+      en_hk: "HK Cervical Screening Programme (25-29y cytology q3y; 30-64y primary HPV q5y)"
+
+  screen:breast_mammogram:
+    display:
+      en_hk: "HK Personalised Risk-Based Breast Cancer Screening (44-69y via HK Gov bctool)"
+
+  screen:hbv_adult:
+    display:
+      en_hk: "HK CDCC Hepatitis B Screening (residents born <=1988)"
 
 edge_patches:
   edge:allopurinol_pgx_hla_b_5801:
@@ -86,6 +188,17 @@ edge_patches:
       en: "HK HA/HKCFP standard: High Han Chinese HLA-B*58:01 prevalence (~10-15%) — mandatory HLA-B*58:01 check before initiating allopurinol."
       zh_hk: "香港華人 HLA-B*58:01 攜帶率高，處方別嘌醇前必須先檢測基因以防嚴重皮膚過敏反應 (SJS/TEN)。"
 
+  edge:carbamazepine_pgx_hla_b_1502:
+    severity: "hard_block"
+    urgency_floor: 4
+    when:
+      fact: hla_b_1502
+      op: ne
+      value: "negative"
+    clinician_rationale:
+      en: "HK HA CMS hard-stop: Mandatory HLA-B*15:02 screening prior to carbamazepine initiation in HK (fatal SJS/TEN prevention)."
+      zh_hk: "香港醫管局強制警示：處方卡馬西平前必須檢測 HLA-B*15:02 基因，嚴防致命嚴重皮膚反應。"
+
   edge:no_empiric_iron_without_ferritin:
     severity: "critical"
     urgency_floor: 3
@@ -96,6 +209,24 @@ edge_patches:
     urgency_floor: 3
     clinician_rationale:
       en: "HK Cap. 549 TCM co-use common: actively screen danshen (丹參), dong quai (當歸), ginkgo (銀杏), ginseng (人參) with warfarin and check early INR."
+
+  edge:nitrofurantoin_g6pd_ci:
+    clinician_rationale:
+      en: "HK Newborn Screening / HKCFP: G6PD deficiency affects ~4.5% of HK males (~0.3% females) — always verify G6PD card before prescribing nitrofurantoin."
+      zh_hk: "香港約4.5%男性患有蠶豆症 (G6PD)，處方呋喃妥因前必須核對蠶豆症紀錄，嚴防急性溶血。"
+
+  edge:unilateral_ome_neck_lump_npc_red_flag:
+    urgency_floor: 3
+    clinician_rationale:
+      en: "HK high-incidence Southern Chinese NPC region: Unilateral adult OME, blood-stained post-nasal drip, or painless upper cervical node requires urgent ENT flexible nasoendoscopy +/- plasma EBV DNA."
+      zh_hk: "香港華南地區鼻咽癌發病率偏高：成人單側中耳積水、鼻涕帶血絲或無痛頸部淋巴腫大須緊急轉介耳鼻喉科鼻咽鏡及考慮血漿 EBV DNA 檢測。"
+
+  edge:oral_steroid_hbv_reactivation:
+    severity: "hard_block"
+    urgency_floor: 3
+    clinician_rationale:
+      en: "HK Epidemiology (~6-7% chronic HBV born <=1988): Mandatory HBsAg verification before moderate/high-dose or prolonged systemic corticosteroids; coordinate antiviral prophylaxis if HBsAg+."
+      zh_hk: "香港1988年或之前出生人士乙肝帶菌率高：處方長期或高劑量口服類固醇前必須核實 HBsAg。"
 
 observation_patches:
   obs_rule:mcv:
@@ -121,8 +252,29 @@ observation_patches:
           clinician_pearl:
             en: "HK PHCC Diabetes Framework (2023): Young-onset T2DM (<40y) accounts for ~20% of adult cases; apply Asian BMI >=23 overweight / >=25 obese; CDCC subsidised screening >=45y."
 
+  obs_rule:fasting_glucose:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_cdcc_fpg
+          clinician_pearl:
+            en: "HK CDCC Pilot Scheme: Subsidised diabetes & hypertension screening for HK residents aged >=45y; Asian BMI >=23 overweight / >=25 obese triggers earlier screening."
+
+  obs_rule:fit_stool:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_crc_screening
+          clinician_pearl:
+            en: "HK DH Colorectal Cancer Screening Programme: Subsidised biennial FIT for asymptomatic HK residents aged 50-75; positive FIT qualifies for subsidised colonoscopy."
+
+  obs_rule:h_pylori_stool_ag:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_hpylori_resistance
+          clinician_pearl:
+            en: "HK CHP IMPACT: Local H. pylori clarithromycin resistance exceeds 15%; favour 14-day bismuth or concomitant quadruple therapy and verify post-treatment eradication."
+
 provenance:
-  author: "ontology_pod_stage1"
+  author: "ontology_pod_stage2"
   review_status: "draft"
   jurisdiction_scope: "HK"
-  notes: "Minimal HK SAR toggle overlay over shared universal primary care core."
+  notes: "Wave 0 + Wave 1 Hong Kong SAR minimal toggle overlay over shared universal core."

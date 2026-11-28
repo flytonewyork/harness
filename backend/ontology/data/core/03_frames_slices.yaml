@@ -197,3 +197,47 @@ frames:
           en: "If you experience chest pain, fainting, black stools, severe shortness of breath, or thoughts of harming yourself, seek urgent medical care immediately."
           zh_hk: "如出現胸痛、暈倒、黑便、嚴重氣促或傷害自己的念頭，請立即尋求緊急醫療協助。"
     provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: frame:dyspnoea
+    rfe_concept_id: rfe:dyspnoea
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_asthma, concept_id: cond:asthma_exacerbation }
+        - { id: p_copd, concept_id: cond:copd_exacerbation }
+        - { id: p_cap, concept_id: cond:cap }
+      serious_not_to_be_missed:
+        - { id: s_acs, concept_id: cond:acs, key_discriminators: ["anginal equivalent in elderly/DM/women"] }
+        - { id: s_pe, concept_id: cond:pe }
+        - { id: s_sepsis, concept_id: cond:sepsis }
+        - { id: s_asthma_severe, concept_id: cond:asthma_exacerbation, key_discriminators: ["unable to speak full sentences", "silent chest", "SpO2 <94%"] }
+      pitfalls_often_missed:
+        - { id: o_anaemia, concept_id: cond:anaemia }
+      masquerades:
+        - { id: mq_anaemia, tier: primary, masquerade: anaemia, concept_id: cond:anaemia, clue_prompt: { en: "Check FBC for severe anaemia causing exertional dyspnoea." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Check beta-blocker or NSAID-precipitated bronchospasm." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore fear of suffocating, panic/anxiety overlap (diagnosis of exclusion only), or smoking burden." }
+    positive_exclusions:
+      - id: ex_sob_rest
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Are you struggling to breathe at rest or unable to speak in full sentences?", zh_hk: "請問你靜止時有沒有呼吸困難或無法說完整句子？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_cp
+        finding_concept_id: rf:chest_pain_cardiac
+        question: { en: "Do you have any chest pain, chest tightness, or pressure?", zh_hk: "請問你有沒有胸痛、心口翳悶或壓迫感？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_syncope
+        finding_concept_id: rf:syncope
+        question: { en: "Have you felt faint, lightheaded, or collapsed?", zh_hk: "請問你有否感到頭暈欲暈或曾經暈倒？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_dyspnoea_emergency
+        trigger_condition: { en: "Struggling to breathe, blue lips, chest pain, fainting, or sudden deterioration", zh_hk: "呼吸極度困難、嘴唇發紫、胸痛、暈倒或突然惡化" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "If your breathing becomes severe, you cannot finish sentences, or you develop chest pain or faintness, seek emergency medical care immediately."
+          zh_hk: "如呼吸嚴重困難、無法說完整句子，或出現胸痛、暈厥，請立即尋求緊急醫療協助。"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
