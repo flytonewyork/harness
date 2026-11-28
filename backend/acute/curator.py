@@ -668,6 +668,38 @@ def decide_curator_proposal(
         session.flush()
         return {"status": "dismissed", "proposal_id": prop.id, "graph": get_effective_practice_graph(session, tenant_id)}
 
+    meta = dict(prop.ebm_safety_check_json or {})
+    if meta.get("source") == "clinical_knowledge_factory":
+        # Propose-only invariant (WO #62): clinician approval signs off the PR patch & synthetic
+        # scenario stub for scripts/check.sh gating — NEVER mutates knowledge/*.yaml in place.
+        prop.status = "approved"
+        prop.published_graph_version = f"pr_ready:{meta.get('clinic_id', 'default')}"
+        record_audit(
+            session,
+            tenant_id=tenant_id,
+            actor_role="clinician",
+            actor_id=decided_by,
+            action="knowledge_factory_proposal_signed_off",
+            resource_type="curator_proposal",
+            resource_id=prop.id,
+            metadata={
+                "clinic_id": meta.get("clinic_id"),
+                "target_file": meta.get("target_file"),
+                "diff_fingerprint": meta.get("diff_fingerprint"),
+                "propose_only": True,
+            },
+        )
+        session.flush()
+        return {
+            "status": "approved_for_pr",
+            "proposal_id": prop.id,
+            "propose_only": True,
+            "target_file": meta.get("target_file"),
+            "unified_diff": meta.get("unified_diff"),
+            "synthetic_scenario_name": meta.get("synthetic_scenario_name"),
+            "graph": get_effective_practice_graph(session, tenant_id),
+        }
+
     patch = edited_patch or prop.proposed_patch_json
     validate_overlay_against_safety_floor(patch)
     updated_graph = mould_practice_graph(
@@ -683,8 +715,126 @@ def decide_curator_proposal(
     return {"status": "approved", "proposal_id": prop.id, "graph": updated_graph}
 
 
-def query_practice_playbook(effective_graph: dict[str, Any], question: str) -> dict[str, Any]:
-    """Graph-grounded @ Clinic Playbook Q&A for covering locum doctors and nurses across all 8 HK GP pathways."""
+def bridge_knowledge_gaps_to_curator(
+    session: Session,
+    *,
+    tenant_id: str,
+    gaps_or_path: Any,
+    clinic_id: str = "ec_clinic_1",
+    min_count: int = 3,
+    knowledge_root: Any = None,
+) -> dict[str, Any]:
+    """Bridge PHI-scrubbed WO #62 KnowledgeGap clusters into DB-tracked Lead GP CuratorProposals.
+
+    Enforces:
+    - Blind-set hygiene (via `load_gap_log` when given a file path)
+    - Propose-only authority: stages deduplicated `pending_lead_gp` proposals with unified YAML
+      diffs + synthetic scenario stubs; NEVER mutates `knowledge/` files on disk.
+    """
+    from pathlib import Path
+
+    from backend.knowledge import curate_gaps, load_gap_log
+
+    ensure_active_practice_graph(session, tenant_id)
+    if isinstance(gaps_or_path, (str, Path)):
+        gaps = load_gap_log(gaps_or_path)
+    else:
+        gaps = list(gaps_or_path)
+
+    report = curate_gaps(
+        gaps,
+        clinic_id=clinic_id,
+        min_count=min_count,
+        knowledge_root=knowledge_root,
+    )
+
+    existing_pending = session.execute(
+        select(CuratorProposal).where(
+            CuratorProposal.tenant_id == tenant_id,
+            CuratorProposal.status == "pending_lead_gp",
+        )
+    ).scalars().all()
+    by_fp = {
+        str((p.ebm_safety_check_json or {}).get("diff_fingerprint") or ""): p
+        for p in existing_pending
+    }
+
+    staged_ids: list[str] = []
+    updated_ids: list[str] = []
+    for prop_spec in report.proposals:
+        fp = compute_diff_fingerprint(
+            f"knowledge.{clinic_id}.{prop_spec.target_file}",
+            prop_spec.cluster.kind,
+            prop_spec.cluster.pattern,
+        )
+        existing = by_fp.get(fp)
+        if existing is not None:
+            existing.observed_count = max(existing.observed_count, prop_spec.cluster.count)
+            meta = dict(existing.ebm_safety_check_json or {})
+            meta["unified_diff"] = prop_spec.unified_diff
+            meta["synthetic_scenario_name"] = prop_spec.synthetic_scenario_name
+            meta["synthetic_scenario_yaml"] = prop_spec.synthetic_scenario_yaml
+            existing.ebm_safety_check_json = meta
+            flag_modified(existing, "ebm_safety_check_json")
+            updated_ids.append(existing.id)
+            continue
+
+        safety_meta = {
+            "passed": True,
+            "safety_floor_intact": True,
+            "source": "clinical_knowledge_factory",
+            "propose_only": True,
+            "clinic_id": clinic_id,
+            "target_file": prop_spec.target_file,
+            "diff_fingerprint": fp,
+            "diff_key": prop_spec.cluster.kind,
+            "normalized_value": prop_spec.cluster.pattern.lower(),
+            "unified_diff": prop_spec.unified_diff,
+            "synthetic_scenario_name": prop_spec.synthetic_scenario_name,
+            "synthetic_scenario_yaml": prop_spec.synthetic_scenario_yaml,
+            "locum_only": False,
+            "needs_regular_corroboration": False,
+            "conflict_detected": False,
+            "conflicting_proposal_ids": [],
+            "auto_promote_eligible": False,
+        }
+        row = CuratorProposal(
+            id=new_id("cur"),
+            tenant_id=tenant_id,
+            target_node_id=f"knowledge.{clinic_id}.{prop_spec.cluster.kind}",
+            title=f"Knowledge Factory ({clinic_id}): {prop_spec.cluster.kind} — {prop_spec.cluster.pattern}",
+            rationale=prop_spec.rationale,
+            observed_count=prop_spec.cluster.count,
+            proposed_patch_json=prop_spec.yaml_addition,
+            ebm_safety_check_json=safety_meta,
+            evidence_case_ids_json=list(prop_spec.cluster.channels or ("knowledge_gap_log",)),
+            status="pending_lead_gp",
+        )
+        session.add(row)
+        session.flush()
+        by_fp[fp] = row
+        staged_ids.append(row.id)
+
+    return {
+        "clinic_id": clinic_id,
+        "total_gaps": report.total_gaps,
+        "proposals_generated": len(report.proposals),
+        "staged_proposal_ids": staged_ids,
+        "updated_proposal_ids": updated_ids,
+    }
+
+
+def query_practice_playbook(
+    effective_graph: dict[str, Any],
+    question: str,
+    *,
+    clinic_knowledge: Any = None,
+) -> dict[str, Any]:
+    """Graph-grounded @ Clinic Playbook Q&A for covering locum doctors and nurses across all 8 HK GP pathways.
+
+    When `clinic_knowledge` (`ClinicKnowledge`) is provided, also surfaces grounded clinic-specific
+    drug alias, lab panel synonym, shorthand glossary, and cover-rule entries with pack provenance.
+    """
     q = (question or "").strip()
     low = q.lower()
     nodes = effective_graph["nodes"]
@@ -715,12 +865,43 @@ def query_practice_playbook(effective_graph: dict[str, Any], question: str) -> d
         note = n["params"].get("practice_note") or n["summary"]
         bullets.append(f"{n['title']} ({n['provenance']}): {note}")
 
-    return {
+    knowledge_bullets: list[str] = []
+    if clinic_knowledge is not None:
+        # 1. Drug aliases & monitoring rules
+        for gen in clinic_knowledge.mentions(q):
+            cls_name = clinic_knowledge.drug_class(gen) or "unclassified"
+            mon = clinic_knowledge.monitoring_for(gen)
+            mon_str = f"; repeat monitoring: {', '.join(mon[0])} within {mon[1]}d" if mon else ""
+            knowledge_bullets.append(
+                f"Drug Formulary ({clinic_knowledge.clinic_id}): {gen} (class={cls_name}{mon_str})"
+            )
+        # 2. Lab panel synonyms
+        expanded_tests = clinic_knowledge.tests_for(q)
+        if expanded_tests:
+            knowledge_bullets.append(
+                f"Lab Synonyms ({clinic_knowledge.clinic_id}): resolves to {', '.join(expanded_tests)}"
+            )
+        # 3. Local shorthand glossary matches
+        for abbr, meaning in sorted(clinic_knowledge.domain.shorthand_glossary.items(), key=lambda kv: kv[0].lower()):
+            if re.search(rf"(?<![A-Za-z0-9]){re.escape(abbr)}(?![A-Za-z0-9])", q, re.I):
+                knowledge_bullets.append(f"Clinic Shorthand ({clinic_knowledge.clinic_id}): {abbr} = {meaning}")
+        # 4. Sessional / locum cover rules
+        if any(k in low for k in ("cover", "locum", "sessional", "duty", "escalat")):
+            for cr in clinic_knowledge.routing.cover_rules:
+                knowledge_bullets.append(
+                    f"Cover Rule ({clinic_knowledge.clinic_id}/{cr.id}): {cr.condition} -> {cr.fallback_role} ({cr.escalate_after_hours}h)"
+                )
+
+    result: dict[str, Any] = {
         "question": q,
         "graph_version_tag": effective_graph["version_tag"],
         "graph_content_hash": effective_graph["content_hash"],
         "approved_by": effective_graph["approved_by"],
         "matched_nodes": [{"id": n["id"], "title": n["title"], "provenance": n["provenance"], "guideline_ref": n["guideline_ref"]} for n in matched],
-        "answer_bullets": bullets,
+        "answer_bullets": bullets + knowledge_bullets,
         "grace_window_hours": std.get("grace_window_hours", 72),
     }
+    if clinic_knowledge is not None:
+        result["knowledge_clinic_id"] = clinic_knowledge.clinic_id
+        result["knowledge_fingerprint"] = clinic_knowledge.fingerprint
+    return result

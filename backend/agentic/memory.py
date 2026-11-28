@@ -165,6 +165,11 @@ class MemoryRecord:
     created_at: datetime = field(default_factory=utcnow)
 
     @property
+    def case_key(self) -> str | None:
+        raw = self.payload.get("case_key")
+        return str(raw).strip() if raw else None
+
+    @property
     def is_superseded(self) -> bool:
         return bool(self.payload.get("superseded_by"))
 
@@ -204,6 +209,7 @@ class MemoryRecord:
             "id": self.id,
             "tenant_id": self.tenant_id,
             "patient_id": self.patient_id,
+            "case_key": self.case_key,
             "tier": self.tier,
             "topic": self.topic,
             "summary_text": self.summary_text,
@@ -353,14 +359,175 @@ def assert_emr_memory_isolation(
             )
 
 
+SAFETY_TOPICS: frozenset[str] = frozenset({"safety_alerts", "allergy", "g6pd_status"})
+
+
+@dataclass
+class CaseEvidenceFinding:
+    """One verbatim-quote-backed clinical finding recorded inside a per-case OSCE working state."""
+
+    concept_id: str
+    status: str  # "present" | "excluded"
+    quote: str
+    turn: int
+    source_doc_id: str | None = None
+    verified_span: dict[str, int | None] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "concept_id": self.concept_id,
+            "status": self.status,
+            "quote": self.quote,
+            "turn": self.turn,
+            "source_doc_id": self.source_doc_id,
+        }
+
+
+@dataclass
+class CaseEvidenceState:
+    """Per-case OSCE structured clinical working state (MedKGI / MedMT-Bench pattern).
+
+    Maintains quote-verified positive and explicitly excluded findings, active RFEs,
+    medications, and labs for a single `(tenant_id, patient_id, case_key)` encounter so
+    multi-turn dialogues never suffer early-turn amnesia or cross-episode bleed.
+    """
+
+    tenant_id: str
+    patient_id: str
+    case_key: str
+    jurisdiction: str = "HK"
+    active_rfe_ids: list[str] = field(default_factory=list)
+    active_med_ids: list[str] = field(default_factory=list)
+    present_findings: dict[str, CaseEvidenceFinding] = field(default_factory=dict)
+    explicitly_excluded_findings: dict[str, CaseEvidenceFinding] = field(default_factory=dict)
+    asked_concepts: list[str] = field(default_factory=list)
+    lab_results: list[dict[str, Any]] = field(default_factory=list)
+    patient_facts: dict[str, Any] = field(default_factory=dict)
+    turn_count: int = 0
+
+    def record_finding(
+        self,
+        *,
+        concept_id: str,
+        status: str,
+        verbatim_quote: str,
+        source_corpus: str | list[str],
+        turn: int | None = None,
+        source_doc_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Verify quote verbatim and record a present or explicitly excluded finding."""
+        if status not in ("present", "excluded"):
+            raise MemoryPolicyError(f"CaseEvidenceFinding status must be 'present' or 'excluded', got {status!r}")
+        q_res = verify_memory_quote(verbatim_quote, source_corpus)
+        if not q_res.verified:
+            return {"recorded": False, "verified": False, "concept_id": concept_id, "reason": q_res.reason}
+
+        t_idx = self.turn_count if turn is None else int(turn)
+        finding = CaseEvidenceFinding(
+            concept_id=concept_id,
+            status=status,
+            quote=verbatim_quote.strip(),
+            turn=t_idx,
+            source_doc_id=source_doc_id,
+            verified_span={"start_char": q_res.start_char, "end_char": q_res.end_char},
+        )
+        contradiction = False
+        if status == "present":
+            if concept_id in self.explicitly_excluded_findings:
+                contradiction = True
+                del self.explicitly_excluded_findings[concept_id]
+            self.present_findings[concept_id] = finding
+        else:
+            if concept_id in self.present_findings:
+                contradiction = True
+                del self.present_findings[concept_id]
+            self.explicitly_excluded_findings[concept_id] = finding
+        if concept_id not in self.asked_concepts:
+            self.asked_concepts.append(concept_id)
+        return {
+            "recorded": True,
+            "verified": True,
+            "concept_id": concept_id,
+            "status": status,
+            "contradiction_detected": contradiction,
+        }
+
+    def mark_asked(self, concept_ids: list[str]) -> None:
+        for cid in concept_ids:
+            if cid and cid not in self.asked_concepts:
+                self.asked_concepts.append(cid)
+
+    def add_rfe(self, concept_id: str) -> None:
+        if concept_id and concept_id not in self.active_rfe_ids:
+            self.active_rfe_ids.append(concept_id)
+
+    def add_medication(self, med_id_or_name: str) -> None:
+        if med_id_or_name and med_id_or_name not in self.active_med_ids:
+            self.active_med_ids.append(med_id_or_name)
+
+    def to_ontology_facts(self) -> dict[str, Any]:
+        """Structured facts dict matching PR #77 `backend/ontology/evaluator.py` contract."""
+        facts = copy.deepcopy(self.patient_facts)
+        facts["jurisdiction"] = self.jurisdiction
+        facts["concepts"] = list(dict.fromkeys(list(self.active_rfe_ids) + list(self.present_findings.keys())))
+        facts["on_meds"] = list(self.active_med_ids)
+        obs_vals = dict(facts.get("obs_values") or {})
+        for lr in self.lab_results:
+            cid = lr.get("concept_id")
+            val = lr.get("canonical_value", lr.get("value"))
+            if cid and val is not None:
+                obs_vals[cid] = val
+        facts["obs_values"] = obs_vals
+        return facts
+
+    def to_slot3_dict(self) -> dict[str, Any]:
+        """Compact, deterministic OSCE working state for ContextCompiler Slot 3."""
+        return {
+            "case_key": self.case_key,
+            "jurisdiction": self.jurisdiction,
+            "turn_count": self.turn_count,
+            "active_rfe_ids": list(self.active_rfe_ids),
+            "active_med_ids": list(self.active_med_ids),
+            "present_findings": [f.to_dict() for f in self.present_findings.values()],
+            "explicitly_excluded_findings": [f.to_dict() for f in self.explicitly_excluded_findings.values()],
+            "asked_concepts": list(self.asked_concepts),
+            "lab_results": list(self.lab_results),
+        }
+
+
 class ClinicalMemoryManager:
-    """High-level 3-tier clinical memory orchestrator (EMR cache + Verified Agent Memory + Ephemeral Sam)."""
+    """High-level 3-tier clinical memory orchestrator (EMR cache + Per-Case/Longitudinal Agent Memory + Ephemeral Sam)."""
 
     def __init__(self, store: MemoryStoreProtocol | None = None) -> None:
         self.store: MemoryStoreProtocol = store or InMemoryAgentMemoryStore()
         # Ephemeral RAM-only buffers (intentionally NOT written to PostgreSQL or Clinic EMR)
         self._emr_cache: dict[tuple[str, str], dict[str, Any]] = {}
-        self._ephemeral_private_threads: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        self._ephemeral_private_threads: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+        self._case_states: dict[tuple[str, str, str], CaseEvidenceState] = {}
+
+    # ------------------------------------------------------------------ Per-Case OSCE Working State
+    def get_or_create_case_state(
+        self,
+        *,
+        tenant_id: str,
+        patient_id: str,
+        case_key: str,
+        jurisdiction: str = "HK",
+    ) -> CaseEvidenceState:
+        key = (tenant_id, patient_id, case_key)
+        st = self._case_states.get(key)
+        if st is None:
+            st = CaseEvidenceState(
+                tenant_id=tenant_id,
+                patient_id=patient_id,
+                case_key=case_key,
+                jurisdiction=jurisdiction,
+            )
+            self._case_states[key] = st
+        return st
+
+    def get_case_state(self, tenant_id: str, patient_id: str, case_key: str) -> CaseEvidenceState | None:
+        return self._case_states.get((tenant_id, patient_id, case_key))
 
     # ------------------------------------------------------------------ Tier 1: Read-Only EMR Cache
     def hydrate_emr_projection(self, tenant_id: str, patient_id: str, emr_snapshot: dict[str, Any]) -> dict[str, Any]:
@@ -387,13 +554,19 @@ class ClinicalMemoryManager:
         source_corpus: str | list[str],
         source_doc_id: str | None = None,
         tier: str = "episodic",
+        case_key: str | None = None,
         consent_scope: str = "ai_assisted_intake",
         consent_granted: bool = True,
         retention_days: int | None = None,
         metadata: dict[str, Any] | None = None,
         now: datetime | None = None,
     ) -> dict[str, Any]:
-        """Verify verbatim quote, check PDPO consent, supersede prior topic entry, and persist."""
+        """Verify verbatim quote, check PDPO consent, supersede prior topic entry, and persist.
+
+        Episodic facts with a `case_key` supersede/contradict ONLY within `(patient_id, case_key, topic)`
+        so concurrent clinical episodes for the same patient never overwrite each other.
+        Longitudinal, preference, and safety topics remain patient-wide across cases.
+        """
         if not consent_granted:
             raise MemoryPolicyError("Cannot persist AgentMemoryEntry: HK PDPO consent not granted or withdrawn.")
         if consent_scope not in VALID_CONSENT_SCOPES:
@@ -415,14 +588,19 @@ class ClinicalMemoryManager:
         cur_time = now or utcnow()
         ttl_days = retention_days if retention_days is not None else DEFAULT_RETENTION_DAYS.get(tier, 180)
         expires_at = cur_time + timedelta(days=max(1, ttl_days))
+        norm_case = str(case_key).strip() if case_key else None
+        is_case_scoped = tier == "episodic" and norm_case is not None and topic not in SAFETY_TOPICS
 
         existing = self.store.list_by_patient(tenant_id, patient_id)
         active_same_topic = [
             r for r in existing
-            if r.topic == topic and not r.is_superseded and not r.is_expired(cur_time)
+            if r.topic == topic
+            and not r.is_superseded
+            and not r.is_expired(cur_time)
+            and (not is_case_scoped or r.case_key == norm_case)
         ]
 
-        # Idempotent dedup: identical topic + summary_text + quote returns existing entry cleanly
+        # Idempotent dedup: identical topic + summary_text + scope returns existing entry cleanly
         for prev in active_same_topic:
             if prev.summary_text.strip().lower() == summary_text.strip().lower():
                 return {
@@ -453,6 +631,9 @@ class ClinicalMemoryManager:
             "contradiction_detected": contradiction,
             "previous_summary": active_same_topic[-1].summary_text if active_same_topic else None,
         }
+        if norm_case is not None:
+            payload["case_key"] = norm_case
+
         rec = MemoryRecord(
             id=new_entry_id,
             tenant_id=tenant_id,
@@ -481,15 +662,24 @@ class ClinicalMemoryManager:
         *,
         tenant_id: str,
         patient_id: str,
+        case_key: str | None = None,
+        include_longitudinal: bool = True,
         topics: list[str] | None = None,
         include_stale: bool = True,
         limit: int = 8,
         now: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        """Return active (non-superseded, non-expired) memories ranked by recency & safety priority."""
+        """Return active (non-superseded, non-expired) memories ranked by safety, current-case, & recency.
+
+        When `case_key` is provided:
+        - Patient-wide safety alerts (`allergy`, `g6pd_status`, `safety_alerts`) are ALWAYS included.
+        - `episodic` memories from *other* cases (`r.case_key not in (None, case_key)`) are excluded to prevent episode bleed.
+        - `longitudinal` and `preference` facts are included when `include_longitudinal=True`.
+        """
         cur_time = now or utcnow()
         rows = self.store.list_by_patient(tenant_id, patient_id)
         topic_set = set(topics) if topics else None
+        norm_case = str(case_key).strip() if case_key else None
         active: list[MemoryRecord] = []
         for r in rows:
             if r.is_superseded or r.is_expired(cur_time):
@@ -498,16 +688,60 @@ class ClinicalMemoryManager:
                 continue
             if not include_stale and r.staleness(cur_time) == "stale":
                 continue
+            is_safety = r.topic in SAFETY_TOPICS
+            if norm_case is not None and not is_safety:
+                if r.tier == "episodic" and r.case_key is not None and r.case_key != norm_case:
+                    continue
+                if r.tier in ("longitudinal", "preference") and not include_longitudinal:
+                    continue
             active.append(r)
 
-        def _rank(r: MemoryRecord) -> tuple[int, float]:
-            is_safety = 1 if r.topic in ("safety_alerts", "allergy", "g6pd_status") else 0
+        def _rank(r: MemoryRecord) -> tuple[int, int, float]:
+            is_safety = 1 if r.topic in SAFETY_TOPICS else 0
             is_conflict = 1 if r.payload.get("contradiction_detected") else 0
+            is_current_case = 1 if (norm_case is not None and r.case_key == norm_case) else 0
             ts = (r.created_at if r.created_at.tzinfo else r.created_at.replace(tzinfo=timezone.utc)).timestamp()
-            return (is_safety * 2 + is_conflict, ts)
+            return (is_safety * 3 + is_conflict * 2, is_current_case, ts)
 
         active.sort(key=_rank, reverse=True)
         return [r.to_dict(now=cur_time) for r in active[:limit]]
+
+    def retrieve_layered_memories(
+        self,
+        *,
+        tenant_id: str,
+        patient_id: str,
+        case_key: str | None = None,
+        limit_per_layer: int = 6,
+        now: datetime | None = None,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Return memories separated cleanly into safety_alerts, case_episodic, and patient_longitudinal."""
+        items = self.retrieve_active_memories(
+            tenant_id=tenant_id,
+            patient_id=patient_id,
+            case_key=case_key,
+            include_longitudinal=True,
+            limit=max(16, limit_per_layer * 3),
+            now=now,
+        )
+        safety: list[dict[str, Any]] = []
+        case_ep: list[dict[str, Any]] = []
+        longit: list[dict[str, Any]] = []
+        for it in items:
+            if it["topic"] in SAFETY_TOPICS:
+                if len(safety) < limit_per_layer:
+                    safety.append(it)
+            elif it["tier"] == "episodic" and (case_key is None or it.get("case_key") in (None, case_key)):
+                if len(case_ep) < limit_per_layer:
+                    case_ep.append(it)
+            else:
+                if len(longit) < limit_per_layer:
+                    longit.append(it)
+        return {
+            "safety_alerts": safety,
+            "case_episodic": case_ep,
+            "patient_longitudinal": longit,
+        }
 
     # ------------------------------------------------------------------ Tier 3: Ephemeral Private Sam Thread
     def append_ephemeral_private_turn(
@@ -518,12 +752,14 @@ class ClinicalMemoryManager:
         who: str,
         actor: str,
         text: str,
+        case_key: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Append to RAM-only private Doctor <-> Sam scratchpad (NEVER persisted to Clinic EMR)."""
-        key = (tenant_id, patient_id)
+        """Append to RAM-only private Doctor <-> Sam scratchpad (case-scoped when case_key provided; NEVER EMR)."""
+        key = (tenant_id, patient_id, str(case_key or "__patient__"))
         thread = self._ephemeral_private_threads.setdefault(key, [])
         thread.append({
             "tier": EPHEMERAL_PRIVATE_TIER,
+            "case_key": case_key,
             "who": who,
             "actor": actor,
             "text": text,
@@ -534,8 +770,14 @@ class ClinicalMemoryManager:
             self._ephemeral_private_threads[key] = thread[-20:]
         return copy.deepcopy(self._ephemeral_private_threads[key])
 
-    def get_ephemeral_private_thread(self, tenant_id: str, patient_id: str) -> list[dict[str, Any]]:
-        return copy.deepcopy(self._ephemeral_private_threads.get((tenant_id, patient_id), []))
+    def get_ephemeral_private_thread(
+        self,
+        tenant_id: str,
+        patient_id: str,
+        case_key: str | None = None,
+    ) -> list[dict[str, Any]]:
+        key = (tenant_id, patient_id, str(case_key or "__patient__"))
+        return copy.deepcopy(self._ephemeral_private_threads.get(key, []))
 
     # ------------------------------------------------------------------ HK PDPO DPP2 / DPP6 Lifecycle
     def purge_expired(self, tenant_id: str, patient_id: str, *, now: datetime | None = None) -> int:
@@ -564,7 +806,10 @@ class ClinicalMemoryManager:
         rows = self.store.list_by_patient(tenant_id, patient_id)
         deleted = self.store.delete_by_ids(tenant_id, [r.id for r in rows])
         self._emr_cache.pop((tenant_id, patient_id), None)
-        self._ephemeral_private_threads.pop((tenant_id, patient_id), None)
+        for k in [k for k in self._ephemeral_private_threads if k[0] == tenant_id and k[1] == patient_id]:
+            del self._ephemeral_private_threads[k]
+        for k in [k for k in self._case_states if k[0] == tenant_id and k[1] == patient_id]:
+            del self._case_states[k]
         return {
             "patient_id": patient_id,
             "deleted_agent_memory_entries": deleted,

@@ -18,7 +18,9 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
 from .context import ContextCompiler, ContextSnapshot, estimate_tokens
-from .memory import ClinicalMemoryManager
+from .memory import CaseEvidenceState, ClinicalMemoryManager
+from .question_planner import QuestionPlan, plan_next_questions
+from .symbolic_verifier import SymbolicVerificationResult, verify_turn_against_ontology
 from .prompts import (
     PRESENTATION_SELF_REPAIR_V1,
     PROMPT_REGISTRY,
@@ -81,9 +83,11 @@ class AgentRunTrace:
     output_tokens_actual: int | None = None
     thought_tokens_actual: int | None = None
     attempts_tried: int = 1
+    question_plan: dict[str, Any] | None = None
+    symbolic_verification: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out = {
             "prompt_id": self.prompt_id,
             "prompt_version": self.prompt_version,
             "prompt_fingerprint": self.prompt_fingerprint,
@@ -107,6 +111,11 @@ class AgentRunTrace:
             "thought_tokens_actual": self.thought_tokens_actual,
             "attempts_tried": self.attempts_tried,
         }
+        if self.question_plan is not None:
+            out["question_plan"] = dict(self.question_plan)
+        if self.symbolic_verification is not None:
+            out["symbolic_verification"] = dict(self.symbolic_verification)
+        return out
 
 
 class GovernedAgentRunner:
@@ -155,8 +164,19 @@ class GovernedAgentRunner:
         structured_validator: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
         deterministic_fallback: Callable[[], tuple[str, dict[str, Any] | None]] | None = None,
         tool_context: dict[str, Any] | None = None,
+        case_key: str | None = None,
+        case_evidence_state: CaseEvidenceState | None = None,
+        clinic_knowledge: Any = None,
+        ontology_graph: Any = None,
+        ontology_context_pack: Any = None,
+        enable_question_planner: bool = True,
+        enable_symbolic_veto: bool = True,
+        selective_gating: bool = True,
+        kernel_urgency: int = 0,
+        candidate_entities: list[str] | None = None,
+        gap_log: Any = None,
     ) -> AgentRunTrace:
-        """Execute a full governed clinical agent turn with bounded tool loop and 1-retry self-repair."""
+        """Execute a full governed clinical agent turn with bounded tool loop, C1-C3 ontology stack & 1-retry self-repair."""
         t0 = time.perf_counter()
         injection_signals = detect_prompt_injection_signals(current_input)
 
@@ -201,12 +221,24 @@ class GovernedAgentRunner:
             + protocol_banned
         ))
 
-        # 3. Retrieve Active Longitudinal Memory & Compile Strict <4,096-Token Context
+        # 3. C1 Per-Case Layered Memory + C2 Symbolic Question Planner + Selective <4,096-Token Context
+        eff_case_key = case_key or (case_evidence_state.case_key if case_evidence_state is not None else None)
+        eff_case_state = case_evidence_state
+        if eff_case_state is None and eff_case_key is not None:
+            eff_case_state = self.memory.get_case_state(tenant_id, patient_id, eff_case_key)
+
         active_memories = self.memory.retrieve_active_memories(
             tenant_id=tenant_id,
             patient_id=patient_id,
+            case_key=eff_case_key,
             limit=8,
         )
+
+        q_plan: QuestionPlan | None = None
+        if enable_question_planner and ontology_graph is not None and eff_case_state is not None:
+            q_lang = str((template_vars or {}).get("language") or "en")
+            q_plan = plan_next_questions(ontology_graph, eff_case_state, lang=q_lang)
+
         snapshot: ContextSnapshot = self.compiler.compile(
             template=template,
             skills=active_skills,
@@ -222,6 +254,12 @@ class GovernedAgentRunner:
             region=region,
             channel=channel,
             patient_names_for_scrub=patient_names_for_scrub,
+            clinic_knowledge=clinic_knowledge,
+            ontology_context_pack=ontology_context_pack,
+            case_evidence_state=eff_case_state,
+            question_plan=q_plan,
+            intent=intent,
+            selective_gating=selective_gating,
         )
 
         # Offline / no-transport safe fallback
@@ -246,6 +284,7 @@ class GovernedAgentRunner:
                 final_text=fb_text,
                 final_json=fb_json,
                 latency_ms=round((time.perf_counter() - t0) * 1000, 2),
+                question_plan=q_plan.to_dict() if q_plan is not None else None,
             )
 
         # 4. Bounded Multi-Step Tool-Calling Loop
@@ -285,7 +324,7 @@ class GovernedAgentRunner:
             messages.append({"role": "assistant", "tool_calls": [tc.name for tc in last_resp.tool_calls]})
             messages.append({"role": "tool", "content": json.dumps(round_results, ensure_ascii=False)})
 
-        # 5. Post-Generation Validation + Bounded 1-Retry Diagnostic Self-Repair
+        # 5. Post-Generation Validation + C3 Risk-Stratified F4 Symbolic Veto + Bounded 1-Retry Repair
         final_text, final_json, violations = self._validate_response(
             last_resp,
             expect_json=expect_json,
@@ -294,6 +333,21 @@ class GovernedAgentRunner:
             is_sam_note=is_sam_note,
             structured_validator=structured_validator,
         )
+        sym_res: SymbolicVerificationResult | None = None
+        if enable_symbolic_veto and ontology_graph is not None and eff_case_state is not None:
+            sym_res = verify_turn_against_ontology(
+                final_text,
+                final_json,
+                ontology_graph=ontology_graph,
+                case_state=eff_case_state,
+                context_pack=ontology_context_pack,
+                kernel_urgency=kernel_urgency,
+                channel=channel,
+                candidate_entities=candidate_entities,
+                gap_log=gap_log,
+            )
+            if sym_res.vetoed:
+                violations = list(violations) + sym_res.to_violation_strings()
 
         retries = 0
         fallback_used = False
@@ -325,6 +379,12 @@ class GovernedAgentRunner:
                 region=region,
                 channel=channel,
                 patient_names_for_scrub=patient_names_for_scrub,
+                clinic_knowledge=clinic_knowledge,
+                ontology_context_pack=ontology_context_pack,
+                case_evidence_state=eff_case_state,
+                question_plan=q_plan,
+                intent=intent,
+                selective_gating=selective_gating,
             )
             repair_resp = transport.invoke(
                 system_message=repair_ctx.system_message,
@@ -344,6 +404,18 @@ class GovernedAgentRunner:
                 is_sam_note=is_sam_note,
                 structured_validator=structured_validator,
             )
+            if enable_symbolic_veto and ontology_graph is not None and eff_case_state is not None:
+                sym_res = verify_turn_against_ontology(
+                    final_text,
+                    final_json,
+                    ontology_graph=ontology_graph,
+                    case_state=eff_case_state,
+                    context_pack=ontology_context_pack,
+                    kernel_urgency=kernel_urgency,
+                    channel=channel,
+                )
+                if sym_res.vetoed:
+                    violations = list(violations) + sym_res.to_violation_strings()
             if violations:
                 fallback_used = True
                 fallback_reason = "repair_retry_still_failed_validation"
@@ -373,6 +445,8 @@ class GovernedAgentRunner:
             output_tokens_actual=final_resp.output_tokens_actual,
             thought_tokens_actual=final_resp.thought_tokens_actual,
             attempts_tried=total_attempts,
+            question_plan=q_plan.to_dict() if q_plan is not None else None,
+            symbolic_verification=sym_res.to_telemetry_dict() if sym_res is not None else None,
         )
 
     @staticmethod

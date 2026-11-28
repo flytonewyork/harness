@@ -18,9 +18,13 @@ from .context import (
     ContextCompiler,
     ContextSnapshot,
     estimate_tokens,
+    should_activate_ontology_context,
 )
 from .memory import (
     EPHEMERAL_PRIVATE_TIER,
+    SAFETY_TOPICS,
+    CaseEvidenceFinding,
+    CaseEvidenceState,
     ClinicalMemoryManager,
     EMRIsolationError,
     InMemoryAgentMemoryStore,
@@ -30,6 +34,12 @@ from .memory import (
     QuoteVerificationResult,
     assert_emr_memory_isolation,
     verify_memory_quote,
+)
+from .question_planner import PlannedQuestion, QuestionPlan, plan_next_questions
+from .symbolic_verifier import (
+    SymbolicVerificationResult,
+    SymbolicViolation,
+    verify_turn_against_ontology,
 )
 from .prompts import (
     CARE_LINE_PATIENT_TURN_V1,
@@ -88,7 +98,11 @@ __all__ = [
     "ContextCompiler",
     "ContextSnapshot",
     "estimate_tokens",
+    "should_activate_ontology_context",
     "EPHEMERAL_PRIVATE_TIER",
+    "SAFETY_TOPICS",
+    "CaseEvidenceFinding",
+    "CaseEvidenceState",
     "ClinicalMemoryManager",
     "EMRIsolationError",
     "InMemoryAgentMemoryStore",
@@ -98,6 +112,12 @@ __all__ = [
     "QuoteVerificationResult",
     "assert_emr_memory_isolation",
     "verify_memory_quote",
+    "PlannedQuestion",
+    "QuestionPlan",
+    "plan_next_questions",
+    "SymbolicVerificationResult",
+    "SymbolicViolation",
+    "verify_turn_against_ontology",
     "CARE_LINE_PATIENT_TURN_V1",
     "CLINICAL_PRESENTATION_SLOT_FILL_V1",
     "DOCUMENT_COMMITMENT_AND_DIFF_V1",
