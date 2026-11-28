@@ -794,6 +794,86 @@ class OpenAICompatProvider(ModelProvider):
         )
 
 
+class ClaudeCLIProvider(ModelProvider):
+    """Dev/eval-only provider wrapping `claude -p` in an empty temp dir with zero tools, no MCP, and JSON schema."""
+
+    name = "claude_cli"
+
+    def __init__(self, *, binary: str = "claude", effort: str | None = None, timeout_s: float = 300.0) -> None:
+        self.binary = binary
+        self.effort = effort
+        self.timeout_s = timeout_s
+
+    def invoke(self, call: ProviderCall) -> ProviderResult:
+        import shutil
+        import subprocess
+        import tempfile
+
+        if not (shutil.which(self.binary) or Path(self.binary).is_file()):
+            raise ProviderUnavailableError(f"Claude CLI binary not found: {self.binary}")
+        cmd = [
+            self.binary,
+            "-p",
+            "--model",
+            call.model_id,
+            "--system-prompt",
+            call.system_prompt or "",
+            "--tools",
+            "",
+            "--strict-mcp-config",
+            "--disable-slash-commands",
+            "--no-session-persistence",
+            "--output-format",
+            "json",
+        ]
+        if call.response_json and call.output_schema:
+            cmd += ["--json-schema", json.dumps(call.output_schema, ensure_ascii=False)]
+        if self.effort:
+            cmd += ["--effort", self.effort]
+
+        stdin_text = "\n\n".join(m["content"] for m in call.messages) if call.messages else call.user_prompt
+        try:
+            with tempfile.TemporaryDirectory(prefix="gw-claude-") as empty:
+                proc = subprocess.run(
+                    cmd,
+                    input=stdin_text,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout_s,
+                    cwd=empty,
+                )
+        except subprocess.TimeoutExpired as exc:
+            raise TransientProviderError(f"Claude CLI timed out after {self.timeout_s}s") from exc
+        except OSError as exc:
+            raise ProviderUnavailableError(f"Claude CLI unavailable: {exc}") from exc
+
+        try:
+            env = json.loads(proc.stdout) if proc.stdout.strip() else {}
+        except ValueError:
+            env = {}
+        err = (proc.stderr + " " + (str(env.get("result", "")) if env.get("is_error") else "")).strip()
+        if proc.returncode != 0 or env.get("is_error") or not env:
+            if any(k in err.lower() for k in ("authenticat", "login", "log in", "oauth", "api key")):
+                raise ProviderUnavailableError(f"Claude CLI not logged in: {err[:200]}")
+            raise GatewayError(f"Claude CLI failed ({proc.returncode}): {err[:300]}")
+
+        ans = env.get("structured_output")
+        if ans is not None:
+            text = json.dumps(ans, ensure_ascii=False)
+        else:
+            text = str(env.get("result") or "")
+        usage = env.get("usage") if isinstance(env.get("usage"), dict) else {}
+        in_tok = int(usage.get("input_tokens") or _estimate_tokens(call.system_prompt + stdin_text))
+        out_tok = int(usage.get("output_tokens") or _estimate_tokens(text))
+        return ProviderResult(
+            content=text,
+            input_tokens=in_tok,
+            output_tokens=out_tok,
+            provider_name=self.name,
+            headers_sent=dict(call.zero_retention_headers),
+        )
+
+
 # --- Single HTTP Model Gateway ---
 class ModelGateway:
     """Single governed gateway for all clinical LLM calls across protocols and providers."""
@@ -821,6 +901,7 @@ class ModelGateway:
             "openai": OpenAICompatProvider(provider_label="openai", base_url="https://api.openai.com/v1"),
             "grok": OpenAICompatProvider(provider_label="grok", base_url="https://api.x.ai/v1"),
             "xai": OpenAICompatProvider(provider_label="xai", base_url="https://api.x.ai/v1"),
+            "claude_cli": ClaudeCLIProvider(),
         }
         if providers:
             self.providers.update(providers)

@@ -125,4 +125,59 @@ def parse_cli_output(stdout: str) -> dict[str, list[dict]]:
     return {r["doc_id"]: r.get("commitments", []) for r in payload.get("results", [])}
 
 
-__all__ = ["ClaudeCLIModel", "PROMPT_VERSION", "ReplayModel", "RulesModel", "parse_cli_output"]
+class GatewayExtractionModel:
+    """Routes batched follow-up commitment extraction (`fu-extract-v2`) through `ModelGateway`."""
+
+    def __init__(
+        self,
+        gateway=None,
+        *,
+        provider: str = "vertex",
+        model: str = "gemini-2.5-flash",
+        tenant_id: str = "default",
+        region: str | None = None,
+    ):
+        from backend.gateway.gateway import ModelGateway
+
+        self.gateway = gateway or ModelGateway()
+        self.provider = provider
+        self.model = model
+        self.tenant_id = tenant_id
+        self.region = region
+        self.name = f"gateway:{provider}:{model}"
+
+    def run(self, docs: list[dict]) -> dict[str, list[dict]]:
+        from backend.gateway.gateway import GatewayRequest
+
+        resp = self.gateway.complete(
+            GatewayRequest(
+                prompt=build_prompt(docs),
+                system_prompt=SYSTEM,
+                model_id=self.model,
+                provider=self.provider,
+                region=self.region,
+                tenant_id=self.tenant_id,
+                task_type="extraction",
+                tools=None,
+                response_json=True,
+                output_schema=SCHEMA,
+                metadata={"prompt_version": PROMPT_VERSION, "doc_count": len(docs)},
+            )
+        )
+        if resp.fallback_used or not isinstance(resp.parsed, dict) or resp.parsed.get("fallback"):
+            return {}
+        return {
+            str(r["doc_id"]): list(r.get("commitments") or [])
+            for r in (resp.parsed.get("results") or [])
+            if isinstance(r, dict) and r.get("doc_id")
+        }
+
+
+__all__ = [
+    "ClaudeCLIModel",
+    "GatewayExtractionModel",
+    "PROMPT_VERSION",
+    "ReplayModel",
+    "RulesModel",
+    "parse_cli_output",
+]
