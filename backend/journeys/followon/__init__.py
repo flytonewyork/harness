@@ -33,7 +33,7 @@ import re
 from datetime import datetime, timedelta
 
 from ...engine.ports import FAMILIES as PORT_FAMILIES
-from ...engine.rules import URGENCY_LABEL, Why, cite, day, line_with, when
+from ...engine.trace import URGENCY_LABEL, Why, cite, day, line_with, when
 
 NAME = "followon"
 SUMMARY = ("After a hospital stay or a specialist visit: discharge summaries, specialist letters, HA SOPC bookings and "

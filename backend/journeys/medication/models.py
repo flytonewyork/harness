@@ -14,12 +14,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
-import subprocess
-import tempfile
 from pathlib import Path
 
-from backend.extract.reader import LOGIN, LoginError, pin
+from backend.extract.reader import invoke_claude_cli, pin
 
 PROMPT_VERSION = "med-reader-1"
 SYSTEM = """You read one message a patient sent to their GP clinic in Hong Kong (Cantonese, English or mixed) after a
@@ -109,28 +106,7 @@ class ClaudeCLIReader:
         if hit is not None:
             return hit
         user = f"The patient takes: {', '.join(classes) or 'not known'}.\n<document>\n{text}\n</document>"
-        with tempfile.TemporaryDirectory(prefix="med-reader-") as empty:
-            p = subprocess.run(self.command(), input=user, capture_output=True, text=True, timeout=self.timeout, cwd=empty)
-        try:                                       # claude -p reports some failures (login, API errors) only in its envelope
-            env = json.loads(p.stdout) if p.stdout.strip() else {}
-        except ValueError:
-            env = {}
-        err = (p.stderr + " " + (str(env.get("result", "")) if env.get("is_error") else "")).strip()
-        if p.returncode != 0 or env.get("is_error") or not env:
-            if LOGIN.search(err):
-                raise LoginError(f"claude is not logged in (run `claude`, then /login): {err[:200]}")
-            raise RuntimeError(f"claude -p failed ({p.returncode}): {err[:300]}")
-        ans = env.get("structured_output")
-        if ans is None:
-            raw = env.get("result", "")
-            if isinstance(raw, dict):
-                ans = raw
-            elif isinstance(raw, str) and raw.strip():
-                try:
-                    ans = json.loads(raw)
-                except ValueError:
-                    m = re.search(r"\{.*\}", raw, re.S)
-                    ans = json.loads(m.group(0)) if m else None
+        ans, _ = invoke_claude_cli(self.command(), user, timeout=self.timeout, prefix="med-reader-")
         if not isinstance(ans, dict):
             raise RuntimeError("claude -p returned no JSON findings")
         found = list(ans.get("findings", []))
@@ -167,7 +143,7 @@ class GatewayMedicationModel:
         tenant_id: str = "default",
         region: str | None = None,
     ):
-        from backend.gateway.gateway import ModelGateway
+        from backend.gateway import ModelGateway
 
         self.gateway = gateway or ModelGateway()
         self.provider = provider
@@ -178,7 +154,7 @@ class GatewayMedicationModel:
         self.last_miss = False
 
     def run(self, text: str, context: dict) -> list[dict]:
-        from backend.gateway.gateway import GatewayError, GatewayRequest, ResidencyViolationError
+        from backend.gateway import GatewayError, GatewayRequest, ResidencyViolationError
 
         classes = list(context.get("classes", []))
         safe_doc = (text or "").replace("</document>", "<\\/document>")

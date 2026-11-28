@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+from .trace import URGENCY_LABEL, Why, cite, when
+
 DAY_RAISE, DAY_ESCALATE = 7, 14
 
 
@@ -69,7 +71,6 @@ class Escalation:
             self.stage[it["id"]] = 1
             return
         backup = on_duty[0]
-        from .rules import URGENCY_LABEL, Why, cite, when   # local import: rules imports this module
         w = Why()
         w.add("source", f"Escalation of the item opened on {when(datetime.fromisoformat(it['opened_at']))} for {engine.nm(owner)}: "
                         f"“{it['reason']}”.", *[cite(e) for e in it["evidence"]])

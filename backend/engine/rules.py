@@ -16,7 +16,9 @@ import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 
+from ..case.quote import norm as _n
 from .escalation import Escalation
+from .trace import URGENCY_LABEL, WINDOW, Why, cite, day, line_with, med_name, result_line, when
 
 CRIT = {"Potassium": (2.8, 6.5), "Sodium": (120, 160), "Glucose (fasting)": (2.5, 25), "Haemoglobin": (7.0, None),
         "Platelets": (20, None), "Calcium": (1.75, 3.4), "Creatinine": (None, 500)}
@@ -29,11 +31,8 @@ MONITOR = [("ace/arb", r"pril|sartan", "RFT", 14), ("diuretic", r"thiazide|chlor
 PANEL_TESTS = {"RFT": {"Creatinine", "Potassium", "Sodium", "Urea", "eGFR"}, "LFT": {"ALT", "AST", "ALP", "Bilirubin", "Albumin"},
                "CBC": {"Haemoglobin", "White cell count", "Platelets"}, "INR": {"INR"}, "LITHIUM": {"Lithium"}}
 RV = re.compile(r"\bRV\s+(\d+)\s*/\s*(7|52|12)\b", re.I)
-WINDOW = {4: 1, 3: 2, 2: 7, 1: 14}
 
 # ----------------------------------------------------------------------------- reasoning templates
-URGENCY_LABEL = {4: "critical: same day; the doctor's mobile is paged if it is unseen after an hour",
-                 3: "urgent: within 2 days", 2: "soon: within a week", 1: "routine: within 2 weeks"}
 PROBLEMS = {   # (test, H|L) -> (working problem, plan)
     ("Potassium", "H"): ("hyperkalaemia", "Repeat electrolytes promptly (a haemolysed sample is not excluded); review ACE inhibitor, ARB, spironolactone and potassium supplements; ECG if markedly raised."),
     ("Potassium", "L"): ("hypokalaemia", "Repeat electrolytes; review diuretics; replace potassium if confirmed."),
@@ -203,56 +202,6 @@ def _mk(test, val, flag, rr):
     elif (m := re.match(r"\s*>\s*([\d.]+)", rr or "")):
         lo = float(m.group(1))
     return {"test": test, "value": val, "flag": flag, "ref_low": lo, "ref_high": hi}
-
-
-# ------------------------------------------------------------------------------- trace helpers
-def _n(s) -> str:
-    return " ".join(str(s).split())
-
-
-def line_with(text: str, pattern: str, flags=0) -> str | None:
-    """The first line matching a regex, whitespace collapsed: a verbatim quote once the platform normalises spaces."""
-    for ln in (text or "").splitlines():
-        if re.search(pattern, ln, flags):
-            return _n(ln)[:240] or None
-    return None
-
-
-def result_line(text: str, test: str) -> str | None:
-    return line_with(text, r"^\s*" + re.escape(test) + r"(\s{2,}|:)")
-
-
-def cite(rid: str, quote: str | None = None) -> dict:
-    return {"record": rid, "quote": quote} if quote else {"record": rid}
-
-
-def when(t: datetime) -> str:
-    return t.strftime("%a %d %b %H:%M")
-
-
-def day(t: datetime) -> str:
-    return t.strftime("%d %b %Y")
-
-
-def med_name(quote: str) -> str:
-    m = re.match(r"Dispensed:\s*(.+?)\s+x\d+ days", quote or "")
-    return m.group(1) if m else (quote or "")[:40]
-
-
-class Why:
-    """Collects reasoning steps for one item."""
-
-    def __init__(self):
-        self.steps: list[dict] = []
-
-    def add(self, step: str, text: str, *cites, diff=None, search=None) -> "Why":
-        s = {"step": step, "text": text, "cites": [c for c in cites if c]}
-        if diff:
-            s["diff"] = diff
-        if search:
-            s["search"] = search
-        self.steps.append(s)
-        return self
 
 
 class RulesHarness:

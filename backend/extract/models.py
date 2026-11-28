@@ -137,7 +137,7 @@ class GatewayExtractionModel:
         tenant_id: str = "default",
         region: str | None = None,
     ):
-        from backend.gateway.gateway import ModelGateway
+        from backend.gateway import ModelGateway
 
         self.gateway = gateway or ModelGateway()
         self.provider = provider
@@ -147,7 +147,7 @@ class GatewayExtractionModel:
         self.name = f"gateway:{provider}:{model}"
 
     def run(self, docs: list[dict]) -> dict[str, list[dict]]:
-        from backend.gateway.gateway import GatewayRequest
+        from backend.gateway import GatewayRequest
 
         resp = self.gateway.complete(
             GatewayRequest(
