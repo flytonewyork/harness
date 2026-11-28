@@ -24,8 +24,12 @@ jobs:
       - name: Run Agent EM Overlap Guard
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
         run: |
           python3 scripts/agent_em.py pr-check \
             --pr "${{ github.event.pull_request.number }}" \
             --repo "${{ github.repository }}" \
-            --post-comment
+            --post-comment \
+            --slack-on-conflict

@@ -170,3 +170,75 @@ def test_four_stream_roster_partitions_all_lanes_without_overlap():
     }
     assert any("Unassigned lanes" in e for e in agent_em.validate_streams_config(bad_gap))
 
+
+def test_parse_waiting_on_you_and_daily_slack_digest_blocks():
+    now_text = (ROOT / "NOW.md").read_text(encoding="utf-8")
+    waiting = agent_em.parse_waiting_on_you(now_text)
+    assert len(waiting) >= 1
+    assert all("Default:" in item for item in waiting)
+
+    cfg = agent_em.load_lanes_config()
+    streams = [
+        {
+            "id": "harness#78",
+            "repo": "flytonewyork/harness",
+            "pr_number": 78,
+            "branch": "feat/stage3-permission-gate",
+            "url": "https://github.com/flytonewyork/harness/pull/78",
+            "files": ["backend/mcp/clinic_emr_server.py"],
+        }
+    ]
+    leases = [
+        {
+            "lane": "lane-c-mcp-integrations",
+            "branch": "feat/stage3-permission-gate",
+            "status": "active",
+            "issue": 72,
+            "summary": "Stage 3 Permission Gate",
+        }
+    ]
+    overlaps = agent_em.detect_overlaps(streams, cfg)
+    merged = [
+        {
+            "repo": "flytonewyork/harness",
+            "number": 79,
+            "title": "Explicit 4-Agent Stream Roster",
+            "merged_at": "2026-11-28T17:04:00Z",
+            "url": "https://github.com/flytonewyork/harness/pull/79",
+        }
+    ]
+    work_orders = [
+        {
+            "number": 73,
+            "title": "[WO] Split backend/acute/app.py",
+            "labels": [{"name": "work-order"}, {"name": "P1"}],
+            "url": "https://github.com/flytonewyork/harness/issues/73",
+        }
+    ]
+    digest = agent_em.build_daily_digest(
+        config=cfg,
+        active_streams=streams,
+        leases=leases,
+        overlaps=overlaps,
+        merged_prs=merged,
+        work_orders=work_orders,
+        waiting_on_you=waiting,
+    )
+    payload = agent_em.format_slack_blocks(digest)
+    assert "text" in payload and "blocks" in payload
+    assert payload["blocks"][0]["type"] == "header"
+    for blk in payload["blocks"]:
+        if blk["type"] == "section":
+            assert len(blk["text"]["text"]) <= 3000
+    dumped = json.dumps(payload, ensure_ascii=False)
+    assert "PR #78" in dumped
+    assert "harness#79" in dumped
+    assert "Dispatch Board #70" in dumped
+    assert "idle / ready for next WO" in dumped
+
+    # Unconfigured Slack env returns clean non-crashing result
+    res = agent_em.post_to_slack(payload, webhook_url="", bot_token="", channel_id="")
+    assert res["posted"] is False
+    assert res["mode"] == "unconfigured"
+
+

@@ -82,7 +82,18 @@ python3 scripts/agent_em.py handoff \
 ---
 
 ## 3. Automated Guardrails
-- **`scripts/agent_em.py`** (`status`, `board`, `check-paths`, `claim`, `handoff`, `pr-check`): single CLI for all PM/EM checks.
-- **`.github/workflows/pr-overlap-guard.yml`**: runs on every PR open/push and posts/updates a sticky comment flagging file/lane collisions with other open PRs or recently-pushed branches.
+- **`scripts/agent_em.py`** (`status`, `board`, `roster`, `check-paths`, `claim`, `handoff`, `pr-check`, `slack-digest`): single CLI for all PM/EM checks.
+- **`.github/workflows/pr-overlap-guard.yml`**: runs on every PR open/push, posts a sticky overlap & chokepoint comment, and pings Slack *only* on real collisions (if Slack secret is set).
+- **`.github/workflows/daily-em-slack-digest.yml`**: posts a daily **09:00 HKT (`01:00 UTC`)** Slack Block Kit standup across both `harness` and `loopbench` (zero PHI; skips cleanly if `SLACK_WEBHOOK_URL` / `SLACK_BOT_TOKEN` is unset).
 - **`.github/ISSUE_TEMPLATE/work_order.yml`**: standard form for creating agent-ready Work Orders.
 - **Antigravity Skill `agent-em-sync`**: persists across conversations so every newly spawned agent follows this protocol automatically.
+
+---
+
+## 4. Founder Operating Playbook (Antigravity UI + Daily Slack)
+
+1. **Sidebar Naming (`[S1]`–`[S4]`):** Name every Antigravity chat `[S<1-4>] <Role> — WO #<N> (<Short Task>)` so you see immediately which stream seat each thread owns. Use `[S4]` as your **Command Center** (morning standup review, merges, `/plan`, `/grill-me`, Work Order creation).
+2. **Context Lifecycle ("1 Work Order = 1 Fresh Chat"):** Keep a chat while finishing its active PR; once merged (or after ≥2 compactions), **retire it and open a fresh conversation** with this 3-line spawn prompt:
+   > `You are Stream <N> (<stream-id>). Use agent-em-sync: run bash scripts/team_status.sh && python3 scripts/agent_em.py roster, read WO #<N> (gh issue view <N> --comments), claim your lane on Issue #70, open a Day-0 Draft PR, and execute until bash scripts/check.sh is all green.`
+3. **Slack Setup (1 Secret):** Add `SLACK_WEBHOOK_URL` (Option A — simplest) or `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID` (Option B — bot API) in `flytonewyork/harness` → *Settings → Secrets and variables → Actions*. Test anytime via `python3 scripts/agent_em.py slack-digest --dry-run` or `workflow_dispatch`.
+

@@ -14,6 +14,8 @@ Subcommands:
   claim        Claim an exclusive lane lease on the live Dispatch Board issue.
   handoff      Release or update a lane lease (ready / merged / blocked / released).
   pr-check     Run overlap & chokepoint guard for a PR (used by GitHub Actions).
+  roster       Show the explicit 4-Agent Stream Roster and live lane ownership.
+  slack-digest Build and optionally post the daily 09:00 HKT Slack engineering standup.
 """
 from __future__ import annotations
 
@@ -24,6 +26,8 @@ import os
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -675,6 +679,303 @@ def cmd_pr_check(args: argparse.Namespace) -> int:
             _run_gh(["api", "-X", "PATCH", f"repos/{repo}/issues/comments/{existing_id}", "-f", f"body={comment}"])
         else:
             _run_gh(["pr", "comment", str(args.pr), "--repo", repo, "--body", comment])
+
+    if getattr(args, "slack_on_conflict", False) and "OVERLAP WARNING" in comment:
+        pr_url = pr_obj.get("url") or f"https://github.com/{repo}/pull/{args.pr}"
+        alert_payload = {
+            "text": f"Agent EM Overlap Alert on {repo}#{args.pr} ({pr_info['branch']})",
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": _clamp_slack_mrkdwn(
+                            f":warning: *PR Overlap Alert* — <{pr_url}|{repo}#{args.pr}> (`{pr_info['branch']}`)\n"
+                            f"{pr_obj.get('title', '')}\n"
+                            f"Check the PR Overlap Guard comment & <https://github.com/{config['dispatch_board_repo']}/issues/{config.get('dispatch_board_issue')}|Dispatch Board #{config.get('dispatch_board_issue')}>."
+                        ),
+                    },
+                }
+            ],
+        }
+        res = post_to_slack(alert_payload)
+        print(f"[agent_em] slack_on_conflict: {res}", file=sys.stderr)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Daily Slack Standup Digest (pure formatting + stdlib urllib posting)
+# ---------------------------------------------------------------------------
+SLACK_SECTION_LIMIT = 2900  # Safety margin under Slack's 3,000-char mrkdwn block limit
+
+
+def _clamp_slack_mrkdwn(text: str, limit: int = SLACK_SECTION_LIMIT) -> str:
+    if len(text) <= limit:
+        return text
+    return text[: limit - 16].rstrip() + "\n…_(truncated)_"
+
+
+def parse_waiting_on_you(now_md_text: str) -> list[str]:
+    """Extract `- ...` action items from the `## Waiting on you` section of NOW.md."""
+    m = re.search(r"^## Waiting on you[^\n]*\n(.*?)(?=^## |\Z)", now_md_text, re.M | re.S)
+    if not m:
+        return []
+    items = re.findall(r"^- .*?(?=^- |^\S|\Z)", m.group(1), re.M | re.S)
+    return [" ".join(it[2:].split()) for it in items if it.strip()]
+
+
+def build_daily_digest(
+    *,
+    config: dict[str, Any],
+    active_streams: list[dict[str, Any]],
+    leases: list[dict[str, Any]],
+    overlaps: dict[str, Any],
+    merged_prs: list[dict[str, Any]],
+    work_orders: list[dict[str, Any]],
+    waiting_on_you: list[str],
+    generated_at: datetime | None = None,
+) -> dict[str, Any]:
+    """Build a pure, zero-PHI structured daily engineering standup digest."""
+    now_utc = generated_at or datetime.now(timezone.utc)
+    hkt = timezone(timedelta(hours=8))
+    now_hkt = now_utc.astimezone(hkt)
+
+    act_leases = active_leases(leases)
+    open_pr_branches = {str(s.get("branch") or "") for s in active_streams if s.get("pr_number")}
+    visible_leases = [
+        l for l in leases
+        if str(l.get("status") or "").lower() in ACTIVE_LEASE_STATUSES
+        or (str(l.get("status") or "").lower() == "ready" and str(l.get("branch") or "") in open_pr_branches)
+    ]
+    lease_by_lane = {l["lane"]: l for l in visible_leases}
+    pr_by_branch = {
+        str(s.get("branch") or ""): s
+        for s in active_streams
+        if s.get("pr_number")
+    }
+
+    stream_pulse: list[dict[str, Any]] = []
+    for sname, scfg in (config.get("streams") or {}).items():
+        owned = list((scfg or {}).get("owned_lanes") or [])
+        entries = []
+        for ln in owned:
+            lease = lease_by_lane.get(ln)
+            if lease:
+                br = str(lease.get("branch") or "")
+                pr_obj = pr_by_branch.get(br)
+                entries.append({
+                    "lane": ln,
+                    "branch": br,
+                    "status": str(lease.get("status") or "active"),
+                    "pr_number": lease.get("pr") or (pr_obj.get("pr_number") if pr_obj else None),
+                    "pr_url": pr_obj.get("url") if pr_obj else "",
+                    "issue": lease.get("issue"),
+                    "summary": str(lease.get("summary") or "")[:120],
+                })
+        stream_pulse.append({
+            "stream": sname,
+            "role": str((scfg or {}).get("role") or ""),
+            "owned_lanes": owned,
+            "active": entries,
+            "idle": len(entries) == 0,
+        })
+
+    return {
+        "date_hkt": now_hkt.strftime("%a %d %b %Y %H:%M HKT"),
+        "dispatch_board_repo": config["dispatch_board_repo"],
+        "dispatch_board_issue": config.get("dispatch_board_issue"),
+        "stream_pulse": stream_pulse,
+        "merged_prs": merged_prs,
+        "invisible_branches": overlaps.get("invisible_branches") or [],
+        "file_collisions": overlaps.get("file_collisions") or {},
+        "lane_collisions": overlaps.get("lane_collisions") or {},
+        "waiting_on_you": waiting_on_you,
+        "work_orders": work_orders,
+    }
+
+
+def format_slack_blocks(digest: dict[str, Any]) -> dict[str, Any]:
+    """Render a zero-PHI daily digest into valid Slack Block Kit JSON (<3,000 chars/section)."""
+    repo = digest["dispatch_board_repo"]
+    board_num = digest.get("dispatch_board_issue")
+    board_url = f"https://github.com/{repo}/issues/{board_num}" if board_num else f"https://github.com/{repo}/issues"
+    date_label = digest["date_hkt"]
+
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": f"Antigravity Daily Standup — {date_label}"[:150]},
+        }
+    ]
+
+    # 1. 4-Stream Pulse
+    pulse_lines: list[str] = ["*4-Agent Stream Pulse*"]
+    for sp in digest.get("stream_pulse") or []:
+        short_tag = sp["stream"].split("-")[1] if "-" in sp["stream"] else sp["stream"]
+        if sp["idle"]:
+            pulse_lines.append(f"• *[S{short_tag}]* `{sp['stream']}` — _idle / ready for next WO_")
+        else:
+            for item in sp["active"]:
+                pr_str = f" <{item['pr_url']}|PR #{item['pr_number']}>" if item.get("pr_number") and item.get("pr_url") else (f" PR #{item['pr_number']}" if item.get("pr_number") else " _(no PR yet)_")
+                wo_str = f" WO #{item['issue']}" if item.get("issue") else ""
+                st_str = " `[READY]`" if item.get("status") == "ready" else ""
+                pulse_lines.append(
+                    f"• *[S{short_tag}]*{st_str} `{item['lane']}` → `{item['branch']}`{pr_str}{wo_str} — {item['summary']}"
+                )
+    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": _clamp_slack_mrkdwn("\n".join(pulse_lines))}})
+
+    # 2. Shipped in Last 24h
+    merged = digest.get("merged_prs") or []
+    if merged:
+        ship_lines = [f"*Shipped (Last 24h — {len(merged)} merged)*"]
+        for pr in merged[:8]:
+            ship_lines.append(f"• <{pr['url']}|{pr['repo'].split('/')[-1]}#{pr['number']}> {pr['title'][:90]}")
+        if len(merged) > 8:
+            ship_lines.append(f"_…and {len(merged) - 8} more_")
+    else:
+        ship_lines = ["*Shipped (Last 24h):* _no merges in window_"]
+    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": _clamp_slack_mrkdwn("\n".join(ship_lines))}})
+
+    # 3. Alerts & Waiting on You
+    inv = digest.get("invisible_branches") or []
+    fcol = digest.get("file_collisions") or {}
+    lcol = digest.get("lane_collisions") or {}
+    waiting = digest.get("waiting_on_you") or []
+
+    alert_lines: list[str] = ["*Risk Radar & Decisions*"]
+    if not inv and not fcol and not lcol:
+        alert_lines.append("• :white_check_mark: Zero active lane/file collisions and zero invisible un-PR'd branches.")
+    else:
+        if inv:
+            inv_list = ", ".join(f"`{b['repo'].split('/')[-1]}:{b['branch']}`" for b in inv[:4])
+            alert_lines.append(f"• :warning: *Invisible un-PR'd branches ({len(inv)}):* {inv_list}")
+        if lcol or fcol:
+            alert_lines.append(f"• :warning: *Collisions:* {len(lcol)} lane(s), {len(fcol)} file(s) — check Dispatch Board.")
+    if waiting:
+        alert_lines.append("*Waiting on Thomas (`NOW.md`):*")
+        for w in waiting[:5]:
+            alert_lines.append(f"• {w[:140]}")
+    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": _clamp_slack_mrkdwn("\n".join(alert_lines))}})
+
+    # 4. Top Open Work Orders + Quick Links
+    wos = digest.get("work_orders") or []
+    wo_lines = [f"*Open Work Orders ({len(wos)})* — <{board_url}|Dispatch Board #{board_num}>"]
+    for wo in wos[:6]:
+        labs = [lb["name"] for lb in (wo.get("labels") or []) if lb["name"] in ("P0", "P1", "P2", "blocked")]
+        tag = "/".join(labs) or "P2"
+        url = wo.get("url") or f"https://github.com/{repo}/issues/{wo['number']}"
+        wo_lines.append(f"• <{url}|#{wo['number']}> `[{tag}]` {str(wo.get('title') or '')[:90]}")
+    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": _clamp_slack_mrkdwn("\n".join(wo_lines))}})
+
+    fallback_text = (
+        f"Antigravity Daily Standup ({date_label}): "
+        f"{len(merged)} merged (24h), {len(inv)} un-PR'd branches, {len(fcol)} file collisions, {len(wos)} open WOs."
+    )
+    return {"text": fallback_text, "blocks": blocks}
+
+
+def post_to_slack(
+    payload: dict[str, Any],
+    *,
+    webhook_url: str | None = None,
+    bot_token: str | None = None,
+    channel_id: str | None = None,
+    timeout_s: float = 10.0,
+) -> dict[str, Any]:
+    """Post Block Kit payload via Bot Token (`chat.postMessage`) or Incoming Webhook (`SLACK_WEBHOOK_URL`)."""
+    eff_bot = bot_token if bot_token is not None else os.environ.get("SLACK_BOT_TOKEN", "").strip()
+    eff_chan = channel_id if channel_id is not None else os.environ.get("SLACK_CHANNEL_ID", "").strip()
+    eff_hook = webhook_url if webhook_url is not None else os.environ.get("SLACK_WEBHOOK_URL", "").strip()
+
+    if eff_bot and eff_chan:
+        body = json.dumps({"channel": eff_chan, **payload}).encode("utf-8")
+        req = urllib.request.Request(
+            "https://slack.com/api/chat.postMessage",
+            data=body,
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "Authorization": f"Bearer {eff_bot}",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        if not data.get("ok"):
+            raise RuntimeError(f"Slack chat.postMessage failed: {data.get('error', 'unknown')}")
+        return {"posted": True, "mode": "bot_token", "ts": data.get("ts"), "channel": data.get("channel")}
+
+    if eff_hook:
+        body = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            eff_hook,
+            data=body,
+            headers={"Content-Type": "application/json; charset=utf-8"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+            status = resp.status
+        return {"posted": True, "mode": "webhook", "status": status}
+
+    return {"posted": False, "mode": "unconfigured", "reason": "No SLACK_WEBHOOK_URL or SLACK_BOT_TOKEN+SLACK_CHANNEL_ID set"}
+
+
+def fetch_recent_merged_prs(repos: list[str], since_hours: int = 24) -> list[dict[str, Any]]:
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=since_hours)
+    merged: list[dict[str, Any]] = []
+    for repo in repos:
+        raw = _run_gh([
+            "pr", "list", "--repo", repo, "--state", "merged", "--limit", "20",
+            "--json", "number,title,mergedAt,url,headRefName",
+        ], check=False)
+        if not raw.strip():
+            continue
+        try:
+            rows = json.loads(raw)
+        except ValueError:
+            continue
+        for r in rows:
+            mt = str(r.get("mergedAt") or "")
+            if not mt:
+                continue
+            dt = datetime.fromisoformat(mt.replace("Z", "+00:00"))
+            if dt >= cutoff:
+                merged.append({
+                    "repo": repo,
+                    "number": r["number"],
+                    "title": r["title"],
+                    "merged_at": mt,
+                    "url": r.get("url") or f"https://github.com/{repo}/pull/{r['number']}",
+                    "branch": r.get("headRefName") or "",
+                })
+    return sorted(merged, key=lambda x: x["merged_at"], reverse=True)
+
+
+def cmd_slack_digest(args: argparse.Namespace) -> int:
+    config = load_lanes_config()
+    streams = collect_active_streams(config, days=args.days)
+    overlaps = detect_overlaps(streams, config)
+    leases = fetch_dispatch_leases(config)
+    work_orders = fetch_work_orders(config["dispatch_board_repo"])
+    merged = fetch_recent_merged_prs(list(config.get("repos") or []), since_hours=args.since_hours)
+    now_path = ROOT / "NOW.md"
+    waiting = parse_waiting_on_you(now_path.read_text(encoding="utf-8")) if now_path.is_file() else []
+
+    digest = build_daily_digest(
+        config=config,
+        active_streams=streams,
+        leases=leases,
+        overlaps=overlaps,
+        merged_prs=merged,
+        work_orders=work_orders,
+        waiting_on_you=waiting,
+    )
+    slack_payload = format_slack_blocks(digest)
+
+    if args.json or args.dry_run or not args.post:
+        print(json.dumps(slack_payload, indent=2, ensure_ascii=False))
+    if args.post and not args.dry_run:
+        res = post_to_slack(slack_payload)
+        print(json.dumps(res, indent=2), file=sys.stderr)
     return 0
 
 
@@ -783,7 +1084,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_pr.add_argument("--repo", default="")
     p_pr.add_argument("--days", type=int, default=7)
     p_pr.add_argument("--post-comment", action="store_true")
+    p_pr.add_argument("--slack-on-conflict", action="store_true")
     p_pr.set_defaults(func=cmd_pr_check)
+
+    p_sl = sub.add_parser("slack-digest", help="Build and optionally post the daily Slack standup digest")
+    p_sl.add_argument("--since-hours", type=int, default=24)
+    p_sl.add_argument("--days", type=int, default=7)
+    p_sl.add_argument("--dry-run", action="store_true")
+    p_sl.add_argument("--post", action="store_true")
+    p_sl.add_argument("--json", action="store_true")
+    p_sl.set_defaults(func=cmd_slack_digest)
 
     return p
 
