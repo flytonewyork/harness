@@ -231,6 +231,18 @@ def test_full_patient_to_clinician_to_vault_and_pdpo_lifecycle(acute_client):
         "encounter_id": enc_id, "status_text": "Still having mild fever, would like a nurse or doctor call.", "need_human": True,
     })
     assert fu.status_code == 200 and fu.json()["escalated"] is True
+    # Verify real 64-char protocol hashes logged on AgentRun rows for intake and 48h follow-up
+    from sqlalchemy import select as _select
+    from backend.acute.db import AgentRun
+    from backend.gateway import load_protocol as _load_proto
+    _, db_inst, _ = acute_client
+    with db_inst.tenant_session(DEMO_TENANT_1) as s:
+        runs = s.scalars(_select(AgentRun).where(AgentRun.encounter_id == enc_id)).all()
+        by_proto = {r.protocol_id: r for r in runs}
+        assert "acute_consult_draft_v1" in by_proto
+        assert "followup_48h_v1" in by_proto
+        assert by_proto["acute_consult_draft_v1"].prompt_hash == _load_proto("acute_consult_draft_v1").protocol_hash
+        assert by_proto["followup_48h_v1"].prompt_hash == _load_proto("followup_48h_v1").protocol_hash
 
     # --- Story 9: HK PDPO DPP6 DAR (HL7 FHIR R4 Bundle), DCR, Consent Withdrawal & Statutory-Hold Deletion ---
     dar = client.get("/api/v1/patient/export", headers=_auth(pat_tok))

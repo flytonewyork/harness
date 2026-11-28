@@ -633,3 +633,172 @@ class TestConsultDraftAndValidators:
         drugs = [m["drug"] for m in routine["draft"].suggested_medications]
         assert "paracetamol" not in drugs
         assert "ibuprofen" in drugs
+
+
+class TestStage1ProtocolHardening:
+    def test_providers_receive_output_schema_and_fenced_documents(self) -> None:
+        seen_bodies: list[dict[str, Any]] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen_bodies.append(json.loads(request.content.decode("utf-8")))
+            if "aiplatform.googleapis.com" in str(request.url):
+                return httpx.Response(
+                    200,
+                    json={
+                        "candidates": [{"content": {"parts": [{"text": '{"kind": null, "urgency": 1, "red_flags": [], "symptoms": [], "observations": [], "evidence_quotes": [], "prompt_injection_detected": false}'}]}}],
+                        "usageMetadata": {"promptTokenCount": 20, "candidatesTokenCount": 15},
+                    },
+                )
+            if "api.anthropic.com" in str(request.url):
+                return httpx.Response(
+                    200,
+                    json={
+                        "content": [{"type": "text", "text": '```json\n{"kind": null, "urgency": 1, "red_flags": [], "symptoms": [], "observations": [], "evidence_quotes": [], "prompt_injection_detected": false}\n```'}],
+                        "usage": {"input_tokens": 25, "output_tokens": 18},
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [{"message": {"content": '{"kind": null, "urgency": 1, "red_flags": [], "symptoms": [], "observations": [], "evidence_quotes": [], "prompt_injection_detected": false}'}}],
+                    "usage": {"prompt_tokens": 20, "completion_tokens": 15},
+                },
+            )
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        gw = ModelGateway(
+            providers={
+                "vertex": VertexAIProvider(project_id="hk-clinic-prod", access_token="tok-123", http_client=client),
+                "anthropic": AnthropicProvider(api_key="ant-key", http_client=client),
+                "grok": OpenAICompatProvider(api_key="xai-key", base_url="https://api.x.ai/v1", provider_label="grok", http_client=client),
+            }
+        )
+
+        # Vertex receives responseSchema & <document> fence
+        rv = gw.complete(
+            GatewayRequest(
+                prompt="Runny nose for 2 days",
+                protocol_id="flu_intake_v1",
+                provider="vertex",
+                model_id="gemini-2.5-flash",
+                fence_untrusted_input=True,
+            )
+        )
+        assert rv.validation_errors == []
+        assert "responseSchema" in seen_bodies[0]["generationConfig"]
+        assert seen_bodies[0]["generationConfig"]["responseSchema"]["type"] == "OBJECT"
+        assert "<document>" in seen_bodies[0]["contents"][0]["parts"][0]["text"]
+
+        # Anthropic receives schema in system prompt, parses fenced JSON, and prices Claude 5.5 accurately
+        ra = gw.complete(
+            GatewayRequest(
+                prompt="Runny nose for 2 days",
+                protocol_id="flu_intake_v1",
+                provider="anthropic",
+                model_id="claude-sonnet-5-5",
+                fence_untrusted_input=True,
+            )
+        )
+        assert ra.parsed is not None and ra.validation_errors == []
+        assert "output_schema" in seen_bodies[1]["system"] or "evidence_quotes" in seen_bodies[1]["system"]
+        assert ra.cost_usd == round((25 / 1000.0) * 0.002 + (18 / 1000.0) * 0.010, 8)
+
+        # OpenAI-compat / Grok receives json_schema response_format
+        rg = gw.complete(
+            GatewayRequest(
+                prompt="Runny nose for 2 days",
+                protocol_id="flu_intake_v1",
+                provider="grok",
+                model_id="grok-3-mini",
+                fence_untrusted_input=True,
+            )
+        )
+        assert rg.validation_errors == []
+        assert seen_bodies[2]["response_format"]["type"] == "json_schema"
+        assert "evidence_quotes" in seen_bodies[2]["response_format"]["json_schema"]["schema"]["required"]
+        client.close()
+
+    def test_gateway_validates_schema_and_banned_claims(self) -> None:
+        bad_llm = RecordingProvider(
+            {
+                "kind": "invalid_kind",
+                "urgency": 9,
+                "red_flags": [],
+                "evidence_quotes": ["Don't worry, you are fine"],
+            }
+        )
+        gw = ModelGateway(providers={"vertex": bad_llm})
+        resp = gw.complete(GatewayRequest(prompt="Cough", protocol_id="flu_intake_v1", provider="vertex"))
+        assert any(e.startswith("schema_missing_field:") for e in resp.validation_errors)
+        assert any(e.startswith("schema_enum_mismatch:kind") for e in resp.validation_errors)
+        assert any(e.startswith("schema_maximum_violation:urgency") for e in resp.validation_errors)
+        assert any(e.startswith("banned_claim:") for e in resp.validation_errors)
+        assert gw.audit_log[-1]["validation_errors"] == resp.validation_errors
+
+    def test_draft_consult_proposal_merges_valid_llm_refinements_and_rejects_banned_claims(self) -> None:
+        msg = "Fever 38.6C, sore throat, and dry cough since yesterday."
+        intake = extract_intake(msg)
+        patient = {"age": 34, "allergies": [], "preferred_lang": "en"}
+
+        # 1. Valid LLM SOAP refinement merges cleanly and keeps only verbatim quotes
+        good_llm = RecordingProvider(
+            {
+                "status": "PROPOSED_DRAFT_ONLY",
+                "autonomy_level": "L1",
+                "clinician_signoff_required": True,
+                "clinical_note": {
+                    "subjective": "Patient reports fever 38.6C with sore throat and dry cough since yesterday.",
+                    "assessment": "Acute influenza-like illness (ICD-10 J11.1 / ICPC-2 R80); clinician verification required.",
+                    "plan": "1. Clinician teleconsult review. 2. Symptomatic paracetamol draft and 999 safety-netting.",
+                },
+                "evidence_quotes": ["dry cough since yesterday", "invented chest wheeze"],
+            }
+        )
+        gw_good = ModelGateway(providers={"vertex": good_llm})
+        draft_ok = draft_consult_proposal(intake, patient, gateway=gw_good)
+        assert draft_ok.validation.valid is True
+        assert draft_ok.gateway_audit["llm_merge_applied"] is True
+        assert "dry cough since yesterday" in draft_ok.clinical_note["subjective"]
+        assert "dry cough since yesterday" in draft_ok.evidence_quotes
+        assert "invented chest wheeze" not in draft_ok.evidence_quotes
+        assert "invented chest wheeze" in draft_ok.gateway_audit.get("dropped_llm_quotes", [])
+        assert "<document>" in good_llm.calls[0].user_prompt
+
+        # 2. LLM output containing a banned claim is rejected; deterministic draft governs
+        bad_llm = RecordingProvider(
+            {
+                "clinical_note": {
+                    "subjective": "Nothing to worry about, you definitely have a mild cold.",
+                },
+            }
+        )
+        gw_bad = ModelGateway(providers={"vertex": bad_llm})
+        draft_safe = draft_consult_proposal(intake, patient, gateway=gw_bad)
+        assert draft_safe.validation.valid is True
+        assert draft_safe.gateway_audit["llm_merge_applied"] is False
+        assert draft_safe.gateway_audit.get("llm_merge_rejected")
+        assert "nothing to worry" not in draft_safe.clinical_note["subjective"].lower()
+
+    def test_followup_48h_v1_protocol_wired_in_runtime_screen_message(self) -> None:
+        fu_llm = RecordingProvider(
+            {
+                "recovery_trajectory": "worsening",
+                "urgency": 3,
+                "red_flags": [],
+                "adverse_reaction_reported": False,
+                "evidence_quotes": ["fever came back higher today"],
+                "recommended_action": "urgent_clinician_callback",
+            }
+        )
+        gw = ModelGateway(providers={"vertex": fu_llm})
+        rt = AcuteHarnessRuntime(gateway=gw)
+        res = rt.screen_message(
+            "My fever came back higher today after feeling slightly better",
+            protocol_id="followup_48h_v1",
+        )
+        assert res.urgency == 3
+        assert res.audit["gateway"]["protocol_id"] == "followup_48h_v1"
+        assert res.audit["gateway"]["protocol_hash"] == load_protocol("followup_48h_v1").protocol_hash
+        assert "latency_ms" in res.audit["gateway"]
+        assert "<document>" in fu_llm.calls[0].user_prompt
+
