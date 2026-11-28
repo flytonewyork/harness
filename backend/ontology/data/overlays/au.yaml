@@ -62,6 +62,14 @@ concept_patches:
   drug:ibuprofen:
     drug_facet: { schedule: "AU_SUSMP_S2" }
 
+  drug:paracetamol:
+    drug_facet:
+      schedule: "AU_SUSMP_S2"
+      dosing_pearl:
+        en: "AU TGA Feb 2025 Poisons Standard: general sale <=16 tabs; S2 Pharmacy Medicine 17-50 tabs; S3 Pharmacist Only 51-100 tabs. Max 4 g/day adults (lower in frailty/malnutrition/chronic alcohol); 15 mg/kg/dose q4-6h (max 60 mg/kg/day) in children."
+    aliases:
+      en: { $add: ["Panadol", "Panamax", "Herron"] }
+
   drug:salbutamol:
     drug_facet:
       schedule: "AU_SUSMP_S3"
@@ -210,6 +218,436 @@ concept_patches:
     display:
       en_au: "2023 AusCVDRisk 5-yr Assessment (45-79y general; 35-79y DM; 30-79y First Nations; MBS Heart Health Check 699)"
 
+  # --- Wave 1 Complete AU TGA SUSMP Drug Schedules (zero UNSPECIFIED) ---
+  drug:alendronate:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:amiodarone:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:amlodipine:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:apixaban:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:atorvastatin:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:azithromycin:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:betamethasone_topical:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:bisoprolol:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:carbimazole:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:celecoxib:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:cholecalciferol:
+    drug_facet: { schedule: "AU_UNSCHEDULED" }
+  drug:clarithromycin:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:clopidogrel:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:colchicine:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:combined_oral_contraceptive:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:cyanocobalamin:
+    drug_facet: { schedule: "AU_UNSCHEDULED" }
+  drug:dapagliflozin:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:digoxin:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:escitalopram:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:esomeprazole:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:fluconazole:
+    drug_facet:
+      schedule: "AU_SUSMP_S3"
+      dosing_pearl:
+        en: "AU SUSMP S3 (Pharmacist Only OTC for 150 mg single-dose VVC); multi-dose/systemic regimens are S4 Prescription Only."
+  drug:fluoxetine:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:folic_acid:
+    drug_facet: { schedule: "AU_UNSCHEDULED" }
+  drug:gabapentin:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 / PBS Authority Required (Streamlined) for refractory neuropathic pain; adjust strictly for eGFR and avoid opioid co-prescribing."
+  drug:gliclazide:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:hydrochlorothiazide:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:hydrocortisone_topical:
+    drug_facet: { schedule: "AU_SUSMP_S3" }
+  drug:hyoscine_butylbromide:
+    drug_facet: { schedule: "AU_SUSMP_S2" }
+  drug:indapamide:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:insulin_glargine:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:lactulose:
+    drug_facet: { schedule: "AU_UNSCHEDULED" }
+  drug:linagliptin:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:lisinopril:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:lithium:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:loperamide:
+    drug_facet: { schedule: "AU_SUSMP_S2" }
+  drug:losartan:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:macrogol:
+    drug_facet: { schedule: "AU_UNSCHEDULED" }
+  drug:metformin:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:methotrexate:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:metoclopramide:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:metoprolol:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:metronidazole:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:naproxen:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:nifedipine:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:omeprazole:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:ondansetron:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:oral_iron:
+    drug_facet: { schedule: "AU_SUSMP_S2" }
+  drug:pantoprazole:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:perindopril:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:prednisolone:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:propranolol:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:rivaroxaban:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:rosuvastatin:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:sertraline:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:sitagliptin:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:spironolactone:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:sumatriptan:
+    drug_facet:
+      schedule: "AU_SUSMP_S3"
+      dosing_pearl:
+        en: "AU SUSMP S3 Pharmacist Only OTC for 50 mg 2-tablet pack (established migraine diagnosis); larger packs & PBS scripts are S4."
+  drug:tamsulosin:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:tiotropium:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:tranexamic_acid:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:valaciclovir:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+  drug:venlafaxine:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+
+  # --- Wave 2 Pod 1: Paediatrics, Geriatrics & Palliative AU Deltas ---
+  drug:morphine:
+    drug_facet:
+      schedule: "AU_SUSMP_S8"
+      telehealth_blocked: true
+      dosing_pearl:
+        en: "AU SUSMP S8 Controlled Drug (state RTPM e.g. SafeScript/QScript mandatory; PBS Palliative Care Schedule): counsel free PBS Take-Home Naloxone (THN) program and avoid co-prescribing with benzodiazepines."
+
+  drug:oxycodone:
+    drug_facet:
+      schedule: "AU_SUSMP_S8"
+      telehealth_blocked: true
+      dosing_pearl:
+        en: "AU SUSMP S8 Controlled Drug (monitored on SafeScript/QScript/ScriptCheck): PBS reduced pack sizes for acute pain; check RTPM before prescribing and offer Take-Home Naloxone where indicated."
+
+  drug:methylphenidate:
+    drug_facet:
+      schedule: "AU_SUSMP_S8"
+      telehealth_blocked: true
+      dosing_pearl:
+        en: "AU SUSMP S8 Controlled Drug: requires state/territory Schedule 8 stimulant permit and PBS Authority Required (paediatrician/psychiatrist diagnosis or approved GP co-prescribing pathway); check RTPM and 6-monthly BP/HR/growth."
+
+  drug:haloperidol:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+
+  drug:donepezil:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 / PBS Authority Required: initial therapy requires specialist/consultant physician confirmation of mild-to-moderate Alzheimer's disease; GP can apply for continuing authority with documented clinical response."
+
+  drug:levodopa_carbidopa:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+
+  drug:oxybutynin:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU RACGP Silver Book & STOPP: avoid oral oxybutynin in older adults >=65y; consider Home Medicines Review (MBS Item 900) or RMMR (Item 903) for anticholinergic deprescribing."
+
+  drug:mirabegron:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 (private/non-PBS script; Betmiga): preferred non-anticholinergic OAB option in older adults with dementia/falls risk provided BP <180/110 mmHg."
+
+  drug:dexamethasone:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4: RCH Melbourne Croup CPG recommends 0.15 mg/kg PO single dose; AU eTG Palliative Care recommends 16 mg/day immediately for suspected MSCC while arranging urgent MRI."
+
+  drug:oral_rehydration_salts:
+    drug_facet: { schedule: "AU_UNSCHEDULED" }
+
+  drug:penicillin_v:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU eTG Antibiotic / RHD Australia: First-line oral GAS pharyngitis/scarlet fever (10-day course); in Aboriginal & Torres Strait Islander children at high ARF/RHD risk, consider single-dose IM benzathine benzylpenicillin if adherence uncertain."
+
+  drug:senna:
+    drug_facet: { schedule: "AU_UNSCHEDULED" }
+
+  drug:glycopyrrolate:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 / Caring@Home & eTG Palliative Care: subcutaneous anticipatory antisecretory agent of choice (200 mcg SC q4-6h PRN) to minimise delirium compared with hyoscine hydrobromide."
+
+  # --- Wave 2 Pod 2: Derm, Eye, ENT, MSK & Neuro AU Deltas ---
+  drug:isotretinoin:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      telehealth_blocked: true
+      dosing_pearl:
+        en: "AU SUSMP S4 / PBS Authority Required (Dermatologist/specialist prescriber only): TGA Category X — mandatory pregnancy exclusion + dual contraception (+1m post-therapy), baseline/monitoring LFT & lipids, and Red Cross Lifeblood deferral."
+    aliases:
+      en: { $add: ["Oratane", "Roaccutane"] }
+
+  drug:terbinafine:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 (oral 250 mg; topical 1% is S2/unscheduled): PBS Restricted Benefit for proximal/severe onychomycosis requires laboratory-confirmed dermatophyte microscopy/culture; check baseline + 4-6w LFT."
+
+  drug:permethrin:
+    drug_facet:
+      schedule: "AU_SUSMP_S2"
+      dosing_pearl:
+        en: "AU SUSMP S2 Pharmacy Medicine OTC (Lyclear 5%): Treat all household contacts simultaneously & repeat Day 7; in First Nations/remote settings follow eTG/CARPA protocols (consider PBS oral ivermectin for crusted or refractory scabies)."
+
+  drug:mupirocin:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 / eTG Antibiotic: Reserve topical mupirocin for <=3 localised non-bullous impetigo sores (BD/TDS x5d); for >3 sores, bullous impetigo, or First Nations children at risk of APSGN/RHD use oral trimethoprim-sulfamethoxazole or flucloxacillin/cephalexin."
+
+  drug:amitriptyline:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 / PBS General Benefit (Endep): AMH/eTG low-dose nocte (10-25 mg) for neuropathic pain or migraine prophylaxis; avoid initiating in adults >=65y (anticholinergic, falls, QTc, delirium risk)."
+
+  drug:pregabalin:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 / PBS Authority Required (Streamlined) for refractory neuropathic pain: Monitored in state RTPM (e.g. SafeScript/QScript/ScriptCheckNSW) due to opioid co-prescribing respiratory depression & misuse deaths; adjust strictly for CrCl."
+
+  drug:sodium_valproate:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 / PBS General Benefit (Epilim): TGA boxed teratogenicity & neurodevelopmental warning — avoid in women of childbearing potential unless alternatives ineffective/not tolerated; never cease abruptly in epilepsy."
+
+  drug:levetiracetam:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 / PBS General Benefit (Keppra): Preferred pregnancy-safer, low-DDI antiepileptic alternative to valproate and carbamazepine; adjust dose for renal impairment."
+
+  drug:betahistine:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 (Serc — private script, not PBS-subsidised): eTG ENT notes limited trial efficacy for Meniere's disease; NOT indicated for BPPV (use Epley manoeuvre)."
+
+  drug:chloramphenicol_eye:
+    drug_facet:
+      schedule: "AU_SUSMP_S3"
+      dosing_pearl:
+        en: "AU SUSMP S3 (Pharmacist Only OTC — Chlorsig): Strictly screen out contact lens wearers, eye pain, photophobia, and reduced visual acuity BEFORE dispensing (red flags require same-day GP/ophthalmology slit-lamp exam)."
+
+  drug:latanoprost:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 / PBS General Benefit (Xalatan): First-line prostaglandin drop (1 drop nocte) for open-angle glaucoma; coordinate regular IOP/visual field follow-up with optometrist/ophthalmologist."
+
+  drug:febuxostat:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 / PBS Authority Required (Streamlined) — Adenuric: PBS-restricted to chronic gout patients intolerant/contraindicated to allopurinol (e.g. HLA-B*58:01+ or rash); TGA/AMH warn against use in established CVD where alternatives exist."
+
+  drug:hydroxychloroquine:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 / PBS General Benefit (Plaquenil): Keep <=5 mg/kg real weight/day; follow RANZCO screening guidelines (baseline exam within 1y, annual SD-OCT + visual fields from year 5, or annually from year 1 if high risk)."
+
+  drug:topical_clotrimazole:
+    drug_facet:
+      schedule: "AU_SUSMP_S2"
+      dosing_pearl:
+        en: "AU SUSMP S2 Pharmacy Medicine OTC (Canesten 1% cream): eTG Dermatology recommends plain topical antifungal (terbinafine/clotrimazole) for tinea — avoid hydrocortisone+antifungal combos that mask tinea incognito."
+
+  # --- Wave 2 Pod 3: Sexual/Reproductive, ID, Psych/Addiction AU Deltas ---
+  drug:cefalexin:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU eTG Antibiotic: First-line oral option for mild non-purulent cellulitis, lactational mastitis (alongside dicloxacillin/flucloxacillin), and pregnancy/G6PD-safe cystitis."
+
+  drug:ceftriaxone:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU STI Management Guidelines: First-line gonorrhoea treatment is ceftriaxone 500 mg IM (in 2 mL 1% lignocaine) + oral azithromycin (1 g genital; 2 g pharyngeal/anorectal). Available in PBS Prescriber Bag for meningococcal emergency."
+
+  drug:ciprofloxacin:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU PBS Authority Required (antimicrobial stewardship): Reserve for targeted indications (e.g. acute bacterial prostatitis, Pseudomonas, severe penicillin-allergic pyelonephritis); avoid empiric respiratory use."
+
+  drug:co_trimoxazole:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU eTG Antibiotic: Used for community MRSA purulent skin infections and melioidosis eradication phase (Top End / North QLD); screen G6PD, methotrexate, warfarin, and RAAS hyperkalaemia."
+
+  drug:aciclovir:
+    drug_facet: { schedule: "AU_SUSMP_S4" }
+
+  drug:entecavir:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU PBS Section 100 Highly Specialised Drugs (prescribable by s100 HBV-accredited GPs & specialists): Never allow supply gaps — abrupt stop triggers severe HBV flare."
+
+  drug:tenofovir_emtricitabine:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU PBS General Schedule / ASHM PrEP Guidelines: Any GP or nurse practitioner can prescribe HIV PrEP on PBS; confirm HIV Ag/Ab negative and HBsAg before starting/stopping, with 3-monthly HIV/STI/eGFR checks."
+
+  drug:varenicline:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU PBS General Benefit (12-week course + optional 12-week continuation); pair with Quitline (13 7848) behavioural support per RACGP Supporting Smoking Cessation."
+
+  drug:naltrexone:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU PBS Authority Required (Streamlined) for alcohol dependence maintenance; hard-block with any opioid (codeine/tramadol/S8) and check baseline LFTs."
+
+  drug:quetiapine:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU PBS Authority Required (Streamlined) for schizophrenia/bipolar; RACGP / Choosing Wisely AU strongly advises against off-label low-dose quetiapine for primary insomnia."
+
+  drug:olanzapine:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU PBS / RANZCP Clinical Practice Guidelines: Mandatory cardiometabolic monitoring (weight/waist, BP, HbA1c, fasting lipids) at baseline, 3 months, and 6-12 monthly."
+
+  drug:mirtazapine:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+    aliases:
+      en: { $add: ["Avanza SolTab"] }
+
+  drug:estradiol_mht:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU AMS / PBS (expanded 2025): Transdermal estradiol (Estrogel/Estradot) preferred if VTE risk; intact uterus MUST receive progestogen (e.g. Prometrium or Mirena LNG-IUS)."
+
+  drug:progesterone_micronised:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU PBS General Benefit (listed Mar 2025 as Prometrium 100 mg) for MHT endometrial protection alongside systemic oestrogen."
+
+  drug:sildenafil:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU SUSMP S4 Prescription Only (private script; RPBS for eligible DVA veterans). Absolute hard-block with GTN / nitrates."
+
+  drug:gtn_nitrate:
+    drug_facet:
+      schedule: "AU_SUSMP_S3"
+      dosing_pearl:
+        en: "AU SUSMP S3 (Pharmacist Only OTC Nitrolingual spray / Anginine). Heart Foundation AU Action Plan: Call 000 immediately if chest pain is severe, worsening, or not relieved after 10 minutes / 2 doses."
+
+  cond:melioidosis:
+    display:
+      en_au: "Melioidosis (Burkholderia pseudomallei — Northern AU wet-season notifiable sepsis/pneumonia)"
+
+  cond:ross_river_virus:
+    display:
+      en_au: "Ross River virus infection (AU nationally notifiable mosquito-borne polyarthritis)"
+
+  cond:q_fever:
+    display:
+      en_au: "Q fever (Coxiella burnetii — AU rural/livestock notifiable zoonosis; Q-VAX eligible)"
+
+edge_patches:
+  # --- Wave 2 AU Edge Patches ---
+  edge:strong_opioid_benzo_respiratory_block:
+    clinician_rationale:
+      en: "AU SUSMP S8/S4 & RTPM Alert: Concurrent strong opioid + benzodiazepine triggers mandatory SafeScript/QScript/ScriptCheck review; prescribe free PBS Take-Home Naloxone and initiate collaborative deprescribing unless explicit palliative care plan."
+
+  edge:oxybutynin_elderly_stopp_anticholinergic:
+    clinician_rationale:
+      en: "AU RACGP Silver Book (Aged Care) / STOPP: High anticholinergic cognitive burden (ACB=3) precipitates delirium and falls in >=65y; trigger MBS Home Medicines Review (Item 900) or RMMR (Item 903) to deprescribe."
+
+  edge:abcde_changing_lesion_melanoma:
+    urgency_floor: 3
+    clinician_rationale:
+      en: "AU World-Highest Melanoma & NMSC Burden (RACGP Red Book 10th Ed / Cancer Council Australia): Opportunistic full-skin dermoscopy check in high-risk adults; suspicious pigmented or EFG nodular lesions require urgent complete full-thickness excisional biopsy (2 mm margin) — NEVER shave/partial biopsy or cryotherapy."
+
+  edge:pregabalin_opioid_respiratory_depression:
+    clinician_rationale:
+      en: "AU TGA / State RTPM Alert (SafeScript, QScript, ScriptCheckNSW): Gabapentinoid + opioid co-prescribing is a leading contributor to unintentional respiratory depression overdose deaths in Australia — check RTPM, review renal dose, consider take-home naloxone (PBS/free THN program), and taper."
+
+  edge:painless_hard_neck_node_malignancy:
+    clinician_rationale:
+      en: "AU Cancer Council Optimal Care Pathway (Head & Neck Cancer): Persistent (>2-3w) painless firm cervical/parotid node requires urgent ENT/H&N MDT workup within 2 weeks (US + FNA, nasoendoscopy) — consider HPV+ oropharyngeal SCC (even in non-smokers) and metastatic cutaneous SCC from prior sun-exposed scalp/face/ear lesions."
+
+  edge:acute_psychosis_harm_risk_crisis:
+    clinician_action_prompt:
+      en: "AU Emergency Pathway: Contact 000 / State Mental Health Acute Care Team (CATT/MHCL) under state Mental Health Act if imminent risk; share Lifeline 13 11 14, Suicide Call Back 1300 659 467, and 13YARN 13 92 76 for First Nations patients."
+
+  edge:severe_alcohol_withdrawal_dt_emergency:
+    clinician_action_prompt:
+      en: "AU eTG Alcohol Withdrawal: Immediate ED transfer (000) for IV/IM thiamine BEFORE glucose and symptom-triggered diazepam; consult state Drug & Alcohol Clinical Advisory Service (DACAS) for complex community withdrawal."
+
 observation_patches:
   obs_rule:ferritin:
     epidemiology_pearls:
@@ -270,8 +708,58 @@ observation_patches:
           clinician_pearl:
             en: "AU eTG GI: First-line H. pylori eradication is PPI + amoxicillin + clarithromycin (substitute metronidazole if penicillin-allergic); confirm eradication >=4w post-therapy off PPI >=2w."
 
+  # --- Wave 2 AU Observation Pearls ---
+  obs_rule:tsh_neonatal:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_nbs_guthrie_tsh
+          clinician_pearl:
+            en: "AU National Newborn Bloodspot Screening (heel-prick Guthrie card collected 48-72h post-birth): Any recalled elevated DBS TSH requires same-day venous serum TSH + fT4 and paediatric endocrinology referral."
+
+  obs_rule:bilirubin_conjugated:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_rch_prolonged_jaundice
+          clinician_pearl:
+            en: "AU RCH Melbourne / State Neonatal Guidelines: Any term infant jaundiced >=14 days (or preterm >=21 days) MUST have split (total + conjugated) bilirubin ordered; conjugated >=25 umol/L or >20% requires urgent paediatric gastroenterology/surgical referral to exclude biliary atresia."
+
+  obs_rule:anti_ttg_iga:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_coeliac_gastro_pathway
+          clinician_pearl:
+            en: "AU RACGP / GESA (~1.2-1.5% population prevalence): Order anti-tTG IgA + total IgA while patient consumes >=4 slices wheat bread/day (gluten) for >=6 weeks; if already gluten-free, consider MBS-subsidised HLA-DQ2/DQ8 genotyping to exclude coeliac disease before gluten challenge."
+
+  obs_rule:hba2_hplc:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_thalassaemia_carrier_screen
+          clinician_pearl:
+            en: "AU RACGP Red Book 10th Ed / RANZCOG: Offer pre-conception/antenatal thalassaemia carrier screening (FBC + ferritin + Hb electrophoresis/HPLC) for Mediterranean, Middle Eastern, Southeast/East Asian, Indian, and African ancestries; normal HbA2 does NOT exclude alpha-thalassaemia."
+
+  obs_rule:afp:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_hbv_hcc
+          clinician_pearl:
+            en: "AU GESA / ASHM Hepatitis B Consensus: 6-monthly liver ultrasound +/- AFP for HCC surveillance in cirrhosis, Asian men >=40y / women >=50y, Aboriginal & Torres Strait Islander adults >=50y, Sub-Saharan African adults >=20y, or family history of HCC."
+
+  obs_rule:syphilis_serology:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_syphilis_outbreak
+          clinician_pearl:
+            en: "AU STI Management Guidelines: Rising syphilis & congenital syphilis across Australia (esp. First Nations & regional outbreak areas) — test at antenatal booking PLUS 28w & 36w in high-risk/outbreak regions; notify state PHU."
+
+  obs_rule:ct_ng_naat:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_sti_opportunistic
+          clinician_pearl:
+            en: "RACGP Red Book 10th Ed / ASHM STI Guidelines: Offer annual opportunistic chlamydia/gonorrhoea NAAT (self-collected vaginal swab or first-void urine, plus pharyngeal/anorectal if exposed) for sexually active people aged <=29y."
+
 provenance:
   author: "ontology_pod_stage2"
   review_status: "draft"
   jurisdiction_scope: "AU"
-  notes: "Wave 0 + Wave 1 Australia minimal toggle overlay over shared universal core."
+  notes: "Complete Wave 0 + Wave 1 + Wave 2 Australia minimal toggle overlay with 100% TGA SUSMP drug schedules."

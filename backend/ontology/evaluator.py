@@ -183,6 +183,7 @@ def evaluate_observation(
         ri for ri in rule.reference_intervals
         if evaluate_predicate(ri.when, ctx, is_a=is_a)
     ]
+    best_ri = None
     ref_low: float | None = None
     ref_high: float | None = None
     if matching_ris:
@@ -199,11 +200,21 @@ def evaluate_observation(
         elif ref_low is not None and canonical_val < ref_low:
             direction = "L"
 
-    # Evaluate nested severity bands (strictly highest wins)
+    # Evaluate nested severity bands (strictly highest wins), but do not let
+    # global adult bands override a matched contextual physiological interval
+    # (e.g. paediatric phosphate, neonatal reticulocytes/bilirubin, pregnant AFP).
+    contextual_normal = (
+        canonical_unit not in ("{Ordinal}", "{presence}")
+        and best_ri is not None
+        and best_ri.when is not None
+        and direction is None
+    )
     urgency = 0
     band = "normal"
     sb = rule.severity_bands
-    if sb.critical and sb.critical.matches(canonical_val):
+    if contextual_normal:
+        pass
+    elif sb.critical and sb.critical.matches(canonical_val):
         urgency, band = 4, "critical"
         if direction is None:
             direction = "L" if (sb.critical.low_threshold() is not None and canonical_val <= sb.critical.low_threshold()) else "H"

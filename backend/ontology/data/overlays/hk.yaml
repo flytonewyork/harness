@@ -176,6 +176,414 @@ concept_patches:
     display:
       en_hk: "HK CDCC Hepatitis B Screening (residents born <=1988)"
 
+  # --- Wave 1 Complete HK Statutory Drug Schedules (zero UNSPECIFIED) ---
+  drug:adrenaline_autoinjector:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx (doctor prescription required in HK, unlike AU S3 OTC): prescribe 2 twin autoinjectors, verify expiry, and train patient/school carer."
+        zh_hk: "香港附表3處方藥（與澳洲藥劑師非處方不同，須醫生處方）：建議常備兩支腎上腺素自動注射筆並核對有效日期。"
+  drug:alendronate:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:amiodarone:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:amlodipine:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:apixaban:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:atorvastatin:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:betamethasone_topical:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:bisoprolol:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:carbimazole:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:celecoxib:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:cetirizine:
+    drug_facet: { schedule: "OTC" }
+  drug:cholecalciferol:
+    drug_facet: { schedule: "OTC" }
+  drug:clarithromycin:
+    drug_facet: { schedule: "HK_CAP137_ANTIBIOTIC" }
+  drug:colchicine:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:combined_oral_contraceptive:
+    drug_facet: { schedule: "HK_CAP138_PART_I_POISON" }
+  drug:cyanocobalamin:
+    drug_facet: { schedule: "OTC" }
+  drug:dapagliflozin:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:digoxin:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:empagliflozin:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:escitalopram:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:esomeprazole:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:fluconazole:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:fluoxetine:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:folic_acid:
+    drug_facet: { schedule: "OTC" }
+  drug:furosemide:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:gabapentin:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:gliclazide:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:hydrochlorothiazide:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:hydrocortisone_topical:
+    drug_facet: { schedule: "HK_CAP138_PART_I_POISON" }
+  drug:hyoscine_butylbromide:
+    drug_facet: { schedule: "HK_CAP138_PART_I_POISON" }
+  drug:indapamide:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:insulin_glargine:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:lactulose:
+    drug_facet: { schedule: "OTC" }
+  drug:levothyroxine:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:linagliptin:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:lisinopril:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:lithium:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:loperamide:
+    drug_facet: { schedule: "HK_CAP138_PART_I_POISON" }
+  drug:loratadine:
+    drug_facet: { schedule: "OTC" }
+  drug:losartan:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:macrogol:
+    drug_facet: { schedule: "OTC" }
+  drug:metformin:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:methotrexate:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:metoclopramide:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:metoprolol:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:metronidazole:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:mometasone_nasal:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:naproxen:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:nifedipine:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:omeprazole:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:ondansetron:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:oral_iron:
+    drug_facet: { schedule: "OTC" }
+  drug:pantoprazole:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:perindopril:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:prednisolone:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:propranolol:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:rivaroxaban:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:rosuvastatin:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:sertraline:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:sitagliptin:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:spironolactone:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:sumatriptan:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:tamsulosin:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:tiotropium:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:tranexamic_acid:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:valaciclovir:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+  drug:venlafaxine:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+
+  # --- Wave 2 Pod 1: Paediatrics, Geriatrics & Palliative HK Deltas ---
+  drug:morphine:
+    drug_facet:
+      schedule: "HK_CAP134_DANGEROUS_DRUG"
+      telehealth_blocked: true
+      dosing_pearl:
+        en: "HK Cap. 134 Dangerous Drug (register & in-person Rx mandatory; telehealth hard-blocked). Align palliative titration with HA Community Palliative Care Team and HK Advance Decision on Life-Sustaining Treatment Ordinance (2024)."
+        zh_hk: "香港法例第134章危險藥物（須親身處方及登記，遙距診症禁止處方）；紓緩治療劑量調整應配合醫管局社區寧養團隊及預設醫療指示。"
+
+  drug:oxycodone:
+    drug_facet:
+      schedule: "HK_CAP134_DANGEROUS_DRUG"
+      telehealth_blocked: true
+      dosing_pearl:
+        en: "HK Cap. 134 Dangerous Drug (telehealth hard-blocked); verify HA eHRSS dispensing record and avoid co-prescribing with benzodiazepines."
+        zh_hk: "香港法例第134章危險藥物（遙距診症禁止處方）；處方前須查核醫健通紀錄，避免與苯二氮平類鎮靜劑合用。"
+
+  drug:methylphenidate:
+    drug_facet:
+      schedule: "HK_CAP134_DANGEROUS_DRUG"
+      telehealth_blocked: true
+      dosing_pearl:
+        en: "HK Cap. 134 Dangerous Drug (telehealth hard-blocked): initiate only after HK HA Child Assessment Service (CAS) / specialist paediatrician or psychiatrist ADHD diagnosis; maintain 6-monthly BP/HR/growth monitoring."
+        zh_hk: "香港法例第134章危險藥物（遙距診症禁止處方）：須經兒童體能智力測驗中心或專科確診後方可處方，並每半年監察血壓、脈搏及生長線。"
+
+  drug:haloperidol:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+
+  drug:donepezil:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx: coordinate cognitive baseline (HK-MoCA / AMT) and Dementia Community Support Scheme (DCSS) carer referral; check baseline ECG/pulse before starting."
+        zh_hk: "香港處方藥物：配合香港版蒙特利爾認知評估 (HK-MoCA) 及智友醫社同行計劃轉介支援，用藥前應核查心電圖及脈搏。"
+
+  drug:levodopa_carbidopa:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+
+  drug:oxybutynin:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Geriatrics STOPP caution: avoid oral oxybutynin in older adults >=65y due to delirium/falls/retention; check HA eHRSS for co-prescribed cholinesterase inhibitors (pharmacological antagonism)."
+
+  drug:mirabegron:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx (note HA Drug Formulary Special/Self-Financed Drug criteria); preferred non-anticholinergic OAB alternative in older adults provided BP <180/110 mmHg."
+
+  drug:dexamethasone:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx: for prolonged or high-dose palliative/MSCC courses in HK adults born <=1988, verify HBsAg to prevent HBV reactivation alongside PPI & BGL monitoring."
+
+  drug:oral_rehydration_salts:
+    drug_facet: { schedule: "OTC" }
+
+  drug:penicillin_v:
+    drug_facet:
+      schedule: "HK_CAP137_ANTIBIOTIC"
+      dosing_pearl:
+        en: "HK CHP IMPACT 6th Ed (2025) & Cap. 599: Scarlet fever is a statutorily notifiable infectious disease in HK (notify CHP CENO); treat GAS with full 10-day phenoxymethylpenicillin or amoxicillin course."
+        zh_hk: "香港衞生防護中心指引：猩紅熱屬香港法定須呈報傳染病，須向中心呈報並完成10天口服青黴素V或阿莫西林療程。"
+
+  drug:senna:
+    drug_facet: { schedule: "OTC" }
+
+  drug:glycopyrrolate:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+
+  # --- Wave 2 Pod 2: Derm, Eye, ENT, MSK & Neuro HK Deltas ---
+  drug:isotretinoin:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      telehealth_blocked: true
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx (specialist/dermatology-supervised): Strict Category X teratogen — require documented negative pregnancy test, dual contraception (+1 month post-therapy), baseline/follow-up LFT & lipids, and no HKRCBTS blood donation during + 1 month after therapy."
+        zh_hk: "香港第138章附表3處方藥（皮膚科專科督導）：極高度致畸胎，須記錄陰性驗孕結果、雙重避孕（停藥後仍須避孕1個月）、監察肝功能與血脂，服藥期間及停藥後1個月內不可捐血。"
+
+  drug:terbinafine:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx (oral 250 mg; topical 1% is OTC/Part I): Confirm nail mycology before 6-12w oral course; verify baseline + 4-6w LFT and check chronic HBV status (HBsAg) in HK adults."
+        zh_hk: "香港口服特比萘芬屬附表3處方藥：治療灰甲前宜先作真菌化驗，並核查基線與4至6星期肝功能及乙肝帶菌狀況。"
+
+  drug:permethrin:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_POISON"
+      dosing_pearl:
+        en: "HK CHP Scabies Guidelines: Apply 5% cream neck-down (incl. scalp/face in elderly/infants) x8-14h and repeat Day 7; treat all household/RCHE institutional contacts simultaneously and notify CHP for care-home outbreaks."
+        zh_hk: "香港衞生防護中心疥瘡指引：全身塗抹並於第7日重複；同住家人或安老院舍密切接觸者須同步治療，院舍爆發須呈報衞生防護中心。"
+
+  drug:mupirocin:
+    drug_facet:
+      schedule: "HK_CAP137_ANTIBIOTIC"
+      dosing_pearl:
+        en: "HK CHP IMPACT 6th Ed (2025) / Cap. 137 Antibiotic: Reserve for localised mild impetigo (5-7d) to curb local CA-MRSA mupirocin resistance; use oral beta-lactam/CA-MRSA-active therapy for widespread or bullous lesions."
+        zh_hk: "香港第137章抗生素／IMPACT 2025 指引：僅用於局部輕微膿皰瘡（5至7日）以減低社區耐藥金黃葡萄球菌抗藥性；廣泛性感染須用口服抗生素。"
+
+  drug:amitriptyline:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx: Low-dose nocte (10-25 mg) for neuropathic pain/migraine prophylaxis; avoid initiating in HK elderly >=65y (HA STOPP anticholinergic/falls/QTc risk)."
+        zh_hk: "香港附表3處方藥：低劑量睡前服用用於神經痛或偏頭痛預防；65歲或以上長者易致跌倒、譫妄及心律異常，宜避免新處方。"
+
+  drug:pregabalin:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx: Adjust dose strictly for eGFR (<60 mL/min); avoid concurrent opioids or benzodiazepines due to CNS/respiratory depression and falls risk."
+        zh_hk: "香港附表3處方藥：須按腎功能 (eGFR) 嚴格調整劑量，並避免與鴉片類或鎮靜劑併用。"
+
+  drug:sodium_valproate:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK DH / HA Valproate Pregnancy Prevention Warning: Contraindicated in pregnancy/childbearing potential unless no effective alternative and annual risk acknowledgement signed; never stop abruptly in epilepsy."
+        zh_hk: "香港衞生署／醫管局丙戊酸鈉懷孕警示：具嚴重致畸胎及影響兒童發育風險，育齡女性原則上禁用；如因癲癇正服藥而懷孕切勿自行停藥，須即時轉介神經科。"
+
+  drug:levetiracetam:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK HA Preferred Alternative: Lower teratogenic risk and does NOT require HLA-B*15:02 screening (unlike carbamazepine in HK Han Chinese); adjust dose for eGFR <80."
+        zh_hk: "香港常用替代抗癲癇藥：致畸胎風險較低且毋須檢測 HLA-B*15:02 基因；腎功能下降者須調整劑量。"
+
+  drug:betahistine:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_POISON"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Poison: Indicated for Meniere's disease prophylaxis (ineffective for BPPV — perform Dix-Hallpike & Epley manoeuvre instead)."
+        zh_hk: "香港第138章第一部毒藥：適用於美尼爾氏症（耳水不平衡）預防；對耳石症 (BPPV) 無效。"
+
+  drug:chloramphenicol_eye:
+    drug_facet:
+      schedule: "HK_CAP137_ANTIBIOTIC"
+      dosing_pearl:
+        en: "HK Cap. 137 Antibiotic (Rx only in HK): Prescribe for bacterial conjunctivitis ONLY after excluding contact lens keratitis, acute angle-closure glaucoma, uveitis, and ophthalmic zoster."
+        zh_hk: "香港第137章抗生素（必須醫生處方）：僅於排除隱形眼鏡角膜潰瘍、急性青光眼及虹膜炎後方可用於細菌性結膜炎。"
+
+  drug:latanoprost:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx: Chronic HA ophthalmology open-angle glaucoma drop (1 drop nocte); emphasise strict no-gap adherence and regular IOP/optic disc follow-up."
+        zh_hk: "香港附表3處方藥：每晚一滴控制青光眼眼壓，切勿漏滴或自行停藥，並定期於眼科覆診量度眼壓。"
+
+  drug:febuxostat:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK HA / HKCFP: Key second-line ULT for HK Han Chinese patients who are HLA-B*58:01 positive (~10-15% prevalence) or intolerant to allopurinol; weigh CARES CVD mortality signal carefully in IHD."
+        zh_hk: "香港華人約10至15%帶 HLA-B*58:01 基因，非布司他為此類痛風患者的重要替代降尿酸藥，惟冠心病患者須審慎評估心血管風險。"
+
+  drug:hydroxychloroquine:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK HA Rheumatology / Ophthalmology: Keep dose <=5 mg/kg real weight/day; East Asian patients frequently exhibit pericentral (extrafoveal) retinopathy — ensure wide-field SD-OCT + 24-2/30-2 visual field screening."
+        zh_hk: "香港風濕科／眼科監察指引：劑量不逾 5 mg/kg 實際體重；華裔患者視網膜毒性常出現於周邊黃斑區，篩查宜涵蓋廣角 SD-OCT 及 24-2/30-2 視野檢查。"
+
+  drug:topical_clotrimazole:
+    drug_facet:
+      schedule: "OTC"
+      dosing_pearl:
+        en: "HK OTC antifungal cream: Counsel patients in humid HK climate against OTC combination potent steroid-antifungal creams (causes tinea incognito and dermal atrophy)."
+        zh_hk: "香港非處方外用抗真菌藥膏：提醒病人切勿於潮濕天氣下胡亂購買含強效類固醇之複方癬膏，以免引致難辨認癬 (tinea incognito) 及皮膚萎縮。"
+
+  # --- Wave 2 Pod 3: Sexual/Reproductive, ID, Psych/Addiction HK Deltas ---
+  drug:cefalexin:
+    drug_facet:
+      schedule: "HK_CAP137_ANTIBIOTIC"
+      dosing_pearl:
+        en: "HK CHP IMPACT 6th Ed (2025): First-line oral option for uncomplicated non-purulent cellulitis, lactational mastitis, and G6PD/pregnancy-safe UTI when susceptible."
+        zh_hk: "香港衞生防護中心 IMPACT 2025 指引：常用於蜂窩織炎、哺乳期乳腺炎及蠶豆症／孕婦合適之尿道感染。"
+
+  drug:ceftriaxone:
+    drug_facet:
+      schedule: "HK_CAP137_ANTIBIOTIC"
+      dosing_pearl:
+        en: "HK CHP IMPACT 6th Ed (2025) / Social Hygiene Service: First-line IM 500 mg single dose for uncomplicated gonorrhoea (pair with chlamydia coverage; send pre-treatment culture for local AMR surveillance)."
+        zh_hk: "香港衞生防護中心社會衞生科／IMPACT指引：單次肌肉注射500毫克為淋病一線治療，須配合衣原體治療及留取細菌培養監察抗藥性。"
+
+  drug:ciprofloxacin:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx / CHP IMPACT 6th Ed (2025): Strictly avoid empiric fluoroquinolones for cough or outpatient CAP due to high HK pulmonary TB prevalence (~50/100,000) — masks TB diagnosis and drives MDR-TB."
+        zh_hk: "香港第138章附表3處方藥／IMPACT 2025 指引：香港肺結核較常見，切勿於未排除肺結核前經驗性處方環丙沙星治療咳嗽或肺炎。"
+
+  drug:co_trimoxazole:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx / Newborn G6PD Screening (~4.5% HK males): Mandatory G6PD exclusion before prescribing; also used for community MRSA SSTI and melioidosis eradication phase."
+        zh_hk: "香港第138章附表3處方藥（約4.5%男性患蠶豆症 G6PD）：處方複方新諾明前必須核實蠶豆症紀錄；亦用於社區耐藥金黃葡萄球菌感染及類鼻疽清除療程。"
+
+  drug:aciclovir:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+
+  drug:entecavir:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK HA Drug Formulary (HADF) / CDCC: First-line high-barrier HBV antiviral in HK (~6-7% chronic HBV born <=1988). Ensure seamless HA/private refill continuity — abrupt stop causes fatal HBV flare."
+        zh_hk: "香港醫管局藥物名冊一線高抗藥屏障乙肝藥：確保公私營藥物無縫銜接，嚴禁中斷服藥以防致命肝炎爆發。"
+
+  drug:tenofovir_emtricitabine:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK CHP Special Preventive Programme (SPP): Confirm negative 4th-gen HIV Ag/Ab and check HBsAg before starting or stopping PrEP; monitor eGFR and STI panel every 3 months."
+        zh_hk: "香港特別預防計劃指引：開始或停用HIV暴露前預防藥 (PrEP) 前必須確認HIV陰性及檢測HBsAg，每3個月覆檢腎功能及性病篩查。"
+
+  drug:varenicline:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK DH Tobacco & Alcohol Control Office: Pair with free Integrated Smoking Cessation Hotline (1833 183) or subsidised NGO clinics."
+
+  drug:naltrexone:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK HA Substance Abuse Clinic / HKCFP: Confirm >=7-10 days opioid-free and check baseline LFTs before starting for alcohol dependence."
+
+  drug:quetiapine:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+
+  drug:olanzapine:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK HA Psychiatry / HKCFP shared care: Mandatory baseline, 3-month, and 6-12 monthly HbA1c, fasting lipids, BMI, and BP monitoring."
+
+  drug:mirtazapine:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+
+  drug:estradiol_mht:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HKCOG Menopause Guideline: Intact uterus mandates concurrent progestogen; prefer transdermal estradiol if VTE/metabolic risk."
+
+  drug:progesterone_micronised:
+    drug_facet: { schedule: "HK_CAP138_PART_I_SCH3_RX" }
+
+  drug:sildenafil:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Sch 3 Rx only: Hard-block with nitrates (GTN); warn patients against unlicensed OTC sexual enhancement / adulterated herbal products containing undeclared sildenafil."
+        zh_hk: "香港處方藥物：嚴禁與硝酸甘油（脷底丸）併用；提醒患者切勿服用來歷不明壯陽成藥（常非法摻雜西地那非）。"
+
+  drug:gtn_nitrate:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_POISON"
+      dosing_pearl:
+        en: "HK Cap. 138 Part I Poison (pharmacy supervised): Call 999 / attend HA A&E immediately if chest pain persists after 1-2 doses (5 min apart)."
+
+  cond:melioidosis:
+    display:
+      en_hk: "Melioidosis (Burkholderia pseudomallei — HK statutory notifiable disease)"
+
 edge_patches:
   edge:allopurinol_pgx_hla_b_5801:
     severity: "hard_block"
@@ -228,6 +636,61 @@ edge_patches:
       en: "HK Epidemiology (~6-7% chronic HBV born <=1988): Mandatory HBsAg verification before moderate/high-dose or prolonged systemic corticosteroids; coordinate antiviral prophylaxis if HBsAg+."
       zh_hk: "香港1988年或之前出生人士乙肝帶菌率高：處方長期或高劑量口服類固醇前必須核實 HBsAg。"
 
+  # --- Wave 2 HK Edge Patches ---
+  edge:neonatal_jaundice_24h_emergency:
+    clinician_rationale:
+      en: "HK Epidemiology (~4.5% male G6PD deficiency via universal cord-blood screening): Jaundice <24h or rapidly rising requires immediate HA paediatric admission, G6PD verification, and strict avoidance of naphthalene/camphor/menthol and high-risk TCM herbs (金銀花, 黃連, 牛黃, 珍珠末)."
+      zh_hk: "香港男嬰蠶豆症 (G6PD) 發病率約4.5%：出生24小時內或急劇加深的黃疸必須即時送院查核臍帶血G6PD及抽血照燈，嚴禁接觸樟腦丸、薄荷腦及高危中藥（金銀花、黃連、牛黃、珍珠末）。"
+
+  edge:kawasaki_5d_fever_ivig_emergency:
+    clinician_rationale:
+      en: "HK East Asian Epidemiology (elevated Kawasaki incidence ~50-75/100,000 in <5y): Maintain low threshold for incomplete Kawasaki disease in febrile children >=5d and refer same-day to HA paediatric ward for IVIG + echocardiography."
+      zh_hk: "香港東亞兒童川崎病發病率較高：持續發燒5天或以上須高度警覺不完全型川崎病，即日轉介醫管局兒科病房安排免疫球蛋白及心臟超聲波。"
+
+  edge:strong_opioid_benzo_respiratory_block:
+    clinician_rationale:
+      en: "HK Cap. 134 Dangerous Drugs: Both strong opioids and benzodiazepines are Cap. 134 Dangerous Drugs (telehealth hard-blocked). Always cross-check HA eHRSS dispensing history to prevent fatal duplicate respiratory depression."
+      zh_hk: "香港法例第134章危險藥物：強效鴉片類及苯二氮平類均屬受嚴格管制危險藥物，處方前必須查核醫健通配藥紀錄以防致命呼吸抑制。"
+
+  edge:painless_hard_neck_node_malignancy:
+    clinician_rationale:
+      en: "HK High-Incidence Southern Chinese NPC & TB Region: Persistent (>2-3w) painless firm cervical node requires urgent ENT flexible nasoendoscopy + plasma EBV DNA (NPC) AND ultrasound/FNA/CXR to exclude lymphoma, H&N SCC, thyroid cancer, and tuberculous cervical lymphadenitis (scrofula)."
+      zh_hk: "香港華南地區鼻咽癌及結核病發病率偏高：持續無痛硬頸淋巴結必須緊急轉介耳鼻喉科鼻咽鏡、血漿 EBV DNA 及超聲波／穿刺活檢，排除鼻咽癌、淋巴瘤、頭頸癌及結核性淋巴結炎。"
+
+  edge:abcde_changing_lesion_melanoma:
+    clinician_rationale:
+      en: "HK East Asian Melanoma Pattern: >50% of cutaneous melanomas in HK Chinese arise on acral sites (palms, soles, subungual nail unit — Hutchinson's sign) rather than sun-exposed trunk; inspect palms/soles/nails with dermoscopy and arrange full-thickness excisional biopsy."
+      zh_hk: "香港華人黑色素瘤逾半屬於肢端雀斑樣黑色素瘤（常見於手掌、腳底及指甲下黑線），皮膚檢查必須重點檢視掌跖及甲床並安排完整切除活檢。"
+
+  edge:hydroxychloroquine_retinal_monitoring:
+    clinician_action_prompt:
+      en: "HK East Asian Retinopathy Protocol: Verify dose <=5 mg/kg real weight/day and request ophthalmology wide-field SD-OCT + 24-2/30-2 (not just 10-2) visual fields to detect pericentral maculopathy."
+      zh_hk: "香港華裔視網膜篩查要點：核對劑量 <=5 mg/kg 實際體重，並轉介眼科作廣角 SD-OCT 及 24-2/30-2 視野檢查以偵測周邊黃斑病變。"
+
+  edge:febuxostat_ihd_cvd_caution:
+    clinician_rationale:
+      en: "HK Han Chinese PGx Context (~10-15% HLA-B*58:01+): Prefer HLA-B*58:01-negative allopurinol in established IHD/CVD; if patient is HLA-B*58:01+ with established CVD, discuss febuxostat vs alternative ULT under rheumatology/cardiology shared care."
+      zh_hk: "香港華人 HLA-B*58:01 攜帶率高：冠心病患者如 HLA-B*58:01 陰性宜優先選用別嘌醇；如基因呈陽性則須由風濕科／心臟科共同權衡非布司他與其他降尿酸方案。"
+
+  edge:cotrimoxazole_g6pd_haemolysis:
+    clinician_rationale:
+      en: "HK Newborn G6PD Screening (~4.5% HK males): Mandatory G6PD card verification before prescribing co-trimoxazole — severe acute oxidative haemolysis risk."
+      zh_hk: "香港約4.5%男性患蠶豆症 (G6PD)：處方複方新諾明前必須核對蠶豆症紀錄，嚴防急性溶血。"
+
+  edge:ciprofloxacin_tb_masking_and_tendon:
+    clinician_rationale:
+      en: "HK TB-endemic region (~50/100,000, CHP TB & Chest Service): NEVER prescribe empiric fluoroquinolones for cough/CAP before CXR + sputum AFB/NAAT exclude pulmonary TB (masks TB & drives MDR-TB)."
+      zh_hk: "香港屬肺結核中度流行地區：在胸肺X光及痰液結核菌檢查排除肺結核前，嚴禁經驗性處方氟喹諾酮治療咳嗽或肺炎。"
+
+  edge:entecavir_no_gap_hbv_flare:
+    clinician_rationale:
+      en: "HK Epidemiology (~6-7% chronic HBV born <=1988): Maintain uninterrupted HA/private entecavir supply and 6-monthly HCC surveillance (USG + AFP); abrupt cessation risks fatal hepatic flare."
+      zh_hk: "香港1988年或之前出生人士乙肝帶菌率高：必須保持恩替卡韋無間斷供應及每半年肝癌監察，突然停藥可致致命肝炎爆發。"
+
+  edge:acute_psychosis_harm_risk_crisis:
+    clinician_action_prompt:
+      en: "HK Emergency Pathway: Arrange urgent HA A&E / Psychiatric Assessment Team (or Mental Health Ordinance Cap. 136 pathway if imminent harm); provide 24h Mental Health Support Hotline 18111 / Samaritans 2389 2222."
+
 observation_patches:
   obs_rule:mcv:
     epidemiology_pearls:
@@ -273,8 +736,81 @@ observation_patches:
           clinician_pearl:
             en: "HK CHP IMPACT: Local H. pylori clarithromycin resistance exceeds 15%; favour 14-day bismuth or concomitant quadruple therapy and verify post-treatment eradication."
 
+  # --- Wave 2 HK Observation Pearls ---
+  obs_rule:tsh_neonatal:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_cord_tsh_screen
+          clinician_pearl:
+            en: "HK DH Clinical Genetic Service universal newborn screening uses cord-blood TSH (plus G6PD); any positive/borderline recall requires urgent same-day venous TSH/fT4 confirmation and HA paediatric endocrinology initiation of levothyroxine."
+            zh_hk: "香港衞生署免費臍帶血新生兒篩查涵蓋先天性甲狀腺功能低下 (TSH) 及蠶豆症；篩查異常召回須即日抽靜脈血確認並盡快展開甲狀腺素治療。"
+
+  obs_rule:bilirubin_conjugated:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_biliary_atresia_mchc
+          clinician_pearl:
+            en: "HK East Asian Epidemiology (higher biliary atresia incidence ~1:5,000-10,000): Any infant with prolonged jaundice >=14 days MUST have split (conjugated) bilirubin checked and stool colour inspected against the HK MCHC stool colour card."
+            zh_hk: "香港東亞裔膽道閉鎖發病率較高：凡黃疸持續滿14天之嬰兒必須檢驗直接（結合）膽紅素，並以母嬰健康院大便色卡核對大便顏色。"
+
+  obs_rule:reticulocytes:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_g6pd_haemolysis
+          clinician_pearl:
+            en: "HK Epidemiology (~4.5% males G6PD deficient): Acute reticulocytosis with dark urine/jaundice after infection, fava beans, or oxidant drugs/herbs warrants urgent haemolysis screen and G6PD verification."
+            zh_hk: "香港約4.5%男性患蠶豆症：如感染、進食蠶豆或服藥後出現網織紅血球飆升伴深茶色尿／黃疸，須緊急排查急性溶血。"
+
+  obs_rule:hba2_hplc:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_hba2_thalassaemia_cascade
+          clinician_pearl:
+            en: "HK Epidemiology (~8-10% thalassaemia carrier rate): Elevated HbA2 (>=3.5%) confirms beta-thalassaemia trait; remember a NORMAL HbA2 does NOT exclude alpha-thalassaemia trait (~5% HK prevalence) — arrange partner MCV/Hb pattern & HA/FHS antenatal genetic counselling if both partners have MCV <80 fL."
+            zh_hk: "香港約8至10%人口為地中海貧血基因攜帶者：HbA2 >=3.5% 可確診乙型地貧基因，惟 HbA2 正常並不能排除甲型地貧（約佔5%）；如伴侶 MCV 均 <80 fL 須安排遺傳輔導及產前評估。"
+
+  obs_rule:anti_ttg_iga:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_coeliac_ancestry
+          clinician_pearl:
+            en: "HK Epidemiology: Coeliac disease is less common in Southern Chinese than European/South Asian HK residents, but increasingly recognised — test anti-tTG IgA + total IgA (on gluten diet) in refractory IDA, chronic diarrhoea, or higher-risk ancestry."
+            zh_hk: "香港華南族群乳糜瀉較歐美及南亞裔少見，惟對頑固缺鐵性貧血、慢性腹瀉或高危族群仍須於正常含麩質飲食下檢測抗 tTG IgA 及總 IgA。"
+
+  obs_rule:rheumatoid_factor:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_ra_hbv_screen
+          clinician_pearl:
+            en: "HK Epidemiology (~6-7% chronic HBV in adults born <=1988): Before starting DMARDs, biologics, or systemic steroids for RF+/anti-CCP+ RA, mandatory HBsAg + anti-HBc screening is required to prevent fatal HBV reactivation."
+            zh_hk: "香港乙肝帶菌率高：為類風濕性關節炎患者啟動抗風濕藥 (DMARD)、生物製劑或類固醇前，必須先篩查 HBsAg 及 anti-HBc 以防乙肝復發。"
+
+  obs_rule:afp:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_hbv_hcc_surveillance
+          clinician_pearl:
+            en: "HK HA / HKASL Chronic HBV Standard: Perform 6-monthly liver ultrasound + serum AFP for HCC surveillance in chronic HBV with cirrhosis, family history of HCC, men >=40y, or women >=50y."
+            zh_hk: "香港慢性乙肝肝癌監察標準：肝硬化、有肝癌家族史、40歲以上男性或50歲以上女性乙肝帶菌者，每6個月安排肝臟超聲波及甲胎蛋白 (AFP) 篩查。"
+
+  obs_rule:syphilis_serology:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_social_hygiene
+          clinician_pearl:
+            en: "HK CHP Social Hygiene Service provides free confidential STI diagnosis, treatment, and partner notification; ensure routine antenatal syphilis & HIV screening to prevent congenital syphilis."
+            zh_hk: "香港衞生署社會衞生科提供免費保密性病診治及伴侶追蹤；產前必須常規篩查梅毒及HIV以預防先天性梅毒。"
+
+  obs_rule:hiv_ag_ab:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_spp_hiv
+          clinician_pearl:
+            en: "HK CHP Special Preventive Programme (SPP): Reactive 4th-gen HIV screen requires confirmatory Western blot/differentiation & HIV RNA with rapid linkage to HA HIV clinics (QEH/PMH/PWH/ITC)."
+            zh_hk: "香港特別預防計劃：HIV初步陽性須盡快安排確認檢測並迅速轉介醫管局或綜合治療中心專科診所展開治療。"
+
 provenance:
   author: "ontology_pod_stage2"
   review_status: "draft"
   jurisdiction_scope: "HK"
-  notes: "Wave 0 + Wave 1 Hong Kong SAR minimal toggle overlay over shared universal core."
+  notes: "Complete Wave 0 + Wave 1 + Wave 2 Hong Kong SAR minimal toggle overlay with 100% statutory drug schedules."

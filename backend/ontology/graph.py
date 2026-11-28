@@ -447,16 +447,82 @@ class OntologyGraph:
     def check_positive_exclusions(
         self,
         rfe_concept_id: ConceptId,
-        exclusion_states: dict[ConceptId, ExclusionState],
+        exclusion_states: dict[ConceptId, ExclusionState] | None = None,
         *,
+        present_findings: Sequence[ConceptId] | set[ConceptId] | frozenset[ConceptId] | None = None,
+        explicitly_excluded_findings: Sequence[ConceptId] | set[ConceptId] | frozenset[ConceptId] | None = None,
         facts: dict[str, Any] | None = None,
     ) -> ExclusionCheckResult:
         frame = self._frame_by_rfe.get(rfe_concept_id)
         if frame is None:
             raise KeyError(f"No PresentationFrame registered for '{rfe_concept_id}'")
+        states: dict[ConceptId, ExclusionState] = dict(exclusion_states or {})
+        for cid in explicitly_excluded_findings or ():
+            states.setdefault(cid, "explicitly_excluded")
+        for cid in present_findings or ():
+            states[cid] = "present"
         ctx = dict(facts or {})
         ctx.setdefault("jurisdiction", self.jurisdiction)
-        return evaluate_positive_exclusions(frame, exclusion_states, facts=ctx, is_a=self.is_a)
+        return evaluate_positive_exclusions(frame, states, facts=ctx, is_a=self.is_a)
+
+    def build_context_pack(
+        self,
+        case_state: Any | None = None,
+        *,
+        active_rfe_ids: Sequence[ConceptId] = (),
+        active_concept_ids: Sequence[ConceptId] = (),
+        active_med_names: Sequence[str] = (),
+        observations: Sequence[dict[str, Any]] = (),
+        exclusion_states: dict[ConceptId, ExclusionState] | None = None,
+        facts: dict[str, Any] | None = None,
+        lang: str = "en",
+        max_tokens: int = 1500,
+    ) -> Any:
+        """Build a progressive 1-hop token-budgeted ContextPack from kwargs or a CaseEvidenceState-like object."""
+        from .prompt_pack import build_context_pack as _build_context_pack
+
+        rfe_ids = list(active_rfe_ids)
+        concept_ids = list(active_concept_ids)
+        med_names = list(active_med_names)
+        obs_list = list(observations)
+        exc_map: dict[ConceptId, ExclusionState] = dict(exclusion_states or {})
+        fact_dict: dict[str, Any] = dict(facts or {})
+
+        if case_state is not None:
+            rfe_ids = list(dict.fromkeys(rfe_ids + list(getattr(case_state, "active_rfe_ids", ()) or ())))
+            present = getattr(case_state, "present_findings", None) or {}
+            excluded = getattr(case_state, "explicitly_excluded_findings", None) or {}
+            present_keys = list(present.keys()) if isinstance(present, dict) else list(present)
+            excluded_keys = list(excluded.keys()) if isinstance(excluded, dict) else list(excluded)
+            concept_ids = list(dict.fromkeys(concept_ids + present_keys))
+            med_names = list(dict.fromkeys(med_names + list(getattr(case_state, "active_med_ids", ()) or ())))
+            for cid in excluded_keys:
+                exc_map.setdefault(cid, "explicitly_excluded")
+            for cid in present_keys:
+                exc_map[cid] = "present"
+            for lr in getattr(case_state, "lab_results", ()) or ():
+                if isinstance(lr, dict) and lr.get("concept_id") and lr.get("value") is not None:
+                    obs_list.append(lr)
+            if hasattr(case_state, "to_ontology_facts"):
+                merged_facts = dict(case_state.to_ontology_facts() or {})
+                merged_facts.update(fact_dict)
+                fact_dict = merged_facts
+
+        if concept_ids:
+            existing_concepts = list(fact_dict.get("concepts") or ())
+            fact_dict["concepts"] = tuple(dict.fromkeys(existing_concepts + concept_ids))
+        if exc_map:
+            fact_dict["exclusion_states"] = exc_map
+
+        return _build_context_pack(
+            self,
+            patient_context=fact_dict or None,
+            rfe_ids=rfe_ids,
+            med_names=med_names,
+            lab_results=obs_list,
+            max_tokens=max_tokens,
+            lang=lang,
+        )
 
     def pointers_for(
         self,

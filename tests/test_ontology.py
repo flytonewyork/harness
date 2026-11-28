@@ -46,13 +46,13 @@ def test_linter_clean_for_hk_au_and_clinic():
         issues = lint_ontology(graph, strict_prod=False)
         errors = [i for i in issues if i.severity == "ERROR"]
         assert errors == [], f"Unexpected lint errors for {jur}/{clinic}: {errors}"
-        assert len(graph.concepts) >= 390
-        assert len(graph.edges) >= 100
+        assert len(graph.concepts) >= 595
+        assert len(graph.edges) >= 160
         rfe_ids = {cid for cid, c in graph.concepts.items() if c.kind == "rfe"}
         frame_rfe_ids = {f.rfe_concept_id for f in graph.frames.values()}
-        assert len(rfe_ids) == 30
+        assert len(rfe_ids) == 45
         assert frame_rfe_ids == rfe_ids  # 100% RFE-to-Murtagh-Frame bijection
-        assert len(graph.observation_rules) >= 35
+        assert len(graph.observation_rules) >= 56
 
 
 def test_math_check_digits_catch_corrupted_codes():
@@ -515,3 +515,381 @@ def test_w1_complex_multimorbid_context_pack_retains_safety_labs_and_primary_fra
         assert "obs:fasting_glucose" in pack.text
         assert "### RFE Frame:" in pack.text
         assert "edge:anticoagulant_nsaid_bleed" in pack.text
+
+
+# ---------------------------------------------------------------------------
+# 9. Full 95% Scope, Wave 2 Clinical Reasoning & 100% HK/AU Statutory Schedules
+# ---------------------------------------------------------------------------
+def test_w2_full_95pct_scope_bijection_and_zero_unspecified_schedules():
+    for jur in ("HK", "AU"):
+        g = get_ontology(jur)
+        assert len(g.concepts) >= 595
+        assert len(g.edges) >= 160
+        assert len(g.frames) == 45
+        assert len(g.observation_rules) >= 56
+        assert len(g.pointers) >= 25
+
+        # Strict 45/45 RFE <-> PresentationFrame bijection
+        rfe_ids = {c.id for c in g.concepts.values() if c.kind == "rfe"}
+        frame_rfe_ids = {f.rfe_concept_id for f in g.frames.values()}
+        assert rfe_ids == frame_rfe_ids and len(rfe_ids) == 45
+
+        # 100% of all 134 drugs MUST have jurisdiction-appropriate statutory schedules (0 UNSPECIFIED)
+        drugs = [c for c in g.concepts.values() if c.kind == "drug"]
+        assert len(drugs) >= 134
+        for d in drugs:
+            assert d.drug_facet is not None, f"{d.id} missing drug_facet"
+            sched = d.drug_facet.schedule
+            assert sched != "UNSPECIFIED", f"{jur}: {d.id} still UNSPECIFIED"
+            if jur == "HK":
+                assert not sched.startswith("AU_"), f"HK drug {d.id} has AU schedule {sched}"
+            else:
+                assert sched.startswith("AU_"), f"AU drug {d.id} has non-AU schedule {sched}"
+
+        # Deterministic linter reports 0 errors and 0 warnings
+        issues = lint_ontology(g)
+        assert issues == [], f"{jur} lint issues: {issues}"
+
+
+def test_w2_paeds_geriatrics_palliative_safety_and_hk_au_toggles():
+    hk = get_ontology("HK")
+    au = get_ontology("AU")
+
+    # Paediatric emergencies: Kawasaki 5d fever, intussusception, neonatal jaundice <24h
+    kaw = hk.evaluate_patient_edges(active_concept_ids=["rf:kawasaki_5d_fever_mucositis"])
+    assert any(f.edge.id == "edge:kawasaki_5d_fever_ivig_emergency" and f.edge.urgency_floor == 4 for f in kaw)
+    assert "HA paediatric" in kaw[0].clinician_rationale
+
+    intus = au.evaluate_patient_edges(active_concept_ids=["rf:intussusception_currant_jelly_bilious"])
+    assert any(f.edge.id == "edge:intussusception_surgical_emergency" and f.edge.urgency_floor == 4 for f in intus)
+
+    # Geriatrics STOPP: oxybutynin / amitriptyline in >=65y; haloperidol + Parkinson's hard_block
+    stopp_elder = hk.evaluate_patient_edges(
+        active_med_names=["oxybutynin", "amitriptyline"],
+        facts={"age_years": 78},
+    )
+    stopp_ids = {f.edge.id for f in stopp_elder}
+    assert "edge:oxybutynin_elderly_stopp_anticholinergic" in stopp_ids
+    assert "edge:amitriptyline_elderly_stopp_anticholinergic" in stopp_ids
+
+    stopp_young = hk.evaluate_patient_edges(
+        active_med_names=["oxybutynin", "amitriptyline"],
+        facts={"age_years": 32},
+    )
+    assert "edge:oxybutynin_elderly_stopp_anticholinergic" not in {f.edge.id for f in stopp_young}
+
+    park_halo = hk.evaluate_patient_edges(
+        active_concept_ids=["cond:parkinsons_disease"],
+        active_med_names=["haloperidol"],
+    )
+    assert any(f.edge.id == "edge:haloperidol_parkinsons_ci" and f.edge.severity == "hard_block" for f in park_halo)
+
+    # Palliative / controlled opioid safety: morphine in CKD eGFR <30 & strong opioid + benzo
+    morph_ckd = hk.evaluate_patient_edges(
+        active_med_names=["morphine", "lorazepam"],
+        facts={"egfr_ml_min": 22},
+    )
+    m_ids = {f.edge.id for f in morph_ckd}
+    assert "edge:morphine_ckd_egfr30_neurotoxicity" in m_ids
+    assert "edge:strong_opioid_benzo_respiratory_block" in m_ids
+
+    # HK Cap. 134 vs AU SUSMP S8 controlled schedules & telehealth block
+    for cid in ("drug:morphine", "drug:oxycodone", "drug:methylphenidate"):
+        assert hk.get_concept(cid).drug_facet.schedule == "HK_CAP134_DANGEROUS_DRUG"
+        assert au.get_concept(cid).drug_facet.schedule == "AU_SUSMP_S8"
+        assert hk.get_concept(cid).drug_facet.telehealth_blocked is True
+        assert au.get_concept(cid).drug_facet.telehealth_blocked is True
+
+
+def test_w2_derm_eye_ent_msk_neuro_and_cross_wave_safety_edges():
+    hk = get_ontology("HK")
+    au = get_ontology("AU")
+
+    # Teratogens: isotretinoin + sodium valproate in pregnancy
+    preg = hk.evaluate_patient_edges(
+        active_med_names=["isotretinoin", "sodium valproate", "co-trimoxazole", "ciprofloxacin"],
+        facts={"pregnant": True, "age_years": 28},
+    )
+    preg_ids = {f.edge.id for f in preg}
+    assert {
+        "edge:isotretinoin_pregnancy_teratogen_ci",
+        "edge:sodium_valproate_pregnancy_teratogen_ci",
+        "edge:cotrimoxazole_pregnancy_ci",
+        "edge:ciprofloxacin_pregnancy_paed_ci",
+    }.issubset(preg_ids)
+
+    # Eye, ENT, Derm emergencies
+    for rf_id, expected_edge in (
+        ("rf:flashes_floaters_visual_curtain", "edge:flashes_floaters_retinal_detachment"),
+        ("rf:contact_lens_painful_red_eye", "edge:contact_lens_red_eye_corneal_ulcer"),
+        ("rf:sudden_hearing_loss_72h", "edge:sudden_hearing_loss_72h_ssnhl"),
+        ("rf:sjs_ten_mucosal_blistering", "edge:sjs_ten_mucosal_blistering_emergency"),
+    ):
+        fired = hk.evaluate_patient_edges(active_concept_ids=[rf_id])
+        assert any(f.edge.id == expected_edge and f.edge.urgency_floor >= 3 for f in fired)
+
+    # Cross-wave safety edges: PDE5i + nitrate hard_block, PDE5i + alpha-blocker, haloperidol + amiodarone QTc,
+    # ciprofloxacin + warfarin, amitriptyline + tramadol, gabapentin + oxycodone, oral steroid + T2DM
+    combo = hk.evaluate_patient_edges(
+        active_concept_ids=["cond:t2dm", "cond:bipolar_disorder"],
+        active_med_names=[
+            "sildenafil", "gtn_nitrate", "tamsulosin",
+            "haloperidol", "amiodarone",
+            "ciprofloxacin", "warfarin",
+            "amitriptyline", "tramadol",
+            "gabapentin", "oxycodone",
+            "prednisolone", "sertraline",
+        ],
+    )
+    combo_ids = {f.edge.id for f in combo}
+    assert {
+        "edge:sildenafil_nitrate_fatal_hypotension",
+        "edge:sildenafil_alpha_blocker_hypotension",
+        "edge:haloperidol_amiodarone_qtc_torsades",
+        "edge:ciprofloxacin_warfarin_inr_spike",
+        "edge:amitriptyline_tramadol_serotonin_seizure",
+        "edge:gabapentin_opioid_respiratory_depression",
+        "edge:oral_steroid_t2dm_hyperglycaemia",
+        "edge:ssri_bipolar_mania_switch",
+    }.issubset(combo_ids)
+
+    # HK vs AU schedule & epidemiology toggle checks across Wave 2
+    assert hk.get_concept("drug:chloramphenicol_eye").drug_facet.schedule == "HK_CAP137_ANTIBIOTIC"
+    assert au.get_concept("drug:chloramphenicol_eye").drug_facet.schedule == "AU_SUSMP_S3"
+    assert hk.get_concept("drug:gtn_nitrate").drug_facet.schedule == "HK_CAP138_PART_I_POISON"
+    assert au.get_concept("drug:gtn_nitrate").drug_facet.schedule == "AU_SUSMP_S3"
+    assert hk.get_concept("drug:adrenaline_autoinjector").drug_facet.schedule == "HK_CAP138_PART_I_SCH3_RX"
+    assert au.get_concept("drug:adrenaline_autoinjector").drug_facet.schedule == "AU_SUSMP_S3"
+
+    # Wave 2 ObservationRules: HbA2 HPLC beta-thalassaemia trait & anti-tTG IgA coeliac & {Ordinal} STI rules
+    hba2 = hk.evaluate_observation("obs:hba2_hplc", 4.6)
+    assert hba2.urgency >= 1 and any("beta-thalassaemia" in p.lower() for p in hba2.pearls)
+    ttg = au.evaluate_observation("obs:anti_ttg_iga", 45.0)
+    assert ttg.urgency >= 2 and any("gluten" in p.lower() for p in ttg.pearls)
+    for ord_obs in ("obs:hiv_ag_ab", "obs:syphilis_serology", "obs:ct_ng_naat", "obs:ana_screen"):
+        neg = hk.evaluate_observation(ord_obs, 0.0)
+        pos = hk.evaluate_observation(ord_obs, 1.0)
+        assert neg.band == "normal" and neg.urgency == 0
+        assert pos.direction == "positive" and pos.urgency >= 2
+
+
+# ---------------------------------------------------------------------------
+# 10. End-to-End Agentic System Integration (Tools, ContextCompiler, Runner)
+# ---------------------------------------------------------------------------
+def test_agentic_context_compiler_with_ontology_subgraph_and_pdpo_scrubber():
+    from backend.agentic import (
+        CARE_LINE_PATIENT_TURN_V1,
+        CLINICAL_PRESENTATION_SLOT_FILL_V1,
+        HARD_TOKEN_CEILING,
+        ContextCompiler,
+    )
+    from backend.ontology.agentic_adapter import (
+        build_ontology_skill_spec,
+        ontology_to_graph_nodes,
+    )
+
+    skill = build_ontology_skill_spec()
+    assert skill.authority_ceiling == "CDS"
+    assert "emr.write_signed_orders" not in skill.allowed_tools
+
+    compiler = ContextCompiler()
+    for jur, region in (("HK", "asia-east2"), ("AU", "australia-southeast1")):
+        g = get_ontology(jur)
+        nodes = ontology_to_graph_nodes(
+            g,
+            patient_context={"sex": "M", "age_years": 64, "egfr_ml_min": 38, "g6pd_deficient": True},
+            rfe_ids=["rfe:scrotal_pain_swelling"],
+            med_names=["sildenafil", "gtn_nitrate", "co-trimoxazole"],
+            lab_results=[{"concept_id": "obs:potassium", "value": 6.1, "ucum": "mmol/L"}],
+            max_tokens=720,
+            lang="zh-HK" if jur == "HK" else "en",
+        )
+        snap = compiler.compile(
+            template=CLINICAL_PRESENTATION_SLOT_FILL_V1,
+            skills=[skill],
+            active_graph_nodes=nodes,
+            total_graph_nodes=len(g.concepts),
+            current_input="I have sudden scrotal pain and take sildenafil with GTN spray.",
+            region=region,
+            channel="workspace",
+        )
+        assert snap.within_budget and snap.total_tokens_est <= HARD_TOKEN_CEILING
+        assert snap.subgraph_pruning_ratio == f"{len(nodes)}/{len(g.concepts)} nodes injected"
+        assert snap.truncated_slots == []
+        slot2 = next(s for s in snap.slots if s.name == "slot2_skills_and_graph")
+        assert g.defaults.emergency_number in slot2.content
+        # P0-2 regression: BOTH critical safety edge AND critical lab MUST survive Slot 2 <=180-char node packing
+        assert "edge:sildenafil_nitrate_fatal_hypotension" in slot2.content
+        assert "obs:potassium" in slot2.content
+        assert "edge:sildenafil_nitrate_fatal_hypotension" in snap.user_message
+        assert "obs:potassium" in snap.user_message
+
+    # Off-HK PDPO PHIScrubber redacts HKID/phone/patient name when region != asia-east2
+    hk = get_ontology("HK")
+    off_hk_snap = compiler.compile(
+        template=CARE_LINE_PATIENT_TURN_V1,
+        skills=[skill],
+        active_graph_nodes=ontology_to_graph_nodes(hk, rfe_ids=["rfe:fatigue"], med_names=["warfarin"]),
+        total_graph_nodes=len(hk.concepts),
+        current_input="Patient Chan Tai Man (HKID A123456(7), tel 9123 4567) taking warfarin.",
+        template_vars={"careline_name": "Sam", "clinic_name": "Clinic", "language_label": "English"},
+        region="us-central1",
+        patient_names_for_scrub=["Chan Tai Man"],
+    )
+    assert off_hk_snap.phi_scrubbed is True
+    assert "A123456(7)" not in off_hk_snap.user_message
+    assert "Chan Tai Man" not in off_hk_snap.user_message
+
+
+def test_governed_agent_runner_end_to_end_with_ontology_tools_and_authority_guard():
+    from backend.agentic import (
+        CARE_LINE_PATIENT_TURN_V1,
+        GovernedAgentRunner,
+        ModelTurnResponse,
+        ScriptedReplayTransport,
+        SkillRegistry,
+        ToolAuthority,
+        ToolCallRequest,
+        build_default_clinic_tool_registry,
+    )
+    from backend.ontology.agentic_adapter import (
+        ONTOLOGY_TOOL_NAMES,
+        build_ontology_skill_spec,
+        register_ontology_tools,
+    )
+
+    # Register all 5 ontology READ/CDS tools into the production ToolRegistry
+    tool_reg = build_default_clinic_tool_registry(handlers={
+        "emr.write_signed_orders": lambda a, c: {"signed": True},
+    })
+    register_ontology_tools(tool_reg, default_jurisdiction="HK")
+    for tname in ONTOLOGY_TOOL_NAMES:
+        spec = tool_reg.get(tname)
+        assert spec is not None
+        assert spec.authority in (ToolAuthority.READ, ToolAuthority.CDS)
+
+    # P1-14 regression: unknown obs ID & invalid exclusion state return structured {found: False, error: ...}
+    bad_obs = tool_reg.execute(
+        ToolCallRequest("bad1", "ontology.evaluate_observation", {"observation_concept_id": "obs:unknown_xyz", "value": 1.0}),
+        allowed_tools=set(ONTOLOGY_TOOL_NAMES),
+    )
+    assert bad_obs.ok and bad_obs.result["found"] is False and "error" in bad_obs.result
+    bad_exc = tool_reg.execute(
+        ToolCallRequest("bad2", "ontology.check_positive_exclusions", {"rfe_id": "rfe:fatigue", "exclusion_states": {"rf:chest_pain": "bogus"}}),
+        allowed_tools=set(ONTOLOGY_TOOL_NAMES),
+    )
+    assert bad_exc.ok and bad_exc.result["found"] is False and "Invalid exclusion_states" in bad_exc.result["error"]
+
+    # Register ontology skill alongside clinic skills
+    skill_reg = SkillRegistry.load_from_directory()
+    skill_reg.register(build_ontology_skill_spec())
+
+    # Multi-step governed agent turn:
+    # Round 1: invokes 4 ontology tools (RFE frame, med safety, critical Hb observation, positive exclusion gate)
+    #          AND attempts forbidden SIGNED_WRITE (emr.write_signed_orders) -> MUST be AUTHORITY_DENIED!
+    # Round 2: emits banned reassurance ("nothing to worry") -> MUST trigger output violation + 1-retry repair!
+    # Round 3: emits clean safety-netted clinical handoff -> PASSES with 0 violations!
+    transport = ScriptedReplayTransport([
+        ModelTurnResponse(
+            tool_calls=[
+                ToolCallRequest("ot1", "ontology.lookup_rfe_frame", {"rfe_id": "rfe:fatigue", "jurisdiction": "HK", "lang": "zh-HK"}),
+                ToolCallRequest("ot2", "ontology.evaluate_med_safety", {"med_names": ["warfarin", "布洛芬", "allopurinol"], "facts": {"age_years": 68}, "jurisdiction": "HK"}),
+                ToolCallRequest("ot3", "ontology.evaluate_observation", {"observation_concept_id": "obs:haemoglobin", "value": 6.8, "ucum": "g/dL", "facts": {"sex": "M"}, "jurisdiction": "HK"}),
+                ToolCallRequest("ot4", "ontology.check_positive_exclusions", {"rfe_id": "rfe:fatigue", "exclusion_states": {}, "jurisdiction": "HK"}),
+                ToolCallRequest("ot5", "emr.write_signed_orders", {"proposal_id": "rogue_rx_1"}),
+            ],
+            provider="vertex",
+            model="gemini-2.5-flash",
+        ),
+        ModelTurnResponse(
+            text="Don't worry, everything looks normal and there is nothing to worry about.",
+            provider="vertex",
+            model="gemini-2.5-flash",
+        ),
+        ModelTurnResponse(
+            text="Your blood result and medication combination require urgent doctor review today. If you develop chest pain, severe shortness of breath, fainting, or black stools, please call 999 or attend A&E immediately.",
+            provider="vertex",
+            model="gemini-2.5-flash",
+        ),
+    ])
+
+    runner = GovernedAgentRunner(
+        skill_registry=skill_reg,
+        tool_registry=tool_reg,
+    )
+    trace = runner.run_turn(
+        template=CARE_LINE_PATIENT_TURN_V1,
+        transport=transport,
+        tenant_id="clinic_hk_demo",
+        patient_id="pat_ont_e2e",
+        intent="lab_review",
+        current_input="我好攰，食緊薄血丸同布洛芬，想問血色素6.8。",
+        template_vars={
+            "careline_name": "Sam · Clinic Careline AI",
+            "clinic_name": "Central Family Medical",
+            "language_label": "English",
+        },
+    )
+
+    assert trace.fallback_used is False
+    assert trace.retries == 1
+    assert trace.output_violations == []
+    assert len(trace.tool_calls) == 5
+
+    # Verify all 4 ontology tool executions succeeded with exact clinical semantics
+    by_id = {tc["call_id"]: tc for tc in trace.tool_calls}
+    assert by_id["ot1"]["ok"] is True and by_id["ot1"]["result"]["frame_id"] == "frame:fatigue"
+    assert by_id["ot2"]["ok"] is True
+    fired_ids = {e["edge_id"] for e in by_id["ot2"]["result"]["fired_edges"]}
+    assert "edge:anticoagulant_nsaid_bleed" in fired_ids
+    assert "edge:allopurinol_pgx_hla_b_5801" in fired_ids
+    assert by_id["ot3"]["ok"] is True and by_id["ot3"]["result"]["urgency"] == 4
+    assert by_id["ot4"]["ok"] is True and by_id["ot4"]["result"]["can_attest_all_clear"] is False
+    assert len(by_id["ot4"]["result"]["unasked_mandatory_findings"]) >= 3
+
+    # Verify Asymmetric Clinical Authority hard-denied SIGNED_WRITE
+    assert by_id["ot5"]["ok"] is False and by_id["ot5"]["error_code"] == "AUTHORITY_DENIED"
+    assert "999" in trace.final_text
+
+
+def test_w2_critic_pass2_p0_p1_regressions():
+    hk = get_ontology("HK")
+
+    # P0-3: Unopposed estradiol MHT fires alert; adding micronised progesterone clears it unless breast cancer present
+    unopposed = hk.evaluate_patient_edges(active_med_names=["estradiol_mht"])
+    assert any(f.edge.id == "edge:estradiol_mht_unopposed_endometrial_risk" for f in unopposed)
+    opposed = hk.evaluate_patient_edges(active_med_names=["estradiol_mht", "progesterone_micronised"])
+    assert not any(f.edge.id == "edge:estradiol_mht_unopposed_endometrial_risk" for f in opposed)
+    opposed_breast_ca = hk.evaluate_patient_edges(
+        active_concept_ids=["cond:breast_cancer"],
+        active_med_names=["estradiol_mht", "progesterone_micronised"],
+    )
+    assert any(f.edge.id == "edge:estradiol_mht_unopposed_endometrial_risk" for f in opposed_breast_ca)
+
+    # P0-4: Contextual physiological intervals (paediatric phosphate, neonatal retics, pregnant AFP) -> normal u0
+    assert hk.evaluate_observation("obs:phosphate", 2.20, facts={"age_years": 1}).band == "normal"
+    assert hk.evaluate_observation("obs:reticulocytes", 4.5, facts={"age_months": 0.2}).band == "normal"
+    assert hk.evaluate_observation("obs:afp", 80.0, facts={"pregnant": True}).band == "normal"
+    assert hk.evaluate_observation("obs:afp", 80.0, facts={"pregnant": False}).urgency == 3
+
+    # P1-10: Exact boundary >=180 U/L lipase (urgent u3) and >=3.5% HbA2 (significant u2)
+    assert hk.evaluate_observation("obs:lipase", 180.0).urgency == 3
+    assert hk.evaluate_observation("obs:lipase", 5.0).band == "normal"
+    assert hk.evaluate_observation("obs:hba2_hplc", 3.5).urgency == 2
+
+    # P1-5, P1-6, P1-7, P1-8, P1-9, P1-11, P1-12, P1-13
+    ent_edges = hk.evaluate_patient_edges(active_med_names=["entecavir"])
+    assert all((f.edge.urgency_floor or 0) <= 2 for f in ent_edges)
+    assert any(f.edge.id == "edge:isotretinoin_pregnancy_teratogen_ci" for f in hk.evaluate_patient_edges(active_concept_ids=["cond:pregnancy_normal"], active_med_names=["isotretinoin"]))
+    assert any(f.edge.id == "edge:cotrimoxazole_g6pd_haemolysis" for f in hk.evaluate_patient_edges(active_concept_ids=["pgx:g6pd_deficiency"], active_med_names=["co_trimoxazole"]))
+    assert any(f.edge.id == "edge:ciprofloxacin_tb_masking_and_tendon" for f in hk.evaluate_patient_edges(active_concept_ids=["cond:cap"], active_med_names=["ciprofloxacin"]))
+    assert any(f.edge.id == "edge:oral_steroid_t2dm_hyperglycaemia" for f in hk.evaluate_patient_edges(active_concept_ids=["cond:t1dm"], active_med_names=["prednisolone"]))
+    assert any(f.edge.id == "edge:snri_bipolar_mania_switch" for f in hk.evaluate_patient_edges(active_concept_ids=["cond:bipolar_disorder"], active_med_names=["venlafaxine"]))
+    assert hk.is_a("drug:quetiapine", "drug_class:antipsychotic")
+    assert any(e.id == "edge:ciprofloxacin_warfarin_inr_spike" for e in hk.edges_for("drug:warfarin"))
+    male_sti = hk.check_positive_exclusions("rfe:urethral_vaginal_discharge", {}, facts={"sex": "M"})
+    assert "rf:ectopic_rupture_signs" not in male_sti.unasked_mandatory_findings
+    assert hk.get_concept("drug:ciprofloxacin").drug_facet.schedule == "HK_CAP138_PART_I_SCH3_RX"
+    assert hk.get_concept("drug:co_trimoxazole").drug_facet.schedule == "HK_CAP138_PART_I_SCH3_RX"
+
+

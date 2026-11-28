@@ -278,6 +278,14 @@ class Concept(StrictModel):
             raise ValueError("panel_facet is only valid for kind='panel'")
         return self
 
+    @property
+    def label_en(self) -> str:
+        return self.display.en
+
+    @property
+    def label_zh(self) -> str:
+        return self.display.zh_hk or self.display.en
+
 
 # ---------------------------------------------------------------------------
 # Primitive 2: ClinicalEdge
@@ -363,6 +371,10 @@ class DifferentialItem(StrictModel):
     key_discriminators: tuple[str, ...] = ()
     when: WhenPredicate | None = None
 
+    @property
+    def discriminating_features(self) -> tuple[str, ...]:
+        return self.key_discriminators
+
 
 class MasqueradeCheck(StrictModel):
     id: str = Field(min_length=1)
@@ -410,6 +422,22 @@ class PresentationFrame(StrictModel):
     positive_exclusions: tuple[ExclusionChecklistItem, ...] = Field(min_length=1)
     safety_netting: tuple[SafetyNetCriterion, ...] = Field(min_length=1)
     provenance: Provenance
+
+    @property
+    def serious_not_to_be_missed(self) -> tuple[DifferentialItem, ...]:
+        return self.murtagh_prompt.serious_not_to_be_missed
+
+    @property
+    def masquerades(self) -> tuple[MasqueradeCheck, ...]:
+        return self.murtagh_prompt.masquerades
+
+    @property
+    def pitfalls(self) -> tuple[DifferentialItem, ...]:
+        return self.murtagh_prompt.pitfalls_often_missed
+
+    @property
+    def probable_diagnoses(self) -> tuple[DifferentialItem, ...]:
+        return self.murtagh_prompt.probability_diagnoses
 
 
 # ---------------------------------------------------------------------------

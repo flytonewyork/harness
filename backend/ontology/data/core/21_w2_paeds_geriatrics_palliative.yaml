@@ -1,0 +1,1685 @@
+# Wave 2 Pod 1: Paediatrics, Geriatrics (STOPP/START) & Palliative Care
+# Licensing: Tier-1 commercial-safe open spine (SNOMED CT GPS, LOINC, UCUM, WHO INN, FDA UNII,
+# RxNorm SAB=RXNORM); Tier-2 bare code-only interoperability pointers (ICPC-2, ICD-10, ATC).
+# Zero hardcoded jurisdiction emergency numbers (999/000) and zero banned reassurance claims.
+
+concepts:
+  # =========================================================================
+  # REASONS FOR ENCOUNTER (RFEs) — 5 Core Presentations
+  # =========================================================================
+  - id: rfe:child_rash_fever
+    kind: rfe
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      icpc2: { code: "S07", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R21", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Child with rash and fever", zh_hk: "兒童發燒伴皮疹／出紅疹" }
+    aliases:
+      en: ["child rash and fever", "febrile rash child", "baby fever spots", "toddler red rash fever", "viral exanthem child"]
+      zh_hk: ["小朋友發燒出疹", "BB發燒起紅點", "發燒出紅疹", "出疹發燒", "玫瑰疹", "猩紅熱紅疹"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: rfe:child_vomiting_diarrhoea
+    kind: rfe
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      icpc2: { code: "D10", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R11", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Child with vomiting and/or diarrhoea", zh_hk: "兒童嘔吐及／或腹瀉（肚痾嘔奶）" }
+    aliases:
+      en: ["child vomiting", "child diarrhoea", "baby throwing up", "toddler gastro", "vomiting and loose stools child", "projectile vomiting baby"]
+      zh_hk: ["小朋友嘔吐", "小朋友肚痾", "BB嘔奶", "又痾又嘔", "兒童腸胃炎", "噴射式嘔吐"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: rfe:memory_loss_confusion
+    kind: rfe
+    wave: W2
+    cluster: C13_geriatrics
+    bindings:
+      snomed_gps: { code: "386807006", display: "Memory impairment (finding)" }
+      icpc2: { code: "P20", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R41.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Memory loss, forgetfulness, or confusion", zh_hk: "記憶力衰退／健忘／意識混亂" }
+    aliases:
+      en: ["memory loss", "forgetfulness", "getting confused", "cognitive decline", "repeating questions", "getting lost", "brain fog elderly"]
+      zh_hk: ["冇記性", "記憶力差", "成日唔記得嘢", "善忘", "神志混亂", "認唔到路", "腦退化", "老人痴呆"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: rfe:weight_loss_anorexia
+    kind: rfe
+    wave: W2
+    cluster: C13_geriatrics
+    bindings:
+      snomed_gps: { code: "161832001", display: "Weight loss (finding)" }
+      icpc2: { code: "T08", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R63.4", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Unexplained weight loss or loss of appetite (anorexia)", zh_hk: "原因不明體重下降／食慾不振（消瘦冇胃口）" }
+    aliases:
+      en: ["weight loss", "losing weight without trying", "loss of appetite", "poor appetite", "anorexia", "clothes getting loose", "wasting"]
+      zh_hk: ["體重下降", "無故消瘦", "瘦咗好多", "冇胃口", "食慾不振", "唔想食嘢", "暴瘦"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: rfe:palliative_symptom_control
+    kind: rfe
+    wave: W2
+    cluster: C15_palliative
+    bindings:
+      icpc2: { code: "A29", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "Z51.5", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Palliative / end-of-life symptom control and supportive care", zh_hk: "紓緩治療／晚期症狀控制及支援護理" }
+    aliases:
+      en: ["palliative care", "end of life symptoms", "cancer pain review", "hospice symptom control", "breakthrough pain", "terminal care", "comfort care"]
+      zh_hk: ["紓緩治療", "寧養服務", "晚期痛症控制", "癌痛覆診", "臨終護理", "舒緩氣促", "安寧照顧"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  # =========================================================================
+  # RED-FLAG FINDINGS (6) — openEHR Positive Exclusions & Safety Floor
+  # =========================================================================
+  - id: rf:kawasaki_5d_fever_mucositis
+    kind: red_flag
+    wave: W2
+    cluster: C12_paediatrics
+    display:
+      en: "Persistent paediatric fever >=5 days with mucocutaneous signs (strawberry tongue, cracked lips, bilateral conjunctival injection, rash, swollen hands/feet, or cervical lymphadenopathy)"
+      zh_hk: "兒童持續發燒5天或以上，伴隨士多啤梨舌、嘴唇乾裂紅腫、雙眼結膜充血、皮疹、手腳紅腫或頸部淋巴結腫大（疑似川崎病）"
+    aliases:
+      en: ["fever 5 days child", "strawberry tongue", "red cracked lips fever child", "swollen hands feet fever", "Kawasaki warning signs"]
+      zh_hk: ["發燒五日唔退", "士多啤梨舌", "嘴唇爆裂紅腫", "紅眼冇眼屎", "手腳腫紅", "川崎病警號"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: rf:intussusception_currant_jelly_bilious
+    kind: red_flag
+    wave: W2
+    cluster: C12_paediatrics
+    display:
+      en: "Episodic inconsolable screaming/drawing knees to chest, bilious (green) vomiting, or redcurrant jelly bloody stools in an infant/young child"
+      zh_hk: "嬰幼兒間歇性劇烈哭鬧並屈膝縮腹、吐綠色膽汁或排出紅果醬樣血便（疑似腸套疊／腸梗阻）"
+    aliases:
+      en: ["redcurrant jelly stool", "bilious green vomiting child", "drawing legs up screaming", "sausage shaped mass abdomen", "intussusception signs"]
+      zh_hk: ["果醬樣大便", "吐綠水", "嘔膽汁", "一陣陣劇痛喊到縮埋", "腸套疊警號"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: rf:severe_paed_dehydration_sunken
+    kind: red_flag
+    wave: W2
+    cluster: C12_paediatrics
+    display:
+      en: "Severe paediatric dehydration: sunken eyes/fontanelle, dry mucous membranes, absent tears, prolonged capillary refill (>2-3s), mottled cool peripheries, lethargy, or no wet nappies >6-8h"
+      zh_hk: "兒童嚴重脫水徵象：眼窩／囟門凹陷、口舌極乾、哭時無淚、微血管充盈延遲、四肢冰冷起花紋、嗜睡或超過6至8小時無濕尿片"
+    aliases:
+      en: ["sunken eyes baby", "sunken fontanelle", "no wet nappies", "crying without tears", "severe dehydration child", "lethargic dehydrated baby"]
+      zh_hk: ["眼窩凹陷", "囟門凹陷", "喊到冇眼淚", "唔屙尿", "好耐冇濕片", "嚴重脫水"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: rf:neonatal_jaundice_first_24h
+    kind: red_flag
+    wave: W2
+    cluster: C12_paediatrics
+    display:
+      en: "Neonatal jaundice appearing within the first 24 hours of life, rapidly deepening yellowing, pale/chalky stools, dark urine, or poor feeding/lethargy in a jaundiced newborn"
+      zh_hk: "初生嬰兒出生24小時內出現黃疸、黃疸迅速加深、大便呈灰白色、小便深茶色，或黃疸伴拒奶嗜睡（病理性新生兒黃疸警號）"
+    aliases:
+      en: ["jaundice first 24 hours newborn", "yellow baby day 1", "pale chalky stools baby", "dark urine newborn jaundice", "pathological neonatal jaundice"]
+      zh_hk: ["出世24小時內面黃", "初生BB急劇黃疸", "灰白色大便", "膽道閉鎖警號", "核黃疸警號"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: rf:acute_urinary_retention
+    kind: red_flag
+    wave: W2
+    cluster: C13_geriatrics
+    display:
+      en: "Acute painful inability to pass urine with suprapubic fullness/palpable distended bladder"
+      zh_hk: "急性無法排尿伴下腹脹痛及恥骨上膀胱脹滿（急性尿瀦留）"
+    aliases:
+      en: ["cannot pass urine", "unable to pee painful bladder", "acute urinary retention", "blocked bladder", "distended painful bladder"]
+      zh_hk: ["屙唔出尿", "急性尿瀦留", "急尿屙唔到", "下腹膀胱脹痛", "閉尿"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: rf:spinal_cord_compression_malignant
+    kind: red_flag
+    wave: W2
+    cluster: C15_palliative
+    display:
+      en: "New or worsening severe spinal/radicular back pain with progressive leg weakness, sensory level/numbness, gait instability, or bladder/bowel dysfunction in a patient with known or suspected cancer"
+      zh_hk: "已知或懷疑癌症患者出現新發或加劇的脊椎／神經根背痛，伴隨下肢漸進性無力、麻木感覺平面、步態不穩或大小便失禁／瀦留（疑似惡性脊髓壓迫）"
+    aliases:
+      en: ["MSCC red flags", "cancer back pain leg weakness", "malignant cord compression signs", "band-like chest pain cancer", "new incontinence cancer back pain"]
+      zh_hk: ["癌細胞壓迫脊髓", "背痛腳軟失禁", "癌症新發嚴重背痛", "下肢麻痺無力"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  # =========================================================================
+  # CONDITIONS (24) — Paediatrics (12), Geriatrics (7), Palliative (5)
+  # =========================================================================
+  - id: cond:kawasaki_disease
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "75053002", display: "Mucocutaneous lymph node syndrome (disorder)" }
+      icpc2: { code: "K99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M30.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Kawasaki disease (mucocutaneous lymph node syndrome)", zh_hk: "川崎病（黏膜皮膚淋巴結綜合症）" }
+    aliases:
+      en: ["Kawasaki disease", "Kawasaki syndrome", "incomplete Kawasaki", "mucocutaneous lymph node syndrome"]
+      zh_hk: ["川崎病", "川崎氏症", "黏膜皮膚淋巴結綜合症"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:intussusception
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "49723003", display: "Intussusception of intestine (disorder)" }
+      icpc2: { code: "D99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "K56.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Intussusception", zh_hk: "腸套疊" }
+    aliases:
+      en: ["intussusception", "telescoping bowel", "ileocolic intussusception"]
+      zh_hk: ["腸套疊", "小兒腸套疊"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:pyloric_stenosis
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "367403001", display: "Pyloric stenosis (disorder)" }
+      icpc2: { code: "D81", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "Q40.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Infantile hypertrophic pyloric stenosis", zh_hk: "嬰兒肥厚性幽門狹窄" }
+    aliases:
+      en: ["pyloric stenosis", "hypertrophic pyloric stenosis", "IHPS", "hungry projectile vomiter"]
+      zh_hk: ["幽門狹窄", "肥厚性幽門狹窄", "BB噴射嘔奶"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:paediatric_uti
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    parent_ids: ["cond:uti"]
+    bindings:
+      icpc2: { code: "U71", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N39.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Paediatric urinary tract infection", zh_hk: "兒童泌尿道感染／尿道炎" }
+    aliases:
+      en: ["paediatric UTI", "child UTI", "infant urinary tract infection", "febrile UTI child"]
+      zh_hk: ["兒童尿道炎", "小朋友泌尿道感染", "嬰兒尿道感染"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:paediatric_wheeze_asthma
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    parent_ids: ["cond:asthma_chronic"]
+    bindings:
+      icpc2: { code: "R96", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J45.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Paediatric preschool viral wheeze / childhood asthma", zh_hk: "兒童病毒性喘鳴／小兒哮喘" }
+    aliases:
+      en: ["preschool wheeze", "viral induced wheeze", "childhood asthma", "paediatric asthma", "wheezy toddler"]
+      zh_hk: ["小兒哮喘", "兒童哮喘", "幼兒喘鳴", "小朋友氣管敏感喘氣"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:neonatal_jaundice
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "387712008", display: "Neonatal jaundice (disorder)" }
+      icpc2: { code: "D13", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "P59.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Neonatal jaundice (hyperbilirubinaemia)", zh_hk: "新生兒黃疸／初生嬰兒黃疸" }
+    aliases:
+      en: ["neonatal jaundice", "newborn jaundice", "prolonged neonatal jaundice", "breast milk jaundice", "kernicterus risk"]
+      zh_hk: ["新生兒黃疸", "初生嬰兒黃疸", "BB黃疸", "黃疸未退", "照燈黃疸"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:developmental_delay_asd
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      icpc2: { code: "P99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F84.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Childhood developmental delay / autism spectrum disorder (ASD)", zh_hk: "兒童發展遲緩／自閉症譜系障礙 (ASD)" }
+    aliases:
+      en: ["developmental delay", "autism spectrum disorder", "ASD", "speech delay", "global developmental delay", "autism"]
+      zh_hk: ["發展遲緩", "自閉症譜系障礙", "自閉症", "語言遲緩", "整體發展遲緩"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:adhd
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "406506008", display: "Attention deficit hyperactivity disorder (disorder)" }
+      icpc2: { code: "P81", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "F90.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Attention-deficit/hyperactivity disorder (ADHD)", zh_hk: "專注力不足／過度活躍症 (ADHD)" }
+    aliases:
+      en: ["ADHD", "ADD", "attention deficit hyperactivity disorder", "hyperactive child", "inattentive ADHD"]
+      zh_hk: ["專注力不足過度活躍症", "過度活躍症", "專注力失調", "ADHD"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:scarlet_fever
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "30242009", display: "Scarlet fever (disorder)" }
+      icpc2: { code: "A78", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "A38", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Scarlet fever (Group A Streptococcus)", zh_hk: "猩紅熱（甲類鏈球菌感染）" }
+    aliases:
+      en: ["scarlet fever", "scarlatina", "sandpaper rash GAS", "group A strep rash"]
+      zh_hk: ["猩紅熱", "砂紙樣紅疹", "甲類鏈球菌紅疹"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:roseola_infantum
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "16901001", display: "Exanthem subitum (disorder)" }
+      icpc2: { code: "A76", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B08.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Roseola infantum (exanthem subitum, HHV-6)", zh_hk: "嬰兒玫瑰疹（幼兒急疹）" }
+    aliases:
+      en: ["roseola", "roseola infantum", "exanthem subitum", "sixth disease", "HHV-6 rash", "rash after fever resolves"]
+      zh_hk: ["玫瑰疹", "嬰兒玫瑰疹", "幼兒急疹", "退燒後出疹"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:parvovirus_b19
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      icpc2: { code: "A76", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "B08.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Parvovirus B19 infection (erythema infectiosum / slapped cheek)", zh_hk: "細小病毒B19感染（傳染性紅斑／蘋果臉病）" }
+    aliases:
+      en: ["parvovirus B19", "erythema infectiosum", "slapped cheek disease", "fifth disease", "lacy rash child"]
+      zh_hk: ["細小病毒B19", "傳染性紅斑", "第五病", "蘋果臉病", "掌摑臉紅疹"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:epiglottitis
+    kind: condition
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      snomed_gps: { code: "80384002", display: "Acute epiglottitis (disorder)" }
+      icpc2: { code: "R77", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "J05.1", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute epiglottitis (supraglottitis)", zh_hk: "急性會厭炎" }
+    aliases:
+      en: ["epiglottitis", "acute epiglottitis", "supraglottitis", "drooling tripod stridor"]
+      zh_hk: ["急性會厭炎", "會厭炎"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:mild_cognitive_impairment
+    kind: condition
+    wave: W2
+    cluster: C13_geriatrics
+    bindings:
+      snomed_gps: { code: "386806002", display: "Impaired cognition (finding)" }
+      icpc2: { code: "P20", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G31.8", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Mild cognitive impairment (MCI)", zh_hk: "輕度認知障礙 (MCI)" }
+    aliases:
+      en: ["mild cognitive impairment", "MCI", "early cognitive decline", "subjective memory decline"]
+      zh_hk: ["輕度認知障礙", "輕微認知退化", "早期腦退化"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:parkinsons_disease
+    kind: condition
+    wave: W2
+    cluster: C13_geriatrics
+    bindings:
+      snomed_gps: { code: "49049000", display: "Parkinson's disease (disorder)" }
+      icpc2: { code: "N87", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G20", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Parkinson's disease / parkinsonism", zh_hk: "柏金遜症／帕金森氏症" }
+    aliases:
+      en: ["Parkinson's disease", "Parkinsons", "parkinsonism", "resting pill-rolling tremor", "bradykinesia"]
+      zh_hk: ["柏金遜症", "帕金森氏症", "柏金遜病", "手震僵硬"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:sarcopenia_malnutrition
+    kind: condition
+    wave: W2
+    cluster: C13_geriatrics
+    bindings:
+      icpc2: { code: "T91", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "M62.8", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Sarcopenia and protein-energy malnutrition", zh_hk: "肌少症及營養不良" }
+    aliases:
+      en: ["sarcopenia", "malnutrition", "protein-energy malnutrition", "muscle wasting elderly", "failure to thrive elderly", "refeeding risk"]
+      zh_hk: ["肌少症", "肌肉流失", "長者營養不良", "蛋白質營養缺乏"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:pressure_injury
+    kind: condition
+    wave: W2
+    cluster: C13_geriatrics
+    bindings:
+      snomed_gps: { code: "399912005", display: "Pressure ulcer (disorder)" }
+      icpc2: { code: "S97", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "L89.9", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Pressure injury (pressure ulcer / bedsore)", zh_hk: "壓瘡／褥瘡" }
+    aliases:
+      en: ["pressure injury", "pressure ulcer", "pressure sore", "bedsore", "decubitus ulcer", "sacral sore"]
+      zh_hk: ["壓瘡", "褥瘡", "生瘡", "尾龍骨壓傷"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:urinary_incontinence_stress
+    kind: condition
+    wave: W2
+    cluster: C13_geriatrics
+    bindings:
+      icpc2: { code: "U04", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N39.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Stress urinary incontinence", zh_hk: "壓力性尿失禁（應力性失禁）" }
+    aliases:
+      en: ["stress incontinence", "stress urinary incontinence", "leaking urine when coughing", "pelvic floor weakness"]
+      zh_hk: ["壓力性尿失禁", "應力性失禁", "咳笑漏尿", "滲尿"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:urinary_incontinence_urge
+    kind: condition
+    wave: W2
+    cluster: C13_geriatrics
+    bindings:
+      snomed_gps: { code: "87557004", display: "Urge incontinence of urine (finding)" }
+      icpc2: { code: "U04", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "N39.4", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Urge urinary incontinence / overactive bladder (OAB)", zh_hk: "急迫性尿失禁／膀胱過動症 (OAB)" }
+    aliases:
+      en: ["urge incontinence", "overactive bladder", "OAB", "sudden urgency leaking", "detrusor overactivity"]
+      zh_hk: ["急迫性尿失禁", "膀胱過動症", "膀胱過度活躍症", "尿急漏尿"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:acute_urinary_retention
+    kind: condition
+    wave: W2
+    cluster: C13_geriatrics
+    bindings:
+      snomed_gps: { code: "236648008", display: "Acute retention of urine (disorder)" }
+      icpc2: { code: "U08", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R33", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Acute urinary retention (AUR)", zh_hk: "急性尿瀦留" }
+    aliases:
+      en: ["acute urinary retention", "AUR", "bladder outlet obstruction acute", "urinary retention"]
+      zh_hk: ["急性尿瀦留", "尿瀦留", "急性閉尿"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:chronic_cancer_pain
+    kind: condition
+    wave: W2
+    cluster: C15_palliative
+    bindings:
+      icpc2: { code: "A01", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G89.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Chronic cancer-related pain (palliative)", zh_hk: "慢性癌痛（紓緩治療痛症）" }
+    aliases:
+      en: ["cancer pain", "chronic cancer pain", "malignant pain", "breakthrough cancer pain", "bone metastasis pain"]
+      zh_hk: ["癌痛", "慢性癌痛", "腫瘤痛症", "突破性癌痛", "骨轉移痛"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:palliative_dyspnoea
+    kind: condition
+    wave: W2
+    cluster: C15_palliative
+    bindings:
+      icpc2: { code: "R02", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R06.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Refractory / palliative dyspnoea (chronic breathlessness in life-limiting illness)", zh_hk: "紓緩期頑固性呼吸困難／晚期氣促" }
+    aliases:
+      en: ["palliative dyspnoea", "refractory breathlessness", "terminal dyspnoea", "end of life shortness of breath"]
+      zh_hk: ["晚期氣促", "紓緩期呼吸困難", "臨終氣喘"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:terminal_secretions
+    kind: condition
+    wave: W2
+    cluster: C15_palliative
+    bindings:
+      icpc2: { code: "R29", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "R09.3", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Terminal respiratory tract secretions (noisy breathing at end of life)", zh_hk: "臨終呼吸道分泌物／痰鳴音（臨終喘鳴）" }
+    aliases:
+      en: ["terminal secretions", "death rattle", "end of life noisy breathing", "pooled pharyngeal secretions"]
+      zh_hk: ["臨終痰鳴", "呼吸道分泌物積聚", "喉頭痰聲"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:caregiver_burnout
+    kind: condition
+    wave: W2
+    cluster: C15_palliative
+    bindings:
+      icpc2: { code: "Z23", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "Z73.0", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Caregiver burnout / carer strain and distress", zh_hk: "照顧者倦怠／照顧壓力過勞" }
+    aliases:
+      en: ["caregiver burnout", "carer stress", "carer strain", "family caregiver exhaustion", "compassion fatigue"]
+      zh_hk: ["照顧者壓力", "照顧者倦怠", "護老者過勞", "照顧者情緒困擾"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: cond:malignant_spinal_cord_compression
+    kind: condition
+    wave: W2
+    cluster: C15_palliative
+    bindings:
+      icpc2: { code: "N99", system: "http://hl7.org/fhir/sid/icpc-2" }
+      icd10: { code: "G95.2", system: "http://hl7.org/fhir/sid/icd-10" }
+    display: { en: "Malignant spinal cord compression (MSCC)", zh_hk: "惡性脊髓壓迫 (MSCC)" }
+    aliases:
+      en: ["malignant spinal cord compression", "MSCC", "metastatic spinal cord compression", "epidural cord compression"]
+      zh_hk: ["惡性脊髓壓迫", "癌轉移壓迫脊髓", "脊椎腫瘤壓迫"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  # =========================================================================
+  # DRUG CLASSES (8) — Lay Cantonese Class Words Live Strictly Here (TERM-006)
+  # =========================================================================
+  - id: drug_class:strong_opioid
+    kind: drug_class
+    wave: W2
+    cluster: C15_palliative
+    parent_ids: ["drug_class:opioid"]
+    display: { en: "Strong opioid analgesics", zh_hk: "強效鴉片類止痛藥" }
+    purpose_phrases:
+      en: ["strong opioid", "morphine-type painkiller", "cancer painkiller", "palliative pain medicine"]
+      zh_hk: ["強效鴉片類止痛藥", "嗎啡類止痛藥", "癌痛止痛藥", "強效止痛藥"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pregnancy_caution: "caution"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug_class:antipsychotic
+    kind: drug_class
+    wave: W2
+    cluster: C13_geriatrics
+    display: { en: "Antipsychotics (dopamine D2 antagonists)", zh_hk: "抗精神病藥（多巴胺受體拮抗劑）" }
+    purpose_phrases:
+      en: ["antipsychotic", "neuroleptic", "anti-delirium medicine", "agitation medicine"]
+      zh_hk: ["抗精神病藥", "思覺失調藥", "鎮靜精神科藥", "抗譫妄藥"]
+    drug_facet:
+      high_risk: true
+      pregnancy_caution: "caution"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug_class:cholinesterase_inhibitor
+    kind: drug_class
+    wave: W2
+    cluster: C13_geriatrics
+    display: { en: "Acetylcholinesterase inhibitors (anti-dementia)", zh_hk: "乙醯膽鹼酯酶抑制劑（認知障礙症藥）" }
+    purpose_phrases:
+      en: ["dementia medicine", "memory pill", "Alzheimer medicine", "cholinesterase inhibitor"]
+      zh_hk: ["認知障礙症藥", "腦退化症藥", "老人痴呆藥", "改善記憶藥"]
+    drug_facet:
+      no_gap: true
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug_class:dopaminergic
+    kind: drug_class
+    wave: W2
+    cluster: C13_geriatrics
+    display: { en: "Dopaminergic antiparkinsonian agents", zh_hk: "多巴胺類抗柏金遜症藥" }
+    purpose_phrases:
+      en: ["Parkinson medicine", "dopamine replacement", "antiparkinsonian pill"]
+      zh_hk: ["柏金遜症藥", "帕金森藥", "多巴胺藥"]
+    drug_facet:
+      no_gap: true
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug_class:antimuscarinic_bladder
+    kind: drug_class
+    wave: W2
+    cluster: C13_geriatrics
+    display: { en: "Bladder antimuscarinics (anticholinergics for OAB)", zh_hk: "膀胱抗毒蕈鹼藥（膀胱過動症抗膽鹼藥）" }
+    purpose_phrases:
+      en: ["bladder anticholinergic", "overactive bladder pill", "incontinence anticholinergic"]
+      zh_hk: ["膀胱過動症藥", "收尿藥", "抗膽鹼膀胱藥", "尿頻失禁藥"]
+    drug_facet:
+      high_risk: true
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug_class:beta3_agonist_bladder
+    kind: drug_class
+    wave: W2
+    cluster: C13_geriatrics
+    display: { en: "Beta-3 adrenoceptor agonists (bladder relaxant)", zh_hk: "β3腎上腺素受體激動劑（非抗膽鹼膀胱藥）" }
+    purpose_phrases:
+      en: ["beta-3 bladder agonist", "non-anticholinergic OAB medicine"]
+      zh_hk: ["非抗膽鹼膀胱過動症藥", "膀胱放鬆藥"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug_class:rehydration
+    kind: drug_class
+    wave: W2
+    cluster: C12_paediatrics
+    display: { en: "Oral rehydration therapy / electrolyte replacement", zh_hk: "口服補液鹽／電解質補充劑" }
+    purpose_phrases:
+      en: ["oral rehydration", "electrolyte powder", "rehydration salts", "dehydration drink"]
+      zh_hk: ["口服補液鹽", "電解質沖劑", "補水粉", "止瀉電解質水"]
+    drug_facet:
+      short_course: true
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug_class:stimulant_adhd
+    kind: drug_class
+    wave: W2
+    cluster: C12_paediatrics
+    display: { en: "Central nervous system stimulants (ADHD)", zh_hk: "中樞神經興奮劑（專注力不足／過度活躍症藥）" }
+    purpose_phrases:
+      en: ["ADHD stimulant", "attention pill", "focus medicine", "hyperactivity medication"]
+      zh_hk: ["專注力藥", "過度活躍症藥", "ADHD興奮劑"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pregnancy_caution: "caution"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  # =========================================================================
+  # DRUGS (13) — Specific Drug Aliases Only (Zero Shared Lay Class Terms)
+  # =========================================================================
+  - id: drug:morphine
+    kind: drug
+    wave: W2
+    cluster: C15_palliative
+    parent_ids: ["drug_class:strong_opioid"]
+    bindings:
+      inn: "morphine"
+      rxnorm: { code: "7052", display: "morphine" }
+      atc: { code: "N02AA01", system: "http://www.whocc.no/atc" }
+    display: { en: "Morphine (IR / MR oral or parenteral)", zh_hk: "嗎啡（速效／緩釋口服或注射劑）" }
+    aliases:
+      en: ["morphine", "Ordine", "MS Contin", "Kapanol", "MST Continus", "Sevredol", "morphine sulfate"]
+      zh_hk: ["嗎啡", "硫酸嗎啡", "嗎啡水", "緩釋嗎啡"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pregnancy_caution: "caution"
+      renal_note: "Avoid or switch agent when eGFR <30 mL/min: active M3G/M6G metabolites accumulate causing neurotoxicity, myoclonus, delirium, and respiratory depression."
+      dosing_pearl:
+        en: "Always co-prescribe a regular stimulant/osmotic laxative (e.g. senna +/- macrogol); prescribe breakthrough IR dose (~1/6th of total 24h morphine dose) and check eGFR before initiation."
+        zh_hk: "處方嗎啡時必須常規合併通便藥（如番瀉葉配聚乙二醇），並處方突破性速效劑量（約每日總量六分之一）；用藥前必須核查腎功能 eGFR。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:oxycodone
+    kind: drug
+    wave: W2
+    cluster: C15_palliative
+    parent_ids: ["drug_class:strong_opioid"]
+    bindings:
+      inn: "oxycodone"
+      rxnorm: { code: "7804", display: "oxycodone" }
+      atc: { code: "N02AA05", system: "http://www.whocc.no/atc" }
+    display: { en: "Oxycodone (IR / CR)", zh_hk: "羥考酮（速效／緩釋）" }
+    aliases:
+      en: ["oxycodone", "Endone", "OxyNorm", "OxyContin", "Targin"]
+      zh_hk: ["羥考酮", "奧施康定", "羥考酮緩釋片"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pregnancy_caution: "caution"
+      renal_note: "Reduce dose and extend interval in moderate-to-severe renal impairment (eGFR <30 mL/min); avoid in severe hepatic impairment."
+      dosing_pearl:
+        en: "Approximately 1.5-2x oral morphine potency; co-prescribe laxative prophylaxis and avoid co-prescribing with benzodiazepines or gabapentinoids due to respiratory depression."
+        zh_hk: "口服鎮痛效價約為嗎啡1.5至2倍；必須合併預防便秘藥物，避免與苯二氮平類鎮靜劑合用以防呼吸抑制。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:haloperidol
+    kind: drug
+    wave: W2
+    cluster: C13_geriatrics
+    parent_ids: ["drug_class:antipsychotic"]
+    bindings:
+      inn: "haloperidol"
+      rxnorm: { code: "5093", display: "haloperidol" }
+      atc: { code: "N05AD01", system: "http://www.whocc.no/atc" }
+    display: { en: "Haloperidol", zh_hk: "氟哌啶醇 (Haloperidol)" }
+    aliases:
+      en: ["haloperidol", "Serenace", "Haldol"]
+      zh_hk: ["氟哌啶醇", "好度"]
+    drug_facet:
+      high_risk: true
+      pregnancy_caution: "caution"
+      dosing_pearl:
+        en: "CONTRAINDICATED in Parkinson's disease and Lewy body dementia (severe extrapyramidal crisis). In palliative nausea or severe refractory terminal delirium, use low doses (0.5-1.5 mg) and monitor QTc."
+        zh_hk: "柏金遜症及路易體認知障礙症患者絕對禁用（可引致嚴重錐體外系危象）；用於紓緩期止嘔或嚴重臨終譫妄時宜用低劑量並監察心電圖 QTc。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:donepezil
+    kind: drug
+    wave: W2
+    cluster: C13_geriatrics
+    parent_ids: ["drug_class:cholinesterase_inhibitor"]
+    bindings:
+      inn: "donepezil"
+      rxnorm: { code: "135447", display: "donepezil" }
+      atc: { code: "N06DA02", system: "http://www.whocc.no/atc" }
+    display: { en: "Donepezil", zh_hk: "多奈哌齊 (Donepezil)" }
+    aliases:
+      en: ["donepezil", "Aricept"]
+      zh_hk: ["多奈哌齊", "愛憶欣"]
+    drug_facet:
+      no_gap: true
+      max_daily_mg: 10
+      dosing_pearl:
+        en: "Start 5 mg daily (morning if vivid dreams/insomnia), titrate to 10 mg after >=4-6 weeks if tolerated. Check baseline pulse/ECG (vagotonic bradycardia/AV block risk, especially with beta-blockers) and avoid co-prescribing anticholinergics."
+        zh_hk: "起始每日5毫克（若引起多夢失眠可改早上服），耐受後4至6週可增至10毫克；用藥前應查脈搏及心電圖，留意與β受體阻滯劑合用引致心搏過緩及暈厥，並避免同服抗膽鹼藥。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:levodopa_carbidopa
+    kind: drug
+    wave: W2
+    cluster: C13_geriatrics
+    parent_ids: ["drug_class:dopaminergic"]
+    bindings:
+      inn: "levodopa; carbidopa"
+      atc: { code: "N04BA02", system: "http://www.whocc.no/atc" }
+    display: { en: "Levodopa with carbidopa", zh_hk: "左旋多巴／卡比多巴 (Sinemet)" }
+    aliases:
+      en: ["levodopa carbidopa", "carbidopa levodopa", "Sinemet", "Kinson", "co-careldopa"]
+      zh_hk: ["左旋多巴卡比多巴", "心寧美", "息寧"]
+    drug_facet:
+      no_gap: true
+      dosing_pearl:
+        en: "CRITICAL no-gap medication: missed or delayed doses can trigger acute akinesia or neuroleptic malignant-like syndrome; avoid dopamine antagonists (haloperidol, metoclopramide, prochlorperazine); separate from high-protein meals if motor fluctuations."
+        zh_hk: "關鍵不可漏服藥物：漏服或延遲可誘發急性僵直危象；嚴禁合用多巴胺拮抗劑（氟哌啶醇、甲氧氯普胺）；若有藥效波動宜與高蛋白餐隔開服用。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:oxybutynin
+    kind: drug
+    wave: W2
+    cluster: C13_geriatrics
+    parent_ids: ["drug_class:antimuscarinic_bladder"]
+    bindings:
+      inn: "oxybutynin"
+      rxnorm: { code: "32613", display: "oxybutynin" }
+      atc: { code: "G04BD04", system: "http://www.whocc.no/atc" }
+    display: { en: "Oxybutynin", zh_hk: "奧昔布寧 (Oxybutynin)" }
+    aliases:
+      en: ["oxybutynin", "Ditropan", "Oxytrol"]
+      zh_hk: ["奧昔布寧", "達多幫"]
+    drug_facet:
+      high_risk: true
+      dosing_pearl:
+        en: "STOPP/Beers high-anticholinergic-burden drug: strongly avoid oral oxybutynin in older adults >=65y or cognitive impairment (delirium, falls, constipation, urinary retention, narrow-angle glaucoma); prefer pelvic floor/bladder training or mirabegron."
+        zh_hk: "STOPP／Beers 警示高抗膽鹼負荷藥物：65歲以上長者及認知障礙患者應避免口服奧昔布寧（易致譫妄、跌倒、便秘及尿瀦留）；建議優先非藥物訓練或考慮米拉貝隆。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:mirabegron
+    kind: drug
+    wave: W2
+    cluster: C13_geriatrics
+    parent_ids: ["drug_class:beta3_agonist_bladder"]
+    bindings:
+      inn: "mirabegron"
+      rxnorm: { code: "1300786", display: "mirabegron" }
+      atc: { code: "G04BD12", system: "http://www.whocc.no/atc" }
+    display: { en: "Mirabegron", zh_hk: "米拉貝隆 (Mirabegron)" }
+    aliases:
+      en: ["mirabegron", "Betmiga", "Myrbetriq"]
+      zh_hk: ["米拉貝隆", "貝坦利"]
+    drug_facet:
+      max_daily_mg: 50
+      renal_note: "Reduce to 25 mg daily if eGFR 15-29 mL/min; avoid if eGFR <15 mL/min."
+      dosing_pearl:
+        en: "Non-anticholinergic option for urge incontinence/OAB in older adults (avoids delirium risk). Contraindicated in severe uncontrolled hypertension (>=180/110 mmHg); monitor BP periodically."
+        zh_hk: "長者急迫性尿失禁／膀胱過動症之非抗膽鹼選擇（減低譫妄風險）；嚴重未受控高血壓（>=180/110 mmHg）禁用，服藥期間須定期覆查血壓。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:dexamethasone
+    kind: drug
+    wave: W2
+    cluster: C15_palliative
+    parent_ids: ["drug_class:oral_corticosteroid"]
+    bindings:
+      inn: "dexamethasone"
+      rxnorm: { code: "3264", display: "dexamethasone" }
+      atc: { code: "H02AB02", system: "http://www.whocc.no/atc" }
+    display: { en: "Dexamethasone", zh_hk: "地塞米松 (Dexamethasone)" }
+    aliases:
+      en: ["dexamethasone", "Dexmethsone", "Decadron"]
+      zh_hk: ["地塞米松", "德沙美松"]
+    drug_facet:
+      high_risk: true
+      pediatric_mg_per_kg_dose: 0.15
+      dosing_pearl:
+        en: "Paediatric croup: 0.15 mg/kg PO single dose (max 12 mg). Palliative MSCC emergency: 16 mg/day PO/IV with PPI cover; dose morning/early afternoon to prevent insomnia; check BGL (hyperglycaemia) and HBV status if prolonged."
+        zh_hk: "兒童哮吼：口服單次0.15毫克／公斤（上限12毫克）。惡性脊髓壓迫急症：每日16毫克配胃藥保護；宜早午服用以免失眠，長期使用須監察血糖及乙型肝炎帶菌狀態。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:oral_rehydration_salts
+    kind: drug
+    wave: W2
+    cluster: C12_paediatrics
+    parent_ids: ["drug_class:rehydration"]
+    bindings:
+      inn: "oral rehydration salts"
+      atc: { code: "A07CA", system: "http://www.whocc.no/atc" }
+    display: { en: "Oral rehydration salts (low-osmolarity ORS)", zh_hk: "低滲口服補液鹽 (ORS)" }
+    aliases:
+      en: ["ORS", "oral rehydration salts", "Hydralyte", "Gastrolyte", "Pedialyte", "Dioralyte"]
+      zh_hk: ["口服補液鹽包", "補液鹽", "電解質口服液"]
+    drug_facet:
+      short_course: true
+      dosing_pearl:
+        en: "First-line fluid replacement for mild-to-moderate paediatric gastroenteritis dehydration: give small frequent sips (5 mL every 2-5 min by syringe/spoon) after vomiting; strictly mix each sachet with exact water volume specified."
+        zh_hk: "兒童輕至中度腸胃炎脫水首選補水方案：嘔吐後以針筒或小匙少量頻密餵服（每2至5分鐘約5毫升），並必須嚴格按包裝指定開水比例沖調。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:penicillin_v
+    kind: drug
+    wave: W2
+    cluster: C12_paediatrics
+    parent_ids: ["drug_class:beta_lactam_antibiotic"]
+    bindings:
+      inn: "phenoxymethylpenicillin"
+      rxnorm: { code: "7984", display: "penicillin V" }
+      atc: { code: "J01CE02", system: "http://www.whocc.no/atc" }
+    display: { en: "Phenoxymethylpenicillin (Penicillin V)", zh_hk: "苯氧甲基青黴素（青黴素V）" }
+    aliases:
+      en: ["penicillin V", "phenoxymethylpenicillin", "penicillin VK", "Abbocillin VK", "Cilicaine VK"]
+      zh_hk: ["青黴素V", "口服青黴素", "苯氧甲基青黴素"]
+    drug_facet:
+      short_course: true
+      allergy_group_id: allergy:penicillin
+      pediatric_mg_per_kg_dose: 12.5
+      max_daily_mg: 2000
+      dosing_pearl:
+        en: "Narrow-spectrum first-line oral antibiotic for confirmed Group A Streptococcus pharyngitis and scarlet fever (10-day course to eradicate GAS and prevent acute rheumatic fever); verify penicillin allergy."
+        zh_hk: "甲類鏈球菌咽喉炎及猩紅熱一線窄譜口服抗生素（完整10天療程以清除鏈球菌並預防風濕熱）；處方前必須核實青黴素過敏史。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:methylphenidate
+    kind: drug
+    wave: W2
+    cluster: C12_paediatrics
+    parent_ids: ["drug_class:stimulant_adhd"]
+    bindings:
+      inn: "methylphenidate"
+      rxnorm: { code: "6901", display: "methylphenidate" }
+      atc: { code: "N06BA04", system: "http://www.whocc.no/atc" }
+    display: { en: "Methylphenidate (IR / ER)", zh_hk: "哌甲酯（利他林／專思達）" }
+    aliases:
+      en: ["methylphenidate", "Ritalin", "Ritalin LA", "Concerta", "Medikinet"]
+      zh_hk: ["哌甲酯", "利他林", "專思達"]
+    drug_facet:
+      high_risk: true
+      telehealth_blocked: true
+      pediatric_min_age_years: 6
+      pregnancy_caution: "caution"
+      dosing_pearl:
+        en: "Controlled stimulant for specialist-diagnosed ADHD (>=6y): monitor BP, heart rate, height/weight percentiles, appetite, sleep, and mood/tics at initiation and every 6 months; screen cardiac history before starting."
+        zh_hk: "受管制中樞神經興奮劑（供專科確診6歲以上ADHD患者）：開始用藥及每半年須監察血壓、心跳、身高體重生長線、食慾、睡眠及抽動徵狀，用藥前應評估心臟病史。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:senna
+    kind: drug
+    wave: W2
+    cluster: C15_palliative
+    parent_ids: ["drug_class:laxative"]
+    bindings:
+      inn: "sennoside glycosides"
+      rxnorm: { code: "9685", display: "sennosides" }
+      atc: { code: "A06AB06", system: "http://www.whocc.no/atc" }
+    display: { en: "Senna (sennosides A & B)", zh_hk: "番瀉葉苷 (Senna)" }
+    aliases:
+      en: ["senna", "sennosides", "Senokot", "Coloxyl with Senna"]
+      zh_hk: ["番瀉葉", "番瀉葉苷", "草餅通便丸"]
+    drug_facet:
+      dosing_pearl:
+        en: "First-line stimulant laxative routinely co-prescribed at bedtime for opioid-induced constipation in palliative care (often paired with macrogol/docusate); exclude mechanical bowel obstruction first."
+        zh_hk: "紓緩治療鴉片類止痛藥引致便秘之常用刺激性通便藥（常於睡前服用並配滲透性通便藥）；用藥前必須排除機械性腸阻塞。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: drug:glycopyrrolate
+    kind: drug
+    wave: W2
+    cluster: C15_palliative
+    bindings:
+      inn: "glycopyrronium bromide"
+      rxnorm: { code: "4910", display: "glycopyrrolate" }
+      atc: { code: "A03AB02", system: "http://www.whocc.no/atc" }
+    display: { en: "Glycopyrrolate (glycopyrronium bromide)", zh_hk: "格隆溴銨／甘羅溴銨 (Glycopyrrolate)" }
+    aliases:
+      en: ["glycopyrrolate", "glycopyrronium", "Robinul"]
+      zh_hk: ["格隆溴銨", "甘羅溴銨", "抗分泌針劑"]
+    drug_facet:
+      high_risk: true
+      dosing_pearl:
+        en: "Preferred antisecretory agent for terminal respiratory tract secretions (200 mcg SC PRN q4-6h or 600-1200 mcg/24h CSCI) because quaternary ammonium structure does not cross the blood-brain barrier (less delirium than hyoscine hydrobromide); combine with repositioning and family explanation."
+        zh_hk: "臨終呼吸道痰鳴首選抗分泌藥物（皮下注射或連續輸注），因不易穿過血腦屏障故較少引致譫妄；同時應配合側臥姿勢調整及向家屬解釋。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  # =========================================================================
+  # OBSERVATIONS (5) — Verified SI LOINC (Mod-10) + Registered UCUM
+  # =========================================================================
+  - id: obs:magnesium
+    kind: observation
+    wave: W2
+    cluster: C13_geriatrics
+    bindings:
+      loinc: { code: "2601-3", display: "Magnesium [Moles/volume] in Serum or Plasma" }
+      ucum: "mmol/L"
+    display: { en: "Serum magnesium", zh_hk: "血清鎂 (Mg)" }
+    aliases:
+      en: ["magnesium", "serum magnesium", "Mg"]
+      zh_hk: ["血鎂", "血清鎂", "鎂質"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: obs:phosphate
+    kind: observation
+    wave: W2
+    cluster: C13_geriatrics
+    bindings:
+      loinc: { code: "14879-1", display: "Phosphate [Moles/volume] in Serum or Plasma" }
+      ucum: "mmol/L"
+    display: { en: "Serum phosphate (inorganic phosphorus)", zh_hk: "血清磷酸鹽／血磷 (PO4)" }
+    aliases:
+      en: ["phosphate", "serum phosphate", "phosphorus", "PO4"]
+      zh_hk: ["血磷", "血清磷酸鹽", "無機磷"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: obs:reticulocytes
+    kind: observation
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      loinc: { code: "4679-7", display: "Reticulocytes/100 erythrocytes in Blood" }
+      ucum: "%"
+    display: { en: "Reticulocyte percentage", zh_hk: "網織紅血球百分比 (Reticulocytes)" }
+    aliases:
+      en: ["reticulocytes", "reticulocyte count", "retic %", "retics"]
+      zh_hk: ["網織紅血球", "網狀紅血球百分比"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: obs:bilirubin_conjugated
+    kind: observation
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      loinc: { code: "14629-0", display: "Bilirubin.direct [Moles/volume] in Serum or Plasma" }
+      ucum: "umol/L"
+    display: { en: "Conjugated (direct) bilirubin", zh_hk: "直接／結合膽紅素" }
+    aliases:
+      en: ["conjugated bilirubin", "direct bilirubin", "DBil", "split bilirubin"]
+      zh_hk: ["直接膽紅素", "結合膽紅素", "分項膽紅素"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: obs:tsh_neonatal
+    kind: observation
+    wave: W2
+    cluster: C12_paediatrics
+    bindings:
+      loinc: { code: "29575-8", display: "Thyrotropin [Units/volume] in DBS" }
+      ucum: "m[IU]/L"
+    display: { en: "Neonatal screening TSH (dried blood spot / cord blood)", zh_hk: "新生兒篩查促甲狀腺激素 (先天性甲狀腺功能低下篩查 TSH)" }
+    aliases:
+      en: ["neonatal TSH", "newborn screening TSH", "Guthrie TSH", "congenital hypothyroidism screen", "cord blood TSH"]
+      zh_hk: ["新生兒甲狀腺篩查", "臍帶血TSH", "初生嬰兒促甲狀腺激素"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+# ===========================================================================
+# DETERMINISTIC CLINICAL EDGES (14)
+# ===========================================================================
+edges:
+  - id: edge:kawasaki_5d_fever_ivig_emergency
+    source_id: rf:kawasaki_5d_fever_mucositis
+    relation: RED_FLAG_FOR
+    target_id: cond:kawasaki_disease
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Persistent paediatric fever >=5 days with mucocutaneous inflammation (strawberry tongue/cracked lips, non-exudative bilateral conjunctivitis, polymorphous rash, extremity oedema/erythema, cervical adenopathy) demands urgent paediatric hospital admission for IVIG + high-dose aspirin within day 10 and baseline echocardiography to prevent coronary artery aneurysms."
+      zh_hk: "兒童持續發燒5天或以上並伴隨典型黏膜皮膚發炎徵象，必須緊急轉介兒科住院接受靜脈免疫球蛋白 (IVIG)、阿士匹靈治療及心臟超聲波檢查，於發病10天內介入以預防冠狀動脈瘤。"
+    clinician_action_prompt:
+      en: "Immediate same-day referral to paediatric ED/ward (do not delay for outpatient serology); document fever onset day, mucocutaneous criteria, and arrange CBC/CRP/ESR/LFT/albumin/echo."
+    patient_safety_net:
+      en: "If your child has had a fever for 5 days or more—especially with red eyes, cracked red lips, a rash, or swollen hands/feet—take them to emergency hospital care today for urgent paediatric assessment."
+      zh_hk: "如小朋友持續發燒達5天或以上，尤其伴隨雙眼發紅、嘴唇紅腫爆裂、皮疹或手腳腫脹，請今日立即前往急症室接受緊急兒科評估。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:intussusception_surgical_emergency
+    source_id: rf:intussusception_currant_jelly_bilious
+    relation: RED_FLAG_FOR
+    target_id: cond:intussusception
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Episodic inconsolable crying with knees drawn to chest, bilious (green) vomiting, lethargy between episodes, or redcurrant jelly stools in an infant/toddler indicates acute intussusception or volvulus until proven otherwise — delayed treatment causes bowel ischaemia, perforation, and shock."
+      zh_hk: "嬰幼兒間歇性劇痛哭鬧縮腹、嘔吐綠色膽汁、發作間期嗜睡或排出紅果醬樣血便，須視作急性腸套疊或腸扭轉急症處理，延誤診治可致腸壞死、穿孔及休克。"
+    clinician_action_prompt:
+      en: "Immediate emergency ambulance transfer to paediatric surgical ED; keep nil by mouth (NBM) for urgent abdominal ultrasound and pneumatic/hydrostatic enema reduction."
+    patient_safety_net:
+      en: "Green (bile-stained) vomiting, blood or jelly-like mucus in the stool, or repeated episodes of severe crying where your child pulls their legs up requires immediate emergency hospital care."
+      zh_hk: "如小朋友嘔吐綠色液體、大便帶血或呈果醬狀，或反覆一陣陣劇烈哭鬧並屈膝縮腹，請立即前往急症室或致電緊急救援服務。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:severe_paed_dehydration_ed
+    source_id: rf:severe_paed_dehydration_sunken
+    relation: RED_FLAG_FOR
+    target_id: cond:gastroenteritis
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Severe dehydration in infants and young children (sunken eyes/fontanelle, dry mouth, absent tears, capillary refill >2-3s, mottled cool limbs, lethargy, oliguria >6-8h) rapidly progresses to hypovolaemic shock and hypoglycaemia."
+      zh_hk: "嬰幼兒出現嚴重脫水徵象（眼窩／囟門凹陷、無淚、微血管充盈延遲、四肢冰冷、嗜睡或長時間無尿），可迅速惡化為低血容量休克及低血糖。"
+    clinician_action_prompt:
+      en: "Immediate emergency hospital transfer for IV/NG fluid resuscitation, capillary blood glucose, and serum electrolytes/venous blood gas."
+    patient_safety_net:
+      en: "If your child has sunken eyes, a dry mouth with no tears, cold mottled hands/feet, extreme drowsiness, or has not had a wet nappy or passed urine for 6 to 8 hours, go to emergency hospital care immediately."
+      zh_hk: "如小朋友眼窩凹陷、口乾無淚、手腳冰冷起花紋、異常嗜睡，或超過6至8小時沒有濕尿片／排尿，請立即前往急症室。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:neonatal_jaundice_24h_emergency
+    source_id: rf:neonatal_jaundice_first_24h
+    relation: RED_FLAG_FOR
+    target_id: cond:neonatal_jaundice
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: abnormal_result
+    clinician_rationale:
+      en: "Jaundice presenting within the first 24 hours of life is ALWAYS pathological (ABO/Rh haemolysis, G6PD deficiency, congenital infection, or sepsis) and carries immediate risk of acute bilirubin encephalopathy (kernicterus). Pale stools/dark urine or jaundice persisting >=14 days requires split (conjugated) bilirubin to exclude biliary atresia."
+      zh_hk: "初生嬰兒出生24小時內出現黃疸必屬病理性（溶血、蠶豆症 G6PD、先天感染或敗血症），具急性膽紅素腦病（核黃疸）風險；灰白便／深色尿或黃疸逾14天則須查直接膽紅素排除膽道閉鎖。"
+    clinician_action_prompt:
+      en: "Immediate same-day paediatric ED/neonatal referral for urgent serum total + conjugated bilirubin, blood group/DAT, reticulocytes, and G6PD status; initiate phototherapy per gestational-age nomogram."
+    patient_safety_net:
+      en: "Yellowing of the skin or eyes within the first 24 hours after birth, rapidly worsening jaundice, pale chalky stools, dark urine, or a sleepy baby refusing feeds needs immediate emergency hospital assessment."
+      zh_hk: "初生嬰兒如於出生24小時內皮膚或眼白變黃、黃疸迅速加深、大便呈灰白色、小便深色或嗜睡拒奶，請立即前往急症室接受緊急評估。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:acute_urinary_retention_ed
+    source_id: rf:acute_urinary_retention
+    relation: RED_FLAG_FOR
+    target_id: cond:acute_urinary_retention
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Acute painful urinary retention causes severe distress, post-renal acute kidney injury, and urosepsis; it may also be the presenting sign of cauda equina syndrome or malignant spinal cord compression."
+      zh_hk: "急性疼痛性尿瀦留可引致嚴重痛苦、腎後性急性腎損傷及尿源性敗血症，亦可能是馬尾神經綜合症或惡性脊髓壓迫之警號。"
+    clinician_action_prompt:
+      en: "Immediate bladder catheterisation / ED transfer; screen for cauda equina/MSCC neurological signs (back pain, saddle numbness, leg weakness), check RFT/electrolytes, and stop culprit anticholinergics/decongestants/opioids."
+    patient_safety_net:
+      en: "Being unable to pass urine with a painful, full lower tummy is a medical emergency — go to emergency hospital care immediately for prompt bladder relief."
+      zh_hk: "如完全無法排尿並感到下腹膀胱劇烈脹痛，屬緊急情況，請立即前往急症室安排導尿及檢查。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:malignant_spinal_cord_compression_ed
+    source_id: rf:spinal_cord_compression_malignant
+    relation: RED_FLAG_FOR
+    target_id: cond:malignant_spinal_cord_compression
+    severity: critical
+    urgency_floor: 4
+    clinic_port_family: referral
+    clinician_rationale:
+      en: "Malignant spinal cord compression (MSCC) is an oncological emergency: neurological outcome depends directly on ambulation status at treatment. Immediate whole-spine MRI (<24h) and high-dose dexamethasone preserve mobility and continence."
+      zh_hk: "惡性脊髓壓迫屬腫瘤科急症，治療前能否行走直接決定神經功能預後；必須24小時內安排全脊椎磁力共振 (MRI) 及即時處方高劑量地塞米松，以保下肢活動及大小便功能。"
+    clinician_action_prompt:
+      en: "Emergency same-day ED/oncology transfer for urgent whole-spine MRI (<24h), nurse flat/spinal precautions if unstable, initiate oral/IV dexamethasone 16 mg immediately (with PPI cover) per local oncology protocol, and alert radiation oncology/neurosurgery."
+    patient_safety_net:
+      en: "If you have cancer and develop new severe back pain with leg weakness, numbness, difficulty walking, or new trouble controlling your bladder or bowels, seek immediate emergency hospital care."
+      zh_hk: "癌症患者如出現新發嚴重背痛並伴隨雙腳無力、麻木、行路困難或大小便控制異常，請立即前往急症室接受緊急評估。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:oxybutynin_elderly_stopp_anticholinergic
+    source_id: drug:oxybutynin
+    relation: EXPLAINS_OR_CAUSES
+    target_id: cond:delirium
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    when:
+      fact: age_years
+      op: ge
+      value: 65
+    clinician_rationale:
+      en: "STOPP/Beers Criteria (High Anticholinergic Cognitive Burden, ACB=3): Oral oxybutynin readily crosses the blood-brain barrier and precipitates acute delirium, accelerated cognitive decline, falls, constipation, and acute urinary retention in adults >=65y."
+      zh_hk: "STOPP／Beers 準則（高抗膽鹼負荷 ACB=3）：口服奧昔布寧易穿過血腦屏障，65歲以上長者服用顯著增加急性譫妄、認知退化、跌倒、便秘及尿瀦留風險。"
+    clinician_action_prompt:
+      en: "Deprescribe or avoid oral oxybutynin in >=65y (especially with dementia/MCI, falls, or co-prescribed donepezil); trial bladder training/pelvic floor therapy or consider mirabegron if BP controlled."
+    patient_safety_net:
+      en: "If an older adult taking bladder medicine develops new confusion, drowsiness, blurred vision, severe constipation, or difficulty passing urine, arrange prompt doctor review before taking further doses."
+      zh_hk: "如長者服用膀胱過動症藥物期間出現新發神志混亂、嗜睡、視力模糊、嚴重便秘或排尿困難，請盡快聯絡醫生檢視藥物。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:haloperidol_parkinsons_ci
+    source_id: drug:haloperidol
+    relation: CONTRAINDICATED_IN
+    target_id: cond:parkinsons_disease
+    severity: hard_block
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "STOPP Hard Contraindication: Haloperidol is a potent central D2 receptor antagonist that precipitates severe, potentially life-threatening extrapyramidal rigidity, akinesia, aspiration, and neuroleptic malignant-like crisis in Parkinson's disease and Lewy body dementia."
+      zh_hk: "STOPP 絕對禁忌：氟哌啶醇為強效中樞多巴胺D2拮抗劑，柏金遜症及路易體認知障礙症患者使用會引致嚴重僵直、吞嚥窒息及類惡性症候群危象。"
+    clinician_action_prompt:
+      en: "HARD-BLOCK haloperidol (and all first-generation/high-D2 antipsychotics) in Parkinson's disease; treat reversible delirium precipitants non-pharmacologically or consult geriatrician/neurologist (e.g. low-dose quetiapine if antipsychotic unavoidable)."
+    patient_safety_net:
+      en: "People with Parkinson's disease should not receive haloperidol or certain anti-sickness/calming medicines that worsen stiffness — always alert hospital and clinic staff about Parkinson's medications."
+      zh_hk: "柏金遜症患者不可使用氟哌啶醇或部分會加重僵硬的止嘔／鎮靜藥；每次就診或入院時請務必主動告知醫護人員患有柏金遜症。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:metoclopramide_parkinsons_ci
+    source_id: drug:metoclopramide
+    relation: CONTRAINDICATED_IN
+    target_id: cond:parkinsons_disease
+    severity: hard_block
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "STOPP Hard Contraindication: Metoclopramide crosses the blood-brain barrier and antagonises central striatal D2 receptors, causing severe acute worsening of parkinsonism, rigidity, and dysphagia."
+      zh_hk: "STOPP 絕對禁忌：甲氧氯普胺穿過血腦屏障拮抗紋狀體多巴胺受體，可致柏金遜症僵硬、震顫及吞嚥困難急劇惡化。"
+    clinician_action_prompt:
+      en: "HARD-BLOCK metoclopramide in Parkinson's disease; use peripherally acting domperidone (check QTc) or ondansetron (monitor constipation/QTc) instead for nausea."
+    patient_safety_net:
+      en: "Avoid metoclopramide anti-nausea tablets or injections if you have Parkinson's disease; ask your doctor or pharmacist for a Parkinson-safe alternative."
+      zh_hk: "柏金遜症患者切勿使用甲氧氯普胺止嘔藥或止嘔針，請向醫生或藥劑師查詢安全替代方案。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:donepezil_beta_blocker_bradycardia
+    source_id: drug:donepezil
+    relation: INTERACTS_WITH
+    target_id: drug_class:beta_blocker
+    bidirectional: true
+    severity: high
+    urgency_floor: 2
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Co-prescription of acetylcholinesterase inhibitors (donepezil) with beta-blockers produces additive vagotonic negative chronotropy, markedly increasing risk of symptomatic bradycardia, AV heart block, syncope, and injurious falls in older adults."
+      zh_hk: "多奈哌齊與β受體阻滯劑合用會產生疊加迷走神經抑制心率效應，顯著增加長者心搏過緩、房室傳導阻滯、暈厥及跌倒骨折風險。"
+    clinician_action_prompt:
+      en: "Check resting heart rate (<55-60 bpm warning) and 12-lead ECG (PR interval / conduction block); enquire about presyncope/falls and review whether beta-blocker dose can be reduced or switched."
+    patient_safety_net:
+      en: "Seek urgent medical assessment if you feel dizzy, faint, unusually tired, or have a fall while taking memory medication together with heart-rate or blood-pressure medicines."
+      zh_hk: "同時服用認知障礙症藥與減慢心跳／血壓藥期間，如感到頭暈、眼前發黑、極度疲倦或跌倒，請盡快求醫評估。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:strong_opioid_benzo_respiratory_block
+    source_id: drug_class:strong_opioid
+    relation: INTERACTS_WITH
+    target_id: drug_class:benzodiazepine
+    bidirectional: true
+    severity: hard_block
+    urgency_floor: 4
+    clinic_port_family: drug_monitoring
+    clinician_rationale:
+      en: "Concurrent strong opioid + benzodiazepine causes synergistic CNS and medullary respiratory depression, markedly increasing fatal overdose and elderly fall-related hip fractures. Hard-blocked in routine primary care (palliative end-of-life co-use requires explicit specialist goals-of-care documentation and close titration)."
+      zh_hk: "強效鴉片類止痛藥與苯二氮平類鎮靜劑合用會產生協同中樞及呼吸抑制作用，大幅增加致命過量及長者跌倒骨折風險；一般基層醫療嚴格攔截，僅限專科紓緩臨終明確記錄目標下審慎調控。"
+    clinician_action_prompt:
+      en: "HARD-BLOCK routine co-prescribing; check state RTPM (AU SafeScript/QScript) or HK HA eHRSS dispensing record, initiate deprescribing taper if chronic co-use, and ensure take-home naloxone counselling where indicated."
+    patient_safety_net:
+      en: "Combining strong painkillers with sleeping or calming tablets can dangerously slow breathing. If someone becomes unusually drowsy, hard to wake, or has slow or noisy breathing, seek immediate emergency hospital care."
+      zh_hk: "同時服用強效止痛藥與鎮靜安眠藥可引致危險的呼吸減慢。如患者異常嗜睡叫唔醒或呼吸緩慢，請立即致電緊急救援服務或前往急症室。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:morphine_ckd_egfr30_neurotoxicity
+    source_id: drug:morphine
+    relation: CONTRAINDICATED_IN
+    target_id: cond:ckd
+    severity: hard_block
+    urgency_floor: 3
+    clinic_port_family: drug_monitoring
+    when:
+      fact: egfr_ml_min
+      op: lt
+      value: 30
+    clinician_rationale:
+      en: "In severe CKD (eGFR <30 mL/min/1.73m2), morphine's active glucuronide metabolites (M3G and M6G) accumulate rapidly, causing opioid neurotoxicity (myoclonic jerks, hyperalgesia, agitated delirium, hallucinations, pinpoint pupils, and prolonged respiratory depression)."
+      zh_hk: "嚴重慢性腎病（eGFR <30）患者無法有效排出嗎啡活性代謝物 (M3G/M6G)，極易積聚引致鴉片類神經毒性（肌陣攣抽搐、譫妄幻覺、瞳孔縮小及持久呼吸抑制）。"
+    clinician_action_prompt:
+      en: "HARD-BLOCK regular morphine if eGFR <30; rotate to renally safer palliative opioid (e.g. fentanyl or buprenorphine, or cautious low-dose hydromorphone/oxycodone with palliative specialist advice) and verify equianalgesic conversion with dose reduction."
+    patient_safety_net:
+      en: "If someone taking morphine develops sudden muscle twitching, new confusion, seeing things, or heavy drowsiness, contact their doctor or palliative care team urgently—or go to emergency care if breathing slows."
+      zh_hk: "服用嗎啡期間如突然出現肌肉抽搐、意識混亂、幻覺或嚴重嗜睡，請緊急聯絡醫生或紓緩治療團隊；如呼吸變慢請立即前往急症室。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:parvovirus_b19_pregnancy_hydrops
+    source_id: cond:parvovirus_b19
+    relation: TRIGGERS_WORKUP
+    target_id: cond:pregnancy_normal
+    severity: critical
+    urgency_floor: 3
+    clinic_port_family: referral
+    when:
+      any:
+        - { fact: pregnant, op: eq, value: true }
+        - { fact: has_concept, op: is_a, value: "cond:pregnancy_normal" }
+    clinician_rationale:
+      en: "Maternal Parvovirus B19 infection or exposure during pregnancy (highest risk <20 weeks gestation) causes fetal erythroid aplasia, severe fetal anaemia, non-immune hydrops fetalis, and miscarriage/stillbirth."
+      zh_hk: "孕婦（尤其懷孕20週前）感染或接觸細小病毒B19（蘋果臉病），可引致胎兒紅血球生成障礙、嚴重胎兒貧血、非免疫性胎兒水腫及流產死胎風險。"
+    clinician_action_prompt:
+      en: "Urgently order maternal Parvovirus B19 IgG and IgM serology (repeat in 2-3 weeks if both negative after exposure); if IgM+ or seroconversion, refer promptly to obstetrics/maternal-fetal medicine for serial weekly MCA-PSV Doppler ultrasound."
+    patient_safety_net:
+      en: "If you are pregnant and have been exposed to slapped-cheek disease (Parvovirus B19) or develop a rash/joint aches, arrange prompt doctor review for blood testing—and seek immediate obstetric care if you notice reduced baby movements."
+      zh_hk: "孕婦如接觸過細小病毒B19（蘋果臉病）患童或出現紅疹關節痛，請盡快聯絡醫生安排抽血檢查；如察覺胎動減少請立即前往急症室或產科評估。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: edge:methylphenidate_monitored_by_bp
+    source_id: drug:methylphenidate
+    relation: MONITORED_BY
+    target_id: obs:systolic_bp
+    severity: moderate
+    urgency_floor: 1
+    clinic_port_family: drug_monitoring
+    monitoring_spec:
+      initiation_due_days: 28
+      repeat_interval_days: 180
+      grace_days: 14
+      applies_on: both
+    clinician_rationale:
+      en: "ADHD stimulants elevate resting heart rate and blood pressure and may attenuate childhood weight/height velocity; RACGP/AAP/HKCFP guidelines mandate monitoring BP, pulse, height, weight, sleep, and mood/tics 4 weeks after initiation/dose change and at least every 6 months."
+      zh_hk: "專注力興奮劑可輕度推高血壓及心跳並影響兒童食慾及生長速度，指引要求開始用藥或調藥後4週及之後每半年定期監察血壓、脈搏、身高體重、睡眠及情緒抽動。"
+    clinician_action_prompt:
+      en: "Record BP (paediatric percentile if <18y), resting HR, height/weight plotted on growth chart, appetite, sleep, and adverse neuropsychiatric symptoms; verify specialist shared-care review."
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+# ===========================================================================
+# PRESENTATION FRAMES (5) — Murtagh PROMPT + openEHR Positive Exclusions + Safety Netting
+# ===========================================================================
+frames:
+  - id: frame:child_rash_fever
+    rfe_concept_id: rfe:child_rash_fever
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_roseola, concept_id: cond:roseola_infantum, prevalence_note: "3-5d high fever then blanching maculopapular trunk rash appearing as fever resolves in well infant (6m-2y)" }
+        - { id: p_hfmd, concept_id: cond:hfmd, key_discriminators: ["oral ulcers", "vesicles on palms/soles/buttocks", "watch EV71 neuro/cardiopulmonary signs"] }
+        - { id: p_parvo, concept_id: cond:parvovirus_b19, key_discriminators: ["erythematous slapped cheeks + lacy reticular limb rash", "check pregnant contacts"] }
+        - { id: p_scarlet, concept_id: cond:scarlet_fever, key_discriminators: ["sandpaper blanching rash", "pharyngitis", "strawberry tongue", "treat GAS with penicillin V x10d"] }
+      serious_not_to_be_missed:
+        - { id: s_meningitis, concept_id: cond:meningitis, key_discriminators: ["non-blanching petechial/purpuric rash (glass test)", "lethargy/floppiness", "bulging fontanelle", "stiff neck"] }
+        - { id: s_kawasaki, concept_id: cond:kawasaki_disease, key_discriminators: ["fever >=5 days + >=4/5 CRASH criteria (or incomplete Kawasaki in infants)", "coronary aneurysm risk -> urgent IVIG"] }
+        - { id: s_sepsis, concept_id: cond:sepsis, key_discriminators: ["infant <3m with T>=38.0 C", "mottled skin", "tachycardia", "cap refill >3s"] }
+        - { id: s_dengue, concept_id: cond:dengue, key_discriminators: ["regional/travel exposure", "retro-orbital pain", "petechiae/thrombocytopenia", "NO NSAIDs"] }
+        - { id: s_epiglottitis, concept_id: cond:epiglottitis, key_discriminators: ["toxic child", "drooling", "tripod posture", "muffled voice/stridor — do NOT examine throat"] }
+      pitfalls_often_missed:
+        - { id: o_paed_uti, concept_id: cond:paediatric_uti, key_discriminators: ["unexplained fever without clear viral source -> clean-catch urine microscopy/culture"] }
+        - { id: o_drug_rash, concept_id: cond:drug_adverse_effect, key_discriminators: ["amoxicillin rash in EBV", "screen mucosal/blistering skin for SJS/TEN"] }
+      masquerades:
+        - { id: mq_uti, tier: primary, masquerade: uti, concept_id: cond:paediatric_uti, clue_prompt: { en: "Always consider UTI in febrile children without an obvious focal viral exanthem." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Check recent antibiotics, anticonvulsants, or OTC/TCM medicines for drug exanthem or SJS/TEN." } }
+        - { id: mq_viral, tier: secondary, masquerade: baffling_viral, concept_id: cond:hfmd, clue_prompt: { en: "In HK/East Asia HFMD outbreaks (EV71), screen for myoclonic jerks, persistent vomiting, lethargy, and unexplained tachycardia." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Check childcare/school exclusion rules, pregnant household/teacher contacts (Parvovirus B19 / rubella / varicella), vaccination history (MMR), and parental anxiety over rash spreading." }
+    positive_exclusions:
+      - id: ex_non_blanching_rash
+        finding_concept_id: rf:paed_non_blanching_rash_lethargy
+        question: { en: "Does the rash stay red or purple without fading when pressed firmly with a clear glass, or is your child unusually floppy, drowsy, or hard to wake?", zh_hk: "請問用透明玻璃杯用力按壓皮疹時是否仍然唔退色，或小朋友是否異常軟弱嗜睡叫唔醒？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_kawasaki_5d
+        finding_concept_id: rf:kawasaki_5d_fever_mucositis
+        question: { en: "Has the fever lasted 5 days or more, or does your child have red eyes without pus, very red cracked lips/strawberry tongue, or swollen red hands or feet?", zh_hk: "請問小朋友是否已持續發燒5天或以上，或伴隨無眼屎紅眼、嘴唇紅腫爆裂／士多啤梨舌，或手腳紅腫？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_airway_stridor
+        finding_concept_id: rf:stridor_airway
+        question: { en: "Is your child having noisy breathing at rest (stridor), drooling, trouble swallowing, or working hard to breathe?", zh_hk: "請問小朋友有沒有靜止時呼吸喘鳴、不斷流口水、吞嚥困難或呼吸費力？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_meningism_child
+        finding_concept_id: rf:stiff_neck_meningism
+        question: { en: "Does your child have a stiff neck, sensitivity to light, a seizure/fit, or is this a baby under 3 months with a fever of 38.0 C or higher?", zh_hk: "請問小朋友有沒有頸部僵硬、畏光、抽筋，或屬於三個月以下嬰兒發燒達攝氏38度或以上？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_paed_rash_emergency
+        trigger_condition: { en: "Non-blanching petechial/purpuric rash, infant <3 months with fever >=38.0 C, breathing difficulty/stridor/drooling, extreme drowsiness/floppiness, or seizure", zh_hk: "按壓不退色皮疹、三個月以下嬰兒發燒達38度或以上、呼吸困難／喘鳴流口水、極度嗜睡軟弱或抽筋" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if the rash does not fade under a clear glass, your child is under 3 months with fever >=38.0 C, has trouble breathing or drooling, has a seizure, or is floppy or hard to wake."
+          zh_hk: "如皮疹以玻璃杯按壓後不退色、屬三個月以下嬰兒發燒達38度或以上、呼吸困難或流口水、抽筋，或異常軟弱叫唔醒，請立即前往急症室。"
+      - id: sn_paed_rash_kawasaki_review
+        trigger_condition: { en: "Fever reaching 5 days, mouth/lip swelling, red eyes, swollen hands/feet, blistering skin, or child worsening", zh_hk: "發燒達5天、嘴唇口腔紅腫、眼紅、手腳腫脹、皮膚起水泡或精神轉差" }
+        timeframe_hours: 24
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange same-day urgent doctor review if fever reaches 5 days, red eyes or cracked swollen lips develop, skin blisters appear, or your child is drinking less than half their normal fluids."
+          zh_hk: "如發燒達5天、出現紅眼或嘴唇紅腫爆裂、皮膚起水泡，或飲水量少於平日一半，請安排即日醫生評估。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: frame:child_vomiting_diarrhoea
+    rfe_concept_id: rfe:child_vomiting_diarrhoea
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_gastro, concept_id: cond:gastroenteritis, prevalence_note: "Viral gastroenteritis (norovirus/rotavirus) is most common; focus on ORS hydration & red-flag exclusion" }
+        - { id: p_urti_vomit, concept_id: cond:urti, key_discriminators: ["post-tussive vomiting with coryza/viral illness"] }
+      serious_not_to_be_missed:
+        - { id: s_intussusception, concept_id: cond:intussusception, key_discriminators: ["age 3m-3y", "episodic inconsolable crying pulling knees up", "lethargy", "bilious vomiting", "redcurrant jelly stool"] }
+        - { id: s_pyloric, concept_id: cond:pyloric_stenosis, key_discriminators: ["age 2-8 weeks", "non-bilious forceful projectile vomiting after feeds", "hungry immediately after vomiting", "hypochloraemic alkalosis"] }
+        - { id: s_appendicitis, concept_id: cond:appendicitis, key_discriminators: ["migrating RLQ pain", "guarding/rebound", "reluctance to walk/jump", "fever"] }
+        - { id: s_dka, concept_id: cond:dka, key_discriminators: ["vomiting + abdominal pain + polyuria/polydipsia + deep fast breathing (Kussmaul) -> ALWAYS check capillary BGL/ketones"] }
+        - { id: s_meningitis_sepsis, concept_id: cond:meningitis, key_discriminators: ["vomiting without diarrhoea + fever + lethargy/headache/bulging fontanelle"] }
+      pitfalls_often_missed:
+        - { id: o_paed_uti, concept_id: cond:paediatric_uti, key_discriminators: ["vomiting/poor feeding/fever in infant without diarrhoea -> check urine"] }
+        - { id: o_coeliac, concept_id: cond:coeliac_disease, key_discriminators: ["chronic loose stools >14d, abdominal distension, faltering growth after gluten introduction"] }
+      masquerades:
+        - { id: mq_uti, tier: primary, masquerade: uti, concept_id: cond:paediatric_uti, clue_prompt: { en: "Isolated vomiting and fever without diarrhoea in an infant is a classic presentation of paediatric UTI." } }
+        - { id: mq_diabetes, tier: primary, masquerade: diabetes, concept_id: cond:dka, clue_prompt: { en: "Never miss DKA masquerading as gastroenteritis — ask about increased thirst/wet nappies and check point-of-care BGL." } }
+        - { id: mq_bacterial, tier: secondary, masquerade: baffling_bacterial, concept_id: cond:appendicitis, clue_prompt: { en: "In children with vomiting and focal abdominal pain, re-examine abdomen early to exclude appendicitis or intussusception." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Clarify exact fluid intake and wet nappy count, warn against antidiarrhoeals (loperamide contraindicated in young children) and undiluted sugary drinks, and coach small-frequent ORS technique." }
+    positive_exclusions:
+      - id: ex_intussusception
+        finding_concept_id: rf:intussusception_currant_jelly_bilious
+        question: { en: "Has your child vomited bright green fluid (bile), passed blood or jelly-like stools, or had repeated episodes of severe screaming while pulling their knees up?", zh_hk: "請問小朋友有沒有嘔吐綠色液體（膽汁）、大便帶血或果醬狀，或反覆劇烈哭鬧並屈膝縮腹？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_severe_dehydration
+        finding_concept_id: rf:severe_paed_dehydration_sunken
+        question: { en: "Does your child have sunken eyes, a very dry mouth or crying without tears, cold mottled hands/feet, extreme drowsiness, or no wet nappies/urine for 6 to 8 hours?", zh_hk: "請問小朋友有沒有眼窩凹陷、口舌極乾或哭時無淚、手腳冰冷起花紋、極度嗜睡，或超過6至8小時無濕尿片／排尿？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_bloody_diarrhoea
+        finding_concept_id: rf:bloody_diarrhoea_fever
+        question: { en: "Is there blood or mucus in the diarrhoea accompanied by high fever or severe tummy pain?", zh_hk: "請問腹瀉是否帶血或黏液，並伴隨高燒或劇烈腹痛？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_lethargy_rash
+        finding_concept_id: rf:paed_non_blanching_rash_lethargy
+        question: { en: "Is your child unusually floppy, hard to wake, or showing a rash that does not fade when pressed?", zh_hk: "請問小朋友有沒有異常軟弱、叫唔醒，或出現按壓不退色的皮疹？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_paed_gi_emergency
+        trigger_condition: { en: "Green/bilious vomit, blood in vomit/stool, severe intermittent abdominal crying, sunken eyes/no tears/no wet nappies >6-8h, extreme drowsiness, or infant <3 months", zh_hk: "嘔吐綠色膽汁、吐血或血便、陣發劇痛縮腹、眼窩凹陷無淚或6至8小時無尿、極度嗜睡，或三個月以下嬰兒持續嘔吐" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Go to emergency hospital care immediately if your child vomits green fluid or blood, passes bloody or jelly-like stools, shows signs of severe dehydration (sunken eyes, dry mouth, no wet nappies for 6-8 hours), becomes floppy or hard to wake, or is under 3 months old."
+          zh_hk: "如小朋友嘔吐綠色液體或吐血、大便帶血或果醬狀、出現嚴重脫水（眼窩凹陷、口乾無淚、6至8小時無濕尿片）、異常軟弱叫唔醒，或屬三個月以下嬰兒，請立即前往急症室。"
+      - id: sn_paed_gi_review
+        trigger_condition: { en: "Unable to keep small sips of oral rehydration solution down >24h, forceful vomiting after every feed in a 2-8 week baby, or diarrhoea persisting >7 days", zh_hk: "逾24小時無法飲下少量口服補液鹽、2至8週大嬰兒餐後噴射式嘔奶，或腹瀉持續超過7天" }
+        timeframe_hours: 24
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Arrange same-day doctor review if your child cannot keep small frequent sips of oral rehydration solution down, if a young baby forcefully vomits after feeds, or if symptoms worsen."
+          zh_hk: "如小朋友無法吞服少量頻密的口服補液鹽、初生嬰兒餐後噴射式嘔奶，或病情轉差，請即日安排醫生覆診。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: frame:memory_loss_confusion
+    rfe_concept_id: rfe:memory_loss_confusion
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_mci, concept_id: cond:mild_cognitive_impairment, prevalence_note: "Objective cognitive decline without significant loss of daily functional independence" }
+        - { id: p_dementia, concept_id: cond:dementia, key_discriminators: ["insidious >=6m decline affecting IADLs/ADLs (Alzheimer's, vascular, Lewy body, frontotemporal)"] }
+        - { id: p_delirium, concept_id: cond:delirium, key_discriminators: ["acute onset (hours-days) with fluctuating attention/alertness — medical emergency"] }
+        - { id: p_depression, concept_id: cond:depression, key_discriminators: ["depressive pseudodementia: low mood, anhedonia, subjective memory complaints, 'don't know' answers"] }
+      serious_not_to_be_missed:
+        - { id: s_delirium, concept_id: cond:delirium, key_discriminators: ["acute fluctuating confusion — exclude sepsis, hypoxia, hypoglycaemia, hyponatraemia, hypercalcaemia, urinary retention, drugs"] }
+        - { id: s_stroke, concept_id: cond:stroke_tia, key_discriminators: ["abrupt focal deficit, stepwise vascular decline, or post-fall subdural haematoma (especially on anticoagulants)"] }
+        - { id: s_malignancy, concept_id: cond:malignancy_occult, key_discriminators: ["subacute progressive focal signs, new headache/seizure, or cancer history (brain metastasis / paraneoplastic)"] }
+        - { id: s_hypoglycaemia, concept_id: cond:hypoglycaemia, key_discriminators: ["diabetic on insulin/sulfonylurea -> immediate capillary BGL"] }
+      pitfalls_often_missed:
+        - { id: o_b12, concept_id: cond:b12_deficiency, key_discriminators: ["reversible cause (especially on long-term metformin/PPI) — check B12 + folate"] }
+        - { id: o_hypothyroid, concept_id: cond:hypothyroidism, key_discriminators: ["reversible slowing/cognitive dulling — check TSH"] }
+        - { id: o_parkinsons, concept_id: cond:parkinsons_disease, key_discriminators: ["bradykinesia, visual hallucinations, REM sleep behaviour disorder -> Lewy body/Parkinson's dementia (AVOID haloperidol!)"] }
+        - { id: o_aur, concept_id: cond:acute_urinary_retention, key_discriminators: ["silent bladder distension or severe faecal impaction frequently triggers elderly delirium"] }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Perform STOPP/START anticholinergic & sedative audit (oxybutynin, antihistamines, TCAs, benzodiazepines, opioids, Z-drugs)." } }
+        - { id: mq_uti, tier: primary, masquerade: uti, concept_id: cond:uti, clue_prompt: { en: "Screen for occult infection (UTI, pneumonia) precipitating acute cognitive change, while avoiding antibiotics for asymptomatic bacteriuria alone." } }
+        - { id: mq_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hypothyroidism, clue_prompt: { en: "Routine dementia blood screen: CBC, RFT/Na/K, Ca, LFT, TSH, B12, folate, HbA1c." } }
+        - { id: mq_depression, tier: primary, masquerade: depression, concept_id: cond:depression, clue_prompt: { en: "Screen for geriatric depression (GDS) and sensory impairment (hearing/vision loss)." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Obtain collateral history from family/carer; sensitively explore driving safety, wandering/financial vulnerability, advance care planning, and caregiver burnout." }
+    positive_exclusions:
+      - id: ex_acute_delirium
+        finding_concept_id: rf:acute_delirium_fluctuating
+        question: { en: "Has this confusion started suddenly over hours or days, with alertness fluctuating up and down, hallucinations, or unusual drowsiness?", zh_hk: "請問這種混亂是否於數小時至數天內突然出現，伴隨神智時清時懵、幻覺或異常嗜睡？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_focal_neuro_stroke
+        finding_concept_id: rf:focal_neuro_deficit_fast
+        question: { en: "Is there any sudden facial droop, weakness or numbness on one side, slurred speech, or a recent fall/head knock (especially if taking blood thinners)?", zh_hk: "請問有沒有突發口眼歪斜、單側手腳無力麻木、說話含糊，或近期跌倒撞傷頭部（尤其正服薄血藥）？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_urinary_retention_delirium
+        finding_concept_id: rf:acute_urinary_retention
+        question: { en: "Is the person having trouble passing urine or lower tummy fullness/pain, or fever?", zh_hk: "請問長者有沒有排尿困難、下腹脹痛或發燒？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_meningism_confusion
+        finding_concept_id: rf:stiff_neck_meningism
+        question: { en: "Is the confusion accompanied by high fever, severe headache, stiff neck, or a seizure?", zh_hk: "請問意識混亂是否伴隨高燒、劇烈頭痛、頸部僵硬或抽筋？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_memory_emergency
+        trigger_condition: { en: "Sudden onset confusion/delirium, focal weakness/slurred speech, head injury on anticoagulants, fever/seizure, or inability to pass urine", zh_hk: "突發意識混亂或異常嗜睡、單側無力或口齒不清、服薄血藥後撞傷頭部、發燒抽筋，或無法排尿" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Sudden new confusion, drowsiness, slurred speech, weakness on one side, fever, inability to pass urine, or confusion after a head knock needs immediate emergency hospital care."
+          zh_hk: "如突然出現意識混亂、異常嗜睡、說話含糊、單側無力、發燒、無法排尿，或撞頭後神志異常，請立即前往急症室。"
+      - id: sn_memory_workup
+        trigger_condition: { en: "Gradual memory decline over weeks to months affecting daily tasks, medications, or safety", zh_hk: "數週至數月漸進性記憶力減退，影響日常生活、服藥或安全" }
+        timeframe_hours: 168
+        escalation_channel: urgent_clinic_callback
+        patient_instruction:
+          en: "Book a dedicated doctor appointment (ideally bringing a family member or carer and all current medicines) to check reversible causes, review medications, and plan support."
+          zh_hk: "請預約醫生作詳細認知評估（建議由家人或照顧者陪同並帶齊所有現用藥物），以排查可逆轉原因及規劃支援。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: frame:weight_loss_anorexia
+    rfe_concept_id: rfe:weight_loss_anorexia
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_sarcopenia, concept_id: cond:sarcopenia_malnutrition, prevalence_note: "Multifactorial geriatric anorexia of ageing, poor dentition, dysphagia, social isolation, frailty" }
+        - { id: p_depression, concept_id: cond:depression, key_discriminators: ["anhedonia, sleep disturbance, bereavement, social withdrawal"] }
+        - { id: p_drugs, concept_id: cond:drug_adverse_effect, key_discriminators: ["polypharmacy nausea/dysgeusia: metformin, GLP-1 RA, digoxin toxicity, donepezil, opioids, antibiotics"] }
+      serious_not_to_be_missed:
+        - { id: s_malignancy, concept_id: cond:malignancy_occult, key_discriminators: ["unintentional >=5% body weight loss in 6m -> GI, lung, haematological, renal, pancreatic, hepatobiliary"] }
+        - { id: s_crc, concept_id: cond:colorectal_cancer, key_discriminators: ["iron-deficiency anaemia, change in bowel habit, rectal bleeding"] }
+        - { id: s_tb, concept_id: cond:pulmonary_tb, key_discriminators: ["HK/East Asia high endemicity: chronic cough >=2-3w, night sweats, low-grade fever, haemoptysis"] }
+        - { id: s_hiv, concept_id: cond:hiv, key_discriminators: ["recurrent opportunistic infections, lymphadenopathy, chronic diarrhoea"] }
+        - { id: s_diabetes, concept_id: cond:t1dm, key_discriminators: ["rapid weight loss + polyuria + polydipsia -> check glucose/HbA1c/ketones"] }
+      pitfalls_often_missed:
+        - { id: o_hyperthyroid, concept_id: cond:hyperthyroidism, key_discriminators: ["apathetic hyperthyroidism in older adults: weight loss + AF/fatigue without classic agitation — check TSH"] }
+        - { id: o_coeliac, concept_id: cond:coeliac_disease, key_discriminators: ["malabsorption, iron/folate/vitamin D deficiency, bloating"] }
+        - { id: o_hf_cachexia, concept_id: cond:heart_failure, key_discriminators: ["cardiac cachexia, early satiety from hepatic congestion, dyspnoea"] }
+      masquerades:
+        - { id: mq_malignancy, tier: primary, masquerade: malignancy, concept_id: cond:malignancy_occult, clue_prompt: { en: "Unintentional >=5% weight loss over 6 months warrants systematic baseline screen (CBC, RFT, LFT, Ca, CRP/ESR, TSH, HbA1c, CXR, age-appropriate cancer screening)." } }
+        - { id: mq_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hyperthyroidism, clue_prompt: { en: "Always check TSH — elderly thyrotoxicosis often presents solely as weight loss or atrial fibrillation." } }
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Review appetite-suppressing or nausea-inducing medicines and check phosphate/magnesium if refeeding risk." } }
+        - { id: mq_depression, tier: primary, masquerade: depression, concept_id: cond:depression, clue_prompt: { en: "Depression and bereavement are leading reversible causes of geriatric weight loss." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore unvoiced cancer fear, difficulty chewing/swallowing, financial food insecurity, cooking ability, and carer support." }
+    positive_exclusions:
+      - id: ex_unintentional_wt_loss
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Have you lost more than 5% of your usual body weight over the past 6 months without trying, or noticed night sweats or persistent fever?", zh_hk: "請問你在過去6個月內有否無故減輕超過原有體重的5%，或伴隨夜間盜汗及持續發燒？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_dysphagia_wt
+        finding_concept_id: rf:dysphagia_progressive
+        question: { en: "Are you having any difficulty swallowing food or liquids, food sticking in your throat/chest, or persistent vomiting?", zh_hk: "請問你有沒有吞嚥食物或飲水困難、吞嚥時感到食物卡住，或持續嘔吐？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_haemoptysis_wt
+        finding_concept_id: rf:haemoptysis
+        question: { en: "Have you been coughing up blood or had a persistent cough lasting more than 3 weeks?", zh_hk: "請問你有沒有咳血，或持續咳嗽超過3星期？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_gi_bleed_wt
+        finding_concept_id: rf:gi_bleeding
+        question: { en: "Have you noticed black tarry stools, blood in your stools, vomiting blood, or yellowing of your eyes/skin?", zh_hk: "請問你有沒有排出黑色柏油狀大便、大便帶血、吐血，或皮膚眼白發黃？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_wt_emergency
+        trigger_condition: { en: "Vomiting blood, black tarry stools, coughing blood, sudden severe breathlessness, chest pain, or acute confusion/collapse", zh_hk: "吐血、黑便、咳血、突發嚴重氣促、胸痛或急性神志混亂昏厥" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency hospital care if you vomit blood, pass black tarry stools, cough up blood, develop severe breathlessness, or feel faint or confused."
+          zh_hk: "如出現吐血、黑色柏油狀大便、咳血、嚴重氣促，或感到頭暈昏厥及意識混亂，請立即前往急症室。"
+      - id: sn_wt_urgent_gp
+        trigger_condition: { en: "Unexplained >=5% weight loss, trouble swallowing, persistent cough >3 weeks, yellowing of skin/eyes, or new bowel habit change", zh_hk: "無故消瘦超過5%體重、吞嚥困難、咳嗽逾3週、眼白皮膚發黃或大便習慣持續改變" }
+        timeframe_hours: 72
+        escalation_channel: urgent_clinic_callback
+        patient_instruction:
+          en: "Arrange a prompt in-person doctor assessment within a few days for physical examination and targeted blood tests/imaging to investigate unexplained weight loss."
+          zh_hk: "如出現無故消瘦、吞嚥困難、久咳或眼黃等情況，請於數日內預約醫生親身檢查並安排針對性化驗及造影。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: frame:palliative_symptom_control
+    rfe_concept_id: rfe:palliative_symptom_control
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_cancer_pain, concept_id: cond:chronic_cancer_pain, prevalence_note: "Assess nociceptive vs neuropathic pain, baseline + breakthrough opioid requirement, and bowel regimen" }
+        - { id: p_pall_dyspnoea, concept_id: cond:palliative_dyspnoea, key_discriminators: ["handheld fan/positioning + low-dose opioid/palliative support after reversible causes addressed"] }
+        - { id: p_secretions, concept_id: cond:terminal_secretions, key_discriminators: ["late/terminal noisy pharyngeal secretions — repositioning, reduce excess fluids, glycopyrrolate, reassure family"] }
+        - { id: p_carer_burnout, concept_id: cond:caregiver_burnout, key_discriminators: ["exhausted family carer — screen every palliative encounter & mobilise home nursing/respite"] }
+      serious_not_to_be_missed:
+        - { id: s_mscc, concept_id: cond:malignant_spinal_cord_compression, key_discriminators: ["new/worsening spinal pain + leg weakness/sensory level/bladder-bowel loss -> EMERGENCY MRI + dexamethasone 16 mg"] }
+        - { id: s_aur, concept_id: cond:acute_urinary_retention, key_discriminators: ["opioid/anticholinergic/pelvic tumour causing painful retention or terminal agitation"] }
+        - { id: s_delirium_tox, concept_id: cond:delirium, key_discriminators: ["reversible hypercalcaemia (check Ca+albumin), opioid neurotoxicity (eGFR <30 / myoclonus), hypoxia, sepsis, urinary retention"] }
+        - { id: s_pe, concept_id: cond:pe, key_discriminators: ["acute worsening dyspnoea/pleuritic pain in cancer patient — align investigation with goals of care"] }
+      pitfalls_often_missed:
+        - { id: o_opioid_constip, concept_id: cond:drug_adverse_effect, key_discriminators: ["opioid-induced constipation (always co-prescribe senna +/- macrogol) or morphine M3G/M6G toxicity in renal decline"] }
+        - { id: o_pressure, concept_id: cond:pressure_injury, key_discriminators: ["immobility/cachexia -> inspect sacrum/heels, pressure-relieving mattress, barrier care"] }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Screen for opioid neurotoxicity (myoclonus, hallucinations, sedation, pinpoint pupils -> check eGFR & rotate off morphine if eGFR <30)." } }
+        - { id: mq_spine, tier: primary, masquerade: spinal_dysfunction, concept_id: cond:malignant_spinal_cord_compression, clue_prompt: { en: "Never attribute new back pain with leg weakness in a cancer patient to simple muscle strain — exclude MSCC urgently." } }
+        - { id: mq_depression, tier: primary, masquerade: depression, concept_id: cond:depression, clue_prompt: { en: "Assess existential distress, anxiety, depression, and spiritual needs alongside physical symptom control." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Review Advance Care Plan / Advance Directive (DNACPR, preferred place of care/death), verify anticipatory subcutaneous medicines & after-hours palliative contact numbers, and check carer coping." }
+    positive_exclusions:
+      - id: ex_mscc_pall
+        finding_concept_id: rf:spinal_cord_compression_malignant
+        question: { en: "Is there new or worsening back pain accompanied by leg weakness, numbness, unsteadiness, or new trouble controlling the bladder or bowels?", zh_hk: "請問患者有沒有新發或加劇的背痛，並伴隨下肢無力、麻木、步履不穩或大小便控制異常？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_aur_pall
+        finding_concept_id: rf:acute_urinary_retention
+        question: { en: "Is the person unable to pass urine with a painful or distended lower tummy?", zh_hk: "請問患者有沒有無法排尿並伴隨下腹脹痛？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_delirium_tox_pall
+        finding_concept_id: rf:acute_delirium_fluctuating
+        question: { en: "Has there been sudden new confusion, agitation, hallucinations, muscle twitching (myoclonus), or unusual heavy drowsiness?", zh_hk: "請問患者有沒有突然出現神志混亂、躁動、幻覺、肌肉抽搐或異常深睡叫唔醒？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_dyspnoea_pall
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Is there severe distressing breathlessness at rest, choking, or uncontrollable pain?", zh_hk: "請問患者有沒有靜止時極度痛苦的呼吸困難、嗆咳窒息感或無法忍受的劇痛？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_pall_emergency
+        trigger_condition: { en: "Suspected spinal cord compression (back pain + leg weakness/incontinence), acute urinary retention, sudden airway distress/haemorrhage, or opioid overdose signs (slow breathing/unresponsive)", zh_hk: "懷疑惡性脊髓壓迫（背痛伴下肢無力或失禁）、急性尿瀦留、突發呼吸窒息或大量出血，或鴉片類藥物過量（呼吸緩慢叫唔醒）" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Contact the palliative care emergency line immediately—or seek emergency hospital care in line with the patient's Advance Care Plan—if there is new leg weakness with back pain, inability to pass urine, severe breathing distress, heavy bleeding, or dangerously slow breathing."
+          zh_hk: "如出現背痛伴下肢無力或失禁、無法排尿、嚴重呼吸困難、大量出血或呼吸異常緩慢，請立即聯絡紓緩治療緊急熱線，或按預設醫療指示前往急症室。"
+      - id: sn_pall_review
+        trigger_condition: { en: "Needing >3 breakthrough pain doses in 24h, persistent vomiting/constipation >3 days, new confusion/muscle twitching, noisy secretions, or carer exhaustion", zh_hk: "24小時內需用超過3次突破性止痛藥、持續嘔吐或便秘超過3天、新發混亂或肌肉抽搐、痰鳴音或照顧者難以應付" }
+        timeframe_hours: 24
+        escalation_channel: same_day_gp
+        patient_instruction:
+          en: "Contact your doctor or palliative care nurse the same day if pain needs more than 3 extra rescue doses in 24 hours, constipation or nausea persists, or carers need urgent support."
+          zh_hk: "如24小時內需要超過3次突破性止痛藥、持續嘔吐或便秘，或照顧者感到難以應付，請即日聯絡醫生或紓緩科護士調整方案及支援。"
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+# ===========================================================================
+# OBSERVATION RULES (5) — SI LOINC + UCUM + Reference Intervals + Bands + Templates
+# ===========================================================================
+observation_rules:
+  - id: obs_rule:magnesium
+    observation_concept_id: obs:magnesium
+    canonical_ucum: "mmol/L"
+    display_ucum: "mmol/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 0.70, high: 1.05, priority: 0 }
+    severity_bands:
+      significant: { lt: 0.65, gt: 1.15 }
+      urgent: { lt: 0.50, gt: 1.50 }
+      critical: { lt: 0.40, gt: 2.00 }
+    direction_templates:
+      L:
+        working_problem: { en: "hypomagnesaemia", zh_hk: "低血鎂症" }
+        plan_template:
+          en: "Check ECG (QTc prolongation / torsades risk), K+, and Ca2+ (refractory hypokalaemia/hypocalcaemia will not correct until Mg is replaced). Review long-term PPIs, loop/thiazide diuretics, alcohol, malabsorption, and refeeding syndrome; urgent IV magnesium if <0.50 mmol/L or symptomatic."
+        relevant_med_class_ids: ["drug_class:ppi", "drug_class:diuretic"]
+      H:
+        working_problem: { en: "hypermagnesaemia", zh_hk: "高血鎂症" }
+        plan_template:
+          en: "Review eGFR/CKD and stop magnesium-containing laxatives/antacids or supplements immediately; urgent ED assessment if >=1.50 mmol/L or hyporeflexia/bradycardia/hypotension."
+        relevant_med_class_ids: ["drug_class:laxative"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: obs_rule:phosphate
+    observation_concept_id: obs:phosphate
+    canonical_ucum: "mmol/L"
+    display_ucum: "mmol/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 0.80, high: 1.50, priority: 0 }
+      - { id: ri_paed_infant, low: 1.30, high: 2.25, priority: 10, when: { fact: age_years, op: lt, value: 2 }, source_note: "Physiologically higher serum phosphate in infants/toddlers" }
+      - { id: ri_paed_child, low: 1.10, high: 1.85, priority: 5, when: { fact: age_years, op: lt, value: 12 }, source_note: "Physiologically higher serum phosphate in growing children" }
+    severity_bands:
+      significant: { lt: 0.70, gt: 1.60 }
+      urgent: { lt: 0.50, gt: 2.10 }
+      critical: { lt: 0.32, gt: 2.60 }
+    trend_rules:
+      - id: tr_phosphate_refeeding_drop
+        direction: drop
+        delta_abs: 0.30
+        window_days: 7
+        urgency_floor: 3
+        clinician_rationale:
+          en: "Rapid drop in serum phosphate (>=0.30 mmol/L within 7 days) in a malnourished, frail elderly, or palliative patient signals acute refeeding syndrome — urgent electrolyte replacement (PO4, K+, Mg2+), thiamine, and slowed caloric advancement required."
+    direction_templates:
+      L:
+        working_problem: { en: "hypophosphataemia / refeeding syndrome risk", zh_hk: "低血磷症／再餵養綜合症風險" }
+        plan_template:
+          en: "Screen urgently for refeeding syndrome in malnutrition/anorexia/alcohol/palliative care (check K+, Mg2+, give thiamine), vitamin D deficiency, hyperparathyroidism, or IV iron (ferric carboxymaltose). Values <0.32-0.50 mmol/L risk respiratory muscle weakness, rhabdomyolysis, and arrhythmia — arrange urgent hospital replacement."
+      H:
+        working_problem: { en: "hyperphosphataemia", zh_hk: "高血磷症" }
+        plan_template:
+          en: "Check eGFR/creatinine (CKD-MBD), calcium, PTH, and exclude haemolysed specimen or tumour lysis syndrome in active malignancy."
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: obs_rule:reticulocytes
+    observation_concept_id: obs:reticulocytes
+    canonical_ucum: "%"
+    display_ucum: "%"
+    reference_intervals:
+      - { id: ri_adult_default, low: 0.5, high: 2.0, priority: 0 }
+      - { id: ri_neonate, low: 2.0, high: 6.0, priority: 10, when: { fact: age_months, op: lt, value: 1 }, source_note: "Physiological neonatal reticulocytosis in first week declining by week 2-4" }
+    severity_bands:
+      significant: { lt: 0.4, gt: 3.0 }
+      urgent: { lt: 0.2, gt: 6.0 }
+      critical: { gt: 10.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "reticulocytosis (haemolysis or acute blood loss response)", zh_hk: "網織紅血球偏高（溶血或急性失血骨髓反應）" }
+        plan_template:
+          en: "Evaluate acute haemolysis (check blood film, LDH, haptoglobin, indirect bilirubin, DAT/Coombs, and G6PD status especially in HK/East Asian neonates or after oxidant drug exposure) versus acute GI/occult blood loss or active recovery from iron/B12 replacement."
+      L:
+        working_problem: { en: "reticulocytopenia (hypoproliferative marrow response)", zh_hk: "網織紅血球偏低（骨髓造血反應不足）" }
+        plan_template:
+          en: "In an anaemic patient, inappropriately low reticulocytes indicate marrow hypoproliferation: check ferritin, B12, folate, TSH, eGFR/EPO, drug suppression (methotrexate), Parvovirus B19 transient aplastic crisis, or haematology review for marrow failure."
+        relevant_med_class_ids: ["drug_class:dmard", "drug_class:haematinic"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: obs_rule:bilirubin_conjugated
+    observation_concept_id: obs:bilirubin_conjugated
+    canonical_ucum: "umol/L"
+    display_ucum: "umol/L"
+    reference_intervals:
+      - { id: ri_adult_default, low: 0.0, high: 5.0, priority: 0 }
+      - { id: ri_neonate, low: 0.0, high: 17.0, priority: 10, when: { fact: age_months, op: lt, value: 3 }, source_note: "Neonatal conjugated hyperbilirubinaemia threshold >=25 umol/L (or >20% of total bilirubin) mandates urgent biliary atresia exclusion" }
+    severity_bands:
+      significant: { gt: 7.0 }
+      urgent: { ge: 25.0 }
+      critical: { ge: 85.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "conjugated hyperbilirubinaemia (cholestasis / biliary obstruction)", zh_hk: "直接（結合）膽紅素升高（膽汁淤積／膽道阻塞）" }
+        plan_template:
+          en: "IN INFANTS (>=14 days prolonged jaundice): conjugated bilirubin >=25 umol/L (or >20% of total) is an URGENT red flag for biliary atresia — refer immediately to paediatric hepatology/surgery (Kasai portoenterostomy outcomes depend on operation <60 days of age). IN ADULTS: evaluate obstructive biliary/pancreatic malignancy, choledocholithiasis, or DILI with LFTs (ALP/GGT) and urgent RUQ ultrasound."
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: obs_rule:tsh_neonatal
+    observation_concept_id: obs:tsh_neonatal
+    canonical_ucum: "m[IU]/L"
+    display_ucum: "m[IU]/L"
+    reference_intervals:
+      - { id: ri_neonatal_screen, low: 0.0, high: 10.0, priority: 0, source_note: "Newborn screening DBS/cord-blood TSH cut-off (jurisdiction-specific recall thresholds typically 10-15 mIU/L)" }
+    severity_bands:
+      significant: { ge: 10.0 }
+      urgent: { ge: 20.0 }
+      critical: { ge: 40.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "elevated neonatal screening TSH (suspected congenital hypothyroidism)", zh_hk: "新生兒篩查促甲狀腺激素偏高（懷疑先天性甲狀腺功能低下）" }
+        plan_template:
+          en: "URGENT neonatal recall: order immediate confirmatory venous serum TSH and free T4 and contact paediatric endocrinology same day. Early levothyroxine initiation (ideally within first 2 weeks of life) prevents irreversible neurodevelopmental impairment."
+        relevant_med_class_ids: ["drug_class:thyroid_hormone"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+# ===========================================================================
+# PATHWAY POINTERS (3) — Static Ontology -> Temporal Pathways Boundary
+# Strict Asymmetric Authority: autonomy_ceiling <= L1_propose_only
+# ===========================================================================
+pointers:
+  - id: ptr:paeds_acute_emergency
+    trigger_concepts:
+      - "rfe:child_rash_fever"
+      - "rfe:child_vomiting_diarrhoea"
+      - "rf:kawasaki_5d_fever_mucositis"
+      - "rf:intussusception_currant_jelly_bilious"
+      - "rf:severe_paed_dehydration_sunken"
+      - "rf:neonatal_jaundice_first_24h"
+    trigger_edges:
+      - "edge:kawasaki_5d_fever_ivig_emergency"
+      - "edge:intussusception_surgical_emergency"
+      - "edge:severe_paed_dehydration_ed"
+      - "edge:neonatal_jaundice_24h_emergency"
+      - "edge:parvovirus_b19_pregnancy_hydrops"
+    trigger_observations:
+      - "obs_rule:bilirubin_conjugated"
+      - "obs_rule:tsh_neonatal"
+      - "obs_rule:reticulocytes"
+    target_kind: protocol_yaml
+    target_ref: "protocols/paediatric_acute_emergency_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_months", "age_years", "obs_values", "g6pd_deficient", "pregnant"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: ptr:geriatrics_stopp_start_falls_review
+    trigger_concepts:
+      - "rfe:memory_loss_confusion"
+      - "rfe:weight_loss_anorexia"
+      - "rf:acute_urinary_retention"
+      - "cond:parkinsons_disease"
+      - "cond:sarcopenia_malnutrition"
+    trigger_edges:
+      - "edge:oxybutynin_elderly_stopp_anticholinergic"
+      - "edge:haloperidol_parkinsons_ci"
+      - "edge:metoclopramide_parkinsons_ci"
+      - "edge:donepezil_beta_blocker_bradycardia"
+      - "edge:acute_urinary_retention_ed"
+    trigger_observations:
+      - "obs_rule:magnesium"
+      - "obs_rule:phosphate"
+    target_kind: journey_module
+    target_ref: "journeys/geriatrics_stopp_start_review_v1"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "attest_all_clear"]
+    required_context_slots: ["age_years", "on_meds", "egfr_ml_min", "obs_values"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
+
+  - id: ptr:palliative_care_escalation
+    trigger_concepts:
+      - "rfe:palliative_symptom_control"
+      - "rf:spinal_cord_compression_malignant"
+      - "cond:chronic_cancer_pain"
+      - "cond:palliative_dyspnoea"
+      - "cond:terminal_secretions"
+      - "cond:caregiver_burnout"
+    trigger_edges:
+      - "edge:malignant_spinal_cord_compression_ed"
+      - "edge:strong_opioid_benzo_respiratory_block"
+      - "edge:morphine_ckd_egfr30_neurotoxicity"
+    target_kind: protocol_yaml
+    target_ref: "protocols/palliative_symptom_escalation_v1.yaml"
+    target_version_constraint: ">=1.0.0,<2.0.0"
+    autonomy_ceiling: L1_propose_only
+    allowed_port_actions: ["open_item", "raise_urgency", "alarm"]
+    required_context_slots: ["age_years", "egfr_ml_min", "on_meds", "jurisdiction"]
+    provenance: { author: "ontology_pod_w2_1", review_status: "draft" }
