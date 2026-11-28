@@ -1,0 +1,55 @@
+pack_id: ec_clinic_1
+extends: default
+version: "1.0.0"
+safety_floor: immutable
+description: >
+  EC Healthcare Phase 0 discovery clinic overlay. Strictly additive on top of knowledge/default/:
+  adds local HK GP drug aliases, clinician shorthand glossary, and HK corporate-plan insurer phrases.
+
+drug_aliases:
+  # Local HK Cantonese / clinic-formulary brand aliases (strictly additive)
+  保栓通: clopidogrel
+  立普妥片: atorvastatin
+  冠脂妥片: rosuvastatin
+  倍他樂克: metoprolol
+  betaloc: metoprolol
+  洛汀新: lisinopril
+  代文: valsartan
+  美卡素: telmisartan
+  糖適平: gliclazide
+  達美康: gliclazide
+  捷諾維: sitagliptin
+  優甲樂: levothyroxine
+  耐信: esomeprazole
+  洛賽克: omeprazole
+  安康信: etoricoxib
+  西樂葆: celecoxib
+  celebrex: celecoxib
+  樂瑞卡: pregabalin
+
+# Local HK GP clinician shorthand (injecting this into an extraction Task changes Task.fingerprint())
+shorthand_glossary:
+  "F/U": "follow-up visit"
+  "c/o": "complains of"
+  "R/V": "review appointment"
+  "KIV": "keep in view (conditional unless specified)"
+  "NKA": "no known allergy"
+  "NKDA": "no known drug allergy"
+  "B/L": "bilateral"
+  "TC": "telephone consultation or to call"
+  "f/u lab": "repeat laboratory test"
+  "CDCC": "Chronic Disease Co-Care pilot programme review"
+
+# Strictly tightening or clinician-signed monitoring overrides (empty until EC Lead GP sign-off)
+monitoring_overrides: {}
+
+insurer_patterns:
+  ask:
+    - "(?i)(bupa|aia|blue cross|cigna|axa|prudential|manulife).{0,40}(claim form|medical report|attending physician|pre-?authori[sz]ation)"
+    - "(?i)attending physician'?s? statement"
+    - "主診醫生報告"
+    - "醫療保險索償表"
+  not_ask: []
+  consent: []
+  consent_missing: []
+  consent_given: []

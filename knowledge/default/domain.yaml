@@ -1,0 +1,220 @@
+pack_id: default
+version: "1.0.0"
+safety_floor: immutable
+description: >
+  Product baseline clinic domain knowledge. Unifies hardcoded drug aliases, classes,
+  monitoring defaults, and insurer paperwork patterns from backend/case/model.py,
+  backend/journeys/medication/formulary.py, and backend/journeys/insurance/__init__.py.
+
+# Unified English brand + Traditional Chinese / Cantonese alias table -> canonical generic
+drug_aliases:
+  # Anticoagulants & antiplatelets
+  marevan: warfarin
+  coumadin: warfarin
+  華法林: warfarin
+  薄血丸: warfarin
+  eliquis: apixaban
+  阿哌沙班: apixaban
+  xarelto: rivaroxaban
+  利伐沙班: rivaroxaban
+  pradaxa: dabigatran
+  達比加群: dabigatran
+  plavix: clopidogrel
+  氯吡格雷: clopidogrel
+  aspirin: aspirin
+  阿士匹靈: aspirin
+  阿司匹林: aspirin
+  亞士匹靈: aspirin
+  # Lipids (statins)
+  lipitor: atorvastatin
+  立普妥: atorvastatin
+  阿托伐他汀: atorvastatin
+  zocor: simvastatin
+  舒降之: simvastatin
+  辛伐他汀: simvastatin
+  crestor: rosuvastatin
+  冠脂妥: rosuvastatin
+  瑞舒伐他汀: rosuvastatin
+  # Antihypertensives
+  norvasc: amlodipine
+  脈優: amlodipine
+  氨氯地平: amlodipine
+  cozaar: losartan
+  氯沙坦: losartan
+  diovan: valsartan
+  micardis: telmisartan
+  coversyl: perindopril
+  培哚普利: perindopril
+  zestril: lisinopril
+  賴諾普利: lisinopril
+  concor: bisoprolol
+  # Diabetes
+  glucophage: metformin
+  二甲雙胍: metformin
+  甲福明: metformin
+  diamicron: gliclazide
+  jardiance: empagliflozin
+  恩格列淨: empagliflozin
+  forxiga: dapagliflozin
+  達格列淨: dapagliflozin
+  januvia: sitagliptin
+  胰島素: insulin
+  # Thyroid & gout
+  synthroid: levothyroxine
+  eltroxin: levothyroxine
+  thyroxine: levothyroxine
+  甲狀腺素: levothyroxine
+  zyloric: allopurinol
+  # Antivirals & antibiotics
+  tamiflu: oseltamivir
+  特敏福: oseltamivir
+  奧司他韋: oseltamivir
+  augmentin: amoxicillin-clavulanate
+  安滅菌: amoxicillin-clavulanate
+  amoxil: amoxicillin
+  阿莫西林: amoxicillin
+  # Analgesics & NSAIDs
+  panadol: paracetamol
+  必理痛: paracetamol
+  撲熱息痛: paracetamol
+  acetaminophen: paracetamol
+  brufen: ibuprofen
+  nurofen: ibuprofen
+  布洛芬: ibuprofen
+  voltaren: diclofenac
+  arcoxia: etoricoxib
+  # Psychotropics, sleep & GI
+  zoloft: sertraline
+  prozac: fluoxetine
+  lexapro: escitalopram
+  valium: diazepam
+  ativan: lorazepam
+  xanax: alprazolam
+  stilnox: zolpidem
+  imovane: zopiclone
+  nexium: esomeprazole
+  losec: omeprazole
+
+drug_classes:
+  anticoagulant: [warfarin, apixaban, rivaroxaban, dabigatran, edoxaban]
+  antiplatelet: [aspirin, clopidogrel, ticagrelor]
+  insulin: [insulin, insulin glargine, insulin aspart, insulin detemir]
+  sulfonylurea: [gliclazide, glipizide, glibenclamide, glimepiride]
+  metformin: [metformin]
+  sglt2: [empagliflozin, dapagliflozin, canagliflozin]
+  dpp4: [sitagliptin, linagliptin, vildagliptin]
+  acei: [lisinopril, enalapril, perindopril, ramipril, captopril]
+  arb: [losartan, valsartan, telmisartan, irbesartan, candesartan]
+  ccb: [amlodipine, nifedipine, felodipine, lercanidipine]
+  beta_blocker: [bisoprolol, metoprolol, atenolol, propranolol, carvedilol]
+  diuretic: [hydrochlorothiazide, indapamide, furosemide, spironolactone]
+  statin: [atorvastatin, simvastatin, rosuvastatin, pravastatin]
+  thyroid: [levothyroxine]
+  xanthine_oxidase: [allopurinol, febuxostat]
+  antibiotic: [amoxicillin, amoxicillin-clavulanate, doxycycline, clarithromycin, cefuroxime, nitrofurantoin, levofloxacin]
+  nsaid: [ibuprofen, naproxen, diclofenac, etoricoxib, celecoxib, mefenamic acid]
+  ssri: [sertraline, fluoxetine, escitalopram, citalopram, paroxetine]
+  benzodiazepine: [diazepam, lorazepam, alprazolam, clonazepam]
+  z_drug: [zolpidem, zopiclone]
+  opioid: [codeine, tramadol, dihydrocodeine]
+  ppi: [omeprazole, esomeprazole, pantoprazole, lansoprazole]
+  antihistamine: [cetirizine, loratadine, fexofenadine, chlorpheniramine]
+
+purpose_terms:
+  blood pressure: [acei, arb, ccb, beta_blocker, diuretic]
+  bp: [acei, arb, ccb, beta_blocker, diuretic]
+  血壓: [acei, arb, ccb, beta_blocker, diuretic]
+  diabetes: [metformin, sulfonylurea, sglt2, dpp4, insulin]
+  sugar: [metformin, sulfonylurea, sglt2, dpp4, insulin]
+  糖尿: [metformin, sulfonylurea, sglt2, dpp4, insulin]
+  血糖: [metformin, sulfonylurea, sglt2, dpp4, insulin]
+  cholesterol: [statin]
+  膽固醇: [statin]
+  heart: [beta_blocker, antiplatelet, ccb]
+  心臟: [beta_blocker, antiplatelet, ccb]
+  blood thinner: [anticoagulant, antiplatelet]
+  薄血: [anticoagulant, antiplatelet]
+  thyroid: [thyroid]
+  甲狀腺: [thyroid]
+  gout: [xanthine_oxidase]
+  痛風: [xanthine_oxidase]
+  sleeping: [benzodiazepine, z_drug]
+  sleep: [benzodiazepine, z_drug]
+  安眠藥: [benzodiazepine, z_drug]
+  瞓覺: [benzodiazepine, z_drug]
+  stomach: [ppi]
+  胃藥: [ppi]
+  antidepressant: [ssri]
+  抗抑鬱: [ssri]
+  pain: [nsaid, opioid]
+  止痛: [nsaid, opioid]
+  antibiotic: [antibiotic]
+  antibiotics: [antibiotic]
+  抗生素: [antibiotic]
+
+high_risk_classes: [anticoagulant, insulin, sulfonylurea, ssri, xanthine_oxidase, opioid, benzodiazepine, z_drug]
+controlled_classes: [benzodiazepine, z_drug, opioid]
+short_course_classes: [antibiotic]
+no_gap_classes: [anticoagulant, insulin, thyroid, beta_blocker]
+
+# Conservative baseline repeat-prescription monitoring rules (flag, never block).
+# Clinic packs may tighten intervals freely; loosening requires explicit clinician signature.
+monitoring_defaults:
+  metformin:
+    tests: [eGFR, Creatinine]
+    max_days: 365
+  acei:
+    tests: [Creatinine, Potassium, eGFR]
+    max_days: 365
+  arb:
+    tests: [Creatinine, Potassium, eGFR]
+    max_days: 365
+  diuretic:
+    tests: [Sodium, Potassium, Creatinine]
+    max_days: 365
+  sglt2:
+    tests: [eGFR, Creatinine]
+    max_days: 365
+  anticoagulant:
+    tests: [INR]
+    max_days: 42
+  thyroid:
+    tests: [TSH]
+    max_days: 365
+  statin:
+    tests: [LDL cholesterol, ALT]
+    max_days: 450
+
+doac_renal_monitoring:
+  tests: [Creatinine, eGFR]
+  max_days: 365
+
+review_days: 365
+
+# Local clinician shorthand beyond RV n/52 (empty in default so Task.fingerprint() is 1:1 unchanged)
+shorthand_glossary: {}
+
+# Baseline insurer paperwork patterns matching backend/journeys/insurance/__init__.py
+insurer_patterns:
+  ask:
+    - "(?i)please (return|provide|complete|send|furnish|forward|fax|reply|submit|let us have)"
+    - "(?i)kindly (complete|return|provide|send)"
+    - "(?i)we would be grateful if you could"
+    - "(?i)we request"
+    - "(?i)may (be )?resubmit"
+    - "(?i)is (still )?outstanding"
+    - "請於"
+    - "請提供"
+    - "請填"
+    - "請將"
+    - "煩請"
+  not_ask:
+    - "(?i)should any further information be required"
+    - "(?i)no further information is required"
+    - "(?i)for your (information|records) only"
+  consent:
+    - "(?i)consent|authori[sz]ation|授權|同意書"
+  consent_missing:
+    - "(?i)not enclosed|not attached|to follow|forwarded separately|will be (sent|forwarded|provided)|missing|未(有)?附|稍後"
+  consent_given:
+    - "(?i)enclose|attached|herewith|附上|已附"

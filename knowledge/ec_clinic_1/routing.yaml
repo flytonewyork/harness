@@ -1,0 +1,32 @@
+pack_id: ec_clinic_1
+extends: default
+version: "1.0.0"
+safety_floor: immutable
+description: >
+  EC Healthcare Phase 0 discovery routing overlay. Sessional GP cover across multi-site clinics
+  plus bilingual doctor-sent-only recall templates (WhatsApp doorbell safe).
+
+cover_rules:
+  - id: ec_multi_site_sessional_cover
+    condition: "sessional_doctor_not_rostered_within_48h"
+    fallback_role: site_duty_gp
+    escalate_after_hours: 12
+    notes: "EC multi-site sessional doctors cover via site duty GP when next rostered session exceeds urgency window."
+
+role_split:
+  doctor_only_actions: []
+  front_desk_actions:
+    - coordinate_corporate_insurer_desk
+    - confirm_ehealth_consent_status
+
+templates:
+  - id: ec_cdcc_recall_zh
+    channel: whatsapp
+    lang: zh-HK
+    doctor_sent_only: true
+    body: "你好，診所護理團隊聯絡你。醫生希望為你安排定期覆診，請點擊安全連結或致電診所預約合適時段。"
+  - id: ec_corporate_paperwork_ready_en
+    channel: whatsapp
+    lang: en
+    doctor_sent_only: true
+    body: "Hello from the clinic team. Your administrative form request has an update ready at reception. Please tap your secure clinic link or call reception during clinic hours."

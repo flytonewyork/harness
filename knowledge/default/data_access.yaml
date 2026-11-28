@@ -1,0 +1,54 @@
+pack_id: default
+version: "1.0.0"
+safety_floor: immutable
+description: >
+  Product baseline EMR data access profile, lab test synonyms, chart closure markers,
+  and printed patient identifier patterns matching backend/engine/agentic.py,
+  backend/journeys/insurance/__init__.py, and backend/engine/verify.py.
+
+emr_profile:
+  vendor: generic_hk_cms
+  structured_labs: true
+  attachment_labs: true
+  ehealth_pull_available: false
+  scan_lag_hours: 24
+  courier_lag_hours: 48
+  notes: "Baseline Hong Kong private GP clinic CMS profile."
+
+# Exact 1:1 match with backend/engine/agentic.py:TEST_WORDS
+lab_test_synonyms:
+  rft: [Creatinine, Potassium, Sodium, Urea, eGFR]
+  renal: [Creatinine, eGFR]
+  "k+": [Potassium]
+  potassium: [Potassium]
+  egfr: [eGFR]
+  creatinine: [Creatinine]
+  hba1c: [HbA1c]
+  a1c: [HbA1c]
+  glucose: [Glucose]
+  lipid: [cholesterol, Triglycerides]
+  cholesterol: [cholesterol]
+  lft: [ALT, AST, ALP]
+  liver: [ALT, AST]
+  cbc: [Haemoglobin]
+  blood count: [Haemoglobin]
+  haemoglobin: [Haemoglobin]
+  inr: [INR]
+
+# Exact 1:1 match with backend/journeys/insurance/__init__.py:DONE_WORDS
+closure_markers:
+  - "claim form"
+  - "Claim form"
+  - "pre-authorisation"
+  - "Pre-authorisation"
+  - "medical report"
+  - "Medical report"
+  - "Part B"
+  - "insurer"
+  - "Insurer"
+
+# Exact 1:1 match with backend/engine/verify.py:_NAME_PATTERNS
+document_id_patterns:
+  - "(?:Name|Patient|Participant|Re)\\s*:\\s*([A-Z][A-Z'-]+(?: [A-Z][A-Z'-]+)*),\\s*([A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*)*)"
+  - "Patient:\\s*([A-Z][a-z][A-Za-z'-]*(?: [A-Z][a-z][A-Za-z'-]*)*) ([A-Z][A-Z'-]+)\\s*\\("
+  - "\\bfor ([A-Z][A-Z'-]+) ([A-Z][a-z][A-Za-z'-]*(?: [A-Z][a-z][A-Za-z'-]*)*)\\b"
