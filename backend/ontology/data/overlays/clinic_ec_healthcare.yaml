@@ -1,0 +1,25 @@
+# 3rd-Tier Clinic Overlay Example: EC Healthcare (extends jurisdiction:hk)
+# Demonstrates zero-duplication clinic customization on top of Core -> HK.
+
+overlay_id: "clinic:ec_healthcare"
+layer: "clinic"
+extends: "jurisdiction:hk"
+jurisdiction: "HK"
+
+edge_patches:
+  edge:raas_monitored_by_rft:
+    monitoring_spec:
+      initiation_due_days: 10
+      grace_days: 7
+    clinician_action_prompt:
+      en: "EC Healthcare protocol: check RFT (Cr/eGFR/K+) at day 10 post-ACEi/ARB initiation via clinic phlebotomy bay."
+
+  edge:ida_gi_malignancy_endoscopy:
+    clinician_action_prompt:
+      en: "EC Healthcare GI fast-track: propose internal GI specialist OGD/colonoscopy cross-referral alongside iron workup."
+
+provenance:
+  author: "ontology_pod_stage1"
+  review_status: "draft"
+  jurisdiction_scope: "clinic"
+  notes: "Thin clinic-specific overlay demonstrating 3-tier Core -> HK -> Clinic inheritance."

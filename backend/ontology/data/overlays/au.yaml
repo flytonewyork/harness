@@ -1,0 +1,114 @@
+# Australia Jurisdiction Overlay (Minimal Toggle Diff over Shared Universal Core)
+# Authorities: RACGP Curriculum 7th Ed & Red Book 10th Ed (2024/25), Therapeutic Guidelines (eTG),
+# Australian Medicines Handbook (AMH), TGA SUSMP Poisons Standard, PBS / MBS.
+
+overlay_id: "jurisdiction:au"
+layer: "jurisdiction"
+extends: "core"
+jurisdiction: "AU"
+
+defaults:
+  emergency_number: "000"
+  emergency_dept_label:
+    en: "Public Hospital Emergency Department (000)"
+    en_au: "Emergency Department (000)"
+  crisis_hotlines:
+    lifeline_24h: "13 11 14"
+    suicide_call_back: "1300 659 467"
+    yarn_first_nations: "13 92 76"
+    kids_helpline: "1800 55 1800"
+  poisons_hotline: "13 11 26 (Poisons Information Centre)"
+  default_locale: "en-AU"
+  required_locales: ["en", "en-AU"]
+  banned_claims:
+    - "nothing to worry"
+    - "don't worry"
+    - "all clear"
+    - "looks normal"
+    - "no need to see"
+    - "medical certificate has been issued"
+    - "prescription has been issued"
+  unit_system_overrides:
+    obs:haemoglobin: "g/L"
+
+concept_patches:
+  drug:allopurinol:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+    aliases:
+      en: { $add: ["Progout", "Allosig"] }
+    bindings:
+      jurisdiction_codes:
+        au_pbs: { code: "2600N", display: "Allopurinol 100 mg tablet (PBS General)" }
+
+  drug:codeine:
+    drug_facet:
+      schedule: "AU_SUSMP_S8"
+      telehealth_blocked: true
+      dosing_pearl:
+        en: "AU SUSMP (since Feb 2018): All codeine is Rx-only — compounded analgesics are S4; single-ingredient codeine is S8 Controlled Drug (state RTPM e.g. SafeScript/QScript)."
+
+  drug:amoxicillin_clavulanate:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU eTG Antibiotic: Mild adult CAP first-line is amoxicillin 1 g TDS (or doxycycline if atypical/penicillin-allergic); reserve amoxicillin-clavulanate for comorbidities or aspiration."
+
+  drug:oseltamivir:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU: S4 Prescription Only (private script; not PBS general benefit)."
+
+  drug:ibuprofen:
+    drug_facet:
+      schedule: "AU_SUSMP_S2"
+
+  drug:salbutamol:
+    drug_facet:
+      schedule: "AU_SUSMP_S3"
+      dosing_pearl:
+        en: "AU SUSMP S3 (Pharmacist Only OTC for diagnosed asthma). Australian Asthma Handbook v3.0 (Sep 2025): ICS-containing therapy required at every adult/adolescent step — no SABA-only management."
+
+  drug:warfarin:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU AMH: Coumadin and Marevan are NOT bioequivalent interchangeable brands — keep brand consistent."
+
+  drug:empagliflozin:
+    drug_facet:
+      schedule: "AU_SUSMP_S4"
+      dosing_pearl:
+        en: "AU PBS: Authority Required (Streamlined) for T2DM/CKD/HF criteria."
+
+observation_patches:
+  obs_rule:ferritin:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_coeliac_ida
+          clinician_pearl:
+            en: "AU RACGP / eTG (~1.2-1.5% population prevalence): Screen anti-tTG IgA + Total IgA for coeliac disease in unexplained IDA or chronic fatigue (patient MUST remain on gluten-containing diet >=6 weeks before testing)."
+        - id: pearl_au_haemochromatosis
+          clinician_pearl:
+            en: "AU Northern European ancestry (~1:200 HFE C282Y homozygote): If ferritin >300 (M) / >200 (F) ug/L AND fasting TSAT >45%, order HFE genotyping."
+
+  obs_rule:egfr:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_ckd_first_nations
+          clinician_pearl:
+            en: "AU Kidney Health Handbook (5th Ed, 2024): Annual eGFR + uACR screening from age 18y for Aboriginal & Torres Strait Islander adults, or any DM/HTN/CVD."
+
+  obs_rule:hba1c:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_au_auscvdrisk_dm
+          clinician_pearl:
+            en: "AU RACGP Red Book 10th Ed: Use 2023 AusCVDRisk from age 35-79y in T2DM (30-79y First Nations); register on NDSS and consider MBS GPCCMP/CDM."
+
+provenance:
+  author: "ontology_pod_stage1"
+  review_status: "draft"
+  jurisdiction_scope: "AU"
+  notes: "Minimal Australia toggle overlay over shared universal primary care core."

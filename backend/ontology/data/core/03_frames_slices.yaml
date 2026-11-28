@@ -1,0 +1,199 @@
+# Wave 0 + Gold-Standard Vertical Slices 2 & 3:
+# Murtagh PROMPT Frames + openEHR Positive Exclusions + Safety Netting
+
+frames:
+  - id: frame:cough
+    rfe_concept_id: rfe:cough
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_urti, concept_id: cond:urti, prevalence_note: "Most common acute cough <2 weeks" }
+        - { id: p_flu, concept_id: cond:influenza, key_discriminators: ["abrupt fever", "myalgia", "RAT+"] }
+      serious_not_to_be_missed:
+        - { id: s_cap, concept_id: cond:cap, key_discriminators: ["fever + tachypnoea", "crackles", "hypoxia"] }
+        - { id: s_pe, concept_id: cond:pe, key_discriminators: ["pleuritic pain", "dyspnoea", "tachycardia"] }
+        - { id: s_asthma, concept_id: cond:asthma_exacerbation }
+        - { id: s_tb, concept_id: cond:pulmonary_tb, key_discriminators: ["cough >2-3w", "night sweats", "weight loss"] }
+        - { id: s_ca, concept_id: cond:malignancy_occult, key_discriminators: ["haemoptysis", "smoker >3w"] }
+      pitfalls_often_missed:
+        - { id: o_acei, concept_id: cond:drug_adverse_effect, key_discriminators: ["ACEi dry cough — higher in East Asians"] }
+        - { id: o_gord, concept_id: cond:gord }
+      masquerades:
+        - { id: mq_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Check ACE inhibitor use (dry cough)." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore concerns about serious lung disease, smoking cessation readiness, or work/sick-leave stress." }
+    positive_exclusions:
+      - id: ex_dyspnoea
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Are you having any difficulty breathing or shortness of breath at rest?", zh_hk: "請問你靜止時有沒有呼吸困難或氣促？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_chest_pain
+        finding_concept_id: rf:chest_pain_cardiac
+        question: { en: "Are you experiencing any chest pain or chest tightness?", zh_hk: "請問你現時有沒有胸痛或心口翳悶？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_haemoptysis
+        finding_concept_id: rf:haemoptysis
+        question: { en: "Have you coughed up any blood?", zh_hk: "請問你有沒有咳血或痰中帶血？" }
+        urgency_if_present: 3
+        mandatory: true
+    safety_netting:
+      - id: sn_resp_emergency
+        trigger_condition: { en: "Worsening breathlessness, chest pain, confusion, or blue lips", zh_hk: "氣促加劇、胸痛、意識混亂或嘴唇發紫" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "If you develop severe trouble breathing, chest pain, or confusion, seek emergency medical care immediately."
+          zh_hk: "如出現嚴重呼吸困難、胸痛或意識混亂，請立即尋求緊急醫療協助。"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: frame:fever
+    rfe_concept_id: rfe:fever
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_urti, concept_id: cond:urti }
+        - { id: p_flu, concept_id: cond:influenza }
+        - { id: p_uti, concept_id: cond:uti }
+      serious_not_to_be_missed:
+        - { id: s_sepsis, concept_id: cond:sepsis }
+        - { id: s_meningitis, concept_id: cond:meningitis }
+        - { id: s_cap, concept_id: cond:cap }
+      pitfalls_often_missed:
+        - { id: o_tb, concept_id: cond:pulmonary_tb }
+        - { id: o_drug, concept_id: cond:drug_adverse_effect }
+      masquerades:
+        - { id: mq_uti, tier: primary, masquerade: uti, concept_id: cond:uti, clue_prompt: { en: "Consider occult UTI in older adults presenting with fever or confusion." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Check recent travel, immunocompromised medications (e.g. carbimazole/chemo), or caregiver anxiety." }
+    positive_exclusions:
+      - id: ex_confusion
+        finding_concept_id: rf:confusion
+        question: { en: "Have you or your family noticed any new confusion or unusual drowsiness?", zh_hk: "請問你或家人有否察覺新出現的意識混亂或異常嗜睡？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_meningism
+        finding_concept_id: rf:stiff_neck_meningism
+        question: { en: "Do you have a stiff neck, severe headache, or a new rash that does not fade when pressed?", zh_hk: "請問你有沒有頸部僵硬、劇烈頭痛，或按壓不退色的新皮疹？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_dyspnoea
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Are you having any difficulty breathing?", zh_hk: "請問你有沒有呼吸困難？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_sepsis_emergency
+        trigger_condition: { en: "Confusion, stiff neck, non-blanching rash, difficulty breathing, or fever not settling after 48 hours", zh_hk: "意識混亂、頸梗、不退色皮疹、呼吸困難，或發燒持續48小時未退" }
+        timeframe_hours: 48
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "Seek immediate emergency care if you develop confusion, a stiff neck, breathing difficulty, or a rash that does not fade when pressed. Arrange doctor review if fever persists beyond 48 hours."
+          zh_hk: "如出現意識混亂、頸部僵硬、呼吸困難或按壓不退色的皮疹，請立即尋求緊急醫療協助；若發燒持續超過48小時，請聯絡診所安排醫生覆診。"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: frame:chest_pain
+    rfe_concept_id: rfe:chest_pain
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_msk, concept_id: cond:msk_chest_wall_pain }
+        - { id: p_gord, concept_id: cond:gord }
+      serious_not_to_be_missed:
+        - { id: s_acs, concept_id: cond:acs, key_discriminators: ["central crushing/exertional", "arm/jaw radiation", "diaphoresis"] }
+        - { id: s_pe, concept_id: cond:pe }
+        - { id: s_dissection, concept_id: cond:aortic_dissection, key_discriminators: ["sudden tearing pain to back"] }
+      pitfalls_often_missed:
+        - { id: o_atypical_acs, concept_id: cond:acs, key_discriminators: ["atypical/silent ACS in diabetes, elderly, women"] }
+      masquerades:
+        - { id: mq_spine, tier: primary, masquerade: spinal_dysfunction, concept_id: cond:spinal_dysfunction, clue_prompt: { en: "Consider thoracic spinal dysfunction only after vascular/cardiac causes excluded." } }
+        - { id: mq_anaemia, tier: primary, masquerade: anaemia, concept_id: cond:anaemia, clue_prompt: { en: "Severe anaemia can precipitate demand ischaemia / angina." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Ask about recent family cardiac events or acute stress." }
+    positive_exclusions:
+      - id: ex_cardiac_cp
+        finding_concept_id: rf:chest_pain_cardiac
+        question: { en: "Is the pain heavy, crushing, brought on by exertion, or spreading to your arm, jaw, or back?", zh_hk: "請問痛楚是否呈壓迫感、活動時加劇，或放射至手臂、下巴或背部？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_sob
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Are you short of breath or sweating heavily with the pain?", zh_hk: "請問胸痛時有否伴隨氣促或冒冷汗？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_syncope
+        finding_concept_id: rf:syncope
+        question: { en: "Have you felt faint, dizzy, or collapsed?", zh_hk: "請問你有否感到頭暈欲暈或曾經暈倒？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_acs_emergency
+        trigger_condition: { en: "Ongoing chest pain/tightness, arm/jaw/back radiation, sweating, or breathlessness", zh_hk: "持續胸痛或心口壓迫、痛楚放射至手臂／下巴／背部、冒冷汗或氣促" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "If your chest pain is ongoing or worsens, call emergency services immediately — do not drive yourself to hospital."
+          zh_hk: "如胸痛持續或加劇，請立即致電緊急救援服務，切勿自行駕車前往醫院。"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: frame:fatigue
+    rfe_concept_id: rfe:fatigue
+    murtagh_prompt:
+      probability_diagnoses:
+        - { id: p_dep, concept_id: cond:depression }
+        - { id: p_sleep, concept_id: cond:sleep_apnoea_insomnia }
+        - { id: p_urti, concept_id: cond:urti, prevalence_note: "Post-viral fatigue" }
+      serious_not_to_be_missed:
+        - { id: s_ca, concept_id: cond:malignancy_occult }
+        - { id: s_ida, concept_id: cond:iron_deficiency_anaemia }
+        - { id: s_hbv, concept_id: cond:chronic_hbv }
+        - { id: s_hiv, concept_id: cond:hiv }
+        - { id: s_hypo, concept_id: cond:hypothyroidism }
+      pitfalls_often_missed:
+        - { id: o_coeliac, concept_id: cond:coeliac_disease, prevalence_note: "High yield in AU unexplained IDA/fatigue" }
+        - { id: o_haemochr, concept_id: cond:haemochromatosis, prevalence_note: "High yield in AU northern European ancestry" }
+        - { id: o_thal, concept_id: cond:thalassaemia_trait, prevalence_note: "High yield in HK microcytosis (~8-10%)" }
+        - { id: o_drugs, concept_id: cond:drug_adverse_effect }
+      # Complete Murtagh 7 Primary (D3ATSU) + 7 Secondary (C3ABBN) Masquerades
+      masquerades:
+        - { id: mq_p1_depression, tier: primary, masquerade: depression, concept_id: cond:depression, clue_prompt: { en: "Screen PHQ-2/PHQ-9 + active suicidal ideation." } }
+        - { id: mq_p2_diabetes, tier: primary, masquerade: diabetes, concept_id: cond:t2dm, clue_prompt: { en: "Check fasting glucose / HbA1c." } }
+        - { id: mq_p3_drugs, tier: primary, masquerade: drugs, concept_id: cond:drug_adverse_effect, clue_prompt: { en: "Reconcile Rx, OTC, alcohol (AUDIT-C), and TCM/herbs." } }
+        - { id: mq_p4_anaemia, tier: primary, masquerade: anaemia, concept_id: cond:anaemia, clue_prompt: { en: "Order CBC + Ferritin + CRP (+ B12/Folate)." } }
+        - { id: mq_p5_thyroid, tier: primary, masquerade: thyroid_disease, concept_id: cond:hypothyroidism, clue_prompt: { en: "Check TSH (+/- Free T4)." } }
+        - { id: mq_p6_spinal, tier: primary, masquerade: spinal_dysfunction, concept_id: cond:spinal_dysfunction, clue_prompt: { en: "Assess chronic spinal pain disrupting sleep/energy." } }
+        - { id: mq_p7_uti, tier: primary, masquerade: uti, concept_id: cond:uti, clue_prompt: { en: "Consider occult UTI especially in older adults." } }
+        - { id: mq_s1_ckd, tier: secondary, masquerade: ckd, concept_id: cond:ckd, clue_prompt: { en: "Check creatinine / eGFR + uACR." } }
+        - { id: mq_s2_malignancy, tier: secondary, masquerade: malignancy, concept_id: cond:malignancy_occult, clue_prompt: { en: "Screen B-symptoms, GI bleed, age-appropriate cancer checks." } }
+        - { id: mq_s3_ctd, tier: secondary, masquerade: connective_tissue, concept_id: cond:connective_tissue_disease, clue_prompt: { en: "Check CRP/ESR, joint/rash/jaw claudication symptoms." } }
+        - { id: mq_s4_hiv, tier: secondary, masquerade: hiv, concept_id: cond:hiv, clue_prompt: { en: "Consider HIV Ag/Ab combo screening." } }
+        - { id: mq_s5_bacterial, tier: secondary, masquerade: baffling_bacterial, concept_id: cond:pulmonary_tb, clue_prompt: { en: "Consider TB, infective endocarditis, syphilis, or AU Q fever by risk." } }
+        - { id: mq_s6_viral, tier: secondary, masquerade: baffling_viral, concept_id: cond:chronic_hbv, clue_prompt: { en: "Check HBsAg (universal in HK born <=1988), anti-HCV, EBV/Ross River." } }
+        - { id: mq_s7_neuro, tier: secondary, masquerade: neurological_dilemma, concept_id: cond:neurological_dilemma, clue_prompt: { en: "Focused exam for Parkinson's, MS, or myasthenia gravis." } }
+      patient_hidden_agenda_prompts:
+        - { en: "Explore workplace burnout, carer exhaustion, unspoken depression, IPV, or hidden fear of cancer." }
+    positive_exclusions:
+      - id: ex_suicidal
+        finding_concept_id: rf:suicidal_ideation
+        question: { en: "Have you had any thoughts of harming yourself or feeling that life is not worth living?", zh_hk: "請問你最近有沒有想過傷害自己，或覺得生無可戀？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_gi_bleed
+        finding_concept_id: rf:gi_bleeding
+        question: { en: "Have you noticed black tarry stools, blood in your stool, or vomiting blood?", zh_hk: "請問你有否察覺大便呈黑色瀝青狀、大便帶血或吐血？" }
+        urgency_if_present: 4
+        mandatory: true
+      - id: ex_weight_loss
+        finding_concept_id: rf:unintentional_weight_loss
+        question: { en: "Have you lost weight without trying or experienced drenching night sweats?", zh_hk: "請問你有沒有體重無故下降或夜間嚴重盜汗？" }
+        urgency_if_present: 3
+        mandatory: true
+      - id: ex_sob_cp
+        finding_concept_id: rf:dyspnoea_at_rest
+        question: { en: "Have you felt unusually short of breath, faint, or had chest pain?", zh_hk: "請問你有沒有異常氣促、頭暈欲暈或胸痛？" }
+        urgency_if_present: 4
+        mandatory: true
+    safety_netting:
+      - id: sn_fatigue_red_flags
+        trigger_condition: { en: "Chest pain, fainting, severe breathlessness, black stools, or thoughts of self-harm", zh_hk: "胸痛、暈厥、嚴重氣促、黑便或自殘念頭" }
+        escalation_channel: emergency_services
+        patient_instruction:
+          en: "If you experience chest pain, fainting, black stools, severe shortness of breath, or thoughts of harming yourself, seek urgent medical care immediately."
+          zh_hk: "如出現胸痛、暈倒、黑便、嚴重氣促或傷害自己的念頭，請立即尋求緊急醫療協助。"
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }

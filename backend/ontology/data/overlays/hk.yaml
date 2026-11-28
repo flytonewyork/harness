@@ -1,0 +1,128 @@
+# Hong Kong SAR Jurisdiction Overlay (Minimal Toggle Diff over Shared Universal Core)
+# Authorities: HKCFP / HKFM, HK PHCC Reference Frameworks, CHP IMPACT 6th Ed (2025),
+# Pharmacy & Poisons Ordinance (Cap. 138), Antibiotics Ordinance (Cap. 137), Dangerous Drugs (Cap. 134).
+
+overlay_id: "jurisdiction:hk"
+layer: "jurisdiction"
+extends: "core"
+jurisdiction: "HK"
+
+defaults:
+  emergency_number: "999"
+  emergency_dept_label:
+    en: "Hospital Authority A&E (999)"
+    zh_hk: "急症室 (999)"
+  crisis_hotlines:
+    samaritans_hk_24h: "2389 2222"
+    suicide_prevention_services: "2382 0000"
+    mental_health_support_gov: "18111"
+  poisons_hotline: "2635 1111 (HKPIC clinician) / 2772 2211"
+  default_locale: "zh-HK"
+  required_locales: ["en", "zh-HK"]
+  banned_claims:
+    - "nothing to worry"
+    - "don't worry"
+    - "all clear"
+    - "looks normal"
+    - "no need to see"
+    - "sick leave has been issued"
+    - "prescription has been issued"
+    - "我係醫生"
+    - "唔使擔心"
+    - "冇事"
+    - "已發出病假"
+    - "已處方"
+  unit_system_overrides:
+    obs:haemoglobin: "g/dL"
+
+concept_patches:
+  drug:allopurinol:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+    aliases:
+      zh_hk: { $add: ["別嘌醇", "降尿酸丸"] }
+
+  drug:codeine:
+    drug_facet:
+      schedule: "HK_CAP134_DANGEROUS_DRUG"
+      telehealth_blocked: true
+      dosing_pearl:
+        en: "HK Cap. 138A (26 Jan 2024): <0.2% cough syrup requires ASP Poisons Book + HKID; >=0.2%/tablets are Cap. 134 Dangerous Drugs (hard-blocked in teleconsult)."
+        zh_hk: "香港法例第134/138章：含可待因藥物屬嚴格受管制藥物／危險藥物，遙距診症禁止處方。"
+
+  drug:amoxicillin_clavulanate:
+    drug_facet:
+      schedule: "HK_CAP137_ANTIBIOTIC"
+      dosing_pearl:
+        en: "HK CHP IMPACT 6th Ed (2025): First-line outpatient CAP agent (with macrolide/doxycycline if atypical suspected) due to local H. influenzae beta-lactamase & macrolide-resistant S. pneumoniae."
+
+  drug:oseltamivir:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+
+  drug:ibuprofen:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_POISON"
+
+  drug:salbutamol:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+
+  drug:warfarin:
+    drug_facet:
+      schedule: "HK_CAP138_PART_I_SCH3_RX"
+    aliases:
+      zh_hk: { $add: ["華法林", "薄血丸"] }
+
+edge_patches:
+  edge:allopurinol_pgx_hla_b_5801:
+    severity: "hard_block"
+    urgency_floor: 3
+    when:
+      fact: hla_b_5801
+      op: ne
+      value: "negative"
+    clinician_rationale:
+      en: "HK HA/HKCFP standard: High Han Chinese HLA-B*58:01 prevalence (~10-15%) — mandatory HLA-B*58:01 check before initiating allopurinol."
+      zh_hk: "香港華人 HLA-B*58:01 攜帶率高，處方別嘌醇前必須先檢測基因以防嚴重皮膚過敏反應 (SJS/TEN)。"
+
+  edge:no_empiric_iron_without_ferritin:
+    severity: "critical"
+    urgency_floor: 3
+    clinician_rationale:
+      en: "HK prevalence ~8-10% alpha/beta-thalassaemia trait: NEVER start empiric iron for MCV <80 fL without ferritin + CRP; check Hb pattern/HPLC if ferritin normal."
+
+  edge:warfarin_tcm_herbal_ddi:
+    urgency_floor: 3
+    clinician_rationale:
+      en: "HK Cap. 549 TCM co-use common: actively screen danshen (丹參), dong quai (當歸), ginkgo (銀杏), ginseng (人參) with warfarin and check early INR."
+
+observation_patches:
+  obs_rule:mcv:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_thalassaemia
+          clinician_pearl:
+            en: "HK Epidemiology (~8-10% prevalence): Microcytosis with normal/high ferritin and Mentzer <13 strongly suggests alpha/beta-thalassaemia trait; arrange HbA2 HPLC and partner MCV counselling."
+            zh_hk: "香港約8至10%人口帶有地中海貧血基因；如MCV偏低而鐵蛋白正常，應安排血紅素電泳及伴侶篩查。"
+
+  obs_rule:alt:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_hbv
+          clinician_pearl:
+            en: "HK Epidemiology (~6-7% chronic HBV in adults born <=1988): Always check HBsAg in unexplained raised ALT or fatigue; screen before prolonged oral steroids."
+            zh_hk: "香港1988年或之前出生人士乙型肝炎帶菌率較高，肝酵素偏高或處方長期類固醇前必須檢測乙肝表面抗原 (HBsAg)。"
+
+  obs_rule:hba1c:
+    epidemiology_pearls:
+      $upsert_by_id:
+        - id: pearl_hk_cdcc_dm
+          clinician_pearl:
+            en: "HK PHCC Diabetes Framework (2023): Young-onset T2DM (<40y) accounts for ~20% of adult cases; apply Asian BMI >=23 overweight / >=25 obese; CDCC subsidised screening >=45y."
+
+provenance:
+  author: "ontology_pod_stage1"
+  review_status: "draft"
+  jurisdiction_scope: "HK"
+  notes: "Minimal HK SAR toggle overlay over shared universal primary care core."

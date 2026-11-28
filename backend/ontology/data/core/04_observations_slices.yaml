@@ -1,0 +1,272 @@
+# Wave 0 + Gold-Standard Vertical Slices 1–3:
+# Quantitative Lab & Vital ObservationRules (LOINC + UCUM + UnitConversion + Bands + Trends + Pearls)
+
+observation_rules:
+  - id: obs_rule:haemoglobin
+    observation_concept_id: obs:haemoglobin
+    canonical_ucum: "g/L"
+    display_ucum: "g/L"
+    unit_conversions:
+      # HK reports g/dL (factor=10 converts g/dL -> canonical g/L); AU reports g/L natively
+      - { from_ucum: "g/dL", factor: 10.0, offset: 0.0 }
+    reference_intervals:
+      - id: ri_adult_default
+        low: 120.0
+        high: 170.0
+        priority: 0
+      - id: ri_adult_male
+        low: 130.0
+        high: 175.0
+        priority: 10
+        when: { fact: sex, op: eq, value: "M" }
+      - id: ri_adult_female
+        low: 115.0
+        high: 155.0
+        priority: 10
+        when: { fact: sex, op: eq, value: "F" }
+    severity_bands:
+      significant: { lt: 105.0 }
+      urgent: { lt: 90.0 }
+      critical: { lt: 70.0 }
+    trend_rules:
+      - id: tr_hb_acute_drop
+        direction: drop
+        delta_abs: 20.0
+        window_days: 30
+        urgency_floor: 3
+        clinician_rationale:
+          en: "Rapid haemoglobin drop >=20 g/L (2.0 g/dL) within 30 days — exclude acute/occult GI bleeding or haemolysis."
+    direction_templates:
+      L:
+        working_problem: { en: "anaemia", zh_hk: "貧血" }
+        plan_template:
+          en: "Check MCV, ferritin, CRP, B12/folate; evaluate for blood loss; urgent review if symptomatic or <70 g/L (7.0 g/dL)."
+        relevant_med_class_ids: ["drug_class:anticoagulant", "drug_class:nsaid", "drug_class:dmard"]
+      H:
+        working_problem: { en: "raised haemoglobin / polycythaemia", zh_hk: "血紅素偏高" }
+        plan_template: { en: "Repeat FBC; assess dehydration, smoking, hypoxia, or primary polycythaemia." }
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:mcv
+    observation_concept_id: obs:mcv
+    canonical_ucum: "fL"
+    reference_intervals:
+      - { id: ri_default, low: 80.0, high: 100.0, priority: 0 }
+    severity_bands:
+      significant: { lt: 75.0, gt: 105.0 }
+    direction_templates:
+      L:
+        working_problem: { en: "microcytosis", zh_hk: "小紅血球症" }
+        plan_template: { en: "Order ferritin, TSAT, CRP before any empiric iron; consider Hb pattern / HbA2 HPLC if ferritin normal." }
+      H:
+        working_problem: { en: "macrocytosis", zh_hk: "大紅血球症" }
+        plan_template: { en: "Check Vitamin B12, folate, TSH, LFTs, alcohol history, and culprit medicines (e.g. methotrexate)." }
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:ferritin
+    observation_concept_id: obs:ferritin
+    canonical_ucum: "ug/L"
+    reference_intervals:
+      - { id: ri_default, low: 30.0, high: 300.0, priority: 0 }
+      - { id: ri_female, low: 30.0, high: 200.0, priority: 10, when: { fact: sex, op: eq, value: "F" } }
+    severity_bands:
+      significant: { lt: 15.0, gt: 500.0 }
+      urgent: { gt: 1000.0 }
+    direction_templates:
+      L:
+        working_problem: { en: "iron deficiency", zh_hk: "缺鐵" }
+        plan_template: { en: "Identify bleeding/malabsorption source first (bidirectional endoscopy if male, postmenopausal, >=50y, or GI red flags)." }
+      H:
+        working_problem: { en: "hyperferritinaemia", zh_hk: "鐵蛋白偏高" }
+        plan_template: { en: "Check fasting TSAT, CRP, ALT, alcohol/MASLD; if TSAT >45% evaluate iron overload / HFE." }
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:potassium
+    observation_concept_id: obs:potassium
+    canonical_ucum: "mmol/L"
+    reference_intervals:
+      - { id: ri_default, low: 3.5, high: 5.1, priority: 0 }
+    severity_bands:
+      significant: { lt: 3.3, gt: 5.5 }
+      urgent: { lt: 3.0, gt: 6.0 }
+      critical: { lt: 2.8, gt: 6.5 }
+    direction_templates:
+      H:
+        working_problem: { en: "hyperkalaemia", zh_hk: "高血鉀" }
+        plan_template: { en: "Repeat electrolytes promptly (exclude haemolysis); review ACEi/ARB/spironolactone/NSAIDs; urgent ECG if >=6.0 mmol/L." }
+        relevant_med_class_ids: ["drug_class:raas_agent", "drug_class:nsaid", "drug_class:diuretic"]
+      L:
+        working_problem: { en: "hypokalaemia", zh_hk: "低血鉀" }
+        plan_template: { en: "Repeat electrolytes; review thiazide/loop diuretics and GI losses; replace potassium if confirmed." }
+        relevant_med_class_ids: ["drug_class:diuretic"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:egfr
+    observation_concept_id: obs:egfr
+    canonical_ucum: "mL/min/{1.73_m2}"
+    reference_intervals:
+      - { id: ri_default, low: 60.0, high: null, priority: 0 }
+    severity_bands:
+      significant: { lt: 45.0 }
+      urgent: { lt: 30.0 }
+      critical: { lt: 15.0 }
+    trend_rules:
+      - id: tr_egfr_rapid_drop
+        direction: drop
+        delta_pct: 25.0
+        window_days: 90
+        urgency_floor: 3
+        clinician_rationale:
+          en: "eGFR dropped >=25% within 90 days — evaluate for AKI / nephrotoxic medications (NSAIDs, RAAS, diuretics) and repeat RFT."
+    direction_templates:
+      L:
+        working_problem: { en: "reduced kidney function", zh_hk: "腎功能下降" }
+        plan_template: { en: "Repeat RFT + uACR to confirm/stage CKD; review renally cleared & nephrotoxic drugs (metformin, DOACs, oseltamivir, NSAIDs)." }
+        relevant_med_class_ids: ["drug_class:raas_agent", "drug_class:biguanide", "drug_class:nsaid", "drug_class:doac"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:creatinine
+    observation_concept_id: obs:creatinine
+    canonical_ucum: "umol/L"
+    reference_intervals:
+      - { id: ri_default, low: 45.0, high: 105.0, priority: 0 }
+    severity_bands:
+      significant: { gt: 150.0 }
+      urgent: { gt: 300.0 }
+      critical: { gt: 500.0 }
+    trend_rules:
+      - id: tr_cr_kdigo_aki
+        direction: rise
+        delta_abs: 26.5
+        window_days: 7
+        urgency_floor: 3
+        clinician_rationale:
+          en: "KDIGO AKI criterion: serum creatinine rise >=26.5 umol/L within 7 days — urgent clinical and medication review."
+    direction_templates:
+      H:
+        working_problem: { en: "raised serum creatinine", zh_hk: "肌酸酐偏高" }
+        plan_template: { en: "Compare with baseline eGFR; review hydration and nephrotoxic drugs (Triple Whammy, metformin, DOACs)." }
+        relevant_med_class_ids: ["drug_class:raas_agent", "drug_class:nsaid", "drug_class:diuretic", "drug_class:biguanide"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:alt
+    observation_concept_id: obs:alt
+    canonical_ucum: "U/L"
+    reference_intervals:
+      - { id: ri_default, low: null, high: 40.0, priority: 0 }
+    severity_bands:
+      significant: { gt: 120.0 }
+      urgent: { gt: 400.0 }
+      critical: { gt: 1000.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "raised liver enzymes (ALT)", zh_hk: "肝酵素 (ALT) 偏高" }
+        plan_template: { en: "Repeat LFTs; review statins, methotrexate, alcohol, MASLD, and viral hepatitis serology." }
+        relevant_med_class_ids: ["drug_class:statin", "drug_class:dmard", "drug_class:beta_lactam_antibiotic"]
+    epidemiology_pearls: []
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:hba1c
+    observation_concept_id: obs:hba1c
+    canonical_ucum: "%"
+    unit_conversions:
+      # NGSP (%) = (IFCC mmol/mol * 0.09148) + 2.152
+      - { from_ucum: "mmol/mol", factor: 0.09148, offset: 2.152 }
+    reference_intervals:
+      - { id: ri_default, low: 4.0, high: 6.4, priority: 0 }
+    severity_bands:
+      significant: { ge: 8.0 }
+      urgent: { ge: 10.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "raised HbA1c", zh_hk: "糖化血紅素偏高" }
+        plan_template: { en: "Confirm diabetes diagnosis or review glycaemic regimen, adherence, and annual microvascular checks." }
+        relevant_med_class_ids: ["drug_class:biguanide", "drug_class:sglt2_inhibitor", "drug_class:sulfonylurea"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:inr
+    observation_concept_id: obs:inr
+    canonical_ucum: "{INR}"
+    reference_intervals:
+      - { id: ri_warfarin_nvaf, low: 2.0, high: 3.0, priority: 0 }
+    severity_bands:
+      significant: { lt: 1.5, gt: 4.0 }
+      urgent: { gt: 5.0 }
+      critical: { gt: 8.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "supratherapeutic INR", zh_hk: "INR 過高" }
+        plan_template: { en: "Screen immediately for bleeding; review antibiotics/NSAIDs/TCM herbs; adjust or hold warfarin per protocol." }
+        relevant_med_class_ids: ["drug_class:anticoagulant", "drug_class:nsaid", "drug_class:antibiotic"]
+      L:
+        working_problem: { en: "subtherapeutic INR", zh_hk: "INR 偏低" }
+        plan_template: { en: "Check warfarin adherence, dietary vitamin K/herbs, and adjust dose with repeat INR." }
+        relevant_med_class_ids: ["drug_class:anticoagulant"]
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:spo2
+    observation_concept_id: obs:spo2
+    canonical_ucum: "%"
+    reference_intervals:
+      - { id: ri_default, low: 95.0, high: 100.0, priority: 0 }
+    severity_bands:
+      urgent: { le: 94.0 }
+      critical: { lt: 94.0 }
+    direction_templates:
+      L:
+        working_problem: { en: "hypoxaemia", zh_hk: "低血氧" }
+        plan_template: { en: "Immediate respiratory assessment / emergency transfer if SpO2 <94% (target 88-92% only in confirmed CO2-retaining COPD under doctor plan)." }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:respiratory_rate
+    observation_concept_id: obs:respiratory_rate
+    canonical_ucum: "/min"
+    reference_intervals:
+      - { id: ri_adult, low: 12.0, high: 20.0, priority: 0 }
+    severity_bands:
+      urgent: { ge: 22.0 }
+      critical: { ge: 25.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "tachypnoea", zh_hk: "呼吸急促" }
+        plan_template: { en: "Assess CRB-65, SpO2, work of breathing; escalate urgently for sepsis/pneumonia/PE/acute asthma." }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:temperature
+    observation_concept_id: obs:temperature
+    canonical_ucum: "Cel"
+    reference_intervals:
+      - { id: ri_default, low: 35.5, high: 37.5, priority: 0 }
+    severity_bands:
+      significant: { ge: 38.0 }
+      urgent: { ge: 39.5 }
+      critical: { le: 35.0, ge: 40.0 }
+    direction_templates:
+      H:
+        working_problem: { en: "pyrexia / fever", zh_hk: "發燒" }
+        plan_template: { en: "Screen sepsis red flags, host risk (infant <3m, neutropenia, pregnancy), and localising source." }
+      L:
+        working_problem: { en: "hypothermia", zh_hk: "低體溫" }
+        plan_template: { en: "Urgent sepsis and exposure assessment." }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
+
+  - id: obs_rule:systolic_bp
+    observation_concept_id: obs:systolic_bp
+    canonical_ucum: "mm[Hg]"
+    reference_intervals:
+      - { id: ri_adult, low: 95.0, high: 139.0, priority: 0 }
+    severity_bands:
+      significant: { ge: 160.0 }
+      urgent: { ge: 170.0 }
+      critical: { lt: 90.0, ge: 180.0 }
+    direction_templates:
+      L:
+        working_problem: { en: "hypotension / shock risk", zh_hk: "低血壓" }
+        plan_template: { en: "Immediate haemodynamic / sepsis / bleeding / ACS assessment." }
+      H:
+        working_problem: { en: "hypertensive crisis / severely elevated BP", zh_hk: "高血壓危象／血壓嚴重偏高" }
+        plan_template: { en: "Screen end-organ symptoms (chest pain, dyspnoea, neuro deficit, severe headache) immediately to exclude hypertensive emergency." }
+    provenance: { author: "ontology_pod_stage1", review_status: "draft" }
