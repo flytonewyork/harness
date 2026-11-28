@@ -27,6 +27,7 @@ def test_lanes_yaml_schema_and_path_classification():
     assert agent_em.classify_path("evals/turn_eval_suite.py", cfg) == ("lane-e-evals-loopbench", False)
     assert agent_em.classify_path("backend/case/context.py", cfg) == ("lane-f-core-engine", False)
     assert agent_em.classify_path("scripts/agent_em.py", cfg) == ("lane-g-platform-em", False)
+    assert agent_em.classify_path("backend/ontology/schema.py", cfg) == ("lane-h-clinical-ontology", False)
 
     # Shared chokepoints are explicitly identified
     assert agent_em.classify_path("backend/acute/app.py", cfg) == ("shared-chokepoints", True)

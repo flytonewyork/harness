@@ -93,6 +93,12 @@ lanes:
       - ".github/**"
       - "deploy/**"
 
+  lane-h-clinical-ontology:
+    description: "Declarative Primary Care Clinical Knowledge Ontology (Core + HK/AU/Clinic overlays, Murtagh PROMPT, LOINC/SNOMED GPS linter)"
+    paths:
+      - "backend/ontology/**"
+      - "tests/test_ontology.py"
+
 # Shared chokepoints: keep edits minimal/additive and always coordinate on Issue #70.
 shared_chokepoints:
   - "backend/acute/app.py"
@@ -123,6 +129,7 @@ streams:
       - "backend/case/**"
       - "backend/journeys/**"
       - "backend/agentic/**"
+      - "backend/ontology/**"
       - "frontend/**"
       - "evals/**"
 
@@ -143,14 +150,17 @@ streams:
       - "backend/gateway/**"
       - "backend/mcp/**"
       - "backend/agentic/**"
+      - "backend/ontology/**"
       - "frontend/**"
 
   stream-3-clinical-ai:
-    role: "Clinical Intelligence, Practice Graph & Forward-Deployment Packs Lead"
+    role: "Clinical Intelligence, Ontology, Practice Graph & Forward-Deployment Packs Lead"
     owned_lanes:
       - "lane-b-agentic-graph"
-    chokepoint_role: "none (declarative packs, graph nodes & agentic runtime)"
+      - "lane-h-clinical-ontology"
+    chokepoint_role: "none (declarative ontology, packs, graph nodes & agentic runtime)"
     provides_seams:
+      - "backend.ontology (Primary Care Clinical Knowledge Ontology, HK/AU/clinic overlays)"
       - "backend.agentic (GovernedAgentRunner, skills, prompts, memory, context)"
       - "backend.acute.{practice_graph,pathway_runner,curator,workflows,scheduling}"
       - "backend.knowledge & knowledge/<clinic_id>/ + packs/*.yaml + skills/clinical/*"

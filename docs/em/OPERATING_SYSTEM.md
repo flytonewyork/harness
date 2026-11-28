@@ -17,13 +17,13 @@ Why a pinned GitHub Issue instead of only a file on `main`? Every cloud VM clone
 
 ## 1.5 Explicit 4-Agent Stream Roster (`docs/em/LANES.yaml`)
 
-All 7 repository lanes partition cleanly across **4 parallel agent streams** with **zero lane overlap** (verified by `tests/test_agent_em.py` and `python3 scripts/agent_em.py roster`):
+All 8 repository lanes partition cleanly **2 lanes per stream** across **4 parallel agent streams** with **zero lane overlap** (verified by `tests/test_agent_em.py` and `python3 scripts/agent_em.py roster`):
 
-| Stream | Role | Owned Lanes | Chokepoint Role & Boundaries |
+| Stream | Role | Owned Lanes (2 each) | Chokepoint Role & Boundaries |
 | :--- | :--- | :--- | :--- |
-| **`stream-1-trust-gate`** | Trust, Safety, Gateway & Permission Gate Lead | `lane-a-safety-gateway`, `lane-c-mcp-integrations` | Owns `safety/`, `gateway/`, `mcp/`, `vault/`, `sre/`, `protocols/`, `triage/companion/security/rx_rules/adapters/emr_connector`. **Never touches** `engine/`, `case/`, `agentic/`, `frontend/`, `evals/`. |
-| **`stream-2-core-evals`** | Core Clinical Loop Engine & LoopBench Evals Lead | `lane-f-core-engine`, `lane-e-evals-loopbench` | Owns `engine/`, `case/`, `extract/`, `journeys/`, `precare/`, `api/`, `lookback/`, `evals/`, `../loopbench/`. Consumes `ModelGateway` read-only. **Never touches** `acute/`, `gateway/`, `mcp/`, `agentic/`, `frontend/`. |
-| **`stream-3-clinical-ai`** | Clinical Intelligence, Practice Graph & Packs Lead | `lane-b-agentic-graph` | Owns `agentic/`, `practice_graph`, `pathway_runner`, `curator`, `workflows`, `scheduling`, `backend/knowledge/`, `packs/`, `skills/clinical/` (Issue #62). **Never touches** `safety/`, `gateway/`, `mcp/`, `engine/`, `frontend/`. |
+| **`stream-1-trust-gate`** | Trust, Safety, Gateway & Permission Gate Lead | `lane-a-safety-gateway`, `lane-c-mcp-integrations` | Owns `safety/`, `gateway/`, `mcp/`, `vault/`, `sre/`, `protocols/`, `triage/companion/security/rx_rules/adapters/emr_connector`. **Never touches** `engine/`, `case/`, `agentic/`, `ontology/`, `frontend/`, `evals/`. |
+| **`stream-2-core-evals`** | Core Clinical Loop Engine & LoopBench Evals Lead | `lane-f-core-engine`, `lane-e-evals-loopbench` | Owns `engine/`, `case/`, `extract/`, `journeys/`, `precare/`, `api/`, `lookback/`, `evals/`, `../loopbench/`. Consumes `ModelGateway` read-only. **Never touches** `acute/`, `gateway/`, `mcp/`, `agentic/`, `ontology/`, `frontend/`. |
+| **`stream-3-clinical-ai`** | Clinical Intelligence, Ontology, Graph & Packs Lead | `lane-b-agentic-graph`, `lane-h-clinical-ontology` | Owns `backend/ontology/`, `agentic/`, `practice_graph`, `pathway_runner`, `curator`, `workflows`, `scheduling`, `backend/knowledge/`, `packs/`, `skills/clinical/` (WO #76 & #62). **Never touches** `safety/`, `gateway/`, `mcp/`, `engine/`, `frontend/`. |
 | **`stream-4-surfaces-em`** | Product UX Surfaces, Live Demos & Platform/EM Steward | `lane-d-workspace-ui`, `lane-g-platform-em` | Owns `frontend/`, `workspace_engine`, `live_demo*`, `live_bus`, `docs/em/`, `scripts/agent_em.py`, `.github/`, `deploy/`. **Integration Steward** for `shared-chokepoints` (`app.py` split WO #73, `db.py`, `NOW.md`). |
 
 ---
