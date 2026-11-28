@@ -1,0 +1,147 @@
+"""Offline unit & contract tests for the Antigravity Multi-Agent PM/EM system."""
+from __future__ import annotations
+
+import importlib.util
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location("agent_em", ROOT / "scripts" / "agent_em.py")
+assert SPEC is not None and SPEC.loader is not None
+agent_em = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(agent_em)
+
+
+def test_lanes_yaml_schema_and_path_classification():
+    cfg = agent_em.load_lanes_config()
+    assert cfg["dispatch_board_repo"] == "flytonewyork/harness"
+    assert cfg["dispatch_board_issue"] == 70
+    assert "flytonewyork/harness" in cfg["repos"]
+    assert "flytonewyork/loopbench" in cfg["repos"]
+
+    assert agent_em.classify_path("backend/safety/kernel.py", cfg) == ("lane-a-safety-gateway", False)
+    assert agent_em.classify_path("backend/gateway/gateway.py", cfg) == ("lane-a-safety-gateway", False)
+    assert agent_em.classify_path("backend/agentic/runner.py", cfg) == ("lane-b-agentic-graph", False)
+    assert agent_em.classify_path("backend/mcp/clinic_emr_server.py", cfg) == ("lane-c-mcp-integrations", False)
+    assert agent_em.classify_path("frontend/src/v2/workspace/ClinicWorkspaceApp.tsx", cfg) == ("lane-d-workspace-ui", False)
+    assert agent_em.classify_path("evals/turn_eval_suite.py", cfg) == ("lane-e-evals-loopbench", False)
+    assert agent_em.classify_path("backend/case/context.py", cfg) == ("lane-f-core-engine", False)
+    assert agent_em.classify_path("scripts/agent_em.py", cfg) == ("lane-g-platform-em", False)
+
+    # Shared chokepoints are explicitly identified
+    assert agent_em.classify_path("backend/acute/app.py", cfg) == ("shared-chokepoints", True)
+    assert agent_em.classify_path("backend/acute/db.py", cfg) == ("shared-chokepoints", True)
+    assert agent_em.classify_path("NOW.md", cfg) == ("shared-chokepoints", True)
+
+
+def test_parse_leases_newest_wins_and_active_filter():
+    comments = [
+        {
+            "created_at": "2026-11-28T09:00:00Z",
+            "user": {"login": "flytonewyork"},
+            "body": '<!-- AGENT_LEASE {"lane": "lane-a-safety-gateway", "branch": "feat/s1", "status": "active", "summary": "start"} -->',
+        },
+        {
+            "created_at": "2026-11-28T10:00:00Z",
+            "user": {"login": "flytonewyork"},
+            "body": '<!-- AGENT_LEASE {"lane": "lane-c-mcp-integrations", "branch": "feat/mcp", "status": "active", "summary": "mcp work"} -->',
+        },
+        {
+            "created_at": "2026-11-28T11:00:00Z",
+            "user": {"login": "flytonewyork"},
+            "body": '<!-- AGENT_LEASE {"lane": "lane-a-safety-gateway", "branch": "feat/s1", "status": "merged", "summary": "done"} -->',
+        },
+    ]
+    leases = agent_em.parse_leases(comments)
+    assert len(leases) == 2
+    active = agent_em.active_leases(leases)
+    assert len(active) == 1
+    assert active[0]["lane"] == "lane-c-mcp-integrations"
+    assert active[0]["branch"] == "feat/mcp"
+
+
+def test_detect_overlaps_catches_invisible_branches_and_file_lane_collisions():
+    cfg = agent_em.load_lanes_config()
+    streams = [
+        {
+            "id": "harness#69",
+            "repo": "flytonewyork/harness",
+            "pr_number": 69,
+            "branch": "feat/stage2",
+            "updated_at": "2026-11-28T12:00:00Z",
+            "files": ["backend/gateway/gateway.py", "backend/acute/app.py"],
+        },
+        {
+            "id": "harness:branch:feat/intelligent-harness-v1",
+            "repo": "flytonewyork/harness",
+            "pr_number": None,
+            "branch": "feat/intelligent-harness-v1",
+            "updated_at": "2026-11-28T11:20:00Z",
+            "files": ["backend/gateway/gateway.py", "backend/mcp/clinic_emr_server.py", "backend/acute/app.py"],
+        },
+    ]
+    overlaps = agent_em.detect_overlaps(streams, cfg)
+    assert len(overlaps["invisible_branches"]) == 1
+    assert overlaps["invisible_branches"][0]["branch"] == "feat/intelligent-harness-v1"
+    assert "backend/gateway/gateway.py" in overlaps["file_collisions"]
+    assert "backend/acute/app.py" in overlaps["file_collisions"]
+    assert "lane-a-safety-gateway" in overlaps["lane_collisions"]
+    assert "backend/acute/app.py" in overlaps["chokepoint_touches"]
+
+
+def test_evaluate_path_conflicts_and_pr_guard_comment():
+    cfg = agent_em.load_lanes_config()
+    other_streams = [
+        {
+            "id": "harness:branch:feat/intelligent-harness-v1",
+            "branch": "feat/intelligent-harness-v1",
+            "pr_number": None,
+            "files": ["backend/mcp/clinic_emr_server.py", "backend/acute/app.py"],
+        }
+    ]
+    leases = [
+        {
+            "lane": "lane-b-agentic-graph",
+            "branch": "feat/graph-work",
+            "status": "active",
+            "summary": "Updating practice graph",
+        }
+    ]
+
+    # Clean non-overlapping lane -> ok=True
+    clear = agent_em.evaluate_path_conflicts(
+        ["backend/safety/kernel.py"],
+        streams=other_streams,
+        leases=leases,
+        config=cfg,
+        ignore_branch="feat/my-safety-pr",
+    )
+    assert clear["ok"] is True
+
+    # Overlapping MCP file + leased lane -> ok=False
+    conflict = agent_em.evaluate_path_conflicts(
+        ["backend/mcp/clinic_emr_server.py", "backend/agentic/runner.py"],
+        streams=other_streams,
+        leases=leases,
+        config=cfg,
+        ignore_branch="feat/my-other-pr",
+    )
+    assert conflict["ok"] is False
+    assert len(conflict["file_conflicts"]) == 1
+    assert len(conflict["lane_conflicts"]) == 1
+    assert len(conflict["lease_conflicts"]) == 1
+
+    comment = agent_em.format_pr_overlap_comment(
+        {
+            "branch": "feat/my-other-pr",
+            "files": ["backend/mcp/clinic_emr_server.py", "backend/acute/app.py"],
+        },
+        other_streams,
+        leases,
+        cfg,
+    )
+    assert agent_em.PR_GUARD_MARKER in comment
+    assert "OVERLAP WARNING" in comment
+    assert "backend/mcp/clinic_emr_server.py" in comment
+    assert "backend/acute/app.py" in comment
+    assert "Issue #70" in comment
