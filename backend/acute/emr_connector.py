@@ -844,7 +844,7 @@ class SimulatedPostgresEMRAdapter:
             rxs = session.scalars(
                 select(Prescription)
                 .where(Prescription.tenant_id == tenant_id, Prescription.patient_id == patient_id)
-                .order_by(Prescription.created_at.desc())
+                .order_by(Prescription.signed_at.desc())
                 .limit(5)
             ).all()
             cases = session.scalars(
@@ -885,7 +885,7 @@ class SimulatedPostgresEMRAdapter:
                     for o in obs
                 ],
                 "recent_prescriptions": [
-                    {"id": r.id, "status": r.status, "items": list(r.items_json or [])}
+                    {"id": r.id, "status": r.fulfilment_status, "items": list(r.items_json or [])}
                     for r in rxs
                 ],
                 "open_loops": [
