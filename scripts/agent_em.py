@@ -398,16 +398,27 @@ def fetch_work_orders(repo: str) -> list[dict[str, Any]]:
         return []
 
 
-def collect_active_streams(config: dict[str, Any], days: int = 7) -> list[dict[str, Any]]:
-    """Merge open PRs + recently pushed un-PR'd branches across all configured repos."""
+def collect_active_streams(
+    config: dict[str, Any],
+    days: int = 7,
+    *,
+    repos: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Merge open PRs + recently pushed un-PR'd branches across configured repos."""
     streams: list[dict[str, Any]] = []
-    for repo in config.get("repos") or []:
+    target_repos = repos if repos is not None else list(config.get("repos") or [])
+    for repo in target_repos:
         short_repo = repo.split("/")[-1]
-        prs = fetch_open_prs(repo)
+        try:
+            prs = fetch_open_prs(repo)
+            recent_branches = fetch_recent_branches(repo, days=days)
+        except RuntimeError as exc:
+            print(f"[agent_em] skipping inaccessible repo {repo}: {exc}", file=sys.stderr)
+            continue
         pr_branches = {p["branch"] for p in prs}
         streams.extend(prs)
 
-        for br in fetch_recent_branches(repo, days=days):
+        for br in recent_branches:
             bname = br["branch"]
             if bname in ("main", "master") or bname in pr_branches:
                 continue
@@ -646,7 +657,7 @@ def cmd_pr_check(args: argparse.Namespace) -> int:
         "branch": pr_obj["headRefName"],
         "files": [f["path"] for f in (pr_obj.get("files") or [])],
     }
-    all_streams = collect_active_streams(config, days=args.days)
+    all_streams = collect_active_streams(config, days=args.days, repos=[repo])
     other_streams = [s for s in all_streams if not (s.get("repo") == repo and s.get("pr_number") == pr_info["pr_number"])]
     leases = fetch_dispatch_leases(config)
     comment = format_pr_overlap_comment(pr_info, other_streams, leases, config)
