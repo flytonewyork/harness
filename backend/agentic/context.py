@@ -139,9 +139,15 @@ class ContextSnapshot:
     phi_scrubbed: bool = False
     redacted_categories: list[str] = field(default_factory=list)
     context_hash: str = ""
+    semantic_context_hash: str = ""
+    knowledge_clinic_id: str | None = None
+    knowledge_fingerprint: str | None = None
+    ontology_activated: bool = False
+    ontology_activation_reason: str = "not_supplied"
+    ontology_hash: str | None = None
 
     def to_telemetry_dict(self) -> dict[str, Any]:
-        return {
+        out = {
             "prompt_id": self.prompt_id,
             "prompt_version": self.prompt_version,
             "prompt_fingerprint": self.prompt_fingerprint,
@@ -159,7 +165,61 @@ class ContextSnapshot:
             "phi_scrubbed": self.phi_scrubbed,
             "redacted_categories": list(self.redacted_categories),
             "context_hash": self.context_hash,
+            "semantic_context_hash": self.semantic_context_hash,
+            "ontology_activated": self.ontology_activated,
+            "ontology_activation_reason": self.ontology_activation_reason,
         }
+        if self.knowledge_clinic_id is not None:
+            out["knowledge_clinic_id"] = self.knowledge_clinic_id
+            out["knowledge_fingerprint"] = self.knowledge_fingerprint
+        if self.ontology_hash is not None:
+            out["ontology_hash"] = self.ontology_hash
+        return out
+
+
+_ADMIN_INTENTS: frozenset[str] = frozenset({
+    "booking", "scheduling", "appointment", "reschedule", "receipt", "billing", "clinic_hours", "admin",
+})
+
+
+def should_activate_ontology_context(
+    *,
+    intent: str = "",
+    case_evidence_state: Any = None,
+    ontology_context_pack: Any = None,
+    question_plan: Any = None,
+    selective_gating: bool = True,
+) -> tuple[bool, str]:
+    """MedCoG-style selective gating: activate ontology/knowledge injection only when clinically relevant."""
+    if ontology_context_pack is None and question_plan is None:
+        return False, "not_supplied"
+    if not selective_gating:
+        return True, "forced_unconditional"
+
+    has_rfe = bool(case_evidence_state and getattr(case_evidence_state, "active_rfe_ids", None))
+    has_meds = bool(case_evidence_state and getattr(case_evidence_state, "active_med_ids", None))
+    has_labs = bool(case_evidence_state and getattr(case_evidence_state, "lab_results", None))
+    has_findings = bool(case_evidence_state and getattr(case_evidence_state, "present_findings", None))
+    has_pack_nodes = bool(ontology_context_pack and getattr(ontology_context_pack, "node_ids", None))
+    has_pending_q = bool(question_plan and getattr(question_plan, "questions", None))
+
+    if str(intent or "").strip().lower() in _ADMIN_INTENTS and not (has_rfe or has_meds or has_labs or has_findings):
+        return False, "routine_admin_turn_skipped"
+    if has_rfe or has_meds or has_labs or has_findings or has_pack_nodes or has_pending_q:
+        reasons = [
+            tag
+            for tag, cond in (
+                ("active_rfe", has_rfe),
+                ("active_meds", has_meds),
+                ("abnormal_labs", has_labs),
+                ("present_findings", has_findings),
+                ("pack_nodes", has_pack_nodes),
+                ("pending_questions", has_pending_q),
+            )
+            if cond
+        ]
+        return True, "+".join(reasons[:3])
+    return False, "no_clinical_entities_detected"
 
 
 class ContextCompiler:
@@ -193,6 +253,12 @@ class ContextCompiler:
         region: str = "asia-east2",
         channel: str = "workspace",
         patient_names_for_scrub: list[str] | None = None,
+        clinic_knowledge: Any = None,
+        ontology_context_pack: Any = None,
+        case_evidence_state: Any = None,
+        question_plan: Any = None,
+        intent: str = "",
+        selective_gating: bool = True,
     ) -> ContextSnapshot:
         """Assemble, prune, fence, and PDPO-scrub a deterministic 5-slot context window."""
         dropped: list[str] = []
@@ -212,7 +278,7 @@ class ContextCompiler:
         s1_tokens = estimate_tokens(system_core)
         slot1 = CompiledSlot("slot1_system_safety_floor", 0, s1_budget, s1_tokens, False, system_core)
 
-        # ---- Slot 2: Progressive Skills (1–3) & Pruned Graph Subgraph (2–4 nodes) ----
+        # ---- Slot 2: Progressive Skills, Pruned Graph Subgraph, Selective Ontology & ClinicKnowledge ----
         s2_budget = self.slot_budgets["slot2_skills_and_graph"]
         pruned_nodes = list(active_graph_nodes[:4])
         if len(active_graph_nodes) > 4:
@@ -229,6 +295,63 @@ class ContextCompiler:
             for n in pruned_nodes
         ]
         graph_block = json.dumps(compact_nodes, ensure_ascii=False, separators=(",", ":"))
+
+        ontology_activated, activation_reason = should_activate_ontology_context(
+            intent=intent,
+            case_evidence_state=case_evidence_state,
+            ontology_context_pack=ontology_context_pack,
+            question_plan=question_plan,
+            selective_gating=selective_gating,
+        )
+        ontology_hash: str | None = None
+        if ontology_activated:
+            if ontology_context_pack is not None:
+                ontology_hash = str(getattr(ontology_context_pack, "ontology_hash", "") or "") or None
+                pack_text = str(getattr(ontology_context_pack, "text", "") or "").strip()
+                if pack_text:
+                    pack_budget = max(140, int(s2_budget * 0.45))
+                    if estimate_tokens(pack_text) > pack_budget:
+                        pack_text, _ = _truncate_text_to_tokens(pack_text, pack_budget)
+                        dropped.append("ontology_context_pack_trimmed")
+                    graph_block = f"{graph_block}\n{pack_text}"
+            if question_plan is not None and hasattr(question_plan, "to_prompt_block"):
+                q_lang = str(tvars.get("language") or "en")
+                graph_block = f"{graph_block}\n{question_plan.to_prompt_block(lang=q_lang)}"
+
+        knowledge_clinic_id: str | None = None
+        knowledge_fingerprint: str | None = None
+        skip_knowledge_on_admin = (
+            selective_gating
+            and str(intent or "").strip().lower() in _ADMIN_INTENTS
+            and not ontology_activated
+        )
+        if clinic_knowledge is not None and not skip_knowledge_on_admin:
+            knowledge_clinic_id = str(clinic_knowledge.clinic_id)
+            knowledge_fingerprint = str(clinic_knowledge.fingerprint)
+            glossary_items = sorted(clinic_knowledge.domain.shorthand_glossary.items(), key=lambda kv: kv[0].lower())
+            kn_payload: dict[str, Any] = {
+                "clinic_id": knowledge_clinic_id,
+                "fingerprint": knowledge_fingerprint,
+                "emr_vendor": clinic_knowledge.data_access.emr_profile.vendor,
+                "ehealth_pull": bool(clinic_knowledge.data_access.emr_profile.ehealth_pull_available),
+            }
+            if glossary_items:
+                kn_payload["shorthand_glossary"] = dict(glossary_items)
+            kn_block = json.dumps(kn_payload, ensure_ascii=False, separators=(",", ":"))
+            kn_budget = max(80, int(s2_budget * 0.3))
+            if estimate_tokens(kn_block) > kn_budget and glossary_items:
+                kept_glossary: dict[str, str] = {}
+                for abbr, meaning in glossary_items:
+                    kn_payload["shorthand_glossary"] = {**kept_glossary, abbr: meaning}
+                    if estimate_tokens(json.dumps(kn_payload, ensure_ascii=False, separators=(",", ":"))) <= kn_budget:
+                        kept_glossary[abbr] = meaning
+                    else:
+                        dropped.append(f"knowledge_glossary_trimmed:{len(glossary_items) - len(kept_glossary)}")
+                        break
+                kn_payload["shorthand_glossary"] = kept_glossary
+                kn_block = json.dumps(kn_payload, ensure_ascii=False, separators=(",", ":"))
+            graph_block = f"{graph_block}\nCLINIC_KNOWLEDGE:{kn_block}"
+
         skills_block = SkillRegistry.render_skills_prompt_block(skills)
         s2_combined = f"{skills_block}\n\nGRAPH_NODES:{graph_block}".strip()
         s2_trunc = False
@@ -245,9 +368,11 @@ class ContextCompiler:
             "slot2_skills_and_graph", 1, s2_budget, estimate_tokens(s2_combined), s2_trunc, s2_combined
         )
 
-        # ---- Slot 3: Deterministic Clinical State & Top-K Longitudinal Memory ----
+        # ---- Slot 3: Deterministic Clinical State, Per-Case OSCE State & Top-K Layered Memory ----
         s3_budget = self.slot_budgets["slot3_clinical_state_memory"]
         state_obj = dict(clinical_state or {})
+        if case_evidence_state is not None and hasattr(case_evidence_state, "to_slot3_dict"):
+            state_obj["case_evidence_state"] = case_evidence_state.to_slot3_dict()
         mem_kept: list[dict[str, Any]] = []
         for idx, m in enumerate(safe_memories):
             candidate = {"clinical_state": state_obj, "agent_memory": mem_kept + [m]}
@@ -377,6 +502,23 @@ class ContextCompiler:
                 untrusted_context_block=slot4.content,
                 **tvars,
             )
+            # If the template did not interpolate {graph_nodes_block}, still deliver active
+            # Ontology / QuestionPlan / ClinicKnowledge extensions inside user_msg.
+            extra_blocks: list[str] = []
+            if ontology_activated:
+                if ontology_context_pack is not None:
+                    pt = str(getattr(ontology_context_pack, "text", "") or "").strip()
+                    if pt and pt[:40] not in user_msg:
+                        extra_blocks.append(pt)
+                if question_plan is not None and hasattr(question_plan, "to_prompt_block"):
+                    qb = question_plan.to_prompt_block(lang=str(tvars.get("language") or "en"))
+                    if qb and "ONTOLOGY_QUESTION_PLAN" not in user_msg:
+                        extra_blocks.append(qb)
+            if knowledge_clinic_id is not None and "CLINIC_KNOWLEDGE:" in graph_block and "CLINIC_KNOWLEDGE:" not in user_msg:
+                kn_part = graph_block.split("CLINIC_KNOWLEDGE:", 1)[1].strip()
+                extra_blocks.append(f"CLINIC_KNOWLEDGE:{kn_part}")
+            if extra_blocks:
+                user_msg = "\n\n".join(extra_blocks) + "\n\n" + user_msg
 
         # Mathematical hard guarantee: total_tokens <= self.token_ceiling (4096)
         total_tokens = estimate_tokens(system_msg) + estimate_tokens(user_msg)
@@ -390,6 +532,9 @@ class ContextCompiler:
 
         slots = [slot1, slot2, slot3, slot4, slot5]
         ctx_hash = hashlib.sha256(f"{system_msg}\n---\n{user_msg}".encode("utf-8")).hexdigest()[:16]
+        sem_hash = hashlib.sha256(
+            f"{slot1.content}\n---\n{slot2.content}\n---\n{slot3.content}\n---\n{current_input}".encode("utf-8")
+        ).hexdigest()[:16]
         active_ids = [str(n.get("id")) for n in pruned_nodes if n.get("id")]
         denom = max(total_graph_nodes, len(active_ids), 1)
 
@@ -413,4 +558,10 @@ class ContextCompiler:
             phi_scrubbed=phi_scrubbed,
             redacted_categories=redacted_cats,
             context_hash=ctx_hash,
+            semantic_context_hash=sem_hash,
+            knowledge_clinic_id=knowledge_clinic_id,
+            knowledge_fingerprint=knowledge_fingerprint,
+            ontology_activated=ontology_activated,
+            ontology_activation_reason=activation_reason,
+            ontology_hash=ontology_hash,
         )

@@ -57,6 +57,8 @@ class LoadedDeploymentPack:
     practice_graph_overlay: dict[str, Any]
     journeys: tuple[dict[str, Any], ...]
     source_path: str
+    clinic_knowledge_id: str = "default"
+    clinic_knowledge_fingerprint: str = ""
 
     def to_metadata(self) -> dict[str, Any]:
         total_loops = sum(len(j.get("ai_team_loops") or []) for j in self.journeys)
@@ -74,6 +76,8 @@ class LoadedDeploymentPack:
             "journey_count": len(self.journeys),
             "ai_team_loop_count": total_loops,
             "declarative": True,
+            "clinic_knowledge_id": self.clinic_knowledge_id,
+            "clinic_knowledge_fingerprint": self.clinic_knowledge_fingerprint,
         }
 
 
@@ -97,6 +101,18 @@ def _validate_pack_dict(raw: dict[str, Any], *, raw_text: str, source_path: str)
     if not isinstance(journeys_raw, list) or not journeys_raw:
         raise PackValidationError(f"{source_path}: pack '{pack_id}' must declare at least 1 journey")
 
+    # Fail-closed validation of bound ClinicKnowledge pack (defaults to 'default')
+    clinic_knowledge_id = str(raw.get("clinic_knowledge_id") or "default").strip()
+    try:
+        from backend.knowledge import load_knowledge
+
+        bound_kn = load_knowledge(clinic_knowledge_id)
+        clinic_knowledge_fp = bound_kn.fingerprint
+    except Exception as exc:
+        raise PackValidationError(
+            f"{source_path}: invalid clinic_knowledge_id '{clinic_knowledge_id}': {exc}"
+        ) from exc
+
     validated_journeys: list[dict[str, Any]] = []
     for j in journeys_raw:
         if not isinstance(j, dict) or not j.get("key") or not j.get("patient_id"):
@@ -104,6 +120,8 @@ def _validate_pack_dict(raw: dict[str, Any], *, raw_text: str, source_path: str)
         j_copy = copy.deepcopy(j)
         j_copy["pack"] = pack_id
         j_copy["declarative_pack"] = True
+        j_copy["clinic_knowledge_id"] = clinic_knowledge_id
+        j_copy["clinic_knowledge_fingerprint"] = clinic_knowledge_fp
 
         init_sum = j_copy.get("initial_summary") or {}
         for iss in init_sum.get("issues") or []:
@@ -139,6 +157,8 @@ def _validate_pack_dict(raw: dict[str, Any], *, raw_text: str, source_path: str)
         practice_graph_overlay=dict(raw.get("practice_graph_overlay") or {}),
         journeys=tuple(validated_journeys),
         source_path=source_path,
+        clinic_knowledge_id=clinic_knowledge_id,
+        clinic_knowledge_fingerprint=clinic_knowledge_fp,
     )
 
 
@@ -197,6 +217,8 @@ class DeclarativePathwayRunner:
         summary["attachments"] = []
         summary["ai_team_loops"] = copy.deepcopy(j.get("ai_team_loops") or [])
         summary["declarative_pack_id"] = j["pack"]
+        summary["clinic_knowledge_id"] = j.get("clinic_knowledge_id", "default")
+        summary["clinic_knowledge_fingerprint"] = j.get("clinic_knowledge_fingerprint", "")
         return summary
 
     def compile_turn_update(
